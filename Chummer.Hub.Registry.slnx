@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Chummer.Hub.Registry.Contracts.Verify/Chummer.Hub.Registry.Contracts.Verify.csproj" />
+  <Project Path="Chummer.Hub.Registry.Contracts/Chummer.Hub.Registry.Contracts.csproj" />
+</Solution>

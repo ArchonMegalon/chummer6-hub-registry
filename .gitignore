@@ -1,0 +1,35 @@
+bin/
+obj/
+
+# Local agent and worker artifacts
+.agent-memory.md
+AGENT_MEMORY.md
+.agent-state.json
+.aider.chat.history.md
+.aider.input.history
+.aider.tags.cache.v4
+.codex-studio/
+.codex.boot.prompt.txt
+.codex.resume.boot.txt
+.tmp/
+.local/
+.artifacts/
+audit.md
+skillsneeded.txt
+day1.prompt.txt
+aider_output.txt
+*.binlog
+build*.log
+solution*.log
+err.log
+publish_output/
+git/
+
+# Local generated artifacts
+**/bin/
+**/obj/
+**/__pycache__/
+*.pyc
+*.pyo
+*.user.delete
+*.suo

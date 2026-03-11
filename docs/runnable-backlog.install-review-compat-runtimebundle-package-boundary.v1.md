@@ -1,0 +1,58 @@
+# Runnable Backlog: Package-Only Seams for Install, Review, Compatibility, and Runtime-Bundle Heads
+
+Date: 2026-03-11
+Program milestones: `C0` (Hub registry extraction), `E2` (Hub complete)
+Slice: publish executable backlog for package-only boundary enforcement on install/review/compatibility/runtime-bundle-head seams.
+
+## Scope guardrails
+
+In scope:
+
+- package-only seam enforcement for install/review/compatibility/runtime-bundle-head DTO families
+- consumer cutover from source-owned seam types to `Chummer.Hub.Registry.Contracts`
+- verification gates for regression on seam ownership
+
+Out of scope:
+
+- provider adapters, approval bridges, docs/help vendor execution, render execution
+- play/session relay orchestration
+- metadata/publication cutover work already captured in the metadata-publication backlog
+
+## Ordered backlog (runnable)
+
+1. Publish seam ownership inventory.
+- Deliverable: `docs/ownership-inventory.install-review-compat-runtimebundle.v1.md`
+- Must include: install state/history, review projections, compatibility projections, runtime-bundle head projection flows with current write owner, persistence owner, and read-model owner.
+- Completion check: every seam flow has one named implementation owner and one package seam owner.
+
+2. Publish package-only cutover checklist.
+- Deliverable: `docs/cutover-checklist.install-review-compat-runtimebundle.v1.md`
+- Must include: preconditions, phased routing/callsite migration, dual-read strategy (if needed), rollback trigger, and done criteria.
+- Completion check: checklist can be executed without ambiguity and keeps `run-services` as contract consumer only.
+
+3. Define contract-mapping appendix for seam commands/projections.
+- Deliverable: appendix in `docs/cutover-checklist.install-review-compat-runtimebundle.v1.md`
+- Must include: seam operation name, source DTO replacement, canonical DTO from `Chummer.Hub.Registry.Contracts`, and owning service.
+- Completion check: no targeted seam operation remains on a source-owned non-package DTO.
+
+4. Expand verify harness for seam-ownership regressions.
+- Deliverable: `Chummer.Hub.Registry.Contracts.Verify` checks plus script wiring where needed
+- Must include: failure when install/review/compatibility/runtime-bundle-head seam DTOs are source-owned outside `Chummer.Hub.Registry.Contracts`.
+- Completion check: gate fails on seeded violation and passes for package-only canonical usage.
+
+5. Capture migration evidence and close slice.
+- Deliverable: updates to `WORKLIST.md` and milestone coverage links with artifact paths and verification results.
+- Completion check: this uncovered-scope item is marked done with evidence.
+
+## Ready/Done criteria
+
+Ready:
+
+- mapping and runnable backlog docs exist for this seam set
+- work is explicitly linked to `H3`/`H4`, `C0`, and `E2`
+
+Done:
+
+- ordered backlog items 1-5 complete
+- `scripts/ai/verify.sh` passes
+- no boundary violations introduced versus `.codex-design/repo/IMPLEMENTATION_SCOPE.md`
