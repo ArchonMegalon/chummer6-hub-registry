@@ -2,7 +2,7 @@
 
 ## Mission
 
-`chummer-hub-registry` owns immutable artifact catalog, publication workflow, moderation state, installs, reviews, compatibility, and runtime-bundle head metadata.
+`chummer6-hub-registry` owns immutable artifact catalog, publication workflow, moderation state, installs, reviews, compatibility, and runtime-bundle head metadata.
 
 ## Owns
 
@@ -24,7 +24,7 @@
 
 ## Current focus
 
-* extract registry contracts and catalog lifecycle out of `chummer.run-services`
+* extract registry contracts and catalog lifecycle out of `chummer6-hub`
 * grow from contract seed to real registry domain service
 * become the authoritative home for reusable published artifacts, installs, reviews, and compatibility
 
@@ -48,7 +48,7 @@ If it is about relay, play shells, or rendering, it does not.
 
 ## External integration note
 
-`chummer-hub-registry` may reference reusable external-facing help, preview, template, and style artifacts only when they have been promoted into registry truth.
+`chummer6-hub-registry` may reference reusable external-facing help, preview, template, and style artifacts only when they have been promoted into registry truth.
 
 It must not:
 
