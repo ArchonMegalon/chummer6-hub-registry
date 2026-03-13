@@ -11,6 +11,7 @@
 - [done] Publish runnable backlog for install/review/compatibility/runtime-bundle-head package-boundary cutover and verify-gate expansion
 - [done] Add milestone mapping for moderation/publication projections that still need explicit registry-owned read models
 - [done] Publish runnable backlog for moderation/publication projection read-model ownership and verify-gate expansion
+- [done] Refresh moderation/publication read-model runnable backlog publication for 2026-03-13 prepend queue audit (task `487879`) without duplicating already completed scope
 - [done] Create metadata/publication ownership inventory that lists every remaining `run-services` implementation owner for immutable artifact metadata and publication state
 - [done] Publish a cutover checklist that moves metadata/publication write ownership and persistence authority to `chummer-hub-registry` while keeping `run-services` as contract consumer only
 - [done] Add verification gates that fail when metadata/publication registry DTOs are source-owned in `run-services` instead of consumed from `Chummer.Hub.Registry.Contracts`
