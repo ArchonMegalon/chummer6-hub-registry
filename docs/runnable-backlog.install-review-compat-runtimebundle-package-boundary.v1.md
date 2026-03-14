@@ -56,3 +56,13 @@ Done:
 - ordered backlog items 1-5 complete
 - `scripts/ai/verify.sh` passes
 - no boundary violations introduced versus `.codex-design/repo/IMPLEMENTATION_SCOPE.md`
+
+## Queue refresh
+
+Date: 2026-03-13
+Audit source: `feedback/2026-03-13-095500-audit-task-487881.md` (prepend queue publication)
+
+Result:
+
+- This backlog already materializes the requested uncovered scope and remains the runnable source of truth for install/review/compatibility/runtime-bundle-head package-boundary work.
+- No duplicate backlog file was created; this document is explicitly republished/retained for the current queue slice.

@@ -35,3 +35,13 @@ Exit criteria addressed by this slice:
 2. Publish package-only seam cutover checklist that removes source-owned seam DTO usage and local mirrors.
 3. Add verify-harness checks that fail when these seam DTO families are source-owned outside `Chummer.Hub.Registry.Contracts`.
 4. Capture cutover evidence and close this uncovered-scope item once all targeted seams read as package/service consumption only.
+
+## Queue refresh
+
+Date: 2026-03-13
+Audit source: `feedback/2026-03-13-095500-audit-task-487878.md` (prepend queue publication)
+
+Result:
+
+- This milestone mapping already materializes the uncovered scope requested in task `487878`.
+- Existing runnable backlog remains `docs/runnable-backlog.install-review-compat-runtimebundle-package-boundary.v1.md`; no duplicate queue artifact was created.

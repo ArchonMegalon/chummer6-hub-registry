@@ -47,3 +47,10 @@ Must not remain downstream:
 When a type belongs to the artifact catalog, publication workflow, moderation workflow, install history/projections, compatibility projections, or runtime-bundle heads, downstream repos consume `Chummer.Hub.Registry.Contracts`.
 
 When logic belongs to orchestration, transport, storage, or UX-specific shaping, downstream repos keep that logic local and map to or from the shared contracts at the boundary.
+
+## Verification Gate
+
+`Chummer.Hub.Registry.Contracts.Verify` enforces source-ownership checks for both downstream consumers when repository roots are provided:
+
+- `CHUMMER_RUN_SERVICES_ROOT` for `chummer.run-services`
+- `CHUMMER_PRESENTATION_ROOT` for presentation (`chummer6-ui`)

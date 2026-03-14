@@ -116,7 +116,8 @@ HubPublicationResult<RuntimeBundleHeadProjection> notImplemented = HubPublicatio
     new HubPublicationNotImplementedReceipt("not-implemented", HubPublicationOperations.ListModerationQueue, "queued"));
 Assert(!notImplemented.IsImplemented, "Fallback result wrappers must report not implemented.");
 
-VerifyMetadataPublicationContractsAreNotSourceOwnedInRunServices();
+VerifyRegistryContractsAreNotSourceOwnedInConsumers();
+VerifyForbiddenOrchestrationTermsAreNotExposedByRegistryContracts();
 
 Console.WriteLine("Registry contract verification passed.");
 
@@ -140,21 +141,36 @@ static void Assert(bool condition, string message)
     }
 }
 
-static void VerifyMetadataPublicationContractsAreNotSourceOwnedInRunServices()
+static void VerifyRegistryContractsAreNotSourceOwnedInConsumers()
 {
-    string? runServicesRoot = ResolveRunServicesRoot();
-    if (runServicesRoot is null)
-    {
-        Console.WriteLine("Registry ownership gate skipped: run-services repo was not found in this workspace.");
-        return;
-    }
+    (string Label, string EnvironmentVariableName)[] targets =
+    [
+        ("run-services", "CHUMMER_RUN_SERVICES_ROOT"),
+        ("presentation", "CHUMMER_PRESENTATION_ROOT")
+    ];
 
-    string[] sourceFiles = Directory.GetFiles(runServicesRoot, "*.cs", SearchOption.AllDirectories)
+    Regex declarationRegex = BuildDeclarationRegex();
+    foreach (var target in targets)
+    {
+        string? consumerRoot = ResolveConsumerRoot(target.EnvironmentVariableName);
+        if (consumerRoot is null)
+        {
+            Console.WriteLine(
+                $"Registry ownership gate skipped for {target.Label}: set {target.EnvironmentVariableName} to enable source-ownership checks.");
+            continue;
+        }
+
+        VerifyRegistryContractsAreNotSourceOwnedInConsumer(target.Label, consumerRoot, declarationRegex);
+    }
+}
+
+static void VerifyRegistryContractsAreNotSourceOwnedInConsumer(string consumerLabel, string consumerRoot, Regex declarationRegex)
+{
+    string[] sourceFiles = Directory.GetFiles(consumerRoot, "*.cs", SearchOption.AllDirectories)
         .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
         .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
         .ToArray();
 
-    Regex declarationRegex = BuildDeclarationRegex();
     List<string> violations = [];
     foreach (string sourceFile in sourceFiles)
     {
@@ -165,7 +181,7 @@ static void VerifyMetadataPublicationContractsAreNotSourceOwnedInRunServices()
             continue;
         }
 
-        string relativePath = Path.GetRelativePath(runServicesRoot, sourceFile);
+        string relativePath = Path.GetRelativePath(consumerRoot, sourceFile);
         foreach (Match match in matches)
         {
             string typeName = match.Groups["typeName"].Value;
@@ -175,12 +191,12 @@ static void VerifyMetadataPublicationContractsAreNotSourceOwnedInRunServices()
 
     Assert(
         violations.Count == 0,
-        $"run-services must consume metadata/publication DTOs from Chummer.Hub.Registry.Contracts. Violations: {string.Join("; ", violations)}");
+        $"{consumerLabel} must consume registry DTOs from Chummer.Hub.Registry.Contracts. Violations: {string.Join("; ", violations)}");
 }
 
-static string? ResolveRunServicesRoot()
+static string? ResolveConsumerRoot(string environmentVariableName)
 {
-    string? fromEnv = Environment.GetEnvironmentVariable("CHUMMER_RUN_SERVICES_ROOT");
+    string? fromEnv = Environment.GetEnvironmentVariable(environmentVariableName);
     if (!string.IsNullOrWhiteSpace(fromEnv) && Directory.Exists(fromEnv))
     {
         return Path.GetFullPath(fromEnv);
@@ -191,32 +207,96 @@ static string? ResolveRunServicesRoot()
 
 static Regex BuildDeclarationRegex()
 {
-    string[] metadataPublicationTypeNames =
+    string[] contractTypeNames = typeof(HubArtifactMetadata).Assembly
+        .GetExportedTypes()
+        .Where(type => type.Namespace == "Chummer.Hub.Registry.Contracts")
+        .Where(type => !type.IsNested)
+        .Select(type => type.Name)
+        .Distinct(StringComparer.Ordinal)
+        .OrderBy(name => name, StringComparer.Ordinal)
+        .ToArray();
+
+    string alternation = string.Join("|", contractTypeNames.Select(Regex.Escape));
+    return new Regex(
+        $@"(?m)^\s*(?:(?:public|internal|private|protected|file|static|abstract|sealed|readonly|partial)\s+)*(?:record(?:\s+struct)?|class|struct|interface|enum)\s+(?<typeName>{alternation})\b",
+        RegexOptions.Compiled);
+}
+
+static void VerifyForbiddenOrchestrationTermsAreNotExposedByRegistryContracts()
+{
+    string[] forbiddenTerms =
     [
-        nameof(ArtifactPublicationPointer),
-        nameof(HubArtifactCreateRequest),
-        nameof(HubArtifactRecord),
-        nameof(HubArtifactMetadata),
-        nameof(HubArtifactStateChangeRequest),
-        nameof(HubArtifactStateResponse),
-        nameof(HubArtifactDeleteAttemptResponse),
-        nameof(HubPublicationOperations),
-        nameof(HubPublishDraftRequest),
-        nameof(HubUpdateDraftRequest),
-        nameof(HubDraftRecord),
-        nameof(HubSubmitProjectRequest),
-        nameof(HubProjectSubmissionReceipt),
-        nameof(HubModerationDecisionRequest),
-        nameof(HubModerationDecisionReceipt),
-        nameof(HubPublishDraftReceipt),
-        nameof(HubPublishDraftList),
-        nameof(HubDraftDetailProjection),
-        nameof(HubPublicationReceipt),
-        nameof(HubModerationQueueItem)
+        "AIGateway",
+        "AiGateway",
+        "Spider",
+        "SessionRelay",
+        "Relay",
+        "MediaRender",
+        "MediaRendering"
     ];
 
-    string alternation = string.Join("|", metadataPublicationTypeNames.Select(Regex.Escape));
-    return new Regex(
-        $@"\b(?:record(?:\s+struct)?|class|struct|interface|enum)\s+(?<typeName>{alternation})\b",
-        RegexOptions.Compiled);
+    Type[] contractTypes = typeof(HubArtifactMetadata).Assembly
+        .GetExportedTypes()
+        .Where(type => type.Namespace == "Chummer.Hub.Registry.Contracts")
+        .ToArray();
+
+    List<string> violations = [];
+    foreach (Type type in contractTypes)
+    {
+        AddForbiddenTermViolationIfAny($"type {type.Name}", type.Name, forbiddenTerms, violations);
+
+        foreach (FieldInfo field in type.GetFields(BindingFlags.Public | BindingFlags.Static))
+        {
+            if (field.FieldType != typeof(string) || !field.IsLiteral)
+            {
+                continue;
+            }
+
+            if (field.GetRawConstantValue() is not string constantValue)
+            {
+                continue;
+            }
+
+            AddForbiddenTermViolationIfAny($"{type.Name}.{field.Name}=\"{constantValue}\"", constantValue, forbiddenTerms, violations);
+        }
+
+        foreach (PropertyInfo property in type.GetProperties(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static))
+        {
+            AddForbiddenTermViolationIfAny($"{type.Name}.{property.Name} (property)", property.Name, forbiddenTerms, violations);
+        }
+
+        foreach (MethodInfo method in type.GetMethods(BindingFlags.Public | BindingFlags.Instance | BindingFlags.Static))
+        {
+            if (method.IsSpecialName)
+            {
+                continue;
+            }
+
+            AddForbiddenTermViolationIfAny($"{type.Name}.{method.Name}() (method)", method.Name, forbiddenTerms, violations);
+        }
+
+        if (type.IsEnum)
+        {
+            foreach (string enumMemberName in Enum.GetNames(type))
+            {
+                AddForbiddenTermViolationIfAny($"{type.Name}.{enumMemberName} (enum member)", enumMemberName, forbiddenTerms, violations);
+            }
+        }
+    }
+
+    Assert(
+        violations.Count == 0,
+        $"Registry contracts must exclude AI gateway, Spider, session relay, and media rendering seams. Violations: {string.Join("; ", violations)}");
+}
+
+static void AddForbiddenTermViolationIfAny(
+    string location,
+    string valueToCheck,
+    IReadOnlyCollection<string> forbiddenTerms,
+    ICollection<string> violations)
+{
+    if (forbiddenTerms.Any(term => valueToCheck.Contains(term, StringComparison.OrdinalIgnoreCase)))
+    {
+        violations.Add(location);
+    }
 }

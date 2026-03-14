@@ -29,3 +29,13 @@ Exit criteria addressed by this slice:
 2. Define cutover contract for metadata/publication persistence and read/write routing owned by `chummer-hub-registry`.
 3. Add contract-consumption verification checks so `run-services` cannot reintroduce source-owned registry DTOs for metadata/publication flows.
 4. Record migration evidence and close this uncovered-scope item once runtime ownership reads as package/service consumption only.
+
+## Queue refresh
+
+Date: 2026-03-13
+Audit source: `feedback/2026-03-13-095500-audit-task-487877.md` (prepend queue publication)
+
+Result:
+
+- This milestone mapping already materializes the uncovered scope requested in task `487877`.
+- Existing runnable backlog remains `docs/runnable-backlog.metadata-publication-cutover.v1.md`; no duplicate queue artifact was created.

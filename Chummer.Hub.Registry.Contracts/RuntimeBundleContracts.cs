@@ -31,6 +31,11 @@ public sealed record RuntimeBundleIssueRequest(
     IReadOnlyList<string> SupportedExchangeFormats,
     string? RequestedBy = null,
     string? OwnerId = null,
+    [property: Required(AllowEmptyStrings = false), StringLength(64)] string RulesetId = "sr5",
+    [property: Required(AllowEmptyStrings = false), StringLength(32)] string Visibility = ArtifactVisibilityModes.Shared,
+    [property: Required(AllowEmptyStrings = false), StringLength(32)] string TrustTier = ArtifactTrustTiers.Curated,
+    string? PublisherId = null,
+    string? Description = null,
     string? Summary = null);
 
 public sealed record RuntimeBundleArtifactProjection(

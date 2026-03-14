@@ -11,7 +11,8 @@ This repo seeds `Chummer.Hub.Registry.Contracts`, a dependency-light .NET packag
 
 This boundary explicitly excludes:
 
-- AI routing logic
+- AI gateway logic
+- Spider orchestration logic
 - session relay logic
 - media rendering or generation services
 
@@ -26,6 +27,12 @@ This boundary explicitly excludes:
 
 The consumer migration map for that split is tracked in [docs/downstream-consumers.v1.md](docs/downstream-consumers.v1.md).
 
+## Current maturity note
+
+- contract shape is ahead of service reality
+- the next proof is visible read-model and persistence authority leaving hub for real
+- this repo should become obviously more than a contract seed before `C0` can honestly close
+
 ## Verification
 
 Run:
@@ -33,3 +40,8 @@ Run:
 ```bash
 bash scripts/ai/verify.sh
 ```
+
+Optional downstream ownership gates can be enabled by setting:
+
+- `CHUMMER_RUN_SERVICES_ROOT=/path/to/chummer.run-services`
+- `CHUMMER_PRESENTATION_ROOT=/path/to/chummer6-ui` (or your presentation repo root)

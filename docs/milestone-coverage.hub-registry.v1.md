@@ -47,3 +47,13 @@ Milestone truth is considered complete only when each `H*` row has:
 2. evidence path(s) in this repo and/or linked downstream queue artifact
 3. explicit status and ETA band
 4. boundary-safe ownership consistent with `.codex-design/repo/IMPLEMENTATION_SCOPE.md`
+
+## Queue refresh
+
+Date: 2026-03-13
+Audit source: `feedback/2026-03-13-095500-audit-task-487883.md` (prepend queue publication)
+
+Result:
+
+- This milestone coverage model already provides explicit `H0`-`H8` status, ETA bands, completion truth, and evidence paths for `hub-registry`.
+- No duplicate milestone-coverage artifact was created; this document remains the canonical completion-truth model for the slice.
