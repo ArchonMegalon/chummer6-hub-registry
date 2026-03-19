@@ -36,6 +36,7 @@ The consumer migration map for that split is tracked in [docs/downstream-consume
 
 - contract shape and runtime ownership now live together in the owner repo
 - the remaining proof is read-model/persistence adoption by downstream consumers, not where the code lives
+- publication, discovery, install/review, and runtime-bundle projections are now the registry-owned product read-model plane
 - `C0` should now move on visible authority transfer evidence instead of waiting on another repo split
 
 ## Verification
