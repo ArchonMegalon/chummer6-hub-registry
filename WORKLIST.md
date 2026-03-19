@@ -1,7 +1,7 @@
 # Worklist
 
-- [open] Complete live authority transfer proof for publication metadata, review outcomes, and compatibility projections so `run-services` becomes contract consumer-only for these planes.
-- [open] Add runtime-owner evidence checks for registry-backed read-model writes and reject active implementation ownership of immutable artifact/publication state in hosted services.
+- [done] Complete live authority transfer proof for publication metadata, review outcomes, and compatibility projections so `run-services` becomes contract consumer-only for these planes.
+- [done] Add runtime-owner evidence checks for registry-backed read-model writes and reject active implementation ownership of immutable artifact/publication state in hosted services.
 
 - [done] Bootstrap repo structure and package boundaries
 - [done] Extract `Chummer.Hub.Registry.Contracts` for artifact metadata, publication workflow, moderation, installs, compatibility projections, and runtime-bundle heads

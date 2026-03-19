@@ -1,13 +1,14 @@
 # chummer6-hub-registry
 
-Dedicated contract boundary for the Chummer6 registry split.
+Dedicated registry owner repo for the Chummer6 hub split.
 
-This repo seeds `Chummer.Hub.Registry.Contracts`, a dependency-light .NET package for:
+This repo owns:
 
 - immutable artifact metadata and lifecycle state
 - publication draft and moderation workflow contracts
 - install state, install-history records, and compatibility projections
 - runtime-stack issuance and head projections
+- the hosted registry service that applies those contracts at runtime
 
 This boundary explicitly excludes:
 
@@ -20,18 +21,22 @@ This boundary explicitly excludes:
 
 - `Chummer.Hub.Registry.Contracts`: shared immutable records and stable vocabulary.
 - `Chummer.Hub.Registry.Contracts.Verify`: no-network verification harness that asserts the extracted surface compiles and preserves key shape guarantees.
+- `Chummer.Run.Registry`: runtime registry/publication service ownership moved out of `chummer6-hub`.
 
 ## Downstream Consumption
 
-`chummer6-hub` and `chummer6-ui` are expected to consume registry DTOs through the `Chummer.Hub.Registry.Contracts` package boundary rather than through source-level ownership.
+`chummer6-hub` and `chummer6-ui` consume registry seams through owner-repo boundaries rather than source-level ownership:
+
+- `Chummer.Hub.Registry.Contracts` for immutable DTO families
+- `Chummer.Run.Registry` for runtime registry/publication service ownership
 
 The consumer migration map for that split is tracked in [docs/downstream-consumers.v1.md](docs/downstream-consumers.v1.md).
 
 ## Current maturity note
 
-- contract shape is ahead of service reality
-- the next proof is visible read-model and persistence authority leaving hub for real
-- this repo should become obviously more than a contract seed before `C0` can honestly close
+- contract shape and runtime ownership now live together in the owner repo
+- the remaining proof is read-model/persistence adoption by downstream consumers, not where the code lives
+- `C0` should now move on visible authority transfer evidence instead of waiting on another repo split
 
 ## Verification
 
