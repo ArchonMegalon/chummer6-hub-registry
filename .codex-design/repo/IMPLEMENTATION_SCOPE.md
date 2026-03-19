@@ -12,6 +12,8 @@
 * install state and install history
 * compatibility projections
 * runtime-bundle head metadata
+* published source-pack and explorable-pack metadata once promoted
+* publication references for artifact-studio and creator-press outputs
 * registry contract canon
 
 ## Must not own
@@ -27,6 +29,7 @@
 * extract registry contracts and catalog lifecycle out of `chummer6-hub`
 * grow from contract seed to real registry domain service
 * become the authoritative home for reusable published artifacts, installs, reviews, and compatibility
+* be ready to publish source packs, runtime-stack manifests, runsite packs, JACKPOINT outputs, and RUNBOOK PRESS outputs without reclaiming render or orchestration ownership
 
 ## Milestone spine
 
@@ -56,4 +59,3 @@ It must not:
 * own approval bridges
 * own docs/help vendor execution
 * own render execution
-
