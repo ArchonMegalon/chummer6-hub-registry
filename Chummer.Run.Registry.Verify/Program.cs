@@ -139,14 +139,62 @@ RuntimeBundleIssueResponse replayIssue = RequireCreated(registryController.Issue
     Description: "Runtime bundle head drill",
     Summary: "Registry runtime-bundle drill")));
 
+RuntimeBundleIssueResponse compatibilityShiftIssue = RequireCreated(registryController.IssueRuntimeBundle(new RuntimeBundleIssueRequest(
+    SessionId: "session-registry",
+    SceneId: "scene-redmond",
+    Head: RuntimeBundleHeadKind.Session,
+    SourceBundleVersion: "bundle-42",
+    ProjectionFingerprint: "sha256:projection-registry",
+    ProjectionVersion: 4,
+    Ready: true,
+    OfflineCapable: true,
+    CollaborationMode: "hybrid",
+    InvalidationSignals: ["projection:4", "ruleset:sr6", "ruleset:errata-2"],
+    IncludedEventTypes: ["combat", "reveal"],
+    SupportedExchangeFormats: ["foundry-vtt.scene-ledger.v1", "chummer.runtime-delta.v1"],
+    RequestedBy: "gm.ops+compat",
+    OwnerId: "ops.registry",
+    RulesetId: "sr6",
+    Visibility: ArtifactVisibilityModes.Shared,
+    TrustTier: ArtifactTrustTiers.Curated,
+    PublisherId: "pub.shadowops",
+    Description: "Runtime bundle head drill",
+    Summary: "Registry runtime-bundle drill")));
+
+RuntimeBundleIssueResponse metadataShiftIssue = RequireCreated(registryController.IssueRuntimeBundle(new RuntimeBundleIssueRequest(
+    SessionId: "session-registry",
+    SceneId: "scene-redmond",
+    Head: RuntimeBundleHeadKind.Session,
+    SourceBundleVersion: "bundle-42",
+    ProjectionFingerprint: "sha256:projection-registry",
+    ProjectionVersion: 4,
+    Ready: true,
+    OfflineCapable: true,
+    CollaborationMode: "hybrid",
+    InvalidationSignals: ["projection:4", "ruleset:sr6", "ruleset:errata-2"],
+    IncludedEventTypes: ["combat", "reveal"],
+    SupportedExchangeFormats: ["foundry-vtt.scene-ledger.v1", "chummer.runtime-delta.v1"],
+    RequestedBy: "gm.ops+compat",
+    OwnerId: "ops.registry",
+    RulesetId: "sr6a",
+    Visibility: ArtifactVisibilityModes.Shared,
+    TrustTier: ArtifactTrustTiers.Curated,
+    PublisherId: "pub.shadowops",
+    Description: "Runtime bundle head drill",
+    Summary: "Registry runtime-bundle drill")));
+
 Assert(firstIssue.CreatedNewArtifact, "First runtime-bundle issue should create a new artifact.");
 Assert(!replayIssue.CreatedNewArtifact, "Second identical runtime-bundle issue should replay idempotently.");
+Assert(compatibilityShiftIssue.CreatedNewArtifact, "Changed compatibility payload should force new runtime-bundle issuance.");
+Assert(!string.Equals(firstIssue.Artifact.Id, compatibilityShiftIssue.Artifact.Id, StringComparison.Ordinal), "Changed compatibility payload should produce a new immutable artifact id.");
+Assert(metadataShiftIssue.CreatedNewArtifact, "Changed runtime-bundle metadata should force new runtime-bundle issuance.");
+Assert(!string.Equals(compatibilityShiftIssue.Artifact.Id, metadataShiftIssue.Artifact.Id, StringComparison.Ordinal), "Changed runtime-bundle metadata should produce a new immutable artifact id.");
 
 RuntimeBundleArtifactProjection runtimeBundleArtifact = RequireOk(registryController.GetRuntimeBundleArtifact(firstIssue.Artifact.Id));
 Assert(string.Equals(runtimeBundleArtifact.ArtifactId, firstIssue.Artifact.Id, StringComparison.Ordinal), "Runtime bundle artifact lookup should return the issued artifact.");
 
 RuntimeBundleHeadProjection runtimeHead = RequireOk(registryController.GetRuntimeBundleHead("session-registry", "scene-redmond", RuntimeBundleHeadKind.Session));
-Assert(string.Equals(runtimeHead.CurrentArtifactId, firstIssue.Artifact.Id, StringComparison.Ordinal), "Runtime bundle head lookup should point at the issued artifact.");
+Assert(string.Equals(runtimeHead.CurrentArtifactId, metadataShiftIssue.Artifact.Id, StringComparison.Ordinal), "Runtime bundle head lookup should point at the latest issued artifact.");
 
 RuntimeBundleHeadListResponse runtimeHeads = RequireOk(registryController.GetRuntimeBundleHeads("session-registry", "scene-redmond"));
 Assert(runtimeHeads.Heads.Count == 1, "Runtime bundle head list should return the retained head projections.");
@@ -156,7 +204,7 @@ Assert(pipelineEnvelope.Pipelines.Count == 1, "Pipeline projection should expose
 Assert(pipelineEnvelope.Pipelines[0].Idempotency.ReplayCount >= 1, "Pipeline projection should retain runtime-bundle replay truth.");
 
 HubArtifactStoreBackupPackage backup = store.ExportBackup();
-Assert(backup.Artifacts.Count >= 2, "Backup must retain artifact metadata and runtime-bundle artifacts.");
+Assert(backup.Artifacts.Count >= 4, "Backup must retain artifact metadata and all runtime-bundle artifacts.");
 Assert(backup.RuntimeBundleHeads.Count == 1, "Backup must retain runtime-bundle heads.");
 Assert(string.Equals(backup.ContractFamily, "hub_state_backup_v1", StringComparison.Ordinal), "Backup contract family must stay stable.");
 
@@ -170,7 +218,7 @@ Assert(restoredArtifact.ReviewCount == 1, "Restored artifact must retain review 
 
 RuntimeBundleHeadProjection? restoredHead = restored.GetRuntimeBundleHead("session-registry", "scene-redmond", RuntimeBundleHeadKind.Session);
 Assert(restoredHead is not null, "Restored store must retain runtime-bundle head projections.");
-Assert(string.Equals(restoredHead!.CurrentArtifactId, firstIssue.Artifact.Id, StringComparison.Ordinal), "Restored runtime-bundle head must point at the issued artifact.");
+Assert(string.Equals(restoredHead!.CurrentArtifactId, metadataShiftIssue.Artifact.Id, StringComparison.Ordinal), "Restored runtime-bundle head must point at the latest issued artifact.");
 
 RuntimeBundleHeadListResponse restoredHeads = restored.GetRuntimeBundleHeads("session-registry", "scene-redmond");
 Assert(restoredHeads.Heads.Count == 1, "Runtime-bundle head list should return the retained head projections.");
@@ -184,7 +232,7 @@ Assert(restoredProjection is not null, "Restored store must retain registry proj
 
 var pipeline = restored.GetRegistryPipelineProjection();
 Assert(pipeline.Idempotency.ReplayCount >= 1, "Restored pipeline projection must preserve idempotent runtime-bundle issue counts.");
-Assert(pipeline.Observability.ProcessedCount >= 4, "Restored pipeline projection must preserve processed counts across upsert/install/review/runtime issue flows.");
+Assert(pipeline.Observability.ProcessedCount >= 5, "Restored pipeline projection must preserve processed counts across upsert/install/review/runtime issue flows.");
 
 Console.WriteLine("Registry runtime verification passed.");
 

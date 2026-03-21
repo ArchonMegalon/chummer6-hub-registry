@@ -150,6 +150,7 @@ static void VerifyRegistryContractsAreNotSourceOwnedInConsumers()
     ];
 
     Regex declarationRegex = BuildDeclarationRegex();
+    VerifyDeclarationRegexIncludesCompatibilityContracts(declarationRegex);
     foreach (var target in targets)
     {
         string? consumerRoot = ResolveConsumerRoot(target.EnvironmentVariableName);
@@ -209,9 +210,10 @@ static Regex BuildDeclarationRegex()
 {
     string[] contractTypeNames = typeof(HubArtifactMetadata).Assembly
         .GetExportedTypes()
-        .Where(type => type.Namespace == "Chummer.Hub.Registry.Contracts")
+        .Where(type => IsRegistryOwnedContractNamespace(type.Namespace))
         .Where(type => !type.IsNested)
-        .Select(type => type.Name)
+        .Select(type => NormalizeTypeNameForSourceMatch(type.Name))
+        .Where(name => !string.IsNullOrWhiteSpace(name))
         .Distinct(StringComparer.Ordinal)
         .OrderBy(name => name, StringComparer.Ordinal)
         .ToArray();
@@ -221,6 +223,25 @@ static Regex BuildDeclarationRegex()
         $@"(?m)^\s*(?:(?:public|internal|private|protected|file|static|abstract|sealed|readonly|partial)\s+)*(?:record(?:\s+struct)?|class|struct|interface|enum)\s+(?<typeName>{alternation})\b",
         RegexOptions.Compiled);
 }
+
+static void VerifyDeclarationRegexIncludesCompatibilityContracts(Regex declarationRegex)
+{
+    const string compatibilityProbe = "public sealed record RegistrySearchItem(string Id);";
+    Match match = declarationRegex.Match(compatibilityProbe);
+    Assert(match.Success && string.Equals(match.Groups["typeName"].Value, "RegistrySearchItem", StringComparison.Ordinal),
+        "Registry ownership gate must include compatibility contract DTO declarations.");
+}
+
+static string NormalizeTypeNameForSourceMatch(string typeName)
+{
+    var genericMarker = typeName.IndexOf('`', StringComparison.Ordinal);
+    return genericMarker < 0 ? typeName : typeName[..genericMarker];
+}
+
+static bool IsRegistryOwnedContractNamespace(string? typeNamespace) =>
+    string.Equals(typeNamespace, "Chummer.Hub.Registry.Contracts", StringComparison.Ordinal)
+    || string.Equals(typeNamespace, "Chummer.Run.Contracts.Registry", StringComparison.Ordinal)
+    || string.Equals(typeNamespace, "Chummer.Contracts.Hub", StringComparison.Ordinal);
 
 static void VerifyForbiddenOrchestrationTermsAreNotExposedByRegistryContracts()
 {
@@ -237,7 +258,8 @@ static void VerifyForbiddenOrchestrationTermsAreNotExposedByRegistryContracts()
 
     Type[] contractTypes = typeof(HubArtifactMetadata).Assembly
         .GetExportedTypes()
-        .Where(type => type.Namespace == "Chummer.Hub.Registry.Contracts")
+        .Where(type => IsRegistryOwnedContractNamespace(type.Namespace))
+        .Where(type => !type.IsNested)
         .ToArray();
 
     List<string> violations = [];
