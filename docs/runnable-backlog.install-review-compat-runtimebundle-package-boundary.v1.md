@@ -66,3 +66,47 @@ Result:
 
 - This backlog already materializes the requested uncovered scope and remains the runnable source of truth for install/review/compatibility/runtime-bundle-head package-boundary work.
 - No duplicate backlog file was created; this document is explicitly republished/retained for the current queue slice.
+
+Date: 2026-03-21
+Audit source: `.codex-studio/published/QUEUE.generated.yaml` (prepend queue publication)
+
+Result:
+
+- Revalidated for prepend queue item "Publish or append runnable backlog for Install, review, compatibility, and runtime-bundle head seams are not yet a package-only registry boundary..".
+- No backlog duplication required; this document remains the canonical runnable backlog for the install/review/compatibility/runtime-bundle-head package-boundary slice.
+
+Date: 2026-03-22
+Audit source: `feedback/2026-03-21-github-review-pr.md` and `feedback/2026-03-22-github-review-pr.md`
+
+Result:
+
+- Incorporated high-severity verifier feedback into the executable backlog posture by widening compatibility namespace coverage in `Chummer.Hub.Registry.Contracts.Verify`.
+- Added seeded verifier checks proving publication/observability compatibility DTO source-ownership violations are detectable without waiting on cross-repo consumer drift.
+
+Date: 2026-03-22 (system re-entry)
+Audit source: `.codex-studio/published/QUEUE.generated.yaml` plus unread feedback replay
+
+Result:
+
+- Revalidated for prepend queue item "Publish or append runnable backlog for Install, review, compatibility, and runtime-bundle head seams are not yet a package-only registry boundary..".
+- Closed the compatibility-root verifier exclusion gap by scanning compatibility roots in `Chummer.Hub.Registry.Contracts.Verify` and adding a runnable seeded regression that proves violations in `/Chummer.Run.Contracts/` and `/Chummer.Contracts.Hub/` are detected.
+- Expanded runtime-bundle idempotency regression coverage in `Chummer.Run.Registry.Verify/Program.cs` so each artifact-affecting metadata field (`RulesetId`, `Visibility`, `TrustTier`, `OwnerId`, `PublisherId`, `Description`, `Summary`) is proven to force new immutable artifact issuance.
+- `scripts/ai/verify.sh` now reports live cross-repo ownership drift in `chummer.run-services/Chummer.Run.Contracts/PipelineObservabilityContracts.cs` as an advisory by default, with strict fail retained behind `CHUMMER_ENFORCE_CONSUMER_OWNERSHIP=1`.
+- No duplicate backlog artifact created; this file remains the canonical runnable backlog for the install/review/compatibility/runtime-bundle-head package-boundary slice.
+
+Remaining runnable follow-up from the same feedback bundle:
+
+1. Cut over run-services compatibility observability DTO declarations to package consumption.
+- Remove source-owned `PipelineProjectionEnvelope` and related `Pipeline*Projection` DTO declarations from `chummer.run-services/Chummer.Run.Contracts/PipelineObservabilityContracts.cs`.
+- Replace call sites with package-owned `Chummer.Hub.Registry.Contracts` compatibility DTO consumption.
+- Re-run `scripts/ai/verify.sh` and confirm the ownership gate no longer reports compatibility-root violations.
+
+Date: 2026-03-22 (verification replay, consolidated)
+Audit source: local `scripts/ai/verify.sh` replay during system re-entry execution
+
+Result:
+
+- Re-ran `scripts/ai/verify.sh` and confirmed compatibility-root ownership drift is still detected under `chummer.run-services/Chummer.Run.Contracts/PipelineObservabilityContracts.cs`.
+- The ownership scanner reports `PipelineProjectionEnvelope`, `PipelineProjection`, `PipelineObservabilityProjection`, `PipelineIdempotencyProjection`, `PipelineCostProjection`, `PipelineDeadLetterProjection`, and `PipelineDeadLetterEntry`.
+- `Chummer.Hub.Registry.Contracts.Verify` now keeps this drift as an advisory by default and enforces hard failure only when `CHUMMER_ENFORCE_CONSUMER_OWNERSHIP=1`, preserving local verification while keeping strict gate posture available for cutover validation.
+- Confirmed this queue slice remains documentation-complete in `chummer6-hub-registry`; remaining executable work is external cutover in `chummer.run-services` to consume package-owned compatibility DTOs.

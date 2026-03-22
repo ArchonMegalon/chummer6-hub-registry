@@ -1,5 +1,6 @@
 <Solution>
   <Project Path="Chummer.Run.Registry/Chummer.Run.Registry.csproj" />
+  <Project Path="Chummer.Run.Registry.Verify/Chummer.Run.Registry.Verify.csproj" />
   <Project Path="Chummer.Hub.Registry.Contracts.Verify/Chummer.Hub.Registry.Contracts.Verify.csproj" />
   <Project Path="Chummer.Hub.Registry.Contracts/Chummer.Hub.Registry.Contracts.csproj" />
 </Solution>

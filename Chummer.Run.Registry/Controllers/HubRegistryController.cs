@@ -432,7 +432,14 @@ public sealed class HubRegistryController : ControllerBase
             return NotFound();
         }
 
-        return Ok(_artifactStore.RegisterInstall(id, installEvent));
+        try
+        {
+            return Ok(_artifactStore.RegisterInstall(id, installEvent));
+        }
+        catch (KeyNotFoundException)
+        {
+            return NotFound();
+        }
     }
 
     [HttpPost("artifacts/{id}/reviews")]

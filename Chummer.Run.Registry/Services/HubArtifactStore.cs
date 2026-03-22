@@ -143,21 +143,42 @@ public sealed class HubArtifactStore : IHubArtifactStore
         var trustTier = NormalizeTrustTier(request.TrustTier);
         var bundleFamilyId = ComposeRuntimeBundleFamilyId(sessionId, sceneId);
         var headKey = ComposeRuntimeBundleHeadKey(bundleFamilyId, request.Head);
+        var invalidationSignals = NormalizeList(request.InvalidationSignals);
+        var includedEventTypes = NormalizeList(request.IncludedEventTypes);
+        var supportedExchangeFormats = NormalizeList(request.SupportedExchangeFormats);
+        var requestedBy = NormalizeOptional(request.RequestedBy);
+        var ownerId = NormalizeOptional(request.ResolveOwnerId());
+        var publisherId = NormalizeOptional(request.PublisherId);
+        var description = NormalizeOptional(request.Description);
+        var summary = string.IsNullOrWhiteSpace(request.Summary)
+            ? $"Immutable {request.Head.ToString().ToLowerInvariant()} runtime bundle for session '{sessionId}' scene '{sceneId}'."
+            : request.Summary.Trim();
 
         lock (_sync)
         {
             if (_runtimeBundleHeads.TryGetValue(headKey, out var existingHead)
+                && _runtimeBundleArtifacts.TryGetValue(existingHead.CurrentArtifactId, out var existingProjection)
+                && _artifacts.TryGetValue(existingHead.CurrentArtifactId, out var existingMetadata)
                 && string.Equals(existingHead.SourceBundleVersion, sourceBundleVersion, StringComparison.Ordinal)
                 && string.Equals(existingHead.ProjectionFingerprint, projectionFingerprint, StringComparison.Ordinal)
                 && existingHead.ProjectionVersion == request.ProjectionVersion
                 && existingHead.Ready == request.Ready
                 && existingHead.OfflineCapable == request.OfflineCapable
-                && string.Equals(existingHead.CollaborationMode, collaborationMode, StringComparison.Ordinal))
+                && string.Equals(existingHead.CollaborationMode, collaborationMode, StringComparison.Ordinal)
+                && SequenceEqual(existingProjection.InvalidationSignals, invalidationSignals)
+                && SequenceEqual(existingProjection.IncludedEventTypes, includedEventTypes)
+                && SequenceEqual(existingProjection.SupportedExchangeFormats, supportedExchangeFormats)
+                && string.Equals(existingProjection.RequestedBy, requestedBy, StringComparison.Ordinal)
+                && string.Equals(existingMetadata.RulesetId, rulesetId, StringComparison.Ordinal)
+                && string.Equals(existingMetadata.Visibility, visibility, StringComparison.Ordinal)
+                && string.Equals(existingMetadata.TrustTier, trustTier, StringComparison.Ordinal)
+                && string.Equals(existingMetadata.Owner, ownerId, StringComparison.Ordinal)
+                && string.Equals(existingMetadata.PublisherId, publisherId, StringComparison.Ordinal)
+                && string.Equals(existingMetadata.Description, description, StringComparison.Ordinal)
+                && string.Equals(existingMetadata.Summary, summary, StringComparison.Ordinal))
             {
                 Interlocked.Increment(ref _runtimeIssueIdempotentCount);
                 _lastRuntimeIssueReplayAtUtc = DateTimeOffset.UtcNow;
-                var existingMetadata = _artifacts[existingHead.CurrentArtifactId];
-                var existingProjection = _runtimeBundleArtifacts[existingHead.CurrentArtifactId];
                 return new RuntimeBundleIssueResponse(
                     Artifact: ToMetadata(existingMetadata),
                     Projection: ToRuntimeBundleArtifactProjection(existingProjection),
@@ -173,9 +194,6 @@ public sealed class HubArtifactStore : IHubArtifactStore
 
             var version = ComposeRuntimeBundleArtifactVersion(sourceBundleVersion, request.Head);
             var name = $"{sessionId}/{sceneId} {request.Head} runtime bundle";
-            var summary = string.IsNullOrWhiteSpace(request.Summary)
-                ? $"Immutable {request.Head.ToString().ToLowerInvariant()} runtime bundle for session '{sessionId}' scene '{sceneId}'."
-                : request.Summary.Trim();
 
             var artifact = CreateArtifact(
                 name,
@@ -184,10 +202,10 @@ public sealed class HubArtifactStore : IHubArtifactStore
                 rulesetId,
                 visibility,
                 trustTier,
-                request.ResolveOwnerId(),
-                request.PublisherId,
+                ownerId,
+                publisherId,
                 summary,
-                request.Description,
+                description,
                 projectionFingerprint,
                 stateReason: null);
             _artifacts[artifact.Id] = artifact;
@@ -205,10 +223,10 @@ public sealed class HubArtifactStore : IHubArtifactStore
                 Ready = request.Ready,
                 OfflineCapable = request.OfflineCapable,
                 CollaborationMode = collaborationMode,
-                InvalidationSignals = NormalizeList(request.InvalidationSignals),
-                IncludedEventTypes = NormalizeList(request.IncludedEventTypes),
-                SupportedExchangeFormats = NormalizeList(request.SupportedExchangeFormats),
-                RequestedBy = NormalizeOptional(request.RequestedBy),
+                InvalidationSignals = invalidationSignals,
+                IncludedEventTypes = includedEventTypes,
+                SupportedExchangeFormats = supportedExchangeFormats,
+                RequestedBy = requestedBy,
                 IssuedAtUtc = artifact.CreatedAtUtc,
                 PreviousArtifactId = previousArtifactId
             };
@@ -415,21 +433,7 @@ public sealed class HubArtifactStore : IHubArtifactStore
     {
         if (!_artifacts.TryGetValue(id, out var entry))
         {
-            entry = new HubArtifactInternal
-            {
-                Id = id,
-                Name = "Unknown",
-                Kind = HubArtifactKind.RulePack,
-                Version = "0.0.0",
-                RulesetId = "sr5",
-                Visibility = ArtifactVisibilityModes.Shared,
-                TrustTier = ArtifactTrustTiers.Curated,
-                State = HubArtifactState.Active,
-                CreatedAtUtc = DateTimeOffset.UtcNow,
-                UpdatedAtUtc = DateTimeOffset.UtcNow,
-                LastInstalledAtUtc = installEvent.InstalledAtUtc
-            };
-            _artifacts[id] = entry;
+            throw new KeyNotFoundException($"Artifact '{id}' was not found.");
         }
 
         lock (_sync)
@@ -643,6 +647,24 @@ public sealed class HubArtifactStore : IHubArtifactStore
             .Distinct(StringComparer.Ordinal)
             .OrderBy(value => value, StringComparer.Ordinal)
             .ToArray();
+
+    private static bool SequenceEqual(IReadOnlyList<string> left, IReadOnlyList<string> right)
+    {
+        if (left.Count != right.Count)
+        {
+            return false;
+        }
+
+        for (var i = 0; i < left.Count; i++)
+        {
+            if (!string.Equals(left[i], right[i], StringComparison.Ordinal))
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 
     private static string ComposeRuntimeBundleFamilyId(string sessionId, string sceneId) =>
         $"runtime-family:{sessionId}:{sceneId}";
