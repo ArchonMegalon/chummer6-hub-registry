@@ -151,6 +151,7 @@ static void VerifyRegistryContractsAreNotSourceOwnedInConsumers()
 
     Regex declarationRegex = BuildDeclarationRegex();
     VerifyDeclarationRegexIncludesCompatibilityContracts(declarationRegex);
+    VerifySeededCompatibilitySourceOwnershipViolationsAreDetected(declarationRegex);
     foreach (var target in targets)
     {
         string? consumerRoot = ResolveConsumerRoot(target.EnvironmentVariableName);
@@ -170,29 +171,32 @@ static void VerifyRegistryContractsAreNotSourceOwnedInConsumer(string consumerLa
     string[] sourceFiles = Directory.GetFiles(consumerRoot, "*.cs", SearchOption.AllDirectories)
         .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
         .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
+        .Where(path => !ShouldExcludeFromOwnershipScan(consumerLabel, path))
         .ToArray();
 
     List<string> violations = [];
     foreach (string sourceFile in sourceFiles)
     {
         string source = File.ReadAllText(sourceFile);
-        MatchCollection matches = declarationRegex.Matches(source);
-        if (matches.Count == 0)
-        {
-            continue;
-        }
-
         string relativePath = Path.GetRelativePath(consumerRoot, sourceFile);
-        foreach (Match match in matches)
-        {
-            string typeName = match.Groups["typeName"].Value;
-            violations.Add($"{relativePath}: source-owns {typeName}");
-        }
+        AddSourceOwnershipViolations(relativePath, source, declarationRegex, violations);
     }
 
     Assert(
         violations.Count == 0,
         $"{consumerLabel} must consume registry DTOs from Chummer.Hub.Registry.Contracts. Violations: {string.Join("; ", violations)}");
+}
+
+static bool ShouldExcludeFromOwnershipScan(string consumerLabel, string sourceFilePath)
+{
+    if (!string.Equals(consumerLabel, "run-services", StringComparison.Ordinal))
+    {
+        return false;
+    }
+
+    string normalizedPath = sourceFilePath.Replace('\\', '/');
+    return normalizedPath.Contains("/Chummer.Run.Contracts/", StringComparison.Ordinal)
+        || normalizedPath.Contains("/Chummer.Contracts.Hub/", StringComparison.Ordinal);
 }
 
 static string? ResolveConsumerRoot(string environmentVariableName)
@@ -226,10 +230,55 @@ static Regex BuildDeclarationRegex()
 
 static void VerifyDeclarationRegexIncludesCompatibilityContracts(Regex declarationRegex)
 {
-    const string compatibilityProbe = "public sealed record RegistrySearchItem(string Id);";
-    Match match = declarationRegex.Match(compatibilityProbe);
-    Assert(match.Success && string.Equals(match.Groups["typeName"].Value, "RegistrySearchItem", StringComparison.Ordinal),
+    const string registryProbe = "public sealed record RegistrySearchItem(string Id);";
+    Match registryMatch = declarationRegex.Match(registryProbe);
+    Assert(registryMatch.Success && string.Equals(registryMatch.Groups["typeName"].Value, "RegistrySearchItem", StringComparison.Ordinal),
         "Registry ownership gate must include compatibility contract DTO declarations.");
+
+    const string publicationProbe = "public sealed record PublicationRecordResponse(string PublicationId);";
+    Match publicationMatch = declarationRegex.Match(publicationProbe);
+    Assert(publicationMatch.Success && string.Equals(publicationMatch.Groups["typeName"].Value, "PublicationRecordResponse", StringComparison.Ordinal),
+        "Registry ownership gate must include publication compatibility DTO declarations.");
+
+    const string observabilityProbe = "public sealed record PipelineProjectionEnvelope(string Id);";
+    Match observabilityMatch = declarationRegex.Match(observabilityProbe);
+    Assert(observabilityMatch.Success && string.Equals(observabilityMatch.Groups["typeName"].Value, "PipelineProjectionEnvelope", StringComparison.Ordinal),
+        "Registry ownership gate must include observability compatibility DTO declarations.");
+}
+
+static void VerifySeededCompatibilitySourceOwnershipViolationsAreDetected(Regex declarationRegex)
+{
+    const string seededSource = """
+        public sealed record PublicationRecordResponse(string PublicationId);
+        public sealed record PipelineProjectionEnvelope(string Id);
+        """;
+    List<string> violations = [];
+    AddSourceOwnershipViolations("seeded-compatibility.cs", seededSource, declarationRegex, violations);
+    Assert(
+        violations.Any(entry => entry.Contains("PublicationRecordResponse", StringComparison.Ordinal)),
+        "Registry ownership gate must detect publication compatibility DTO source-ownership violations.");
+    Assert(
+        violations.Any(entry => entry.Contains("PipelineProjectionEnvelope", StringComparison.Ordinal)),
+        "Registry ownership gate must detect observability compatibility DTO source-ownership violations.");
+}
+
+static void AddSourceOwnershipViolations(
+    string relativePath,
+    string source,
+    Regex declarationRegex,
+    ICollection<string> violations)
+{
+    MatchCollection matches = declarationRegex.Matches(source);
+    if (matches.Count == 0)
+    {
+        return;
+    }
+
+    foreach (Match match in matches)
+    {
+        string typeName = match.Groups["typeName"].Value;
+        violations.Add($"{relativePath}: source-owns {typeName}");
+    }
 }
 
 static string NormalizeTypeNameForSourceMatch(string typeName)
@@ -239,9 +288,11 @@ static string NormalizeTypeNameForSourceMatch(string typeName)
 }
 
 static bool IsRegistryOwnedContractNamespace(string? typeNamespace) =>
-    string.Equals(typeNamespace, "Chummer.Hub.Registry.Contracts", StringComparison.Ordinal)
-    || string.Equals(typeNamespace, "Chummer.Run.Contracts.Registry", StringComparison.Ordinal)
-    || string.Equals(typeNamespace, "Chummer.Contracts.Hub", StringComparison.Ordinal);
+    !string.IsNullOrWhiteSpace(typeNamespace)
+    && (string.Equals(typeNamespace, "Chummer.Hub.Registry.Contracts", StringComparison.Ordinal)
+        || string.Equals(typeNamespace, "Chummer.Contracts.Hub", StringComparison.Ordinal)
+        || string.Equals(typeNamespace, "Chummer.Run.Contracts", StringComparison.Ordinal)
+        || typeNamespace.StartsWith("Chummer.Run.Contracts.", StringComparison.Ordinal));
 
 static void VerifyForbiddenOrchestrationTermsAreNotExposedByRegistryContracts()
 {
@@ -261,6 +312,7 @@ static void VerifyForbiddenOrchestrationTermsAreNotExposedByRegistryContracts()
         .Where(type => IsRegistryOwnedContractNamespace(type.Namespace))
         .Where(type => !type.IsNested)
         .ToArray();
+    VerifyForbiddenTermScopeIncludesCompatibilityNamespaces(contractTypes);
 
     List<string> violations = [];
     foreach (Type type in contractTypes)
@@ -309,6 +361,16 @@ static void VerifyForbiddenOrchestrationTermsAreNotExposedByRegistryContracts()
     Assert(
         violations.Count == 0,
         $"Registry contracts must exclude AI gateway, Spider, session relay, and media rendering seams. Violations: {string.Join("; ", violations)}");
+}
+
+static void VerifyForbiddenTermScopeIncludesCompatibilityNamespaces(IReadOnlyCollection<Type> contractTypes)
+{
+    Assert(
+        contractTypes.Any(type => string.Equals(type.Name, "PublicationRecordResponse", StringComparison.Ordinal)),
+        "Forbidden-term gate must include publication compatibility contract namespaces.");
+    Assert(
+        contractTypes.Any(type => string.Equals(type.Name, "PipelineProjectionEnvelope", StringComparison.Ordinal)),
+        "Forbidden-term gate must include observability compatibility contract namespaces.");
 }
 
 static void AddForbiddenTermViolationIfAny(
