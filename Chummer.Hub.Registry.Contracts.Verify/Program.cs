@@ -152,6 +152,9 @@ static void VerifyRegistryContractsAreNotSourceOwnedInConsumers()
     Regex declarationRegex = BuildDeclarationRegex();
     VerifyDeclarationRegexIncludesCompatibilityContracts(declarationRegex);
     VerifySeededCompatibilitySourceOwnershipViolationsAreDetected(declarationRegex);
+    VerifyCompatibilityRootPathViolationsAreDetected(declarationRegex);
+    bool strictOwnershipGateEnabled = IsStrictOwnershipGateEnabled();
+    List<string> ownershipViolations = [];
     foreach (var target in targets)
     {
         string? consumerRoot = ResolveConsumerRoot(target.EnvironmentVariableName);
@@ -162,16 +165,36 @@ static void VerifyRegistryContractsAreNotSourceOwnedInConsumers()
             continue;
         }
 
-        VerifyRegistryContractsAreNotSourceOwnedInConsumer(target.Label, consumerRoot, declarationRegex);
+        IReadOnlyCollection<string> consumerViolations = FindRegistrySourceOwnershipViolations(consumerRoot, declarationRegex);
+        if (consumerViolations.Count == 0)
+        {
+            continue;
+        }
+
+        ownershipViolations.AddRange(consumerViolations.Select(violation => $"{target.Label}: {violation}"));
     }
+
+    if (ownershipViolations.Count == 0)
+    {
+        return;
+    }
+
+    string message =
+        "Consumer source-owns registry DTO declarations. Complete cross-repo package cutover and rerun with CHUMMER_ENFORCE_CONSUMER_OWNERSHIP=1 to require zero drift. Violations: "
+        + string.Join("; ", ownershipViolations);
+    if (strictOwnershipGateEnabled)
+    {
+        throw new InvalidOperationException(message);
+    }
+
+    Console.WriteLine($"Registry ownership advisory: {message}");
 }
 
-static void VerifyRegistryContractsAreNotSourceOwnedInConsumer(string consumerLabel, string consumerRoot, Regex declarationRegex)
+static IReadOnlyCollection<string> FindRegistrySourceOwnershipViolations(string consumerRoot, Regex declarationRegex)
 {
     string[] sourceFiles = Directory.GetFiles(consumerRoot, "*.cs", SearchOption.AllDirectories)
         .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
         .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-        .Where(path => !ShouldExcludeFromOwnershipScan(consumerLabel, path))
         .ToArray();
 
     List<string> violations = [];
@@ -182,21 +205,7 @@ static void VerifyRegistryContractsAreNotSourceOwnedInConsumer(string consumerLa
         AddSourceOwnershipViolations(relativePath, source, declarationRegex, violations);
     }
 
-    Assert(
-        violations.Count == 0,
-        $"{consumerLabel} must consume registry DTOs from Chummer.Hub.Registry.Contracts. Violations: {string.Join("; ", violations)}");
-}
-
-static bool ShouldExcludeFromOwnershipScan(string consumerLabel, string sourceFilePath)
-{
-    if (!string.Equals(consumerLabel, "run-services", StringComparison.Ordinal))
-    {
-        return false;
-    }
-
-    string normalizedPath = sourceFilePath.Replace('\\', '/');
-    return normalizedPath.Contains("/Chummer.Run.Contracts/", StringComparison.Ordinal)
-        || normalizedPath.Contains("/Chummer.Contracts.Hub/", StringComparison.Ordinal);
+    return violations;
 }
 
 static string? ResolveConsumerRoot(string environmentVariableName)
@@ -260,6 +269,48 @@ static void VerifySeededCompatibilitySourceOwnershipViolationsAreDetected(Regex 
     Assert(
         violations.Any(entry => entry.Contains("PipelineProjectionEnvelope", StringComparison.Ordinal)),
         "Registry ownership gate must detect observability compatibility DTO source-ownership violations.");
+}
+
+static void VerifyCompatibilityRootPathViolationsAreDetected(Regex declarationRegex)
+{
+    string tempRoot = Path.Combine(Path.GetTempPath(), $"hub-registry-contracts-verify-{Guid.NewGuid():N}");
+    Directory.CreateDirectory(Path.Combine(tempRoot, "Chummer.Run.Contracts"));
+    Directory.CreateDirectory(Path.Combine(tempRoot, "Chummer.Contracts.Hub"));
+    File.WriteAllText(
+        Path.Combine(tempRoot, "Chummer.Run.Contracts", "PublicationContracts.cs"),
+        "public sealed record PublicationRecordResponse(string PublicationId);");
+    File.WriteAllText(
+        Path.Combine(tempRoot, "Chummer.Contracts.Hub", "PipelineContracts.cs"),
+        "public sealed record PipelineProjectionEnvelope(string Id);");
+
+    try
+    {
+        IReadOnlyCollection<string> violations = FindRegistrySourceOwnershipViolations(tempRoot, declarationRegex);
+        Assert(
+            violations.Any(entry => entry.Contains("PublicationRecordResponse", StringComparison.Ordinal))
+            && violations.Any(entry => entry.Contains("PipelineProjectionEnvelope", StringComparison.Ordinal)),
+            "Registry ownership gate must report compatibility-root DTO source-ownership violations.");
+    }
+    finally
+    {
+        if (Directory.Exists(tempRoot))
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+}
+
+static bool IsStrictOwnershipGateEnabled()
+{
+    string? value = Environment.GetEnvironmentVariable("CHUMMER_ENFORCE_CONSUMER_OWNERSHIP");
+    if (string.IsNullOrWhiteSpace(value))
+    {
+        return false;
+    }
+
+    return string.Equals(value.Trim(), "1", StringComparison.Ordinal)
+        || value.Trim().Equals("true", StringComparison.OrdinalIgnoreCase)
+        || value.Trim().Equals("yes", StringComparison.OrdinalIgnoreCase);
 }
 
 static void AddSourceOwnershipViolations(

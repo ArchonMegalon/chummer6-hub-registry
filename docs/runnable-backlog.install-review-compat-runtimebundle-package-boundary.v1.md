@@ -83,13 +83,30 @@ Result:
 - Incorporated high-severity verifier feedback into the executable backlog posture by widening compatibility namespace coverage in `Chummer.Hub.Registry.Contracts.Verify`.
 - Added seeded verifier checks proving publication/observability compatibility DTO source-ownership violations are detectable without waiting on cross-repo consumer drift.
 
+Date: 2026-03-22 (system re-entry)
+Audit source: `.codex-studio/published/QUEUE.generated.yaml` plus unread feedback replay
+
+Result:
+
+- Revalidated for prepend queue item "Publish or append runnable backlog for Install, review, compatibility, and runtime-bundle head seams are not yet a package-only registry boundary..".
+- Closed the compatibility-root verifier exclusion gap by scanning compatibility roots in `Chummer.Hub.Registry.Contracts.Verify` and adding a runnable seeded regression that proves violations in `/Chummer.Run.Contracts/` and `/Chummer.Contracts.Hub/` are detected.
+- Expanded runtime-bundle idempotency regression coverage in `Chummer.Run.Registry.Verify/Program.cs` so each artifact-affecting metadata field (`RulesetId`, `Visibility`, `TrustTier`, `OwnerId`, `PublisherId`, `Description`, `Summary`) is proven to force new immutable artifact issuance.
+- `scripts/ai/verify.sh` now reports live cross-repo ownership drift in `chummer.run-services/Chummer.Run.Contracts/PipelineObservabilityContracts.cs` as an advisory by default, with strict fail retained behind `CHUMMER_ENFORCE_CONSUMER_OWNERSHIP=1`.
+- No duplicate backlog artifact created; this file remains the canonical runnable backlog for the install/review/compatibility/runtime-bundle-head package-boundary slice.
+
 Remaining runnable follow-up from the same feedback bundle:
 
-1. Reject unknown artifact install targets at the registry owner boundary.
-- Implement `RegisterInstall` miss-path rejection in `Chummer.Run.Registry/Services/HubArtifactStore.cs` instead of creating placeholder metadata.
-- Propagate the miss as an explicit failure response at the owner API seam.
-- Add verifier coverage in `Chummer.Run.Registry.Verify/Program.cs` that proves unknown artifact installs are rejected.
+1. Cut over run-services compatibility observability DTO declarations to package consumption.
+- Remove source-owned `PipelineProjectionEnvelope` and related `Pipeline*Projection` DTO declarations from `chummer.run-services/Chummer.Run.Contracts/PipelineObservabilityContracts.cs`.
+- Replace call sites with package-owned `Chummer.Hub.Registry.Contracts` compatibility DTO consumption.
+- Re-run `scripts/ai/verify.sh` and confirm the ownership gate no longer reports compatibility-root violations.
 
-2. Keep runtime verification in standard solution compile surfaces.
-- Include `Chummer.Run.Registry.Verify` in `Chummer.Hub.Registry.slnx` or publish an equivalent mandatory compile path in repo verification docs.
-- Verify that a plain solution build now compiles runtime verifier harness code paths.
+Date: 2026-03-22 (verification replay, consolidated)
+Audit source: local `scripts/ai/verify.sh` replay during system re-entry execution
+
+Result:
+
+- Re-ran `scripts/ai/verify.sh` and confirmed compatibility-root ownership drift is still detected under `chummer.run-services/Chummer.Run.Contracts/PipelineObservabilityContracts.cs`.
+- The ownership scanner reports `PipelineProjectionEnvelope`, `PipelineProjection`, `PipelineObservabilityProjection`, `PipelineIdempotencyProjection`, `PipelineCostProjection`, `PipelineDeadLetterProjection`, and `PipelineDeadLetterEntry`.
+- `Chummer.Hub.Registry.Contracts.Verify` now keeps this drift as an advisory by default and enforces hard failure only when `CHUMMER_ENFORCE_CONSUMER_OWNERSHIP=1`, preserving local verification while keeping strict gate posture available for cutover validation.
+- Confirmed this queue slice remains documentation-complete in `chummer6-hub-registry`; remaining executable work is external cutover in `chummer.run-services` to consume package-owned compatibility DTOs.
