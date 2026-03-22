@@ -82,3 +82,14 @@ Result:
 
 - Incorporated high-severity verifier feedback into the executable backlog posture by widening compatibility namespace coverage in `Chummer.Hub.Registry.Contracts.Verify`.
 - Added seeded verifier checks proving publication/observability compatibility DTO source-ownership violations are detectable without waiting on cross-repo consumer drift.
+
+Remaining runnable follow-up from the same feedback bundle:
+
+1. Reject unknown artifact install targets at the registry owner boundary.
+- Implement `RegisterInstall` miss-path rejection in `Chummer.Run.Registry/Services/HubArtifactStore.cs` instead of creating placeholder metadata.
+- Propagate the miss as an explicit failure response at the owner API seam.
+- Add verifier coverage in `Chummer.Run.Registry.Verify/Program.cs` that proves unknown artifact installs are rejected.
+
+2. Keep runtime verification in standard solution compile surfaces.
+- Include `Chummer.Run.Registry.Verify` in `Chummer.Hub.Registry.slnx` or publish an equivalent mandatory compile path in repo verification docs.
+- Verify that a plain solution build now compiles runtime verifier harness code paths.

@@ -23,6 +23,7 @@
 - [done] Refresh metadata/publication milestone mapping coverage for 2026-03-13 prepend queue audit (task `487877`) without duplicating already completed scope
 - [done] Refresh metadata/publication runnable backlog publication for 2026-03-13 prepend queue audit (task `487880`) without duplicating already completed scope
 - [done] Refresh install/review/compatibility/runtime-bundle-head runnable backlog publication for 2026-03-21 prepend queue audit (`QUEUE.generated.yaml`) without duplicating already completed scope
+- [done] Append install/review/compatibility/runtime-bundle-head runnable backlog follow-up from 2026-03-22 GitHub review feedback so unresolved owner-boundary install and verifier-compile surface gaps are explicitly queued without duplicating completed scope
 - [done] Refresh moderation/publication runnable backlog publication for 2026-03-21 prepend queue audit (`QUEUE.generated.yaml`) without duplicating already completed scope
 - [done] Refresh moderation/publication milestone mapping publication for 2026-03-21 prepend queue audit (`QUEUE.generated.yaml`) without duplicating already completed scope
 - [done] Sync the approved Chummer design bundle into `hub-registry` under `.codex-design/` and refresh repo-local review context
