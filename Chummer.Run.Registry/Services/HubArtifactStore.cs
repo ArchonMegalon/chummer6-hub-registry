@@ -433,21 +433,7 @@ public sealed class HubArtifactStore : IHubArtifactStore
     {
         if (!_artifacts.TryGetValue(id, out var entry))
         {
-            entry = new HubArtifactInternal
-            {
-                Id = id,
-                Name = "Unknown",
-                Kind = HubArtifactKind.RulePack,
-                Version = "0.0.0",
-                RulesetId = "sr5",
-                Visibility = ArtifactVisibilityModes.Shared,
-                TrustTier = ArtifactTrustTiers.Curated,
-                State = HubArtifactState.Active,
-                CreatedAtUtc = DateTimeOffset.UtcNow,
-                UpdatedAtUtc = DateTimeOffset.UtcNow,
-                LastInstalledAtUtc = installEvent.InstalledAtUtc
-            };
-            _artifacts[id] = entry;
+            throw new KeyNotFoundException($"Artifact '{id}' was not found.");
         }
 
         lock (_sync)

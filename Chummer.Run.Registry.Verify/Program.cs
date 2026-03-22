@@ -11,6 +11,26 @@ HubRegistryController registryController = CreateController(new HubRegistryContr
 PublicationWorkflowService workflow = new();
 PublicationsController publicationsController = CreateController(new PublicationsController(workflow));
 
+var missingInstallEvent = new HubInstallEvent(
+    ArtifactId: "artifact-missing",
+    UserId: "runner.ops",
+    InstalledAtUtc: DateTimeOffset.UtcNow,
+    ActiveRuntimeRef: false);
+
+ActionResult<HubArtifactIdentifier> missingInstallResponse = registryController.RegisterInstall("artifact-missing", missingInstallEvent);
+Assert(missingInstallResponse.Result is NotFoundResult, "Install registration should reject unknown artifact ids through the controller seam.");
+
+var missingInstallStoreRejected = false;
+try
+{
+    store.RegisterInstall("artifact-missing", missingInstallEvent);
+}
+catch (KeyNotFoundException)
+{
+    missingInstallStoreRejected = true;
+}
+Assert(missingInstallStoreRejected, "Install registration should reject unknown artifact ids at the store seam.");
+
 HubArtifactMetadata artifact = RequireCreated(registryController.CreateArtifact(new HubArtifactCreateRequest(
     Name: "Seattle Shadow Ledger",
     Kind: HubArtifactKind.RulePack,
