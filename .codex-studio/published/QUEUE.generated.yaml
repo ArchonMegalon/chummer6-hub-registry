@@ -1,0 +1,10 @@
+mode: prepend
+items:
+- Publish or append runnable backlog for Moderation and publication projections still need explicit registry-owned read models..
+- Add milestone mapping or executable queue work for Moderation and publication projections still need explicit registry-owned read models..
+- Publish or append runnable backlog for Install, review, compatibility, and runtime-bundle head seams are not yet a package-only registry boundary..
+- Add milestone mapping or executable queue work for Install, review, compatibility, and runtime-bundle head seams are not yet a package-only registry boundary..
+- Finish milestone coverage modeling for hub-registry so ETA and completion truth are no longer partial.
+- Publish or append runnable backlog for The scaffold repo exists, but immutable artifact metadata and publication state are still effectively owned in run-services..
+- Add milestone mapping or executable queue work for The scaffold repo exists, but immutable artifact metadata and publication state are still effectively owned in run-services..
+- Sync the approved Chummer design bundle into `hub-registry` under `.codex-design/` and refresh repo-local review context.

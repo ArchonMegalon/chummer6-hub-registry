@@ -44,3 +44,9 @@ git/
 /.artifacts/
 /scripts/ai/logs/
 /*.log
+!/.codex-studio/
+!/.codex-studio/published/
+!/.codex-studio/published/QUEUE.generated.yaml
+!/.codex-studio/published/WORKPACKAGES.generated.yaml
+!/.codex-studio/published/RELEASE_CHANNEL.generated.json
+!/.codex-studio/published/releases.json

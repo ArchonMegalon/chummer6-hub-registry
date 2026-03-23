@@ -9,6 +9,8 @@ VerifySealedRecord(typeof(HubArtifactMetadata));
 VerifySealedRecord(typeof(HubPublishDraftReceipt));
 VerifySealedRecord(typeof(HubModerationCaseRecord));
 VerifySealedRecord(typeof(RuntimeBundleHeadProjection));
+VerifySealedRecord(typeof(ReleaseChannelArtifact));
+VerifySealedRecord(typeof(ReleaseChannelHeadProjection));
 
 Assert(HubPublicationOperations.SubmitProject == "submit-project", "Publication operation constants must match the existing workflow vocabulary.");
 Assert(HubModerationStates.PendingReview == "pending-review", "Moderation states must preserve pending-review.");
@@ -16,6 +18,8 @@ Assert(ArtifactInstallStates.Pinned == "pinned", "Install state constants must p
 Assert(ArtifactCompatibilityStates.CompatibleWithWarnings == "compatible-with-warnings", "Compatibility states must preserve warning vocabulary.");
 Assert(Enum.GetNames<HubArtifactKind>().Contains(nameof(HubArtifactKind.RuntimeBundle)), "Artifact kinds must include RuntimeBundle.");
 Assert(Enum.GetNames<RuntimeBundleHeadKind>().SequenceEqual(["Session", "Mobile", "Offline"]), "Runtime bundle heads must stay Session/Mobile/Offline.");
+Assert(ReleaseChannelStatuses.Published == "published", "Release channel statuses must preserve published.");
+Assert(ReleaseArtifactKinds.Installer == "installer", "Release artifact kinds must preserve installer.");
 
 ArtifactInstallState install = new(
     State: ArtifactInstallStates.Pinned,
@@ -104,6 +108,40 @@ RuntimeBundleHeadProjection head = new(
     IssuedAtUtc: DateTimeOffset.UnixEpoch,
     PreviousArtifactId: null);
 
+ReleaseChannelArtifact releaseArtifact = new(
+    ArtifactId: "avalonia-win-x64-installer",
+    Head: "avalonia",
+    Platform: "windows",
+    Arch: "x64",
+    Kind: ReleaseArtifactKinds.Installer,
+    FileName: "chummer-avalonia-win-x64-installer.exe",
+    DownloadUrl: "/downloads/files/chummer-avalonia-win-x64-installer.exe",
+    Sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+    SizeBytes: 4096,
+    PlatformLabel: "Avalonia Desktop Windows X64 Installer",
+    UpdateFeedUrl: "/downloads/updates/preview.json",
+    EmbeddedRuntimeBundleHeadId: "runtime-head-preview-sr5",
+    CompatibilityState: ArtifactCompatibilityStates.Compatible);
+
+ReleaseChannelHeadProjection releaseChannel = new(
+    Product: "chummer6",
+    ChannelId: "preview",
+    Version: "2026.03.23-preview.1",
+    PublishedAtUtc: DateTimeOffset.UnixEpoch,
+    Status: ReleaseChannelStatuses.Published,
+    ArtifactSource: "ui_desktop_bundle",
+    Artifacts: [releaseArtifact],
+    RuntimeBundleHeads:
+    [
+        new ReleaseRuntimeBundleHeadReference(
+            HeadId: "runtime-head-preview-sr5",
+            HeadKind: "session",
+            RulesetId: "sr5",
+            SourceBundleVersion: "2026.03.23-core.1",
+            ProjectionFingerprint: "sha256:runtime",
+            CompatibilityState: ArtifactCompatibilityStates.Compatible)
+    ]);
+
 HubPublicationResult<RuntimeBundleHeadProjection> implemented = HubPublicationResult<RuntimeBundleHeadProjection>.Implemented(head);
 Assert(implemented.IsImplemented, "Implemented result wrappers must report IsImplemented.");
 Assert(implemented.Payload == head, "Implemented result wrappers must preserve payloads.");
@@ -111,6 +149,9 @@ Assert(installCompatibilityProjection.Compatibility.InstallAllowed, "Install com
 Assert(
     installCompatibilityProjection.Compatibility.CompatibilityState == ArtifactCompatibilityStates.Compatible,
     "Install compatibility projections must preserve compatibility state.");
+Assert(releaseChannel.Artifacts.Count == 1, "Release channel projections must retain artifacts.");
+Assert(string.Equals(releaseChannel.Artifacts[0].EmbeddedRuntimeBundleHeadId, "runtime-head-preview-sr5", StringComparison.Ordinal),
+    "Release channel projections must retain embedded runtime bundle references.");
 
 HubPublicationResult<RuntimeBundleHeadProjection> notImplemented = HubPublicationResult<RuntimeBundleHeadProjection>.FromNotImplemented(
     new HubPublicationNotImplementedReceipt("not-implemented", HubPublicationOperations.ListModerationQueue, "queued"));
@@ -179,15 +220,19 @@ static void VerifyRegistryContractsAreNotSourceOwnedInConsumers()
         return;
     }
 
-    string message =
-        "Consumer source-owns registry DTO declarations. Complete cross-repo package cutover and rerun with CHUMMER_ENFORCE_CONSUMER_OWNERSHIP=1 to require zero drift. Violations: "
-        + string.Join("; ", ownershipViolations);
+    string violations = string.Join("; ", ownershipViolations);
+    string strictMessage =
+        "Consumer source-owns registry DTO declarations. Complete cross-repo package cutover so zero ownership drift remains. Violations: "
+        + violations;
     if (strictOwnershipGateEnabled)
     {
-        throw new InvalidOperationException(message);
+        throw new InvalidOperationException(strictMessage);
     }
 
-    Console.WriteLine($"Registry ownership advisory: {message}");
+    Console.WriteLine(
+        "Registry ownership advisory: "
+        + strictMessage
+        + " Rerun with CHUMMER_ENFORCE_CONSUMER_OWNERSHIP=1 to enforce this as a hard gate.");
 }
 
 static IReadOnlyCollection<string> FindRegistrySourceOwnershipViolations(string consumerRoot, Regex declarationRegex)
@@ -342,6 +387,7 @@ static bool IsRegistryOwnedContractNamespace(string? typeNamespace) =>
     !string.IsNullOrWhiteSpace(typeNamespace)
     && (string.Equals(typeNamespace, "Chummer.Hub.Registry.Contracts", StringComparison.Ordinal)
         || string.Equals(typeNamespace, "Chummer.Contracts.Hub", StringComparison.Ordinal)
+        || typeNamespace.StartsWith("Chummer.Contracts.Hub.", StringComparison.Ordinal)
         || string.Equals(typeNamespace, "Chummer.Run.Contracts", StringComparison.Ordinal)
         || typeNamespace.StartsWith("Chummer.Run.Contracts.", StringComparison.Ordinal));
 

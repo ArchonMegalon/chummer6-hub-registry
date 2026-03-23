@@ -6,7 +6,9 @@ This repo owns:
 
 - immutable artifact metadata and lifecycle state
 - publication draft and moderation workflow contracts
+- release-channel truth and promoted channel heads
 - install state, install-history records, and compatibility projections
+- updater-feed metadata and public release-channel projections
 - runtime-stack issuance and head projections
 - the hosted registry service that applies those contracts at runtime
 
@@ -31,6 +33,7 @@ This boundary explicitly excludes:
 - `Chummer.Run.Registry` for runtime registry/publication service ownership
 
 The consumer migration map for that split is tracked in [docs/downstream-consumers.v1.md](docs/downstream-consumers.v1.md).
+The release/install/update split for desktop heads is tracked in [docs/RELEASE_CHANNEL_PIPELINE.md](docs/RELEASE_CHANNEL_PIPELINE.md).
 
 ## Current maturity note
 
