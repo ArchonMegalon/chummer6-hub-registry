@@ -100,6 +100,7 @@ def row_from_file(path: Path, *, downloads_prefix: str) -> dict[str, Any] | None
         "updateFeedUrl": None,
         "embeddedRuntimeBundleHeadId": None,
         "compatibilityState": None,
+        "installAccessClass": "open_public",
     }
 
 
@@ -142,6 +143,7 @@ def parse_download_row(item: dict[str, Any]) -> dict[str, Any]:
         "updateFeedUrl": item.get("updateFeedUrl"),
         "embeddedRuntimeBundleHeadId": item.get("embeddedRuntimeBundleHeadId"),
         "compatibilityState": item.get("compatibilityState"),
+        "installAccessClass": str(item.get("installAccessClass") or item.get("accessClass") or "open_public").strip() or "open_public",
     }
 
 

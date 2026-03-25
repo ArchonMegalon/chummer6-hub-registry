@@ -39,7 +39,8 @@ public sealed record ReleaseChannelArtifact(
     string? PlatformLabel = null,
     string? UpdateFeedUrl = null,
     string? EmbeddedRuntimeBundleHeadId = null,
-    string? CompatibilityState = null);
+    string? CompatibilityState = null,
+    string? InstallAccessClass = null);
 
 public sealed record ReleaseChannelHeadProjection(
     string Product,

@@ -121,7 +121,8 @@ ReleaseChannelArtifact releaseArtifact = new(
     PlatformLabel: "Avalonia Desktop Windows X64 Installer",
     UpdateFeedUrl: "/downloads/updates/preview.json",
     EmbeddedRuntimeBundleHeadId: "runtime-head-preview-sr5",
-    CompatibilityState: ArtifactCompatibilityStates.Compatible);
+    CompatibilityState: ArtifactCompatibilityStates.Compatible,
+    InstallAccessClass: "open_public");
 
 ReleaseChannelHeadProjection releaseChannel = new(
     Product: "chummer6",
@@ -152,6 +153,8 @@ Assert(
 Assert(releaseChannel.Artifacts.Count == 1, "Release channel projections must retain artifacts.");
 Assert(string.Equals(releaseChannel.Artifacts[0].EmbeddedRuntimeBundleHeadId, "runtime-head-preview-sr5", StringComparison.Ordinal),
     "Release channel projections must retain embedded runtime bundle references.");
+Assert(string.Equals(releaseChannel.Artifacts[0].InstallAccessClass, "open_public", StringComparison.Ordinal),
+    "Release channel projections must retain install access posture.");
 
 HubPublicationResult<RuntimeBundleHeadProjection> notImplemented = HubPublicationResult<RuntimeBundleHeadProjection>.FromNotImplemented(
     new HubPublicationNotImplementedReceipt("not-implemented", HubPublicationOperations.ListModerationQueue, "queued"));
