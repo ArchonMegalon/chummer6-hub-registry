@@ -25,9 +25,14 @@ The landing surface must let a normal person understand, in one visit:
 * Provider names and LTD names are implementation details and must not be named on the landing page.
 * Empty placeholder boxes are forbidden.
 * If a feature is not live, the card must still explain what is coming and why it matters.
+* Public guest chrome must expose `Sign in` plus one primary acquisition action.
+* Public cards must not self-link back to the same route unless they are explicitly marked as non-clickable teasers.
+* External exits must be explicit and labeled as fallbacks or guide links, not disguised as first-party defaults.
 * Landing meaning must compile from design-owned manifest and registry data rather than hub-local improvisation.
+* Public maturity, install, and update language must stay converged across `chummer.run`, `Chummer6`, and any linked release repo README or guide page.
 * Public status is advisory and explanatory; it does not overrule canonical design truth.
 * Provider names may appear only on dedicated auth and account-security surfaces, not on the landing hero or proof cards.
+* Download-facing copy and CTA labels must follow `PUBLIC_DOWNLOADS_POLICY.md` and `PUBLIC_AUTO_UPDATE_POLICY.md`.
 
 ## Surface split
 
@@ -35,6 +40,7 @@ The landing surface must let a normal person understand, in one visit:
 
 * homepage / product front door
 * public proof shelf
+* public progress report
 * current-state summary
 * coming-next summary
 * participate entry route
@@ -58,6 +64,7 @@ Public visitors may access:
 * `/now`
 * `/horizons`
 * `/downloads`
+* `/progress`
 * `/participate`
 * `/status`
 * `/artifacts`
@@ -68,19 +75,30 @@ Registered overlays may unlock:
 * `/account`
 * horizon follows or watchlists
 * beta-interest and waitlist state
-* participation / booster state
+* participation / guided-contribution state
 * future vote placeholders
 
-The POC may keep registered overlays thin, but the split must be visible and canonical.
+The early-access shell may keep registered overlays thin, but the split must be visible and canonical.
 
 ## CTA rule
 
 The landing page must always provide at least these public actions:
 
-* see what is real now
-* get the POC
+* one primary acquisition action such as `Get preview build` or `Request early access`
+* one proof action such as `See what works today`
 * participate / help
-* sign in to follow what is coming
+* sign in
+
+## Flow rule
+
+The landing page should read in this order:
+
+* value
+* proof
+* fit
+* access
+
+It should not read like a route index.
 
 ## Proof rule
 
@@ -92,14 +110,17 @@ Allowed proof surfaces include:
 * release shelf entries
 * public featured artifacts
 * public status summaries
-* grounded horizon cards that clearly say `horizon`, `preview`, `POC`, or `available today`
+* grounded horizon cards that clearly say `horizon`, `preview`, `guided preview`, or `available today`
+
+The release shelf should feel like an install-and-update shelf first and an archive list second.
+It must present one obvious recommended default per platform before exposing advanced alternatives.
 
 ## Participation wording
 
 Use public language such as:
 
 * participate
-* booster
+* guided contribution
 * temporary help lane
 
 Do not lead with operator terms like:
@@ -107,6 +128,9 @@ Do not lead with operator terms like:
 * participant burst lane
 * jury lane
 * worker topology
+* Fleet
+* device-code auth
+* worker host
 
 Those terms may appear only in deeper explainer surfaces where they are necessary.
 

@@ -57,3 +57,10 @@ Done:
 - ordered backlog items 1-5 complete
 - `scripts/ai/verify.sh` passes
 - no boundary violations introduced versus `.codex-design/repo/IMPLEMENTATION_SCOPE.md`
+
+## Queue Audit Refreshes
+
+- 2026-03-21: Revalidated for prepend queue item "Publish or append runnable backlog for Moderation and publication projections still need explicit registry-owned read models.."; no backlog duplication required because this runnable backlog and linked completion evidence already exist.
+- Audit sources: `.codex-studio/published/QUEUE.generated.yaml`, `feedback/2026-03-10-public-repo-graph-audit.md`
+- 2026-03-23: Revalidated on `/fast` system re-entry for queue item "Publish or append runnable backlog for Moderation and publication projections still need explicit registry-owned read models.."; canonical runnable backlog remains current and no append beyond audit evidence is required.
+- Audit sources: `.codex-studio/published/QUEUE.generated.yaml`, `feedback/2026-03-10-public-repo-graph-audit.md`, `feedback/2026-03-21-github-review-pr.md`, `feedback/2026-03-22-github-review-pr.md`

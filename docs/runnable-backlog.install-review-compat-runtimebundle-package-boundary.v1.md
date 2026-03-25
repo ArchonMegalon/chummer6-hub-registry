@@ -91,7 +91,7 @@ Result:
 - Revalidated for prepend queue item "Publish or append runnable backlog for Install, review, compatibility, and runtime-bundle head seams are not yet a package-only registry boundary..".
 - Closed the compatibility-root verifier exclusion gap by scanning compatibility roots in `Chummer.Hub.Registry.Contracts.Verify` and adding a runnable seeded regression that proves violations in `/Chummer.Run.Contracts/` and `/Chummer.Contracts.Hub/` are detected.
 - Expanded runtime-bundle idempotency regression coverage in `Chummer.Run.Registry.Verify/Program.cs` so each artifact-affecting metadata field (`RulesetId`, `Visibility`, `TrustTier`, `OwnerId`, `PublisherId`, `Description`, `Summary`) is proven to force new immutable artifact issuance.
-- `scripts/ai/verify.sh` now reports live cross-repo ownership drift in `chummer.run-services/Chummer.Run.Contracts/PipelineObservabilityContracts.cs` as an advisory by default, with strict fail retained behind `CHUMMER_ENFORCE_CONSUMER_OWNERSHIP=1`.
+- `scripts/ai/verify.sh` now enables strict ownership enforcement by default (`CHUMMER_ENFORCE_CONSUMER_OWNERSHIP=1`), so live cross-repo ownership drift in `chummer.run-services/Chummer.Run.Contracts/PipelineObservabilityContracts.cs` fails the default verification path.
 - No duplicate backlog artifact created; this file remains the canonical runnable backlog for the install/review/compatibility/runtime-bundle-head package-boundary slice.
 
 Remaining runnable follow-up from the same feedback bundle:
@@ -101,12 +101,24 @@ Remaining runnable follow-up from the same feedback bundle:
 - Replace call sites with package-owned `Chummer.Hub.Registry.Contracts` compatibility DTO consumption.
 - Re-run `scripts/ai/verify.sh` and confirm the ownership gate no longer reports compatibility-root violations.
 
-Date: 2026-03-22 (verification replay, consolidated)
-Audit source: local `scripts/ai/verify.sh` replay during system re-entry execution
+Date: 2026-03-22 (`/fast` system re-entry replay, deduplicated current-run evidence)
+Audit source: required disk/context/feedback reload set, `.codex-studio/published/QUEUE.generated.yaml`, unread feedback files in order (`feedback/2026-03-21-github-review-pr.md`, `feedback/2026-03-22-github-review-pr.md`), `./scripts/ai/verify.sh`, direct `Chummer.Run.Registry.Verify`, and advisory `Chummer.Hub.Registry.Contracts.Verify` with `CHUMMER_RUN_SERVICES_ROOT=/docker/chummercomplete/chummer.run-services` plus `CHUMMER_PRESENTATION_ROOT=/docker/chummercomplete/chummer-presentation`
 
 Result:
 
-- Re-ran `scripts/ai/verify.sh` and confirmed compatibility-root ownership drift is still detected under `chummer.run-services/Chummer.Run.Contracts/PipelineObservabilityContracts.cs`.
-- The ownership scanner reports `PipelineProjectionEnvelope`, `PipelineProjection`, `PipelineObservabilityProjection`, `PipelineIdempotencyProjection`, `PipelineCostProjection`, `PipelineDeadLetterProjection`, and `PipelineDeadLetterEntry`.
-- `Chummer.Hub.Registry.Contracts.Verify` now keeps this drift as an advisory by default and enforces hard failure only when `CHUMMER_ENFORCE_CONSUMER_OWNERSHIP=1`, preserving local verification while keeping strict gate posture available for cutover validation.
-- Confirmed this queue slice remains documentation-complete in `chummer6-hub-registry`; remaining executable work is external cutover in `chummer.run-services` to consume package-owned compatibility DTOs.
+- Revalidated this file as the canonical runnable backlog artifact for queue item "Publish or append runnable backlog for Install, review, compatibility, and runtime-bundle head seams are not yet a package-only registry boundary.." and removed duplicate re-entry append noise.
+- Re-ran `./scripts/ai/verify.sh`; it fails by default strict ownership enforcement (`verify_exit=134`) only on downstream `chummer.run-services/Chummer.Run.Contracts/PipelineObservabilityContracts.cs` source-owned compatibility DTO declarations (`PipelineProjectionEnvelope`, `PipelineProjection`, `PipelineObservabilityProjection`, `PipelineIdempotencyProjection`, `PipelineCostProjection`, `PipelineDeadLetterProjection`, `PipelineDeadLetterEntry`).
+- Re-ran `dotnet run --project Chummer.Run.Registry.Verify/Chummer.Run.Registry.Verify.csproj -v q`; in-repo runtime verification remains green (`Registry runtime verification passed.`).
+- Re-ran advisory contracts verification with consumer-root wiring (`CHUMMER_ENFORCE_CONSUMER_OWNERSHIP=0`) and confirmed the same downstream ownership drift is reported as advisory only.
+- Blocker remains external to this repository boundary: downstream `chummer.run-services` must complete observability compatibility DTO package cutover before strict default verification can pass.
+
+Date: 2026-03-23 (`/fast` system re-entry replay, cross-repo-contract lane)
+Audit source: required disk/context reload set, unread feedback replay in order (`feedback/2026-03-21-github-review-pr.md`, `feedback/2026-03-22-github-review-pr.md`), `./scripts/ai/verify.sh`, direct `Chummer.Run.Registry.Verify`, advisory `Chummer.Hub.Registry.Contracts.Verify` with explicit consumer-root wiring
+
+Result:
+
+- Revalidated this file as the canonical runnable backlog artifact for queue item "Publish or append runnable backlog for Install, review, compatibility, and runtime-bundle head seams are not yet a package-only registry boundary.." without producing a duplicate backlog document.
+- Re-ran `./scripts/ai/verify.sh`; strict default ownership gate still fails (`verify_exit=134`) only on downstream `chummer.run-services/Chummer.Run.Contracts/PipelineObservabilityContracts.cs` source-owned compatibility DTO declarations (`PipelineProjectionEnvelope`, `PipelineProjection`, `PipelineObservabilityProjection`, `PipelineIdempotencyProjection`, `PipelineCostProjection`, `PipelineDeadLetterProjection`, `PipelineDeadLetterEntry`).
+- Re-ran `dotnet run --project Chummer.Run.Registry.Verify/Chummer.Run.Registry.Verify.csproj -v q`; in-repo runtime verification remains green (`Registry runtime verification passed.`).
+- Re-ran advisory contracts verification with `CHUMMER_ENFORCE_CONSUMER_OWNERSHIP=0`, `CHUMMER_RUN_SERVICES_ROOT=/docker/chummercomplete/chummer.run-services`, and `CHUMMER_PRESENTATION_ROOT=/docker/chummercomplete/chummer-presentation`; advisory drift remains unchanged and scoped to the same downstream run-services compatibility DTO ownership set.
+- Blocker remains external to this repository boundary: downstream `chummer.run-services` must complete compatibility observability DTO package cutover before strict default verification can pass.

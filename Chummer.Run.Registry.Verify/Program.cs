@@ -181,7 +181,7 @@ RuntimeBundleIssueResponse compatibilityShiftIssue = RequireCreated(registryCont
     Description: "Runtime bundle head drill",
     Summary: "Registry runtime-bundle drill")));
 
-RuntimeBundleIssueResponse metadataShiftIssue = RequireCreated(registryController.IssueRuntimeBundle(new RuntimeBundleIssueRequest(
+RuntimeBundleIssueRequest metadataBaselineRequest = new(
     SessionId: "session-registry",
     SceneId: "scene-redmond",
     Head: RuntimeBundleHeadKind.Session,
@@ -196,25 +196,58 @@ RuntimeBundleIssueResponse metadataShiftIssue = RequireCreated(registryControlle
     SupportedExchangeFormats: ["foundry-vtt.scene-ledger.v1", "chummer.runtime-delta.v1"],
     RequestedBy: "gm.ops+compat",
     OwnerId: "ops.registry",
-    RulesetId: "sr6a",
+    RulesetId: "sr6",
     Visibility: ArtifactVisibilityModes.Shared,
     TrustTier: ArtifactTrustTiers.Curated,
     PublisherId: "pub.shadowops",
     Description: "Runtime bundle head drill",
-    Summary: "Registry runtime-bundle drill")));
+    Summary: "Registry runtime-bundle drill");
 
 Assert(firstIssue.CreatedNewArtifact, "First runtime-bundle issue should create a new artifact.");
 Assert(!replayIssue.CreatedNewArtifact, "Second identical runtime-bundle issue should replay idempotently.");
 Assert(compatibilityShiftIssue.CreatedNewArtifact, "Changed compatibility payload should force new runtime-bundle issuance.");
 Assert(!string.Equals(firstIssue.Artifact.Id, compatibilityShiftIssue.Artifact.Id, StringComparison.Ordinal), "Changed compatibility payload should produce a new immutable artifact id.");
-Assert(metadataShiftIssue.CreatedNewArtifact, "Changed runtime-bundle metadata should force new runtime-bundle issuance.");
-Assert(!string.Equals(compatibilityShiftIssue.Artifact.Id, metadataShiftIssue.Artifact.Id, StringComparison.Ordinal), "Changed runtime-bundle metadata should produce a new immutable artifact id.");
+
+RuntimeBundleIssueRequest currentMetadataRequest = metadataBaselineRequest;
+RuntimeBundleIssueResponse latestMetadataShiftIssue = compatibilityShiftIssue;
+
+latestMetadataShiftIssue = AssertMetadataFieldShiftForcesNewIssue("RulesetId", currentMetadataRequest with { RulesetId = "sr6a" });
+currentMetadataRequest = currentMetadataRequest with { RulesetId = "sr6a" };
+
+latestMetadataShiftIssue = AssertMetadataFieldShiftForcesNewIssue("Visibility", currentMetadataRequest with { Visibility = ArtifactVisibilityModes.CampaignShared });
+currentMetadataRequest = currentMetadataRequest with { Visibility = ArtifactVisibilityModes.CampaignShared };
+
+latestMetadataShiftIssue = AssertMetadataFieldShiftForcesNewIssue("TrustTier", currentMetadataRequest with { TrustTier = ArtifactTrustTiers.Official });
+currentMetadataRequest = currentMetadataRequest with { TrustTier = ArtifactTrustTiers.Official };
+
+latestMetadataShiftIssue = AssertMetadataFieldShiftForcesNewIssue("OwnerId", currentMetadataRequest with { OwnerId = "ops.registry.alt" });
+currentMetadataRequest = currentMetadataRequest with { OwnerId = "ops.registry.alt" };
+
+latestMetadataShiftIssue = AssertMetadataFieldShiftForcesNewIssue("PublisherId", currentMetadataRequest with { PublisherId = "pub.shadowops.alt" });
+currentMetadataRequest = currentMetadataRequest with { PublisherId = "pub.shadowops.alt" };
+
+latestMetadataShiftIssue = AssertMetadataFieldShiftForcesNewIssue("Description", currentMetadataRequest with { Description = "Runtime bundle head drill (updated description)" });
+currentMetadataRequest = currentMetadataRequest with { Description = "Runtime bundle head drill (updated description)" };
+
+latestMetadataShiftIssue = AssertMetadataFieldShiftForcesNewIssue("Summary", currentMetadataRequest with { Summary = "Registry runtime-bundle drill (updated summary)" });
+
+RuntimeBundleIssueResponse AssertMetadataFieldShiftForcesNewIssue(string fieldLabel, RuntimeBundleIssueRequest shiftedRequest)
+{
+    RuntimeBundleIssueResponse metadataShiftIssue = RequireCreated(registryController.IssueRuntimeBundle(shiftedRequest));
+    Assert(
+        metadataShiftIssue.CreatedNewArtifact,
+        $"Changed runtime-bundle metadata field {fieldLabel} should force new runtime-bundle issuance.");
+    Assert(
+        !string.Equals(latestMetadataShiftIssue.Artifact.Id, metadataShiftIssue.Artifact.Id, StringComparison.Ordinal),
+        $"Changed runtime-bundle metadata field {fieldLabel} should produce a new immutable artifact id.");
+    return metadataShiftIssue;
+}
 
 RuntimeBundleArtifactProjection runtimeBundleArtifact = RequireOk(registryController.GetRuntimeBundleArtifact(firstIssue.Artifact.Id));
 Assert(string.Equals(runtimeBundleArtifact.ArtifactId, firstIssue.Artifact.Id, StringComparison.Ordinal), "Runtime bundle artifact lookup should return the issued artifact.");
 
 RuntimeBundleHeadProjection runtimeHead = RequireOk(registryController.GetRuntimeBundleHead("session-registry", "scene-redmond", RuntimeBundleHeadKind.Session));
-Assert(string.Equals(runtimeHead.CurrentArtifactId, metadataShiftIssue.Artifact.Id, StringComparison.Ordinal), "Runtime bundle head lookup should point at the latest issued artifact.");
+Assert(string.Equals(runtimeHead.CurrentArtifactId, latestMetadataShiftIssue.Artifact.Id, StringComparison.Ordinal), "Runtime bundle head lookup should point at the latest issued artifact.");
 
 RuntimeBundleHeadListResponse runtimeHeads = RequireOk(registryController.GetRuntimeBundleHeads("session-registry", "scene-redmond"));
 Assert(runtimeHeads.Heads.Count == 1, "Runtime bundle head list should return the retained head projections.");
@@ -238,7 +271,7 @@ Assert(restoredArtifact.ReviewCount == 1, "Restored artifact must retain review 
 
 RuntimeBundleHeadProjection? restoredHead = restored.GetRuntimeBundleHead("session-registry", "scene-redmond", RuntimeBundleHeadKind.Session);
 Assert(restoredHead is not null, "Restored store must retain runtime-bundle head projections.");
-Assert(string.Equals(restoredHead!.CurrentArtifactId, metadataShiftIssue.Artifact.Id, StringComparison.Ordinal), "Restored runtime-bundle head must point at the latest issued artifact.");
+Assert(string.Equals(restoredHead!.CurrentArtifactId, latestMetadataShiftIssue.Artifact.Id, StringComparison.Ordinal), "Restored runtime-bundle head must point at the latest issued artifact.");
 
 RuntimeBundleHeadListResponse restoredHeads = restored.GetRuntimeBundleHeads("session-registry", "scene-redmond");
 Assert(restoredHeads.Heads.Count == 1, "Runtime-bundle head list should return the retained head projections.");

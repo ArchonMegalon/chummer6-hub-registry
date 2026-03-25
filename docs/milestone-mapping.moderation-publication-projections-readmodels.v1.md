@@ -35,3 +35,8 @@ Exit criteria addressed by this slice:
 3. Add projection contract mapping appendix from current consumer DTOs to canonical `Chummer.Hub.Registry.Contracts` projection DTOs.
 4. Add verification gates that fail when moderation/publication projection DTOs are source-owned outside `Chummer.Hub.Registry.Contracts`.
 5. Record migration evidence and close this uncovered-scope item when read-model ownership is explicit and enforceable.
+
+## Queue Audit Refreshes
+
+- 2026-03-21: Revalidated for prepend queue item "Add milestone mapping or executable queue work for Moderation and publication projections still need explicit registry-owned read models.."; no milestone-mapping duplication required because this mapping and linked completion evidence already exist.
+- Audit sources: `.codex-studio/published/QUEUE.generated.yaml`, `feedback/2026-03-10-public-repo-graph-audit.md`

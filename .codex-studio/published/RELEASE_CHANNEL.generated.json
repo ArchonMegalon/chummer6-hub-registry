@@ -3,10 +3,27 @@
   "product": "chummer6",
   "channelId": "preview",
   "version": "unpublished",
-  "publishedAt": "2026-03-23T20:38:52Z",
-  "status": "unpublished",
+  "publishedAt": "2026-03-25T15:02:01Z",
+  "status": "published",
   "artifactSource": "ui_desktop_bundle",
   "message": null,
-  "artifacts": [],
+  "artifacts": [
+    {
+      "artifactId": "avalonia-linux-x64-archive",
+      "head": "avalonia",
+      "platform": "linux",
+      "arch": "x64",
+      "kind": "archive",
+      "fileName": "chummer-avalonia-linux-x64.tar.gz",
+      "downloadUrl": "/downloads/files/chummer-avalonia-linux-x64.tar.gz",
+      "sha256": "196d25f2372b01b03f5082377e0895183803d8c2aade043f34c995e2931f31ff",
+      "sizeBytes": 41940379,
+      "platformLabel": "Avalonia Desktop Linux X64",
+      "updateFeedUrl": null,
+      "embeddedRuntimeBundleHeadId": null,
+      "compatibilityState": null,
+      "installAccessClass": "open_public"
+    }
+  ],
   "runtimeBundleHeads": []
 }
