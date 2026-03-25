@@ -264,6 +264,8 @@ cards:
     external_ok: true
     pain: Spatial prep is tedious and scattered.
     payoff: The venue becomes a visible, inspectable run surface.
+    proof_note: "Proof: RUNSITE already has a named horizon, a first-party detail page, and a concrete user payoff instead of a vague teaser."
+    microproof: Named horizon|First-party detail|Inspectable venue prep
   - id: horizon_runbook_press
     bucket: coming_next
     title: RUNBOOK PRESS
@@ -323,6 +325,10 @@ cards:
     asset_slot: release_current_build
     detail_route: /artifacts/current-preview-build
     action_label: Inspect the preview build
+    pain: Early-access products stop feeling real when the current build is vague or hard to verify.
+    payoff: One visible build, one truthful channel label, and one clean install path make the preview feel dependable instead of improvised.
+    proof_note: "Proof: the current preview has a real installer shelf, explicit release posture, and a first-party download path."
+    microproof: Installer shelf|Preview channel|Account-aware handoff
   - id: artifact_rules_receipt
     bucket: featured_artifacts
     title: Explanation receipt trail
