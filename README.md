@@ -8,6 +8,7 @@ This repo owns:
 - publication draft and moderation workflow contracts
 - release-channel truth and promoted channel heads
 - install state, install-history records, and compatibility projections
+- download receipts, claim tickets, claimed-installation records, and installation grants for account-aware install linking
 - updater-feed metadata and public release-channel projections
 - runtime-stack issuance and head projections
 - the hosted registry service that applies those contracts at runtime
@@ -21,7 +22,7 @@ This boundary explicitly excludes:
 
 ## Projects
 
-- `Chummer.Hub.Registry.Contracts`: shared immutable records and stable vocabulary.
+- `Chummer.Hub.Registry.Contracts`: shared immutable records and stable vocabulary, including account-aware install-linking DTOs.
 - `Chummer.Hub.Registry.Contracts.Verify`: no-network verification harness that asserts the extracted surface compiles and preserves key shape guarantees.
 - `Chummer.Run.Registry`: runtime registry/publication service ownership moved out of `chummer6-hub`.
 
@@ -33,7 +34,7 @@ This boundary explicitly excludes:
 - `Chummer.Run.Registry` for runtime registry/publication service ownership
 
 The consumer migration map for that split is tracked in [docs/downstream-consumers.v1.md](docs/downstream-consumers.v1.md).
-The release/install/update split for desktop heads is tracked in [docs/RELEASE_CHANNEL_PIPELINE.md](docs/RELEASE_CHANNEL_PIPELINE.md).
+The release/install/update split for desktop heads plus install-linking truth is tracked in [docs/RELEASE_CHANNEL_PIPELINE.md](docs/RELEASE_CHANNEL_PIPELINE.md).
 
 ## Current maturity note
 
@@ -53,4 +54,4 @@ bash scripts/ai/verify.sh
 Optional downstream ownership gates can be enabled by setting:
 
 - `CHUMMER_RUN_SERVICES_ROOT=/path/to/chummer.run-services`
-- `CHUMMER_PRESENTATION_ROOT=/path/to/chummer6-ui` (or your presentation repo root)
+- `CHUMMER_PRESENTATION_ROOT=/path/to/chummer6-ui`

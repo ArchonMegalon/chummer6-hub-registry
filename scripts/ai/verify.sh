@@ -7,7 +7,8 @@ export NUGET_PACKAGES="${NUGET_PACKAGES:-/tmp/nuget-packages}"
 mkdir -p "$DOTNET_CLI_HOME" "$NUGET_PACKAGES"
 
 default_run_services_root=/docker/chummercomplete/chummer.run-services
-default_presentation_root=/docker/chummercomplete/chummer-presentation
+default_presentation_root=/docker/chummercomplete/chummer6-ui
+legacy_presentation_root=/docker/chummercomplete/chummer-presentation
 
 if [ -z "${CHUMMER_RUN_SERVICES_ROOT:-}" ] && [ -d "$default_run_services_root" ]; then
   export CHUMMER_RUN_SERVICES_ROOT="$default_run_services_root"
@@ -17,13 +18,17 @@ if [ -z "${CHUMMER_PRESENTATION_ROOT:-}" ] && [ -d "$default_presentation_root" 
   export CHUMMER_PRESENTATION_ROOT="$default_presentation_root"
 fi
 
+if [ -z "${CHUMMER_PRESENTATION_ROOT:-}" ] && [ -d "$legacy_presentation_root" ]; then
+  export CHUMMER_PRESENTATION_ROOT="$legacy_presentation_root"
+fi
+
 if [ -z "${CHUMMER_RUN_SERVICES_ROOT:-}" ] || [ ! -d "$CHUMMER_RUN_SERVICES_ROOT" ]; then
   echo "verify gate failed: set CHUMMER_RUN_SERVICES_ROOT to an existing chummer.run-services checkout."
   exit 1
 fi
 
 if [ -z "${CHUMMER_PRESENTATION_ROOT:-}" ] || [ ! -d "$CHUMMER_PRESENTATION_ROOT" ]; then
-  echo "verify gate failed: set CHUMMER_PRESENTATION_ROOT to an existing chummer-presentation checkout."
+  echo "verify gate failed: set CHUMMER_PRESENTATION_ROOT to an existing chummer6-ui checkout."
   exit 1
 fi
 
@@ -44,7 +49,8 @@ test -f /docker/chummercomplete/chummer-hub-registry/docs/REGISTRY_PRODUCT_READM
 test -f /docker/chummercomplete/chummer-hub-registry/docs/RELEASE_CHANNEL_PIPELINE.md
 rg -n 'hub_state_backup_v1|Chummer\.Run\.Registry\.Verify|runtime-bundle head' /docker/chummercomplete/chummer-hub-registry/docs/REGISTRY_RESTORE_RUNBOOK.md >/dev/null
 rg -n 'PublicationsController|PublicationWorkflowService|HubRegistryController|SearchArtifacts|GetPreview|ListProjections|GetInstallProjection|GetRuntimeBundleHeads|GetPipelineProjection|AddReview|GetReviews|ModerationTimeline|ApprovalAuditTrail|docs/help views|operator boards' /docker/chummercomplete/chummer-hub-registry/docs/REGISTRY_PRODUCT_READMODELS.md >/dev/null
-rg -n 'RELEASE_CHANNEL\.generated\.json|releases\.json|chummer6-ui|fleet|chummer6-hub' /docker/chummercomplete/chummer-hub-registry/docs/RELEASE_CHANNEL_PIPELINE.md >/dev/null
+rg -n 'RELEASE_CHANNEL\.generated\.json|releases\.json|claim tickets|claimed-installation|installation grants|download receipts|chummer6-ui|fleet|chummer6-hub' /docker/chummercomplete/chummer-hub-registry/docs/RELEASE_CHANNEL_PIPELINE.md >/dev/null
+rg -n 'account-aware install-linking DTOs|chummer6-ui' /docker/chummercomplete/chummer-hub-registry/README.md /docker/chummercomplete/chummer-hub-registry/Chummer.Hub.Registry.Contracts/PACKAGE_README.md >/dev/null
 dotnet run --project /docker/chummercomplete/chummer-hub-registry/Chummer.Hub.Registry.Contracts.Verify/Chummer.Hub.Registry.Contracts.Verify.csproj
 dotnet run --project /docker/chummercomplete/chummer-hub-registry/Chummer.Run.Registry.Verify/Chummer.Run.Registry.Verify.csproj
 rm -rf /tmp/chummer-hub-registry-release-fixture

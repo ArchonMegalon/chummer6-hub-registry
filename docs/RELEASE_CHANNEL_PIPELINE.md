@@ -1,14 +1,14 @@
 # Release channel pipeline
 
-Purpose: define the registry-owned truth for desktop release channels, installer/update metadata, and the compatibility projection that Hub serves at `/downloads/releases.json`.
+Purpose: define the registry-owned truth for desktop release channels, installer/update metadata, account-aware install-linking records, and the compatibility projection that Hub serves at `/downloads/releases.json`.
 
 ## Canonical ownership
 
 * `chummer6-core` emits runtime-bundle facts and fingerprints.
 * `chummer6-ui` emits desktop bundles and installer-ready artifacts.
 * `fleet` orchestrates the release wave and asks registry tooling to materialize release truth.
-* `chummer6-hub-registry` owns the promoted release-channel record, installer/update metadata, compatibility state, and runtime-bundle references.
-* `chummer6-hub` consumes the registry projection and renders the public downloads/install surface.
+* `chummer6-hub-registry` owns the promoted release-channel record, installer/update metadata, install-linking DTO family, compatibility state, and runtime-bundle references.
+* `chummer6-hub` consumes the registry projection and renders the public downloads/install surface plus account-aware claim and restore guidance.
 
 ## Canonical artifacts
 
@@ -63,3 +63,7 @@ Minimum canonical payload:
 Hub, guide generators, and any public download UX must consume the registry-owned release-channel artifact or its explicit compatibility projection.
 
 They must not mint their own release truth by scanning files and inventing a new manifest shape locally.
+
+Install claim tickets, claimed-installation records, installation grants, and download receipts are the same kind of registry truth.
+
+Hub may render or personalize around that truth, but it must not invent a second install-linking schema in hosted UX code.

@@ -5,7 +5,7 @@ This repo cannot directly edit `chummer.run-services` or presentation from the c
 ## Package Boundary
 
 - Package: `Chummer.Hub.Registry.Contracts`
-- Namespace: `Chummer.Hub.Registry.Contracts`
+- Namespace: `Chummer.Hub.Registry.Contracts` plus `Chummer.Hub.Registry.Contracts.InstallLinking`
 - Ownership: immutable registry DTOs and stable vocabulary only
 - Non-ownership: registry persistence, HTTP handlers, hosted orchestration, Spider, relay, media rendering, and presentation-specific view models
 
@@ -17,7 +17,7 @@ Required changes downstream:
 
 - replace source-level registry DTO definitions or shared-project links with a package reference to `Chummer.Hub.Registry.Contracts`
 - keep orchestration, approvals, relay, AI, Spider, and play API aggregation local to `run-services`
-- treat registry catalog lifecycle, publication records, moderation records, install projections, and runtime-bundle head DTOs as imported contracts instead of `run-services`-owned types
+- treat registry catalog lifecycle, publication records, moderation records, install projections, install-linking records, and runtime-bundle head DTOs as imported contracts instead of `run-services`-owned types
 - restrict `run-services` registry code to adapters, transport mapping, and composition around these contracts
 
 Must not remain downstream:
@@ -33,7 +33,7 @@ Presentation consumes the package only for registry-facing request/response cont
 Required changes downstream:
 
 - reference `Chummer.Hub.Registry.Contracts` instead of importing registry DTOs from `run-services` source assemblies
-- use contract records for artifact metadata, install/compatibility projections, publication drafts, moderation queue items, and runtime-bundle head projections
+- use contract records for artifact metadata, install/compatibility projections, install-linking flows, publication drafts, moderation queue items, and runtime-bundle head projections
 - keep presentation-only composition, display formatting, and UX state in presentation-local types
 
 Must not remain downstream:
@@ -44,7 +44,7 @@ Must not remain downstream:
 
 ## Migration Rule
 
-When a type belongs to the artifact catalog, publication workflow, moderation workflow, install history/projections, compatibility projections, or runtime-bundle heads, downstream repos consume `Chummer.Hub.Registry.Contracts`.
+When a type belongs to the artifact catalog, publication workflow, moderation workflow, install history/projections, install-linking flows, compatibility projections, or runtime-bundle heads, downstream repos consume `Chummer.Hub.Registry.Contracts`.
 
 When logic belongs to orchestration, transport, storage, or UX-specific shaping, downstream repos keep that logic local and map to or from the shared contracts at the boundary.
 
@@ -53,4 +53,4 @@ When logic belongs to orchestration, transport, storage, or UX-specific shaping,
 `Chummer.Hub.Registry.Contracts.Verify` enforces source-ownership checks for both downstream consumers when repository roots are provided:
 
 - `CHUMMER_RUN_SERVICES_ROOT` for `chummer.run-services`
-- `CHUMMER_PRESENTATION_ROOT` for presentation (`chummer6-ui`)
+- `CHUMMER_PRESENTATION_ROOT` for `chummer6-ui`

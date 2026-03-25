@@ -2,6 +2,7 @@ using System.Reflection;
 using System.Text;
 using System.Text.RegularExpressions;
 using Chummer.Hub.Registry.Contracts;
+using Chummer.Hub.Registry.Contracts.InstallLinking;
 
 VerifySealedRecord(typeof(ArtifactInstallState));
 VerifySealedRecord(typeof(ArtifactCompatibilityProjection));
@@ -11,11 +12,18 @@ VerifySealedRecord(typeof(HubModerationCaseRecord));
 VerifySealedRecord(typeof(RuntimeBundleHeadProjection));
 VerifySealedRecord(typeof(ReleaseChannelArtifact));
 VerifySealedRecord(typeof(ReleaseChannelHeadProjection));
+VerifySealedRecord(typeof(DownloadReceiptDto));
+VerifySealedRecord(typeof(InstallClaimTicketDto));
+VerifySealedRecord(typeof(ClaimedInstallationDto));
+VerifySealedRecord(typeof(InstallationGrantDto));
 
 Assert(HubPublicationOperations.SubmitProject == "submit-project", "Publication operation constants must match the existing workflow vocabulary.");
 Assert(HubModerationStates.PendingReview == "pending-review", "Moderation states must preserve pending-review.");
 Assert(ArtifactInstallStates.Pinned == "pinned", "Install state constants must preserve pinned.");
 Assert(ArtifactCompatibilityStates.CompatibleWithWarnings == "compatible-with-warnings", "Compatibility states must preserve warning vocabulary.");
+Assert(InstallAccessClasses.OpenPublic == "open_public", "Install access classes must preserve open_public.");
+Assert(InstallClaimTicketStates.Pending == "pending", "Install claim ticket states must preserve pending.");
+Assert(InstallationGrantStates.Active == "active", "Installation grant states must preserve active.");
 Assert(Enum.GetNames<HubArtifactKind>().Contains(nameof(HubArtifactKind.RuntimeBundle)), "Artifact kinds must include RuntimeBundle.");
 Assert(Enum.GetNames<RuntimeBundleHeadKind>().SequenceEqual(["Session", "Mobile", "Offline"]), "Runtime bundle heads must stay Session/Mobile/Offline.");
 Assert(ReleaseChannelStatuses.Published == "published", "Release channel statuses must preserve published.");
@@ -155,6 +163,70 @@ Assert(string.Equals(releaseChannel.Artifacts[0].EmbeddedRuntimeBundleHeadId, "r
     "Release channel projections must retain embedded runtime bundle references.");
 Assert(string.Equals(releaseChannel.Artifacts[0].InstallAccessClass, "open_public", StringComparison.Ordinal),
     "Release channel projections must retain install access posture.");
+
+DownloadReceiptDto receipt = new(
+    ReceiptId: "receipt-1",
+    ArtifactId: "avalonia-win-x64-installer",
+    ArtifactLabel: "Avalonia Desktop Windows X64 Installer",
+    FileName: "chummer-avalonia-win-x64-installer.exe",
+    DownloadUrl: "/downloads/files/chummer-avalonia-win-x64-installer.exe",
+    Channel: "preview",
+    Version: "2026.03.23-preview.1",
+    Head: "avalonia",
+    Platform: "windows",
+    Arch: "x64",
+    Kind: ReleaseArtifactKinds.Installer,
+    InstallAccessClass: InstallAccessClasses.OpenPublic,
+    IssuedAtUtc: DateTimeOffset.UnixEpoch,
+    UserId: "user-1",
+    SubjectId: "subject-1",
+    ClaimTicketId: "claim-1",
+    ClaimCode: "claim-code",
+    ClaimTicketExpiresAtUtc: DateTimeOffset.UnixEpoch.AddHours(1));
+InstallClaimTicketDto claim = new(
+    TicketId: "claim-1",
+    ClaimCode: "claim-code",
+    ArtifactId: receipt.ArtifactId,
+    ArtifactLabel: receipt.ArtifactLabel,
+    Channel: receipt.Channel,
+    Version: receipt.Version,
+    InstallAccessClass: receipt.InstallAccessClass,
+    Status: InstallClaimTicketStates.Pending,
+    CreatedAtUtc: DateTimeOffset.UnixEpoch,
+    ExpiresAtUtc: DateTimeOffset.UnixEpoch.AddHours(1),
+    UserId: "user-1",
+    SubjectId: "subject-1",
+    ReceiptId: receipt.ReceiptId,
+    InstallationId: "inst-1");
+ClaimedInstallationDto installation = new(
+    InstallationId: "inst-1",
+    ArtifactId: receipt.ArtifactId,
+    Channel: receipt.Channel,
+    Version: receipt.Version,
+    InstallAccessClass: receipt.InstallAccessClass,
+    Status: ClaimedInstallationStates.Active,
+    CreatedAtUtc: DateTimeOffset.UnixEpoch,
+    UpdatedAtUtc: DateTimeOffset.UnixEpoch,
+    UserId: "user-1",
+    SubjectId: "subject-1",
+    ClaimTicketId: claim.TicketId,
+    HeadId: "runtime-head-preview-sr5",
+    Platform: receipt.Platform,
+    Arch: receipt.Arch,
+    GrantId: "grant-1");
+InstallationGrantDto grant = new(
+    GrantId: "grant-1",
+    InstallationId: installation.InstallationId,
+    Status: InstallationGrantStates.Active,
+    AccessToken: "token",
+    IssuedAtUtc: DateTimeOffset.UnixEpoch,
+    ExpiresAtUtc: DateTimeOffset.UnixEpoch.AddHours(6),
+    UserId: "user-1",
+    SubjectId: "subject-1");
+InstallLinkingSummaryDto installLinking = new([receipt], [claim], [installation], [grant]);
+Assert(installLinking.RecentReceipts.Count == 1, "Install-linking summaries must retain receipts.");
+Assert(string.Equals(installLinking.ActiveGrants![0].InstallationId, installation.InstallationId, StringComparison.Ordinal),
+    "Install-linking summaries must retain active grant linkage.");
 
 HubPublicationResult<RuntimeBundleHeadProjection> notImplemented = HubPublicationResult<RuntimeBundleHeadProjection>.FromNotImplemented(
     new HubPublicationNotImplementedReceipt("not-implemented", HubPublicationOperations.ListModerationQueue, "queued"));
@@ -389,6 +461,7 @@ static string NormalizeTypeNameForSourceMatch(string typeName)
 static bool IsRegistryOwnedContractNamespace(string? typeNamespace) =>
     !string.IsNullOrWhiteSpace(typeNamespace)
     && (string.Equals(typeNamespace, "Chummer.Hub.Registry.Contracts", StringComparison.Ordinal)
+        || typeNamespace.StartsWith("Chummer.Hub.Registry.Contracts.", StringComparison.Ordinal)
         || string.Equals(typeNamespace, "Chummer.Contracts.Hub", StringComparison.Ordinal)
         || typeNamespace.StartsWith("Chummer.Contracts.Hub.", StringComparison.Ordinal)
         || string.Equals(typeNamespace, "Chummer.Run.Contracts", StringComparison.Ordinal)
