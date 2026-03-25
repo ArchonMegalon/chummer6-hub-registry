@@ -24,7 +24,7 @@ RID_TO_PLATFORM_ARCH = {
 }
 
 ARTIFACT_PATTERN = re.compile(
-    r"^chummer-(?P<head>avalonia|blazor-desktop)-(?P<rid>[^.]+?)(?P<installer>-installer)?\.(?P<ext>exe|zip|tar\.gz|dmg|pkg|msix)$"
+    r"^chummer-(?P<head>avalonia|blazor-desktop)-(?P<rid>[^.]+?)(?P<installer>-installer)?\.(?P<ext>exe|zip|tar\.gz|deb|dmg|pkg|msix)$"
 )
 
 
@@ -49,7 +49,7 @@ def sha256_for(path: Path) -> str:
 
 
 def artifact_kind(ext: str, installer_suffix: bool) -> str:
-    if installer_suffix or ext == "exe":
+    if installer_suffix or ext in {"exe", "deb"}:
         return "installer"
     return {
         "zip": "archive",
