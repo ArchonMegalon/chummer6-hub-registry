@@ -5,7 +5,7 @@ Purpose: define the registry-owned truth for desktop release channels, installer
 ## Canonical ownership
 
 * `chummer6-core` emits runtime-bundle facts and fingerprints.
-* `chummer6-ui` emits desktop bundles and installer-ready artifacts.
+* `chummer6-ui` emits desktop bundles, portable artifacts, and installer-ready artifacts.
 * `fleet` orchestrates the release wave and asks registry tooling to materialize release truth.
 * `chummer6-hub-registry` owns the promoted release-channel record, installer/update metadata, install-linking DTO family, compatibility state, and runtime-bundle references.
 * `chummer6-hub` consumes the registry projection and renders the public downloads/install surface plus account-aware claim and restore guidance.
@@ -44,6 +44,18 @@ Minimum canonical payload:
       "sha256": "…",
       "sizeBytes": 123456789,
       "embeddedRuntimeBundleHeadId": "runtime-head-preview-sr5"
+    },
+    {
+      "artifactId": "avalonia-win-x64-portable",
+      "head": "avalonia",
+      "platform": "windows",
+      "arch": "x64",
+      "kind": "portable",
+      "fileName": "chummer-avalonia-win-x64.exe",
+      "downloadUrl": "/downloads/files/chummer-avalonia-win-x64.exe",
+      "sha256": "…",
+      "sizeBytes": 120123456,
+      "embeddedRuntimeBundleHeadId": "runtime-head-preview-sr5"
     }
   ],
   "runtimeBundleHeads": [
@@ -57,6 +69,12 @@ Minimum canonical payload:
   ]
 }
 ```
+
+Release artifact kinds are deliberate:
+
+* `installer` for handoff installers like `-installer.exe`, `.deb`, `.dmg`, `.pkg`, and `.msix`
+* `portable` for standalone Windows preview `.exe` payloads
+* `archive` for in-place applyable `.zip` and `.tar.gz` bundles
 
 ## Operational rule
 

@@ -9,8 +9,9 @@
       "url": "/downloads/files/chummer-avalonia-linux-x64.tar.gz",
       "sha256": "196d25f2372b01b03f5082377e0895183803d8c2aade043f34c995e2931f31ff",
       "sizeBytes": 41940379,
-      "format": "gz",
-      "flavor": "archive"
+      "format": "tar.gz",
+      "flavor": "archive",
+      "kind": "archive"
     }
   ],
   "source": "registry",

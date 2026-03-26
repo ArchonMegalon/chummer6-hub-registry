@@ -28,6 +28,8 @@ Assert(Enum.GetNames<HubArtifactKind>().Contains(nameof(HubArtifactKind.RuntimeB
 Assert(Enum.GetNames<RuntimeBundleHeadKind>().SequenceEqual(["Session", "Mobile", "Offline"]), "Runtime bundle heads must stay Session/Mobile/Offline.");
 Assert(ReleaseChannelStatuses.Published == "published", "Release channel statuses must preserve published.");
 Assert(ReleaseArtifactKinds.Installer == "installer", "Release artifact kinds must preserve installer.");
+Assert(ReleaseArtifactKinds.Portable == "portable", "Release artifact kinds must preserve portable.");
+Assert(ReleaseArtifactKinds.Archive == "archive", "Release artifact kinds must preserve archive.");
 
 ArtifactInstallState install = new(
     State: ArtifactInstallStates.Pinned,
