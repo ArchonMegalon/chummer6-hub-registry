@@ -49,7 +49,11 @@ def sha256_for(path: Path) -> str:
 
 
 def artifact_kind(ext: str, installer_suffix: bool) -> str:
-    if installer_suffix or ext in {"exe", "deb"}:
+    if installer_suffix:
+        return "installer"
+    if ext == "exe":
+        return "portable"
+    if ext == "deb":
         return "installer"
     return {
         "zip": "archive",
@@ -70,7 +74,7 @@ def platform_label(head: str, platform: str, arch: str, kind: str) -> str:
     value = f"{app_label} {platform_label} {arch.upper()}"
     if kind == "installer":
         value += " Installer"
-    elif platform == "windows":
+    elif kind == "portable" or platform == "windows":
         value += " Portable"
     return value
 
@@ -221,6 +225,8 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
     for artifact in canonical.get("artifacts") or []:
         if not isinstance(artifact, dict):
             continue
+        file_name = str(artifact.get("fileName") or "")
+        file_format = "tar.gz" if file_name.endswith(".tar.gz") else Path(file_name).suffix.lower().lstrip(".")
         downloads.append(
             {
                 "id": artifact.get("artifactId"),
@@ -228,8 +234,9 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
                 "url": artifact.get("downloadUrl"),
                 "sha256": artifact.get("sha256"),
                 "sizeBytes": artifact.get("sizeBytes"),
-                "format": Path(str(artifact.get("fileName") or "")).suffix.lower().lstrip("."),
+                "format": file_format,
                 "flavor": artifact.get("kind"),
+                "kind": artifact.get("kind"),
             }
         )
     return {
