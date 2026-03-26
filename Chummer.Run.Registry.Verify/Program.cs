@@ -108,6 +108,24 @@ PublicationRecordResponse published = RequireOk(publicationsController.Publish(
 Assert(published.State == PublicationState.Published, "Published read model should project published state.");
 Assert(RequireOk(publicationsController.List(PublicationState.Published.ToString())).Count == 1, "Publication list should filter published entries.");
 
+PublicationRecordResponse creatorSubmitted = RequireCreated(publicationsController.Submit(new PublicationSubmissionRequest(
+    ArtifactId: "creator-packet-shadow-brief",
+    ArtifactKind: "CampaignPacket",
+    Title: "Shadow brief creator packet",
+    SubmittedBy: "ops.creator",
+    Notes: "creator publication verify")));
+PublicationRecordResponse creatorApproved = RequireOk(publicationsController.Review(
+    creatorSubmitted.PublicationId,
+    new PublicationReviewRequest("ops.creator-review", Approved: true, Notes: "campaign-safe provenance confirmed"),
+    creatorSubmitted.ConcurrencyToken));
+PublicationRecordResponse creatorPublished = RequireOk(publicationsController.Publish(
+    creatorApproved.PublicationId,
+    new PublicationPublishRequest("ops.creator-publisher", "creator packet promoted"),
+    creatorApproved.ConcurrencyToken));
+Assert(string.Equals(creatorPublished.ArtifactKind, "CampaignPacket", StringComparison.Ordinal), "Creator publication flow should preserve the campaign-packet artifact kind.");
+Assert(string.Equals(creatorPublished.ModerationTimeline.PendingDecision, "moderation-watch", StringComparison.Ordinal), "Published creator packets should project the standard moderation-watch follow-up.");
+Assert(RequireOk(publicationsController.List(PublicationState.Published.ToString())).Count >= 2, "Publication list should retain creator publication rows beside install/update publications.");
+
 PublicationRecordResponse deprecated = RequireOk(publicationsController.Moderate(
     published.PublicationId,
     new PublicationModerationRequest("ops.moderator", "deprecate", Reason: "replaced by newer publication"),
