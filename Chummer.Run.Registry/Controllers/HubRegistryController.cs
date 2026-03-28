@@ -2,6 +2,7 @@ using Chummer.Run.Contracts.Registry;
 using Chummer.Run.Contracts.Observability;
 using Chummer.Run.Registry.Services;
 using Microsoft.AspNetCore.Mvc;
+using RegistryReleaseChannelHeadProjection = Chummer.Hub.Registry.Contracts.ReleaseChannelHeadProjection;
 
 namespace Chummer.Run.Registry.Controllers;
 
@@ -10,10 +11,12 @@ namespace Chummer.Run.Registry.Controllers;
 public sealed class HubRegistryController : ControllerBase
 {
     private readonly IHubArtifactStore _artifactStore;
+    private readonly IReleaseChannelManifestStore _releaseChannelManifestStore;
 
-    public HubRegistryController(IHubArtifactStore artifactStore)
+    public HubRegistryController(IHubArtifactStore artifactStore, IReleaseChannelManifestStore releaseChannelManifestStore)
     {
         _artifactStore = artifactStore;
+        _releaseChannelManifestStore = releaseChannelManifestStore;
     }
 
     [HttpGet("search")]
@@ -66,6 +69,20 @@ public sealed class HubRegistryController : ControllerBase
         [FromQuery] int pageSize = 20)
     {
         return SearchArtifacts(query, kind, state, page, pageSize);
+    }
+
+    [HttpGet("release-channel/current")]
+    [ProducesResponseType<RegistryReleaseChannelHeadProjection>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<RegistryReleaseChannelHeadProjection> GetCurrentReleaseChannel()
+    {
+        var projection = _releaseChannelManifestStore.LoadCurrent();
+        if (projection is null)
+        {
+            return NotFound();
+        }
+
+        return Ok(projection);
     }
 
     [HttpPost("artifacts")]

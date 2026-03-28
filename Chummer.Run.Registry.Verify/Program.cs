@@ -5,11 +5,72 @@ using Chummer.Run.Contracts.Registry;
 using Chummer.Run.Registry.Services;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.Configuration;
+using System.Text.Json;
+using RegistryReleaseChannelHeadProjection = Chummer.Hub.Registry.Contracts.ReleaseChannelHeadProjection;
 
 HubArtifactStore store = new();
-HubRegistryController registryController = CreateController(new HubRegistryController(store));
+var releaseManifestRoot = Path.Combine(Path.GetTempPath(), "registry-release-channel", Guid.NewGuid().ToString("N"));
+Directory.CreateDirectory(releaseManifestRoot);
+var releaseManifestPath = Path.Combine(releaseManifestRoot, "RELEASE_CHANNEL.generated.json");
+File.WriteAllText(
+    releaseManifestPath,
+    JsonSerializer.Serialize(
+        new
+        {
+            product = "chummer6",
+            channelId = "docker",
+            version = "smoke-2026.03.28-linux-x64",
+            publishedAt = "2026-03-28T16:31:31Z",
+            status = "published",
+            artifactSource = "ui_desktop_bundle",
+            rolloutState = "local_docker_preview",
+            supportabilityState = "local_docker_proven",
+            supportabilitySummary = "Local release proof passed for install, build/explain, campaign recovery, and support closure journeys.",
+            fixAvailabilitySummary = "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
+            releaseProof = new
+            {
+                status = "passed",
+                generatedAt = "2026-03-28T16:31:31Z",
+                baseUrl = "http://127.0.0.1:8091",
+                journeysPassed = new[] { "install_claim_restore_continue", "build_explain_publish" },
+                proofRoutes = new[] { "/downloads/install/avalonia-linux-x64-installer" }
+            },
+            artifacts = new[]
+            {
+                new
+                {
+                    artifactId = "avalonia-linux-x64-archive",
+                    head = "avalonia",
+                    platform = "linux",
+                    arch = "x64",
+                    kind = "archive",
+                    fileName = "chummer-avalonia-linux-x64.tar.gz",
+                    downloadUrl = "/downloads/files/chummer-avalonia-linux-x64.tar.gz",
+                    sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                    sizeBytes = 4096L,
+                    platformLabel = "Avalonia Desktop Linux X64",
+                    installAccessClass = "open_public"
+                }
+            }
+        },
+        new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+var config = new ConfigurationBuilder()
+    .AddInMemoryCollection(
+        new Dictionary<string, string?>
+        {
+            ["CHUMMER_RELEASE_CHANNEL_MANIFEST"] = releaseManifestPath
+        })
+    .Build();
+FileReleaseChannelManifestStore releaseChannelStore = new(config);
+HubRegistryController registryController = CreateController(new HubRegistryController(store, releaseChannelStore));
 PublicationWorkflowService workflow = new();
 PublicationsController publicationsController = CreateController(new PublicationsController(workflow));
+
+RegistryReleaseChannelHeadProjection releaseChannel = RequireOk(registryController.GetCurrentReleaseChannel());
+Assert(string.Equals(releaseChannel.ChannelId, "docker", StringComparison.Ordinal), "Release-channel read model should load the current registry manifest.");
+Assert(string.Equals(releaseChannel.SupportabilityState, "local_docker_proven", StringComparison.Ordinal), "Release-channel read model should retain supportability posture.");
+Assert(string.Equals(releaseChannel.ReleaseProof?.Status, "passed", StringComparison.Ordinal), "Release-channel read model should retain proof posture.");
 
 var missingInstallEvent = new HubInstallEvent(
     ArtifactId: "artifact-missing",

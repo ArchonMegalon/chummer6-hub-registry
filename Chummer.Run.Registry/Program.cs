@@ -24,6 +24,7 @@ builder.Services
     });
 builder.Services.AddSingleton<IPublicationWorkflowService, PublicationWorkflowService>();
 builder.Services.AddSingleton<IHubArtifactStore, HubArtifactStore>();
+builder.Services.AddSingleton<IReleaseChannelManifestStore, FileReleaseChannelManifestStore>();
 
 var app = builder.Build();
 
