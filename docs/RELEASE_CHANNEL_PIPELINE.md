@@ -36,8 +36,8 @@ Minimum canonical payload:
   "rolloutState": "local_docker_preview",
   "rolloutReason": "Current release shelf was exercised by the local docker release proof harness before publication.",
   "supportabilityState": "local_docker_proven",
-  "supportabilitySummary": "Local release proof passed for install, build/explain, campaign recovery, and support closure journeys.",
-  "knownIssueSummary": "Preview caveats still apply, but the current shelf has recent proof instead of only manifest presence.",
+  "supportabilitySummary": "Local release proof passed for install, build/explain, campaign recovery, and support closure journeys. Claimed-device restore and bounded offline prefetch stayed grounded on the current shelf.",
+  "knownIssueSummary": "Preview caveats still apply, but the current shelf has recent install, claimed-device recovery, bounded offline prefetch, and support proof instead of only manifest presence.",
   "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
   "releaseProof": {
     "status": "passed",

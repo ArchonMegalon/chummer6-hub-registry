@@ -97,9 +97,12 @@ assert artifacts["avalonia-linux-x64-archive"]["kind"] == "archive"
 assert canonical["rolloutState"] == "local_docker_preview"
 assert canonical["supportabilityState"] == "local_docker_proven"
 assert canonical["releaseProof"]["status"] == "passed"
+assert "bounded offline prefetch" in canonical["supportabilitySummary"]
+assert "bounded offline prefetch" in canonical["knownIssueSummary"]
 
 downloads = {item["id"]: item for item in compat["downloads"]}
 assert downloads["avalonia-win-x64-portable"]["kind"] == "portable"
 assert downloads["avalonia-linux-x64-archive"]["format"] == "tar.gz"
 assert compat["supportabilityState"] == "local_docker_proven"
+assert "bounded offline prefetch" in compat["supportabilitySummary"]
 PY

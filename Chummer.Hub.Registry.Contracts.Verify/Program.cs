@@ -159,8 +159,8 @@ ReleaseChannelHeadProjection releaseChannel = new(
     RolloutState: ReleaseRolloutStates.LocalDockerPreview,
     RolloutReason: "Local docker preview shelf was verified before publication.",
     SupportabilityState: ReleaseSupportabilityStates.LocalDockerProven,
-    SupportabilitySummary: "Local release proof passed across install, build/explain, campaign recovery, and support closure journeys.",
-    KnownIssueSummary: "Preview support still requires install-aware follow-through before expanding promotion.",
+    SupportabilitySummary: "Local release proof passed across install, build/explain, campaign recovery, support closure, and bounded offline prefetch journeys.",
+    KnownIssueSummary: "Preview support still requires install-aware follow-through, especially around claimed-device recovery and offline prefetch, before expanding promotion.",
     FixAvailabilitySummary: "Only send fixed notices after the affected channel artifact is on the current shelf.",
     ReleaseProof: new ReleaseProofProjection(
         Status: ReleaseProofStatuses.Passed,

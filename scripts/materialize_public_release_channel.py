@@ -251,7 +251,12 @@ def derive_supportability_summary(status: str, proof: dict[str, Any] | None) -> 
         journeys = proof.get("journeysPassed") or []
         if journeys:
             journey_list = ", ".join(str(item) for item in journeys)
-            return f"Local release proof passed for: {journey_list}."
+            bounded_offline_note = (
+                " Claimed-device restore and bounded offline prefetch stayed grounded on the current shelf."
+                if any(str(item).strip() == "install_claim_restore_continue" for item in journeys)
+                else ""
+            )
+            return f"Local release proof passed for: {journey_list}.{bounded_offline_note}"
         return "Local release proof passed for the current shelf."
     return "Treat the current shelf as review-required until release proof and support closure checks pass."
 
@@ -261,7 +266,7 @@ def derive_known_issue_summary(channel: str, status: str, proof: dict[str, Any] 
         return "No active channel issues are published because the shelf is still empty."
     if proof and str(proof.get("status") or "").strip().lower() == "passed":
         return (
-            "Preview caveats still apply, but the current shelf has recent install, recovery, and support proof instead of only manifest presence."
+            "Preview caveats still apply, but the current shelf has recent install, claimed-device recovery, bounded offline prefetch, and support proof instead of only manifest presence."
         )
     return f"The {channel} shelf is visible, but known-issue review should stay front-and-center until proof is refreshed."
 

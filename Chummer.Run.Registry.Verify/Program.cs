@@ -26,7 +26,7 @@ File.WriteAllText(
             artifactSource = "ui_desktop_bundle",
             rolloutState = "local_docker_preview",
             supportabilityState = "local_docker_proven",
-            supportabilitySummary = "Local release proof passed for install, build/explain, campaign recovery, and support closure journeys.",
+            supportabilitySummary = "Local release proof passed for install, build/explain, campaign recovery, and support closure journeys. Claimed-device restore and bounded offline prefetch stayed grounded on the current shelf.",
             fixAvailabilitySummary = "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
             releaseProof = new
             {
