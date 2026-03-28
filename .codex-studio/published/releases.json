@@ -25,8 +25,8 @@
   "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
   "releaseProof": {
     "status": "passed",
-    "generatedAt": "2026-03-28T21:03:08Z",
-    "baseUrl": "http://127.0.0.1:8091",
+    "generatedAt": "2026-03-28T21:20:34Z",
+    "baseUrl": "https://chummer.run",
     "journeysPassed": [
       "install_claim_restore_continue",
       "build_explain_publish",
