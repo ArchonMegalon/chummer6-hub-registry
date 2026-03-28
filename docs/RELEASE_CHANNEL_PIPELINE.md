@@ -9,6 +9,7 @@ Purpose: define the registry-owned truth for desktop release channels, installer
 * `fleet` orchestrates the release wave and asks registry tooling to materialize release truth.
 * `chummer6-hub-registry` owns the promoted release-channel record, installer/update metadata, install-linking DTO family, compatibility state, and runtime-bundle references.
 * `chummer6-hub` consumes the registry projection and renders the public downloads/install surface plus account-aware claim and restore guidance.
+* local release proof can ground the current shelf with install/support/fix evidence, but that proof still belongs inside the same registry-owned release-channel projection instead of a second ad hoc status file.
 
 ## Canonical artifacts
 
@@ -32,6 +33,25 @@ Minimum canonical payload:
   "publishedAt": "2026-03-23T18:00:00Z",
   "status": "published",
   "artifactSource": "ui_desktop_bundle",
+  "rolloutState": "local_docker_preview",
+  "rolloutReason": "Current release shelf was exercised by the local docker release proof harness before publication.",
+  "supportabilityState": "local_docker_proven",
+  "supportabilitySummary": "Local release proof passed for install, build/explain, campaign recovery, and support closure journeys.",
+  "knownIssueSummary": "Preview caveats still apply, but the current shelf has recent proof instead of only manifest presence.",
+  "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
+  "releaseProof": {
+    "status": "passed",
+    "generatedAt": "2026-03-28T15:57:40Z",
+    "baseUrl": "http://127.0.0.1:8091",
+    "journeysPassed": [
+      "install_claim_restore_continue",
+      "build_explain_publish"
+    ],
+    "proofRoutes": [
+      "/downloads/install/avalonia-win-x64-installer",
+      "/home/access"
+    ]
+  },
   "artifacts": [
     {
       "artifactId": "avalonia-win-x64-installer",
@@ -75,6 +95,14 @@ Release artifact kinds are deliberate:
 * `installer` for handoff installers like `-installer.exe`, `.deb`, `.dmg`, `.pkg`, and `.msix`
 * `portable` for standalone Windows preview `.exe` payloads
 * `archive` for in-place applyable `.zip` and `.tar.gz` bundles
+
+Registry-owned release truth should also answer:
+
+* what rollout state the shelf is currently in
+* whether the shelf is supportable today or still review-required
+* what known-issue posture the current shelf carries
+* whether fixes are actually available on the published channel
+* what local or hosted proof most recently exercised the shelf
 
 ## Operational rule
 

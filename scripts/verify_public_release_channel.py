@@ -52,6 +52,27 @@ def verify_artifacts(payload: dict, source: str) -> None:
         raise SystemExit(f"{source} is missing both artifacts and downloads arrays")
 
 
+def verify_release_truth(payload: dict, source: str) -> None:
+    rollout_state = payload.get("rolloutState")
+    if rollout_state not in (None, "") and not isinstance(rollout_state, str):
+        raise SystemExit(f"rolloutState must be a string in {source}")
+    supportability_state = payload.get("supportabilityState")
+    if supportability_state not in (None, "") and not isinstance(supportability_state, str):
+        raise SystemExit(f"supportabilityState must be a string in {source}")
+    proof = payload.get("releaseProof")
+    if proof is None:
+        return
+    if not isinstance(proof, dict):
+        raise SystemExit(f"releaseProof must be an object in {source}")
+    status = proof.get("status")
+    if status in (None, "") or not isinstance(status, str):
+        raise SystemExit(f"releaseProof.status is required in {source}")
+    for field in ("journeysPassed", "proofRoutes"):
+        value = proof.get(field)
+        if value is not None and not isinstance(value, list):
+            raise SystemExit(f"releaseProof.{field} must be a list in {source}")
+
+
 def main() -> int:
     target = (sys.argv[1] if len(sys.argv) > 1 else "").strip()
     if not target:
@@ -60,6 +81,7 @@ def main() -> int:
     if not isinstance(payload, dict):
         raise SystemExit(f"manifest must be a JSON object: {source}")
     verify_artifacts(payload, source)
+    verify_release_truth(payload, source)
     print(f"verified public release manifest: {source}")
     return 0
 

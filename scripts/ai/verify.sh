@@ -58,8 +58,25 @@ mkdir -p /tmp/chummer-hub-registry-release-fixture/files
 printf 'smoke-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64-installer.exe
 printf 'portable-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64.exe
 printf 'archive-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-linux-x64.tar.gz
+cat >/tmp/chummer-hub-registry-release-fixture/proof.json <<'JSON'
+{
+  "status": "passed",
+  "generated_at": "2026-03-28T16:00:00Z",
+  "base_url": "http://127.0.0.1:8091",
+  "journeys_passed": [
+    "install_claim_restore_continue",
+    "build_explain_publish",
+    "campaign_session_recover_recap",
+    "report_cluster_release_notify"
+  ],
+  "proof_routes": [
+    "/downloads/install/avalonia-win-x64-installer"
+  ]
+}
+JSON
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --channel preview \
   --version 0.0.0-smoke \
   --output /tmp/chummer-hub-registry-release-channel.json \
@@ -77,8 +94,12 @@ artifacts = {item["artifactId"]: item for item in canonical["artifacts"]}
 assert artifacts["avalonia-win-x64-installer"]["kind"] == "installer"
 assert artifacts["avalonia-win-x64-portable"]["kind"] == "portable"
 assert artifacts["avalonia-linux-x64-archive"]["kind"] == "archive"
+assert canonical["rolloutState"] == "local_docker_preview"
+assert canonical["supportabilityState"] == "local_docker_proven"
+assert canonical["releaseProof"]["status"] == "passed"
 
 downloads = {item["id"]: item for item in compat["downloads"]}
 assert downloads["avalonia-win-x64-portable"]["kind"] == "portable"
 assert downloads["avalonia-linux-x64-archive"]["format"] == "tar.gz"
+assert compat["supportabilityState"] == "local_docker_proven"
 PY

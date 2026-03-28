@@ -1,12 +1,37 @@
 {
   "schemaVersion": 1,
   "product": "chummer6",
-  "channelId": "preview",
-  "version": "unpublished",
-  "publishedAt": "2026-03-25T15:02:01Z",
+  "channelId": "docker",
+  "version": "smoke-2026.03.24-linux-x64",
+  "publishedAt": "2026-03-24T19:03:57Z",
   "status": "published",
   "artifactSource": "ui_desktop_bundle",
   "message": null,
+  "rolloutState": "local_docker_preview",
+  "rolloutReason": "Current release shelf was exercised by the local docker release proof harness before publication.",
+  "supportabilityState": "local_docker_proven",
+  "supportabilitySummary": "Local release proof passed for: install_claim_restore_continue, build_explain_publish, campaign_session_recover_recap, report_cluster_release_notify.",
+  "knownIssueSummary": "Preview caveats still apply, but the current shelf has recent install, recovery, and support proof instead of only manifest presence.",
+  "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
+  "releaseProof": {
+    "status": "passed",
+    "generatedAt": "2026-03-28T16:31:31Z",
+    "baseUrl": "http://127.0.0.1:8091",
+    "journeysPassed": [
+      "install_claim_restore_continue",
+      "build_explain_publish",
+      "campaign_session_recover_recap",
+      "report_cluster_release_notify"
+    ],
+    "proofRoutes": [
+      "/downloads/install/avalonia-linux-x64-installer",
+      "/home/access",
+      "/home/work",
+      "/account/work",
+      "/account/support",
+      "/contact"
+    ]
+  },
   "artifacts": [
     {
       "artifactId": "avalonia-linux-x64-archive",

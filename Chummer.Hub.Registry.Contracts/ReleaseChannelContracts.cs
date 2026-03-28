@@ -18,6 +18,32 @@ public static class ReleaseArtifactKinds
     public const string Msix = "msix";
 }
 
+public static class ReleaseProofStatuses
+{
+    public const string Passed = "passed";
+    public const string Missing = "missing";
+    public const string Failed = "failed";
+}
+
+public static class ReleaseRolloutStates
+{
+    public const string LocalDockerPreview = "local_docker_preview";
+    public const string PromotedPreview = "promoted_preview";
+    public const string ReleaseCandidate = "release_candidate";
+    public const string PublicStable = "public_stable";
+    public const string Paused = "paused";
+    public const string Revoked = "revoked";
+    public const string Unpublished = "unpublished";
+}
+
+public static class ReleaseSupportabilityStates
+{
+    public const string LocalDockerProven = "local_docker_proven";
+    public const string PreviewSupported = "preview_supported";
+    public const string ReviewRequired = "review_required";
+    public const string Unpublished = "unpublished";
+}
+
 public sealed record ReleaseRuntimeBundleHeadReference(
     string HeadId,
     string HeadKind,
@@ -25,6 +51,13 @@ public sealed record ReleaseRuntimeBundleHeadReference(
     string SourceBundleVersion,
     string ProjectionFingerprint,
     string? CompatibilityState = null);
+
+public sealed record ReleaseProofProjection(
+    string Status,
+    DateTimeOffset? GeneratedAtUtc = null,
+    string? BaseUrl = null,
+    IReadOnlyList<string>? JourneysPassed = null,
+    IReadOnlyList<string>? ProofRoutes = null);
 
 public sealed record ReleaseChannelArtifact(
     string ArtifactId,
@@ -51,4 +84,11 @@ public sealed record ReleaseChannelHeadProjection(
     string ArtifactSource,
     IReadOnlyList<ReleaseChannelArtifact> Artifacts,
     IReadOnlyList<ReleaseRuntimeBundleHeadReference>? RuntimeBundleHeads = null,
-    string? Message = null);
+    string? Message = null,
+    string? RolloutState = null,
+    string? RolloutReason = null,
+    string? SupportabilityState = null,
+    string? SupportabilitySummary = null,
+    string? KnownIssueSummary = null,
+    string? FixAvailabilitySummary = null,
+    ReleaseProofProjection? ReleaseProof = null);

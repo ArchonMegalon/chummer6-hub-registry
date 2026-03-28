@@ -35,6 +35,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--output", type=Path, required=True, help="Canonical release-channel output path.")
     parser.add_argument("--compat-output", type=Path, help="Optional compatibility `releases.json` output path.")
     parser.add_argument("--runtime-bundles", type=Path, help="Optional JSON file with runtime bundle head metadata.")
+    parser.add_argument("--proof", type=Path, help="Optional local release proof payload used to ground supportability and rollout truth.")
     parser.add_argument("--product", default="chummer6")
     parser.add_argument("--channel", default="preview")
     parser.add_argument("--version", default="unpublished")
@@ -187,6 +188,92 @@ def load_runtime_bundle_heads(path: Path | None) -> list[dict[str, Any]]:
     return [row for row in rows if row["headId"]]
 
 
+def load_release_proof(path: Path | None) -> dict[str, Any] | None:
+    if path is None or not path.exists():
+        return None
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(loaded, dict):
+        raise ValueError(f"release proof payload must be a JSON object: {path}")
+    status = str(loaded.get("status") or "").strip().lower() or "missing"
+    journeys = [
+        str(item).strip()
+        for item in loaded.get("journeys_passed") or loaded.get("journeysPassed") or []
+        if str(item).strip()
+    ]
+    routes = [
+        str(item).strip()
+        for item in loaded.get("proof_routes") or loaded.get("proofRoutes") or []
+        if str(item).strip()
+    ]
+    generated_at = str(loaded.get("generated_at") or loaded.get("generatedAt") or "").strip() or None
+    base_url = str(loaded.get("base_url") or loaded.get("baseUrl") or "").strip() or None
+    return {
+        "status": status,
+        "generatedAt": generated_at,
+        "baseUrl": base_url,
+        "journeysPassed": journeys,
+        "proofRoutes": routes,
+    }
+
+
+def derive_rollout_state(channel: str, status: str, proof: dict[str, Any] | None) -> str:
+    if status != "published":
+        return "unpublished"
+    if proof and str(proof.get("status") or "").strip().lower() == "passed":
+        return "local_docker_preview" if channel in {"preview", "docker"} else channel
+    return "promoted_preview" if channel == "preview" else channel
+
+
+def derive_rollout_reason(channel: str, status: str, proof: dict[str, Any] | None) -> str:
+    if status != "published":
+        return "No published artifact shelf exists yet."
+    if proof and str(proof.get("status") or "").strip().lower() == "passed":
+        return "Current release shelf was exercised by the local docker release proof harness before publication."
+    return (
+        "Current preview shelf is published, but release proof should be re-run before widening trust claims."
+        if channel == "preview"
+        else "Current release shelf is published."
+    )
+
+
+def derive_supportability_state(status: str, proof: dict[str, Any] | None) -> str:
+    if status != "published":
+        return "unpublished"
+    if proof and str(proof.get("status") or "").strip().lower() == "passed":
+        return "local_docker_proven"
+    return "review_required"
+
+
+def derive_supportability_summary(status: str, proof: dict[str, Any] | None) -> str:
+    if status != "published":
+        return "No published channel support posture exists because no release shelf is live."
+    if proof and str(proof.get("status") or "").strip().lower() == "passed":
+        journeys = proof.get("journeysPassed") or []
+        if journeys:
+            journey_list = ", ".join(str(item) for item in journeys)
+            return f"Local release proof passed for: {journey_list}."
+        return "Local release proof passed for the current shelf."
+    return "Treat the current shelf as review-required until release proof and support closure checks pass."
+
+
+def derive_known_issue_summary(channel: str, status: str, proof: dict[str, Any] | None) -> str:
+    if status != "published":
+        return "No active channel issues are published because the shelf is still empty."
+    if proof and str(proof.get("status") or "").strip().lower() == "passed":
+        return (
+            "Preview caveats still apply, but the current shelf has recent install, recovery, and support proof instead of only manifest presence."
+        )
+    return f"The {channel} shelf is visible, but known-issue review should stay front-and-center until proof is refreshed."
+
+
+def derive_fix_availability_summary(status: str, proof: dict[str, Any] | None) -> str:
+    if status != "published":
+        return "Fix notices should stay pending until a published shelf exists."
+    if proof and str(proof.get("status") or "").strip().lower() == "passed":
+        return "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf."
+    return "Verify fix availability against the live channel artifact before closing support loops."
+
+
 def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     loaded = load_input_payload(args)
     if isinstance(loaded.get("artifacts"), list):
@@ -206,6 +293,25 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     status = str(loaded.get("status") or ("published" if artifacts else "unpublished")).strip()
     message = loaded.get("message")
     runtime_bundle_heads = load_runtime_bundle_heads(args.runtime_bundles)
+    release_proof = load_release_proof(args.proof)
+    rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip() or derive_rollout_state(channel, status, release_proof)
+    rollout_reason = str(loaded.get("rolloutReason") or loaded.get("rollout_reason") or "").strip() or derive_rollout_reason(channel, status, release_proof)
+    supportability_state = (
+        str(loaded.get("supportabilityState") or loaded.get("supportability_state") or "").strip()
+        or derive_supportability_state(status, release_proof)
+    )
+    supportability_summary = (
+        str(loaded.get("supportabilitySummary") or loaded.get("supportability_summary") or "").strip()
+        or derive_supportability_summary(status, release_proof)
+    )
+    known_issue_summary = (
+        str(loaded.get("knownIssueSummary") or loaded.get("known_issue_summary") or "").strip()
+        or derive_known_issue_summary(channel, status, release_proof)
+    )
+    fix_availability_summary = (
+        str(loaded.get("fixAvailabilitySummary") or loaded.get("fix_availability_summary") or "").strip()
+        or derive_fix_availability_summary(status, release_proof)
+    )
     return {
         "schemaVersion": 1,
         "product": str(loaded.get("product") or args.product).strip() or "chummer6",
@@ -215,6 +321,13 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "status": status,
         "artifactSource": str(loaded.get("artifactSource") or args.artifact_source).strip() or "ui_desktop_bundle",
         "message": message,
+        "rolloutState": rollout_state,
+        "rolloutReason": rollout_reason,
+        "supportabilityState": supportability_state,
+        "supportabilitySummary": supportability_summary,
+        "knownIssueSummary": known_issue_summary,
+        "fixAvailabilitySummary": fix_availability_summary,
+        "releaseProof": release_proof or {"status": "missing", "generatedAt": None, "baseUrl": None, "journeysPassed": [], "proofRoutes": []},
         "artifacts": artifacts,
         "runtimeBundleHeads": runtime_bundle_heads,
     }
@@ -247,6 +360,13 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         "source": "registry",
         "status": canonical.get("status") or ("published" if downloads else "unpublished"),
         "message": canonical.get("message"),
+        "rolloutState": canonical.get("rolloutState"),
+        "rolloutReason": canonical.get("rolloutReason"),
+        "supportabilityState": canonical.get("supportabilityState"),
+        "supportabilitySummary": canonical.get("supportabilitySummary"),
+        "knownIssueSummary": canonical.get("knownIssueSummary"),
+        "fixAvailabilitySummary": canonical.get("fixAvailabilitySummary"),
+        "releaseProof": canonical.get("releaseProof"),
     }
 
 

@@ -11,6 +11,7 @@ VerifySealedRecord(typeof(HubPublishDraftReceipt));
 VerifySealedRecord(typeof(HubModerationCaseRecord));
 VerifySealedRecord(typeof(RuntimeBundleHeadProjection));
 VerifySealedRecord(typeof(ReleaseChannelArtifact));
+VerifySealedRecord(typeof(ReleaseProofProjection));
 VerifySealedRecord(typeof(ReleaseChannelHeadProjection));
 VerifySealedRecord(typeof(DownloadReceiptDto));
 VerifySealedRecord(typeof(InstallClaimTicketDto));
@@ -30,6 +31,9 @@ Assert(ReleaseChannelStatuses.Published == "published", "Release channel statuse
 Assert(ReleaseArtifactKinds.Installer == "installer", "Release artifact kinds must preserve installer.");
 Assert(ReleaseArtifactKinds.Portable == "portable", "Release artifact kinds must preserve portable.");
 Assert(ReleaseArtifactKinds.Archive == "archive", "Release artifact kinds must preserve archive.");
+Assert(ReleaseProofStatuses.Passed == "passed", "Release proof statuses must preserve passed.");
+Assert(ReleaseRolloutStates.LocalDockerPreview == "local_docker_preview", "Release rollout states must preserve local_docker_preview.");
+Assert(ReleaseSupportabilityStates.LocalDockerProven == "local_docker_proven", "Release supportability states must preserve local_docker_proven.");
 
 ArtifactInstallState install = new(
     State: ArtifactInstallStates.Pinned,
@@ -151,7 +155,19 @@ ReleaseChannelHeadProjection releaseChannel = new(
             SourceBundleVersion: "2026.03.23-core.1",
             ProjectionFingerprint: "sha256:runtime",
             CompatibilityState: ArtifactCompatibilityStates.Compatible)
-    ]);
+    ],
+    RolloutState: ReleaseRolloutStates.LocalDockerPreview,
+    RolloutReason: "Local docker preview shelf was verified before publication.",
+    SupportabilityState: ReleaseSupportabilityStates.LocalDockerProven,
+    SupportabilitySummary: "Local release proof passed across install, build/explain, campaign recovery, and support closure journeys.",
+    KnownIssueSummary: "Preview support still requires install-aware follow-through before expanding promotion.",
+    FixAvailabilitySummary: "Only send fixed notices after the affected channel artifact is on the current shelf.",
+    ReleaseProof: new ReleaseProofProjection(
+        Status: ReleaseProofStatuses.Passed,
+        GeneratedAtUtc: DateTimeOffset.UnixEpoch,
+        BaseUrl: "http://127.0.0.1:8091",
+        JourneysPassed: ["install_claim_restore_continue", "build_explain_publish"],
+        ProofRoutes: ["/downloads/install/avalonia-win-x64-installer"]));
 
 HubPublicationResult<RuntimeBundleHeadProjection> implemented = HubPublicationResult<RuntimeBundleHeadProjection>.Implemented(head);
 Assert(implemented.IsImplemented, "Implemented result wrappers must report IsImplemented.");
@@ -165,6 +181,10 @@ Assert(string.Equals(releaseChannel.Artifacts[0].EmbeddedRuntimeBundleHeadId, "r
     "Release channel projections must retain embedded runtime bundle references.");
 Assert(string.Equals(releaseChannel.Artifacts[0].InstallAccessClass, "open_public", StringComparison.Ordinal),
     "Release channel projections must retain install access posture.");
+Assert(string.Equals(releaseChannel.SupportabilityState, ReleaseSupportabilityStates.LocalDockerProven, StringComparison.Ordinal),
+    "Release channel projections must retain supportability posture.");
+Assert(string.Equals(releaseChannel.ReleaseProof?.Status, ReleaseProofStatuses.Passed, StringComparison.Ordinal),
+    "Release channel projections must retain release-proof posture.");
 
 DownloadReceiptDto receipt = new(
     ReceiptId: "receipt-1",
