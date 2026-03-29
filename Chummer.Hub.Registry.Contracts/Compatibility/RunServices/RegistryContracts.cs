@@ -60,7 +60,11 @@ public sealed record RegistryProjectionResponse(
     string Visibility = ArtifactVisibilityModes.Shared,
     string TrustTier = ArtifactTrustTiers.Curated,
     string ShelfAudience = "personal",
-    string ShelfSummary = "");
+    string ShelfSummary = "",
+    string? LatestPublicationId = null,
+    string? LatestPublicationState = null,
+    string? PublicationNextSafeActionSummary = null,
+    string? PublicationTrustBand = null);
 
 public sealed record RegistryProjectionListResponse(
     IReadOnlyList<RegistryProjectionResponse> Items,

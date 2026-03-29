@@ -78,8 +78,8 @@ var config = new ConfigurationBuilder()
         })
     .Build();
 FileReleaseChannelManifestStore releaseChannelStore = new(config);
-HubRegistryController registryController = CreateController(new HubRegistryController(store, releaseChannelStore));
 PublicationWorkflowService workflow = new(store);
+HubRegistryController registryController = CreateController(new HubRegistryController(store, releaseChannelStore, workflow));
 PublicationsController publicationsController = CreateController(new PublicationsController(workflow));
 
 RegistryReleaseChannelHeadProjection releaseChannel = RequireOk(registryController.GetCurrentReleaseChannel());
@@ -236,6 +236,10 @@ Assert(string.Equals(deprecated.ModerationTimeline.PendingDecision, "supersede-r
 Assert(deprecated.ModerationTimeline.NextSafeActionSummary?.Contains("replacement artifact", StringComparison.OrdinalIgnoreCase) == true, "Deprecated publications should project an explicit successor-oriented next safe action.");
 Assert(string.Equals(deprecated.TrustProjection?.RankingBand, "replacement-advised", StringComparison.Ordinal), "Deprecated publications should project a replacement-advised trust band.");
 Assert(deprecated.TrustProjection?.LineageSummary.Contains("add one", StringComparison.OrdinalIgnoreCase) == true, "Deprecated publications without a successor should ask for an attached replacement in the lineage summary.");
+RegistryProjectionResponse deprecatedProjection = RequireOk(registryController.GetProjection(artifact.Id));
+Assert(string.Equals(deprecatedProjection.LatestPublicationState, PublicationState.Deprecated.ToString(), StringComparison.Ordinal), "Artifact projections should surface the latest publication state.");
+Assert(string.Equals(deprecatedProjection.PublicationTrustBand, "replacement-advised", StringComparison.Ordinal), "Artifact projections should surface the latest publication trust band.");
+Assert(deprecatedProjection.PublicationNextSafeActionSummary?.Contains("replacement artifact", StringComparison.OrdinalIgnoreCase) == true, "Artifact projections should surface the latest publication next safe action.");
 
 PublicationRecordResponse superseded = RequireOk(publicationsController.Moderate(
     creatorPublished.PublicationId,

@@ -8,6 +8,7 @@ public interface IPublicationWorkflowService
 {
     PublicationRecordResponse Submit(PublicationSubmissionRequest request);
     PublicationRecordResponse? Get(string publicationId);
+    PublicationRecordResponse? GetLatestForArtifact(string artifactId);
     IReadOnlyList<PublicationRecordResponse> List(PublicationState? state);
     PublicationMutationResult Review(string publicationId, PublicationReviewRequest request, string? ifMatch = null);
     PublicationMutationResult Publish(string publicationId, PublicationPublishRequest request, string? ifMatch = null);
@@ -96,6 +97,26 @@ public sealed class PublicationWorkflowService : IPublicationWorkflowService
         lock (_mutate)
         {
             return ToResponse(row);
+        }
+    }
+
+    public PublicationRecordResponse? GetLatestForArtifact(string artifactId)
+    {
+        if (string.IsNullOrWhiteSpace(artifactId))
+        {
+            return null;
+        }
+
+        lock (_mutate)
+        {
+            var row = _entries.Values
+                .Where(candidate => string.Equals(candidate.ArtifactId, artifactId.Trim(), StringComparison.OrdinalIgnoreCase))
+                .OrderByDescending(candidate => candidate.UpdatedAtUtc)
+                .ThenByDescending(candidate => candidate.Version)
+                .ThenBy(candidate => candidate.PublicationId, StringComparer.Ordinal)
+                .FirstOrDefault();
+
+            return row is null ? null : ToResponse(row);
         }
     }
 

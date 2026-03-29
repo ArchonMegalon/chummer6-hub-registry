@@ -12,11 +12,16 @@ public sealed class HubRegistryController : ControllerBase
 {
     private readonly IHubArtifactStore _artifactStore;
     private readonly IReleaseChannelManifestStore _releaseChannelManifestStore;
+    private readonly IPublicationWorkflowService? _publicationWorkflow;
 
-    public HubRegistryController(IHubArtifactStore artifactStore, IReleaseChannelManifestStore releaseChannelManifestStore)
+    public HubRegistryController(
+        IHubArtifactStore artifactStore,
+        IReleaseChannelManifestStore releaseChannelManifestStore,
+        IPublicationWorkflowService? publicationWorkflow = null)
     {
         _artifactStore = artifactStore;
         _releaseChannelManifestStore = releaseChannelManifestStore;
+        _publicationWorkflow = publicationWorkflow;
     }
 
     [HttpGet("search")]
@@ -304,7 +309,9 @@ public sealed class HubRegistryController : ControllerBase
         }
 
         return Ok(new RegistryProjectionListResponse(
-            Items: _artifactStore.SearchProjections(query, parsedKind, parsedState, page, pageSize),
+            Items: _artifactStore.SearchProjections(query, parsedKind, parsedState, page, pageSize)
+                .Select(DecoratePublicationPosture)
+                .ToArray(),
             Page: page,
             PageSize: pageSize,
             TotalCount: _artifactStore.SearchProjectionCount(query, parsedKind, parsedState)));
@@ -335,7 +342,7 @@ public sealed class HubRegistryController : ControllerBase
             return NotFound();
         }
 
-        return Ok(projection);
+        return Ok(DecoratePublicationPosture(projection));
     }
 
     [HttpGet("artifacts/{id}/install-projection")]
@@ -594,6 +601,28 @@ public sealed class HubRegistryController : ControllerBase
             "owner-only" => $"{metadata.TrustTier} {metadata.Visibility} artifact should stay on owner-controlled shelves.",
             "creator" => $"{metadata.TrustTier} {metadata.Visibility} artifact is suited for creator shelves with explicit lineage and trust posture.",
             _ => $"{metadata.TrustTier} {metadata.Visibility} artifact is suited for personal shelves and governed discovery."
+        };
+    }
+
+    private RegistryProjectionResponse DecoratePublicationPosture(RegistryProjectionResponse projection)
+    {
+        if (_publicationWorkflow is null)
+        {
+            return projection;
+        }
+
+        var publication = _publicationWorkflow.GetLatestForArtifact(projection.Id);
+        if (publication is null)
+        {
+            return projection;
+        }
+
+        return projection with
+        {
+            LatestPublicationId = publication.PublicationId,
+            LatestPublicationState = publication.State.ToString(),
+            PublicationNextSafeActionSummary = publication.ModerationTimeline.NextSafeActionSummary,
+            PublicationTrustBand = publication.TrustProjection?.RankingBand
         };
     }
 }
