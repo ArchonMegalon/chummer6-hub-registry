@@ -138,18 +138,28 @@ Assert(reviewSummary.ReviewCount == 1, "Review append should be visible through 
 RegistrySearchResponse searchResponse = RequireOk(registryController.SearchArtifacts("Seattle", "RulePack", null, page: 1, pageSize: 10));
 Assert(searchResponse.TotalCount == 1, "Search should return the created artifact.");
 Assert(searchResponse.Items.Count == 1, "Search should include exactly one artifact.");
+Assert(string.Equals(searchResponse.Items[0].Visibility, ArtifactVisibilityModes.Shared, StringComparison.Ordinal), "Search results should project artifact visibility.");
+Assert(string.Equals(searchResponse.Items[0].TrustTier, ArtifactTrustTiers.Curated, StringComparison.Ordinal), "Search results should project artifact trust tier.");
+Assert(string.Equals(searchResponse.Items[0].ShelfAudience, "creator", StringComparison.Ordinal), "Shared artifacts with publisher context should project creator shelf audience.");
+Assert(searchResponse.Items[0].ShelfSummary.Contains("creator shelves", StringComparison.OrdinalIgnoreCase), "Search results should explain creator shelf posture.");
 
 RegistrySearchResponse listResponse = RequireOk(registryController.ListArtifacts("Seattle", "RulePack", null, page: 1, pageSize: 10));
 Assert(listResponse.TotalCount == 1, "ListArtifacts should mirror SearchArtifacts.");
 
 RegistryPreviewResponse preview = RequireOk(registryController.GetPreview(artifact.Id));
 Assert(string.Equals(preview.Id, artifact.Id, StringComparison.Ordinal), "Preview should resolve the created artifact.");
+Assert(string.Equals(preview.ShelfAudience, "creator", StringComparison.Ordinal), "Preview should project creator shelf posture.");
+Assert(preview.ShelfSummary.Contains("creator shelves", StringComparison.OrdinalIgnoreCase), "Preview should explain creator shelf posture.");
 
 HubArtifactMetadata artifactLookup = RequireOk(registryController.GetArtifact(artifact.Id));
 Assert(string.Equals(artifactLookup.Id, artifact.Id, StringComparison.Ordinal), "Artifact lookup should resolve the created artifact.");
 
 RegistryProjectionResponse projection = RequireOk(registryController.GetProjection(artifact.Id));
 Assert(projection.InstallCount == 1, "Projection should retain install count.");
+Assert(string.Equals(projection.Visibility, ArtifactVisibilityModes.Shared, StringComparison.Ordinal), "Projection should carry artifact visibility.");
+Assert(string.Equals(projection.TrustTier, ArtifactTrustTiers.Curated, StringComparison.Ordinal), "Projection should carry artifact trust tier.");
+Assert(string.Equals(projection.ShelfAudience, "creator", StringComparison.Ordinal), "Projection should project creator shelf posture.");
+Assert(projection.ShelfSummary.Contains("creator shelves", StringComparison.OrdinalIgnoreCase), "Projection should explain creator shelf posture.");
 
 RegistryProjectionListResponse projectionSearch = RequireOk(registryController.ListProjections("Seattle", "RulePack", null, page: 1, pageSize: 10));
 Assert(projectionSearch.TotalCount == 1, "Projection search should return the created artifact.");

@@ -11,7 +11,11 @@ public sealed record RegistrySearchItem(
     bool ImmutableRetentionRequired,
     int InstallCount,
     int ActiveRuntimeRefCount,
-    string? SupersededByArtifactId);
+    string? SupersededByArtifactId,
+    string Visibility = ArtifactVisibilityModes.Shared,
+    string TrustTier = ArtifactTrustTiers.Curated,
+    string ShelfAudience = "personal",
+    string ShelfSummary = "");
 
 public sealed record RegistrySearchResponse(
     IReadOnlyList<RegistrySearchItem> Items,
@@ -30,7 +34,11 @@ public sealed record RegistryPreviewResponse(
     bool AcceptingNewInstalls,
     bool ImmutableRetentionRequired,
     string? SupersededByArtifactId,
-    IReadOnlyList<string> Tags);
+    IReadOnlyList<string> Tags,
+    string Visibility = ArtifactVisibilityModes.Shared,
+    string TrustTier = ArtifactTrustTiers.Curated,
+    string ShelfAudience = "personal",
+    string ShelfSummary = "");
 
 public sealed record RegistryProjectionResponse(
     string Id,
@@ -48,7 +56,11 @@ public sealed record RegistryProjectionResponse(
     int ActiveRuntimeRefCount,
     DateTimeOffset CreatedAtUtc,
     DateTimeOffset UpdatedAtUtc,
-    DateTimeOffset? LifecycleChangedAtUtc);
+    DateTimeOffset? LifecycleChangedAtUtc,
+    string Visibility = ArtifactVisibilityModes.Shared,
+    string TrustTier = ArtifactTrustTiers.Curated,
+    string ShelfAudience = "personal",
+    string ShelfSummary = "");
 
 public sealed record RegistryProjectionListResponse(
     IReadOnlyList<RegistryProjectionResponse> Items,

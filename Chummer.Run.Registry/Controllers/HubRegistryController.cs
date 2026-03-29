@@ -265,7 +265,11 @@ public sealed class HubRegistryController : ControllerBase
             AcceptingNewInstalls: metadata.State == HubArtifactState.Active,
             ImmutableRetentionRequired: metadata.ImmutableRetentionRequired,
             SupersededByArtifactId: metadata.SupersededByArtifactId,
-            Tags: Array.Empty<string>());
+            Tags: Array.Empty<string>(),
+            Visibility: metadata.Visibility,
+            TrustTier: metadata.TrustTier,
+            ShelfAudience: DetermineShelfAudience(metadata),
+            ShelfSummary: BuildShelfSummary(metadata));
 
         return Ok(response);
     }
@@ -558,5 +562,38 @@ public sealed class HubRegistryController : ControllerBase
         ImmutableRetentionRequired: metadata.ImmutableRetentionRequired,
         InstallCount: metadata.InstallCount,
         ActiveRuntimeRefCount: metadata.ActiveRuntimeRefCount,
-        SupersededByArtifactId: metadata.SupersededByArtifactId);
+        SupersededByArtifactId: metadata.SupersededByArtifactId,
+        Visibility: metadata.Visibility,
+        TrustTier: metadata.TrustTier,
+        ShelfAudience: DetermineShelfAudience(metadata),
+        ShelfSummary: BuildShelfSummary(metadata));
+
+    private static string DetermineShelfAudience(HubArtifactMetadata metadata)
+    {
+        if (metadata.State is HubArtifactState.Delisted or HubArtifactState.Deprecated or HubArtifactState.Superseded or HubArtifactState.BannedButRetained)
+        {
+            return "retained-history";
+        }
+
+        return metadata.Visibility switch
+        {
+            ArtifactVisibilityModes.CampaignShared => "campaign",
+            ArtifactVisibilityModes.Private or ArtifactVisibilityModes.LocalOnly => "owner-only",
+            _ when !string.IsNullOrWhiteSpace(metadata.PublisherId) => "creator",
+            _ => "personal"
+        };
+    }
+
+    private static string BuildShelfSummary(HubArtifactMetadata metadata)
+    {
+        var shelfAudience = DetermineShelfAudience(metadata);
+        return shelfAudience switch
+        {
+            "retained-history" => $"{metadata.TrustTier} artifact is {metadata.State.ToString().ToLowerInvariant()} and belongs on retained-history surfaces, not first-rank discovery.",
+            "campaign" => $"{metadata.TrustTier} {metadata.Visibility} artifact is best projected on campaign shelves and governed crew surfaces.",
+            "owner-only" => $"{metadata.TrustTier} {metadata.Visibility} artifact should stay on owner-controlled shelves.",
+            "creator" => $"{metadata.TrustTier} {metadata.Visibility} artifact is suited for creator shelves with explicit lineage and trust posture.",
+            _ => $"{metadata.TrustTier} {metadata.Visibility} artifact is suited for personal shelves and governed discovery."
+        };
+    }
 }

@@ -940,7 +940,11 @@ public sealed class HubArtifactStore : IHubArtifactStore
             ActiveRuntimeRefCount: internalState.ActiveRuntimeRefCount,
             CreatedAtUtc: internalState.CreatedAtUtc,
             UpdatedAtUtc: internalState.UpdatedAtUtc,
-            LifecycleChangedAtUtc: internalState.LifecycleChangedAtUtc);
+            LifecycleChangedAtUtc: internalState.LifecycleChangedAtUtc,
+            Visibility: internalState.Visibility,
+            TrustTier: internalState.TrustTier,
+            ShelfAudience: DetermineShelfAudience(internalState),
+            ShelfSummary: BuildShelfSummary(internalState));
 
     private HubArtifactInstallProjection ToInstallProjection(HubArtifactInternal internalState) =>
         new(
@@ -1003,6 +1007,35 @@ public sealed class HubArtifactStore : IHubArtifactStore
     }
 
     private static int ToInt(long value) => value > int.MaxValue ? int.MaxValue : (int)value;
+
+    private static string DetermineShelfAudience(HubArtifactInternal internalState)
+    {
+        if (internalState.State is HubArtifactState.Delisted or HubArtifactState.Deprecated or HubArtifactState.Superseded or HubArtifactState.BannedButRetained)
+        {
+            return "retained-history";
+        }
+
+        return internalState.Visibility switch
+        {
+            ArtifactVisibilityModes.CampaignShared => "campaign",
+            ArtifactVisibilityModes.Private or ArtifactVisibilityModes.LocalOnly => "owner-only",
+            _ when !string.IsNullOrWhiteSpace(internalState.PublisherId) => "creator",
+            _ => "personal"
+        };
+    }
+
+    private static string BuildShelfSummary(HubArtifactInternal internalState)
+    {
+        var shelfAudience = DetermineShelfAudience(internalState);
+        return shelfAudience switch
+        {
+            "retained-history" => $"{internalState.TrustTier} artifact is {internalState.State.ToString().ToLowerInvariant()} and belongs on retained-history surfaces, not first-rank discovery.",
+            "campaign" => $"{internalState.TrustTier} {internalState.Visibility} artifact is best projected on campaign shelves and governed crew surfaces.",
+            "owner-only" => $"{internalState.TrustTier} {internalState.Visibility} artifact should stay on owner-controlled shelves.",
+            "creator" => $"{internalState.TrustTier} {internalState.Visibility} artifact is suited for creator shelves with explicit lineage and trust posture.",
+            _ => $"{internalState.TrustTier} {internalState.Visibility} artifact is suited for personal shelves and governed discovery."
+        };
+    }
 
     private static string NormalizeRulesetId(string? value) =>
         string.IsNullOrWhiteSpace(value) ? "sr5" : value.Trim();

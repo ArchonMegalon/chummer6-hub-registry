@@ -17,6 +17,7 @@ This document names the authoritative publication/install/review/discovery and p
 - preview/read-only detail: `HubRegistryController.GetPreview`, `HubRegistryController.GetArtifact`
 - release-channel truth: `HubRegistryController.GetCurrentReleaseChannel`
 - registry projections: `HubRegistryController.ListProjections`, `HubRegistryController.GetProjection`
+- artifact shelf posture: `RegistrySearchItem.ShelfAudience`, `RegistryPreviewResponse.ShelfSummary`, `RegistryProjectionResponse.ShelfAudience`
 - install projections: `HubRegistryController.GetInstallProjection`
 - runtime-bundle head projections: `HubRegistryController.GetRuntimeBundleHeads`, `HubRegistryController.GetRuntimeBundleHead`
 - pipeline/operator projections: `HubRegistryController.GetPipelineProjection`
