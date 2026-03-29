@@ -367,16 +367,16 @@ public sealed class PublicationWorkflowService : IPublicationWorkflowService
             Details: "Submission received.",
             AtUtc: row.CreatedAtUtc);
 
-        var (pendingDecision, reason, offset, approvalBacked, operatorAttentionRequired) = row.State switch
+        var (pendingDecision, reason, offset, approvalBacked, operatorAttentionRequired, nextSafeActionSummary) = row.State switch
         {
-            PublicationState.PendingReview => ("review", "Awaiting reviewer approval decision.", TimeSpan.FromHours(24), true, true),
-            PublicationState.Approved => ("publish", "Approved artifacts should move to publication or moderation.", TimeSpan.FromHours(4), true, true),
-            PublicationState.Rejected => ("resubmission", "Rejected artifacts remain parked until the author resubmits.", TimeSpan.FromDays(14), true, false),
-            PublicationState.Published => ("moderation-watch", "Published artifacts remain visible unless moderated or superseded.", TimeSpan.FromDays(30), false, false),
-            PublicationState.Delisted => ("deprecation-review", "Delisted artifacts usually receive follow-up disposition review.", TimeSpan.FromDays(7), true, true),
-            PublicationState.Deprecated => ("supersede-review", "Deprecated artifacts should resolve to a successor or final retention note.", TimeSpan.FromDays(14), true, true),
-            PublicationState.Superseded => ("retention-audit", "Superseded artifacts stay retained for install and audit history.", TimeSpan.FromDays(30), true, false),
-            _ => ("submission-review", "Draft submissions should enter review.", TimeSpan.FromHours(24), false, true)
+            PublicationState.PendingReview => ("review", "Awaiting reviewer approval decision.", TimeSpan.FromHours(24), true, true, "Route this publication into approval review before you treat the artifact as settled."),
+            PublicationState.Approved => ("publish", "Approved artifacts should move to publication or moderation.", TimeSpan.FromHours(4), true, true, "Publish the approved artifact or add a moderation note before downstream surfaces rely on it."),
+            PublicationState.Rejected => ("resubmission", "Rejected artifacts remain parked until the author resubmits.", TimeSpan.FromDays(14), true, false, "Revise the artifact and resubmit it once the review issue is resolved."),
+            PublicationState.Published => ("moderation-watch", "Published artifacts remain visible unless moderated or superseded.", TimeSpan.FromDays(30), false, false, "Keep support and install follow-through pointed at the live published artifact while moderation watch stays green."),
+            PublicationState.Delisted => ("deprecation-review", "Delisted artifacts usually receive follow-up disposition review.", TimeSpan.FromDays(7), true, true, "Decide whether to deprecate, supersede, or retain this delisted artifact with a clear note."),
+            PublicationState.Deprecated => ("supersede-review", "Deprecated artifacts should resolve to a successor or final retention note.", TimeSpan.FromDays(14), true, true, "Attach the replacement artifact or a final retention note before you close the deprecated publication."),
+            PublicationState.Superseded => ("retention-audit", "Superseded artifacts stay retained for install and audit history.", TimeSpan.FromDays(30), true, false, "Keep the retained publication linked to its replacement so install and audit history stays reviewable."),
+            _ => ("submission-review", "Draft submissions should enter review.", TimeSpan.FromHours(24), false, true, "Submit the draft for review once the artifact and notes are ready.")
         };
 
         return new PublicationModerationTimelineProjection(
@@ -386,7 +386,8 @@ public sealed class PublicationWorkflowService : IPublicationWorkflowService
             LastDecisionAtUtc: latestDecision.AtUtc,
             ProjectedDecisionAtUtc: latestDecision.AtUtc.Add(offset),
             ApprovalBacked: approvalBacked,
-            OperatorAttentionRequired: operatorAttentionRequired);
+            OperatorAttentionRequired: operatorAttentionRequired,
+            NextSafeActionSummary: nextSafeActionSummary);
     }
 
     private static string MapStage(PublicationEventType eventType) =>

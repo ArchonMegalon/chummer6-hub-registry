@@ -171,6 +171,7 @@ Assert(submitted.State == PublicationState.PendingReview, "Submitted publication
 Assert(HasHeader(publicationsController, "ETag", submitted.ConcurrencyToken), "Submit should write the publication concurrency token to response headers.");
 Assert(RequireOk(publicationsController.Get(submitted.PublicationId)).PublicationId == submitted.PublicationId, "Publication lookup should return the submitted publication.");
 Assert(RequireOk(publicationsController.List(PublicationState.PendingReview.ToString())).Count == 1, "Publication list should filter pending-review entries.");
+Assert(submitted.ModerationTimeline.NextSafeActionSummary?.Contains("approval review", StringComparison.OrdinalIgnoreCase) == true, "Pending-review publications should project an explicit next safe action.");
 
 PublicationRecordResponse approved = RequireOk(publicationsController.Review(
     submitted.PublicationId,
@@ -178,6 +179,7 @@ PublicationRecordResponse approved = RequireOk(publicationsController.Review(
     submitted.ConcurrencyToken));
 Assert(approved.State == PublicationState.Approved, "Publication review should project approved state.");
 Assert(approved.ApprovalAuditTrail.Any(entry => string.Equals(entry.Outcome, "approved", StringComparison.OrdinalIgnoreCase)), "Approved publications should emit approval audit-trail entries.");
+Assert(approved.ModerationTimeline.NextSafeActionSummary?.Contains("Publish the approved artifact", StringComparison.Ordinal) == true, "Approved publications should project an explicit publish-safe next action.");
 
 PublicationRecordResponse published = RequireOk(publicationsController.Publish(
     approved.PublicationId,
@@ -185,6 +187,7 @@ PublicationRecordResponse published = RequireOk(publicationsController.Publish(
     approved.ConcurrencyToken));
 Assert(published.State == PublicationState.Published, "Published read model should project published state.");
 Assert(RequireOk(publicationsController.List(PublicationState.Published.ToString())).Count == 1, "Publication list should filter published entries.");
+Assert(published.ModerationTimeline.NextSafeActionSummary?.Contains("live published artifact", StringComparison.OrdinalIgnoreCase) == true, "Published publications should project a support-safe moderation-watch next action.");
 
 PublicationRecordResponse creatorSubmitted = RequireCreated(publicationsController.Submit(new PublicationSubmissionRequest(
     ArtifactId: "creator-packet-shadow-brief",
@@ -202,6 +205,7 @@ PublicationRecordResponse creatorPublished = RequireOk(publicationsController.Pu
     creatorApproved.ConcurrencyToken));
 Assert(string.Equals(creatorPublished.ArtifactKind, "CampaignPacket", StringComparison.Ordinal), "Creator publication flow should preserve the campaign-packet artifact kind.");
 Assert(string.Equals(creatorPublished.ModerationTimeline.PendingDecision, "moderation-watch", StringComparison.Ordinal), "Published creator packets should project the standard moderation-watch follow-up.");
+Assert(creatorPublished.ModerationTimeline.NextSafeActionSummary?.Contains("live published artifact", StringComparison.OrdinalIgnoreCase) == true, "Published creator packets should project the moderation-watch next safe action.");
 Assert(RequireOk(publicationsController.List(PublicationState.Published.ToString())).Count >= 2, "Publication list should retain creator publication rows beside install/update publications.");
 
 PublicationRecordResponse deprecated = RequireOk(publicationsController.Moderate(
@@ -210,6 +214,7 @@ PublicationRecordResponse deprecated = RequireOk(publicationsController.Moderate
     published.ConcurrencyToken));
 Assert(deprecated.State == PublicationState.Deprecated, "Moderation should project deprecated state.");
 Assert(string.Equals(deprecated.ModerationTimeline.PendingDecision, "supersede-review", StringComparison.Ordinal), "Moderation timeline should reflect the next canonical decision.");
+Assert(deprecated.ModerationTimeline.NextSafeActionSummary?.Contains("replacement artifact", StringComparison.OrdinalIgnoreCase) == true, "Deprecated publications should project an explicit successor-oriented next safe action.");
 
 RuntimeBundleIssueResponse firstIssue = RequireCreated(registryController.IssueRuntimeBundle(new RuntimeBundleIssueRequest(
     SessionId: "session-registry",
