@@ -69,6 +69,7 @@ Minimum canonical payload:
       "downloadUrl": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
       "sha256": "…",
       "sizeBytes": 123456789,
+      "compatibilityState": "compatible",
       "embeddedRuntimeBundleHeadId": "runtime-head-preview-sr5"
     },
     {
@@ -81,6 +82,7 @@ Minimum canonical payload:
       "downloadUrl": "/downloads/files/chummer-avalonia-win-x64.exe",
       "sha256": "…",
       "sizeBytes": 120123456,
+      "compatibilityState": "compatible",
       "embeddedRuntimeBundleHeadId": "runtime-head-preview-sr5"
     }
   ],
@@ -90,7 +92,8 @@ Minimum canonical payload:
       "headKind": "session",
       "rulesetId": "sr5",
       "sourceBundleVersion": "2026.03.23-core.1",
-      "projectionFingerprint": "sha256:…"
+      "projectionFingerprint": "sha256:…",
+      "compatibilityState": "compatible"
     }
   ]
 }

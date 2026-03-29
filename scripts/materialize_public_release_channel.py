@@ -188,12 +188,11 @@ def load_runtime_bundle_heads(path: Path | None) -> list[dict[str, Any]]:
     return [row for row in rows if row["headId"]]
 
 
-def load_release_proof(path: Path | None) -> dict[str, Any] | None:
-    if path is None or not path.exists():
+def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, Any] | None:
+    if loaded is None:
         return None
-    loaded = json.loads(path.read_text(encoding="utf-8"))
     if not isinstance(loaded, dict):
-        raise ValueError(f"release proof payload must be a JSON object: {path}")
+        raise ValueError(f"release proof payload must be a JSON object: {source}")
     status = str(loaded.get("status") or "").strip().lower() or "missing"
     journeys = [
         str(item).strip()
@@ -214,6 +213,65 @@ def load_release_proof(path: Path | None) -> dict[str, Any] | None:
         "journeysPassed": journeys,
         "proofRoutes": routes,
     }
+
+
+def load_release_proof(path: Path | None) -> dict[str, Any] | None:
+    if path is None or not path.exists():
+        return None
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    return normalize_release_proof_payload(loaded, source=str(path))
+
+
+def normalize_optional_string(value: Any) -> str | None:
+    normalized = str(value or "").strip()
+    return normalized or None
+
+
+def derive_default_compatibility_state(status: str, proof: dict[str, Any] | None) -> str:
+    if status == "published" and proof and str(proof.get("status") or "").strip().lower() == "passed":
+        return "compatible"
+    return "unknown"
+
+
+def apply_runtime_bundle_compatibility(
+    runtime_bundle_heads: list[dict[str, Any]],
+    *,
+    status: str,
+    proof: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    default_state = derive_default_compatibility_state(status, proof)
+    rows = []
+    for item in runtime_bundle_heads:
+        row = dict(item)
+        row["compatibilityState"] = normalize_optional_string(row.get("compatibilityState")) or default_state
+        rows.append(row)
+    return rows
+
+
+def apply_artifact_compatibility(
+    artifacts: list[dict[str, Any]],
+    *,
+    runtime_bundle_heads: list[dict[str, Any]],
+    status: str,
+    proof: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    default_state = derive_default_compatibility_state(status, proof)
+    head_states = {
+        str(item.get("headId") or "").strip(): normalize_optional_string(item.get("compatibilityState")) or default_state
+        for item in runtime_bundle_heads
+        if str(item.get("headId") or "").strip()
+    }
+    rows = []
+    for item in artifacts:
+        row = dict(item)
+        embedded_head_id = str(row.get("embeddedRuntimeBundleHeadId") or "").strip()
+        row["compatibilityState"] = (
+            normalize_optional_string(row.get("compatibilityState"))
+            or head_states.get(embedded_head_id)
+            or default_state
+        )
+        rows.append(row)
+    return rows
 
 
 def derive_rollout_state(channel: str, status: str, proof: dict[str, Any] | None) -> str:
@@ -297,8 +355,21 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     channel = str(loaded.get("channel") or loaded.get("channelId") or args.channel).strip() or "preview"
     status = str(loaded.get("status") or ("published" if artifacts else "unpublished")).strip()
     message = loaded.get("message")
-    runtime_bundle_heads = load_runtime_bundle_heads(args.runtime_bundles)
-    release_proof = load_release_proof(args.proof)
+    release_proof = load_release_proof(args.proof) or normalize_release_proof_payload(
+        loaded.get("releaseProof") or loaded.get("release_proof"),
+        source="embedded manifest releaseProof",
+    )
+    runtime_bundle_heads = apply_runtime_bundle_compatibility(
+        load_runtime_bundle_heads(args.runtime_bundles),
+        status=status,
+        proof=release_proof,
+    )
+    artifacts = apply_artifact_compatibility(
+        artifacts,
+        runtime_bundle_heads=runtime_bundle_heads,
+        status=status,
+        proof=release_proof,
+    )
     rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip() or derive_rollout_state(channel, status, release_proof)
     rollout_reason = str(loaded.get("rolloutReason") or loaded.get("rollout_reason") or "").strip() or derive_rollout_reason(channel, status, release_proof)
     supportability_state = (

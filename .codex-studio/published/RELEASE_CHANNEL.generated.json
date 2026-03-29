@@ -46,7 +46,7 @@
       "platformLabel": "Avalonia Desktop Linux X64",
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
-      "compatibilityState": null,
+      "compatibilityState": "compatible",
       "installAccessClass": "open_public"
     }
   ],

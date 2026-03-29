@@ -36,6 +36,9 @@ def verify_artifacts(payload: dict, source: str) -> None:
             for field in ("artifactId", "downloadUrl", "sha256", "sizeBytes"):
                 if item.get(field) in (None, ""):
                     raise SystemExit(f"artifacts[{index}] is missing {field} in {source}")
+            compatibility_state = item.get("compatibilityState")
+            if compatibility_state in (None, "") or not isinstance(compatibility_state, str):
+                raise SystemExit(f"artifacts[{index}] is missing compatibilityState in {source}")
     elif isinstance(payload.get("downloads"), list):
         downloads = payload.get("downloads") or []
         if not downloads and status != "unpublished":
@@ -61,6 +64,9 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(f"supportabilityState must be a string in {source}")
     proof = payload.get("releaseProof")
     if proof is None:
+        runtime_bundle_heads = payload.get("runtimeBundleHeads")
+        if runtime_bundle_heads is not None and not isinstance(runtime_bundle_heads, list):
+            raise SystemExit(f"runtimeBundleHeads must be a list in {source}")
         return
     if not isinstance(proof, dict):
         raise SystemExit(f"releaseProof must be an object in {source}")
@@ -71,6 +77,17 @@ def verify_release_truth(payload: dict, source: str) -> None:
         value = proof.get(field)
         if value is not None and not isinstance(value, list):
             raise SystemExit(f"releaseProof.{field} must be a list in {source}")
+    runtime_bundle_heads = payload.get("runtimeBundleHeads")
+    if runtime_bundle_heads is not None and not isinstance(runtime_bundle_heads, list):
+        raise SystemExit(f"runtimeBundleHeads must be a list in {source}")
+    for index, item in enumerate(runtime_bundle_heads or []):
+        if not isinstance(item, dict):
+            raise SystemExit(f"runtimeBundleHeads[{index}] is not an object in {source}")
+        if item.get("headId") in (None, ""):
+            raise SystemExit(f"runtimeBundleHeads[{index}] is missing headId in {source}")
+        compatibility_state = item.get("compatibilityState")
+        if compatibility_state in (None, "") or not isinstance(compatibility_state, str):
+            raise SystemExit(f"runtimeBundleHeads[{index}] is missing compatibilityState in {source}")
 
 
 def main() -> int:

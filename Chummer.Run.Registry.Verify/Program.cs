@@ -51,7 +51,21 @@ File.WriteAllText(
                     sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
                     sizeBytes = 4096L,
                     platformLabel = "Avalonia Desktop Linux X64",
+                    embeddedRuntimeBundleHeadId = "runtime-head-preview-sr6",
+                    compatibilityState = "compatible",
                     installAccessClass = "open_public"
+                }
+            },
+            runtimeBundleHeads = new[]
+            {
+                new
+                {
+                    headId = "runtime-head-preview-sr6",
+                    headKind = "session",
+                    rulesetId = "sr6",
+                    sourceBundleVersion = "bundle-preview",
+                    projectionFingerprint = "sha256:runtime-head-preview-sr6",
+                    compatibilityState = "compatible"
                 }
             }
         },
@@ -72,6 +86,8 @@ RegistryReleaseChannelHeadProjection releaseChannel = RequireOk(registryControll
 Assert(string.Equals(releaseChannel.ChannelId, "docker", StringComparison.Ordinal), "Release-channel read model should load the current registry manifest.");
 Assert(string.Equals(releaseChannel.SupportabilityState, "local_docker_proven", StringComparison.Ordinal), "Release-channel read model should retain supportability posture.");
 Assert(string.Equals(releaseChannel.ReleaseProof?.Status, "passed", StringComparison.Ordinal), "Release-channel read model should retain proof posture.");
+Assert(string.Equals(releaseChannel.Artifacts[0].CompatibilityState, "compatible", StringComparison.Ordinal), "Release-channel artifacts should retain compatibility posture.");
+Assert(string.Equals(releaseChannel.RuntimeBundleHeads?[0].CompatibilityState, "compatible", StringComparison.Ordinal), "Release-channel runtime heads should retain compatibility posture.");
 
 var missingInstallEvent = new HubInstallEvent(
     ArtifactId: "artifact-missing",
