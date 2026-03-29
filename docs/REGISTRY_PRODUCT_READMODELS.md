@@ -23,6 +23,7 @@ This document names the authoritative publication/install/review/discovery and p
 - publication state projections: `PublicationsController.List`, `PublicationsController.Get`
 - publication approval audit trail: `PublicationRecordResponse.ApprovalAuditTrail`
 - publication moderation timeline: `PublicationRecordResponse.ModerationTimeline`
+- publication trust, discovery, and lineage posture: `PublicationRecordResponse.TrustProjection`
 - moderation lifecycle views: `PublicationsController.Moderate`, `HubRegistryController.ListArtifactsByState`
 - review summary views: `HubRegistryController.GetReviews`
 

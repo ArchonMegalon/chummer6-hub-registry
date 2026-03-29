@@ -1,3 +1,4 @@
+using Chummer.Run.Contracts.Registry;
 using System.ComponentModel.DataAnnotations;
 
 namespace Chummer.Run.Contracts.Publication;
@@ -75,6 +76,13 @@ public sealed record PublicationModerationTimelineProjection(
     bool OperatorAttentionRequired,
     string? NextSafeActionSummary = null);
 
+public sealed record PublicationTrustProjection(
+    string RankingBand,
+    string TrustSummary,
+    string DiscoverySummary,
+    string LineageSummary,
+    bool Discoverable);
+
 public sealed record PublicationRecordResponse(
     string PublicationId,
     string ArtifactId,
@@ -92,7 +100,8 @@ public sealed record PublicationRecordResponse(
     string ConcurrencyToken,
     IReadOnlyList<PublicationEvent> Events,
     IReadOnlyList<PublicationApprovalAuditEntry> ApprovalAuditTrail,
-    PublicationModerationTimelineProjection ModerationTimeline)
+    PublicationModerationTimelineProjection ModerationTimeline,
+    PublicationTrustProjection? TrustProjection = null)
 {
     // Backward-compatible constructor for consumers compiled against the prior 15-parameter shape.
     public PublicationRecordResponse(
@@ -128,7 +137,8 @@ public sealed record PublicationRecordResponse(
             ConcurrencyToken: concurrencyToken,
             Events: events,
             ApprovalAuditTrail: Array.Empty<PublicationApprovalAuditEntry>(),
-            ModerationTimeline: BuildLegacyModerationTimeline(state, updatedAtUtc))
+            ModerationTimeline: BuildLegacyModerationTimeline(state, updatedAtUtc),
+            TrustProjection: BuildLegacyTrustProjection(state, supersededByArtifactId))
     {
     }
 
@@ -156,4 +166,87 @@ public sealed record PublicationRecordResponse(
             OperatorAttentionRequired: operatorAttentionRequired,
             NextSafeActionSummary: nextSafeActionSummary);
     }
+
+    private static PublicationTrustProjection BuildLegacyTrustProjection(
+        PublicationState state,
+        string? supersededByArtifactId,
+        string? visibility = null,
+        string? trustTier = null)
+    {
+        var normalizedVisibility = NormalizeVisibility(visibility);
+        var normalizedTrustTier = NormalizeTrustTier(trustTier);
+        var successorArtifactId = string.IsNullOrWhiteSpace(supersededByArtifactId) ? null : supersededByArtifactId.Trim();
+        var discoverable = state == PublicationState.Published
+            && normalizedVisibility is not ArtifactVisibilityModes.Private
+            && normalizedVisibility is not ArtifactVisibilityModes.LocalOnly;
+
+        var rankingBand = state switch
+        {
+            PublicationState.PendingReview => "review-pending",
+            PublicationState.Approved => "approval-backed",
+            PublicationState.Rejected => "needs-revision",
+            PublicationState.Published when discoverable => $"{normalizedTrustTier}-live",
+            PublicationState.Published => "restricted-live",
+            PublicationState.Delisted => "delisted-caution",
+            PublicationState.Deprecated => "replacement-advised",
+            PublicationState.Superseded => "retained-history",
+            _ => "draft"
+        };
+
+        var trustSummary = state switch
+        {
+            PublicationState.PendingReview => $"{normalizedTrustTier} publication is waiting for approval before it can rank as governed discovery.",
+            PublicationState.Approved => $"{normalizedTrustTier} publication is approval-backed and ready for governed publication.",
+            PublicationState.Rejected => $"{normalizedTrustTier} publication needs revision before it can regain trust ranking.",
+            PublicationState.Published when discoverable => $"{normalizedTrustTier} publication is live with {normalizedVisibility} visibility and can rank in governed discovery.",
+            PublicationState.Published => $"{normalizedTrustTier} publication is live but constrained to {normalizedVisibility} visibility.",
+            PublicationState.Delisted => $"{normalizedTrustTier} publication is delisted and should not be treated as a current recommendation.",
+            PublicationState.Deprecated => $"{normalizedTrustTier} publication stays retained, but discovery should steer to a successor.",
+            PublicationState.Superseded => $"{normalizedTrustTier} publication remains retained only as install and audit history.",
+            _ => $"{normalizedTrustTier} publication is still draft-scoped and not ready for discovery."
+        };
+
+        var discoverySummary = state switch
+        {
+            PublicationState.PendingReview => "Keep this entry on moderation and operator surfaces until approval completes.",
+            PublicationState.Approved => "Ready for governed publication, but keep it off public discovery until it is actually published.",
+            PublicationState.Rejected => "Hide from discovery until the author revises and resubmits the publication.",
+            PublicationState.Published when discoverable => "Eligible for governed discovery, creator comparison, and shelf projection.",
+            PublicationState.Published => $"Keep discovery bounded to {normalizedVisibility} surfaces even though the publication is live.",
+            PublicationState.Delisted => "Keep it out of normal discovery and surface it only with moderation context.",
+            PublicationState.Deprecated => "Show successor-forward caution instead of ranking this as the preferred result.",
+            PublicationState.Superseded => "Retain for install and audit history, not as the preferred discovery result.",
+            _ => "Draft publications stay off discovery surfaces."
+        };
+
+        return new PublicationTrustProjection(
+            RankingBand: rankingBand,
+            TrustSummary: trustSummary,
+            DiscoverySummary: discoverySummary,
+            LineageSummary: BuildLineageSummary(state, successorArtifactId),
+            Discoverable: discoverable);
+    }
+
+    private static string BuildLineageSummary(PublicationState state, string? successorArtifactId)
+    {
+        if (!string.IsNullOrWhiteSpace(successorArtifactId))
+        {
+            return $"Successor artifact {successorArtifactId} is the lineage anchor for this publication.";
+        }
+
+        return state switch
+        {
+            PublicationState.Published => "No successor artifact is attached; this publication remains the live lineage anchor.",
+            PublicationState.Deprecated => "No successor artifact is attached yet; add one before you treat this publication as settled.",
+            PublicationState.Superseded => "Superseded publications should stay linked to a successor artifact for install and audit history.",
+            PublicationState.Delisted => "Delisted publications remain retained for moderation and audit history.",
+            _ => "No successor artifact is attached yet."
+        };
+    }
+
+    private static string NormalizeVisibility(string? visibility) =>
+        string.IsNullOrWhiteSpace(visibility) ? ArtifactVisibilityModes.Shared : visibility.Trim();
+
+    private static string NormalizeTrustTier(string? trustTier) =>
+        string.IsNullOrWhiteSpace(trustTier) ? ArtifactTrustTiers.Curated : trustTier.Trim();
 }
