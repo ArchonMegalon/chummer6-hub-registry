@@ -26,15 +26,16 @@ File.WriteAllText(
             artifactSource = "ui_desktop_bundle",
             rolloutState = "local_docker_preview",
             supportabilityState = "local_docker_proven",
-            supportabilitySummary = "Local release proof passed for install, build/explain, campaign recovery, and support closure journeys. Claimed-device restore and bounded offline prefetch stayed grounded on the current shelf.",
+            supportabilitySummary = "Local release proof passed for: install_claim_restore_continue, build_explain_publish, campaign_session_recover_recap, report_cluster_release_notify. Claimed-device restore and bounded offline prefetch stayed grounded on the current shelf.",
+            knownIssueSummary = "Preview caveats still apply, but the current shelf has recent install, claimed-device recovery, bounded offline prefetch, and support proof instead of only manifest presence.",
             fixAvailabilitySummary = "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
             releaseProof = new
             {
                 status = "passed",
                 generatedAt = "2026-03-28T16:31:31Z",
                 baseUrl = "http://127.0.0.1:8091",
-                journeysPassed = new[] { "install_claim_restore_continue", "build_explain_publish" },
-                proofRoutes = new[] { "/downloads/install/avalonia-linux-x64-installer" }
+                journeysPassed = new[] { "install_claim_restore_continue", "build_explain_publish", "campaign_session_recover_recap", "report_cluster_release_notify" },
+                proofRoutes = new[] { "/downloads/install/avalonia-linux-x64-installer", "/home/access", "/home/work", "/account/work", "/account/support", "/contact" }
             },
             artifacts = new[]
             {

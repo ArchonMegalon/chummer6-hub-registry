@@ -159,15 +159,15 @@ ReleaseChannelHeadProjection releaseChannel = new(
     RolloutState: ReleaseRolloutStates.LocalDockerPreview,
     RolloutReason: "Local docker preview shelf was verified before publication.",
     SupportabilityState: ReleaseSupportabilityStates.LocalDockerProven,
-    SupportabilitySummary: "Local release proof passed across install, build/explain, campaign recovery, support closure, and bounded offline prefetch journeys.",
-    KnownIssueSummary: "Preview support still requires install-aware follow-through, especially around claimed-device recovery and offline prefetch, before expanding promotion.",
+    SupportabilitySummary: "Local release proof passed for: install_claim_restore_continue, build_explain_publish, campaign_session_recover_recap, report_cluster_release_notify. Claimed-device restore and bounded offline prefetch stayed grounded on the current shelf.",
+    KnownIssueSummary: "Preview caveats still apply, but the current shelf has recent install, claimed-device recovery, bounded offline prefetch, and support proof instead of only manifest presence.",
     FixAvailabilitySummary: "Only send fixed notices after the affected channel artifact is on the current shelf.",
     ReleaseProof: new ReleaseProofProjection(
         Status: ReleaseProofStatuses.Passed,
         GeneratedAtUtc: DateTimeOffset.UnixEpoch,
         BaseUrl: "http://127.0.0.1:8091",
-        JourneysPassed: ["install_claim_restore_continue", "build_explain_publish"],
-        ProofRoutes: ["/downloads/install/avalonia-win-x64-installer"]));
+        JourneysPassed: ["install_claim_restore_continue", "build_explain_publish", "campaign_session_recover_recap", "report_cluster_release_notify"],
+        ProofRoutes: ["/downloads/install/avalonia-win-x64-installer", "/home/access", "/home/work", "/account/work", "/account/support", "/contact"]));
 
 HubPublicationResult<RuntimeBundleHeadProjection> implemented = HubPublicationResult<RuntimeBundleHeadProjection>.Implemented(head);
 Assert(implemented.IsImplemented, "Implemented result wrappers must report IsImplemented.");
@@ -183,7 +183,14 @@ Assert(string.Equals(releaseChannel.Artifacts[0].InstallAccessClass, "open_publi
     "Release channel projections must retain install access posture.");
 Assert(string.Equals(releaseChannel.SupportabilityState, ReleaseSupportabilityStates.LocalDockerProven, StringComparison.Ordinal),
     "Release channel projections must retain supportability posture.");
-Assert(string.Equals(releaseChannel.ReleaseProof?.Status, ReleaseProofStatuses.Passed, StringComparison.Ordinal),
+ReleaseProofProjection releaseProof = releaseChannel.ReleaseProof
+    ?? throw new InvalidOperationException("Release channel projections must retain release-proof payloads.");
+IReadOnlyList<string> journeysPassed = releaseProof.JourneysPassed ?? Array.Empty<string>();
+IReadOnlyList<string> proofRoutes = releaseProof.ProofRoutes ?? Array.Empty<string>();
+Assert(journeysPassed.Count == 4, "Release channel projections must retain the full proven journey set.");
+Assert(proofRoutes.Any(route => string.Equals(route, "/account/work", StringComparison.Ordinal)),
+    "Release channel projections must retain bounded offline follow-through routes.");
+Assert(string.Equals(releaseProof.Status, ReleaseProofStatuses.Passed, StringComparison.Ordinal),
     "Release channel projections must retain release-proof posture.");
 
 DownloadReceiptDto receipt = new(
