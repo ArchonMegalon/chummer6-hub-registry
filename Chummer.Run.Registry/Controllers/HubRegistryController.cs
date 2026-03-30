@@ -56,6 +56,7 @@ public sealed class HubRegistryController : ControllerBase
         var response = new RegistrySearchResponse(
             Items: _artifactStore.Search(query, parsedKind, parsedState, page, pageSize)
                 .Select(ToSearchItem)
+                .Select(DecoratePublicationPosture)
                 .ToList(),
             Page: page,
             PageSize: pageSize,
@@ -274,9 +275,10 @@ public sealed class HubRegistryController : ControllerBase
             Visibility: metadata.Visibility,
             TrustTier: metadata.TrustTier,
             ShelfAudience: DetermineShelfAudience(metadata),
-            ShelfSummary: BuildShelfSummary(metadata));
+            ShelfSummary: BuildShelfSummary(metadata),
+            ShelfOwnershipSummary: BuildShelfOwnershipSummary(metadata));
 
-        return Ok(response);
+        return Ok(DecoratePublicationPosture(response));
     }
 
     [HttpGet("projections")]
@@ -573,7 +575,8 @@ public sealed class HubRegistryController : ControllerBase
         Visibility: metadata.Visibility,
         TrustTier: metadata.TrustTier,
         ShelfAudience: DetermineShelfAudience(metadata),
-        ShelfSummary: BuildShelfSummary(metadata));
+        ShelfSummary: BuildShelfSummary(metadata),
+        ShelfOwnershipSummary: BuildShelfOwnershipSummary(metadata));
 
     private static string DetermineShelfAudience(HubArtifactMetadata metadata)
     {
@@ -604,6 +607,19 @@ public sealed class HubRegistryController : ControllerBase
         };
     }
 
+    private static string BuildShelfOwnershipSummary(HubArtifactMetadata metadata)
+    {
+        var shelfAudience = DetermineShelfAudience(metadata);
+        return shelfAudience switch
+        {
+            "retained-history" => "Ownership stays attached to retained history for lineage and audit, not first-rank active shelves.",
+            "campaign" => "Ownership stays with the campaign or crew lane even when the artifact is browsed from shared surfaces.",
+            "owner-only" => "Ownership stays with the originating account or install until an explicit share or publication step promotes it.",
+            "creator" => "Ownership stays with the creator publication lane, so discovery does not fork the underlying artifact record.",
+            _ => "Ownership stays with the personal shelf until the user or publisher deliberately widens its audience."
+        };
+    }
+
     private RegistryProjectionResponse DecoratePublicationPosture(RegistryProjectionResponse projection)
     {
         if (_publicationWorkflow is null)
@@ -618,6 +634,50 @@ public sealed class HubRegistryController : ControllerBase
         }
 
         return projection with
+        {
+            LatestPublicationId = publication.PublicationId,
+            LatestPublicationState = publication.State.ToString(),
+            PublicationNextSafeActionSummary = publication.ModerationTimeline.NextSafeActionSummary,
+            PublicationTrustBand = publication.TrustProjection?.RankingBand
+        };
+    }
+
+    private RegistrySearchItem DecoratePublicationPosture(RegistrySearchItem item)
+    {
+        if (_publicationWorkflow is null)
+        {
+            return item;
+        }
+
+        var publication = _publicationWorkflow.GetLatestForArtifact(item.Id);
+        if (publication is null)
+        {
+            return item;
+        }
+
+        return item with
+        {
+            LatestPublicationId = publication.PublicationId,
+            LatestPublicationState = publication.State.ToString(),
+            PublicationNextSafeActionSummary = publication.ModerationTimeline.NextSafeActionSummary,
+            PublicationTrustBand = publication.TrustProjection?.RankingBand
+        };
+    }
+
+    private RegistryPreviewResponse DecoratePublicationPosture(RegistryPreviewResponse preview)
+    {
+        if (_publicationWorkflow is null)
+        {
+            return preview;
+        }
+
+        var publication = _publicationWorkflow.GetLatestForArtifact(preview.Id);
+        if (publication is null)
+        {
+            return preview;
+        }
+
+        return preview with
         {
             LatestPublicationId = publication.PublicationId,
             LatestPublicationState = publication.State.ToString(),

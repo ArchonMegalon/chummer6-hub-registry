@@ -944,7 +944,8 @@ public sealed class HubArtifactStore : IHubArtifactStore
             Visibility: internalState.Visibility,
             TrustTier: internalState.TrustTier,
             ShelfAudience: DetermineShelfAudience(internalState),
-            ShelfSummary: BuildShelfSummary(internalState));
+            ShelfSummary: BuildShelfSummary(internalState),
+            ShelfOwnershipSummary: BuildShelfOwnershipSummary(internalState));
 
     private HubArtifactInstallProjection ToInstallProjection(HubArtifactInternal internalState) =>
         new(
@@ -1034,6 +1035,19 @@ public sealed class HubArtifactStore : IHubArtifactStore
             "owner-only" => $"{internalState.TrustTier} {internalState.Visibility} artifact should stay on owner-controlled shelves.",
             "creator" => $"{internalState.TrustTier} {internalState.Visibility} artifact is suited for creator shelves with explicit lineage and trust posture.",
             _ => $"{internalState.TrustTier} {internalState.Visibility} artifact is suited for personal shelves and governed discovery."
+        };
+    }
+
+    private static string BuildShelfOwnershipSummary(HubArtifactInternal internalState)
+    {
+        var shelfAudience = DetermineShelfAudience(internalState);
+        return shelfAudience switch
+        {
+            "retained-history" => "Ownership stays attached to retained history for lineage and audit, not first-rank active shelves.",
+            "campaign" => "Ownership stays with the campaign or crew lane even when the artifact is browsed from shared surfaces.",
+            "owner-only" => "Ownership stays with the originating account or install until an explicit share or publication step promotes it.",
+            "creator" => "Ownership stays with the creator publication lane, so discovery does not fork the underlying artifact record.",
+            _ => "Ownership stays with the personal shelf until the user or publisher deliberately widens its audience."
         };
     }
 

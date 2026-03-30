@@ -15,7 +15,12 @@ public sealed record RegistrySearchItem(
     string Visibility = ArtifactVisibilityModes.Shared,
     string TrustTier = ArtifactTrustTiers.Curated,
     string ShelfAudience = "personal",
-    string ShelfSummary = "");
+    string ShelfSummary = "",
+    string ShelfOwnershipSummary = "",
+    string? LatestPublicationId = null,
+    string? LatestPublicationState = null,
+    string? PublicationNextSafeActionSummary = null,
+    string? PublicationTrustBand = null);
 
 public sealed record RegistrySearchResponse(
     IReadOnlyList<RegistrySearchItem> Items,
@@ -38,7 +43,12 @@ public sealed record RegistryPreviewResponse(
     string Visibility = ArtifactVisibilityModes.Shared,
     string TrustTier = ArtifactTrustTiers.Curated,
     string ShelfAudience = "personal",
-    string ShelfSummary = "");
+    string ShelfSummary = "",
+    string ShelfOwnershipSummary = "",
+    string? LatestPublicationId = null,
+    string? LatestPublicationState = null,
+    string? PublicationNextSafeActionSummary = null,
+    string? PublicationTrustBand = null);
 
 public sealed record RegistryProjectionResponse(
     string Id,
@@ -61,6 +71,7 @@ public sealed record RegistryProjectionResponse(
     string TrustTier = ArtifactTrustTiers.Curated,
     string ShelfAudience = "personal",
     string ShelfSummary = "",
+    string ShelfOwnershipSummary = "",
     string? LatestPublicationId = null,
     string? LatestPublicationState = null,
     string? PublicationNextSafeActionSummary = null,
