@@ -330,6 +330,21 @@ RegistryOwner.HubPublicationReceipt draftReceipt = RequireOk(draftController.Get
 Assert(string.Equals(draftReceipt.ReviewState, RegistryOwner.HubReviewStates.Approved, StringComparison.Ordinal), "Publication receipts should surface the approved moderation posture.");
 Assert(string.Equals(draftReceipt.Visibility, RegistryOwner.ArtifactVisibilityModes.Shared, StringComparison.Ordinal), "Publication receipts should preserve publisher-backed shared visibility.");
 
+RegistryOwner.HubPublicationReceipt publishedDraft = RequireOk(draftController.PublishProject(
+    createdDraft.DraftId,
+    new RegistryOwner.HubPublishProjectRequest("Promote the approved packet onto governed creator discovery."),
+    actorId: "creator.runner"));
+Assert(string.Equals(publishedDraft.PublicationStatus, RegistryOwner.HubPublicationStates.Published, StringComparison.Ordinal), "Approved drafts should promote to a published receipt when the publish lane runs.");
+Assert(publishedDraft.PublishedAtUtc is not null, "Published drafts should stamp the publish timestamp on the receipt.");
+Assert(publishedDraft.Artifact.Version.EndsWith(".published", StringComparison.Ordinal), "Published drafts should switch the artifact receipt version suffix to the published rail.");
+
+RegistryOwner.HubPublishDraftList publishedDraftList = RequireOk(draftController.ListDrafts(ownerId: "creator.runner", state: RegistryOwner.HubPublicationStates.Published, projectId: replayArtifact.Id));
+Assert(publishedDraftList.Items.Count == 1, "Draft listing should expose the live published rail without client-side state invention.");
+
+RegistryOwner.HubDraftDetailProjection publishedDraftDetail = RequireOk(draftController.GetDraftDetail(createdDraft.DraftId));
+Assert(string.Equals(publishedDraftDetail.Draft.State, RegistryOwner.HubPublicationStates.Published, StringComparison.Ordinal), "Published drafts should stay on the published rail in draft detail projections.");
+Assert(publishedDraftDetail.LatestModerationNotes?.Contains("discover", StringComparison.OrdinalIgnoreCase) == true, "Draft detail should retain the latest publish note after the live promotion.");
+
 RegistryOwner.HubPublishDraftReceipt archivedDraft = RequireOk(draftController.ArchiveDraft(createdDraft.DraftId, ownerId: "creator.runner"));
 Assert(string.Equals(archivedDraft.State, RegistryOwner.HubPublicationStates.Archived, StringComparison.Ordinal), "Draft archive should transition the draft into archived state.");
 

@@ -8,6 +8,7 @@ public static class HubPublicationOperations
     public const string ArchiveDraft = "archive-draft";
     public const string DeleteDraft = "delete-draft";
     public const string SubmitProject = "submit-project";
+    public const string PublishProject = "publish-project";
     public const string ListModerationQueue = "list-moderation-queue";
     public const string ApproveModerationCase = "approve-moderation-case";
     public const string RejectModerationCase = "reject-moderation-case";
@@ -17,6 +18,7 @@ public static class HubPublicationStates
 {
     public const string Draft = "draft";
     public const string Submitted = "submitted";
+    public const string Published = "published";
     public const string Archived = "archived";
     public const string PendingReview = "pending-review";
 }
@@ -76,6 +78,10 @@ public sealed record HubDraftDetailProjection(
     DateTimeOffset? LatestModerationUpdatedAtUtc = null);
 
 public sealed record HubSubmitProjectRequest(
+    string? Notes = null,
+    string? PublisherId = null);
+
+public sealed record HubPublishProjectRequest(
     string? Notes = null,
     string? PublisherId = null);
 

@@ -178,6 +178,31 @@ public sealed class HubPublicationDraftsController : ControllerBase
         }
     }
 
+    [HttpPost("{draftId}/publish")]
+    [ProducesResponseType<HubPublicationReceipt>(StatusCodes.Status200OK)]
+    public ActionResult<HubPublicationReceipt> PublishProject(
+        [FromRoute] string draftId,
+        [FromBody] HubPublishProjectRequest? request,
+        [FromQuery] string actorId)
+    {
+        try
+        {
+            return Ok(_drafts.PublishProject(draftId, actorId, request ?? new HubPublishProjectRequest()));
+        }
+        catch (ArgumentException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
+        }
+        catch (KeyNotFoundException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status404NotFound, detail: ex.Message);
+        }
+        catch (InvalidOperationException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status409Conflict, detail: ex.Message);
+        }
+    }
+
     [HttpGet("{draftId}/receipt")]
     [ProducesResponseType<HubPublicationReceipt>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]

@@ -13,6 +13,7 @@ public interface IHubPublicationDraftService
     HubPublishDraftReceipt ArchiveDraft(string draftId, string ownerId);
     bool DeleteDraft(string draftId, string ownerId);
     HubProjectSubmissionReceipt SubmitProject(string draftId, string ownerId, HubSubmitProjectRequest request);
+    HubPublicationReceipt PublishProject(string draftId, string actorId, HubPublishProjectRequest request);
     HubModerationQueue ListModerationQueue(string? ownerId = null, string? publisherId = null, string? state = null);
     HubModerationDecisionReceipt ApproveModerationCase(string caseId, string actorId, HubModerationDecisionRequest request);
     HubModerationDecisionReceipt RejectModerationCase(string caseId, string actorId, HubModerationDecisionRequest request);
@@ -256,6 +257,45 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
         }
     }
 
+    public HubPublicationReceipt PublishProject(string draftId, string actorId, HubPublishProjectRequest request)
+    {
+        ArgumentNullException.ThrowIfNull(request);
+        actorId = NormalizeRequired(actorId, nameof(actorId));
+
+        lock (_sync)
+        {
+            DraftStateRow row = GetOwnedDraftLocked(draftId, actorId);
+            if (string.Equals(row.State, HubPublicationStates.Archived, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Archived drafts cannot be published.");
+            }
+
+            if (!string.Equals(row.ReviewState, HubReviewStates.Approved, StringComparison.OrdinalIgnoreCase))
+            {
+                throw new InvalidOperationException("Only approval-backed drafts can be published.");
+            }
+
+            if (string.Equals(row.State, HubPublicationStates.Published, StringComparison.OrdinalIgnoreCase)
+                && row.PublishedAtUtc is not null)
+            {
+                return ToPublicationReceipt(row);
+            }
+
+            DateTimeOffset now = DateTimeOffset.UtcNow;
+            string? publisherId = NormalizeOptional(request.PublisherId) ?? row.PublisherId ?? actorId;
+            row.PublisherId = publisherId;
+            row.State = HubPublicationStates.Published;
+            row.PublishedAtUtc = now;
+            row.UpdatedAtUtc = now;
+            row.Visibility = ResolveVisibility(row.PublisherId);
+            row.LatestModerationNotes = NormalizeOptional(request.Notes)
+                ?? row.LatestModerationNotes
+                ?? $"Published for governed creator discovery by {actorId}.";
+            row.LatestModerationUpdatedAtUtc = now;
+            return ToPublicationReceipt(row);
+        }
+    }
+
     public HubModerationQueue ListModerationQueue(string? ownerId = null, string? publisherId = null, string? state = null)
     {
         lock (_sync)
@@ -404,6 +444,12 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
 
     private static string ResolvePublicationStatus(DraftStateRow row)
     {
+        if (string.Equals(row.State, HubPublicationStates.Published, StringComparison.OrdinalIgnoreCase)
+            || row.PublishedAtUtc is not null)
+        {
+            return HubPublicationStates.Published;
+        }
+
         if (string.Equals(row.State, HubPublicationStates.Archived, StringComparison.OrdinalIgnoreCase))
         {
             return HubPublicationStates.Archived;
@@ -439,7 +485,9 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
     }
 
     private static string BuildArtifactVersion(DraftStateRow row)
-        => $"{(row.SubmittedAtUtc ?? row.UpdatedAtUtc):yyyy.MM.dd.HHmmss}.draft";
+        => row.PublishedAtUtc is not null || string.Equals(row.State, HubPublicationStates.Published, StringComparison.OrdinalIgnoreCase)
+            ? $"{(row.PublishedAtUtc ?? row.UpdatedAtUtc):yyyy.MM.dd.HHmmss}.published"
+            : $"{(row.SubmittedAtUtc ?? row.UpdatedAtUtc):yyyy.MM.dd.HHmmss}.draft";
 
     private static string ResolveVisibility(string? publisherId)
         => string.IsNullOrWhiteSpace(publisherId)
