@@ -247,17 +247,29 @@ Assert(deprecated.TrustProjection?.LineageSummary.Contains("add one", StringComp
 RegistryProjectionResponse deprecatedProjection = RequireOk(registryController.GetProjection(artifact.Id));
 Assert(string.Equals(deprecatedProjection.LatestPublicationState, PublicationState.Deprecated.ToString(), StringComparison.Ordinal), "Artifact projections should surface the latest publication state.");
 Assert(string.Equals(deprecatedProjection.PublicationTrustBand, "replacement-advised", StringComparison.Ordinal), "Artifact projections should surface the latest publication trust band.");
+Assert(deprecatedProjection.PublicationTrustSummary?.Contains("discovery should steer", StringComparison.OrdinalIgnoreCase) == true, "Artifact projections should surface the latest publication trust summary.");
+Assert(deprecatedProjection.PublicationDiscoverySummary?.Contains("successor-forward caution", StringComparison.OrdinalIgnoreCase) == true, "Artifact projections should surface the latest publication discovery summary.");
+Assert(deprecatedProjection.PublicationLineageSummary?.Contains("add one", StringComparison.OrdinalIgnoreCase) == true, "Artifact projections should surface the latest publication lineage summary.");
+Assert(deprecatedProjection.PublicationDiscoverable == false, "Artifact projections should surface the latest publication discoverability posture.");
 Assert(deprecatedProjection.PublicationNextSafeActionSummary?.Contains("replacement artifact", StringComparison.OrdinalIgnoreCase) == true, "Artifact projections should surface the latest publication next safe action.");
 
 RegistrySearchResponse publicationSearch = RequireOk(registryController.SearchArtifacts("Seattle", "RulePack", null, page: 1, pageSize: 10));
 Assert(string.Equals(publicationSearch.Items[0].LatestPublicationState, PublicationState.Deprecated.ToString(), StringComparison.Ordinal), "Registry search should surface the latest publication state.");
 Assert(string.Equals(publicationSearch.Items[0].PublicationTrustBand, "replacement-advised", StringComparison.Ordinal), "Registry search should surface the latest publication trust band.");
+Assert(publicationSearch.Items[0].PublicationTrustSummary?.Contains("discovery should steer", StringComparison.OrdinalIgnoreCase) == true, "Registry search should surface the latest publication trust summary.");
+Assert(publicationSearch.Items[0].PublicationDiscoverySummary?.Contains("successor-forward caution", StringComparison.OrdinalIgnoreCase) == true, "Registry search should surface the latest publication discovery summary.");
+Assert(publicationSearch.Items[0].PublicationLineageSummary?.Contains("add one", StringComparison.OrdinalIgnoreCase) == true, "Registry search should surface the latest publication lineage summary.");
+Assert(publicationSearch.Items[0].PublicationDiscoverable == false, "Registry search should surface the latest publication discoverability posture.");
 Assert(publicationSearch.Items[0].PublicationNextSafeActionSummary?.Contains("replacement artifact", StringComparison.OrdinalIgnoreCase) == true, "Registry search should surface the latest publication next safe action.");
 Assert(publicationSearch.Items[0].ShelfOwnershipSummary.Contains("creator publication lane", StringComparison.OrdinalIgnoreCase), "Registry search should retain ownership posture after publication changes.");
 
 RegistryPreviewResponse publicationPreview = RequireOk(registryController.GetPreview(artifact.Id));
 Assert(string.Equals(publicationPreview.LatestPublicationState, PublicationState.Deprecated.ToString(), StringComparison.Ordinal), "Registry preview should surface the latest publication state.");
 Assert(string.Equals(publicationPreview.PublicationTrustBand, "replacement-advised", StringComparison.Ordinal), "Registry preview should surface the latest publication trust band.");
+Assert(publicationPreview.PublicationTrustSummary?.Contains("discovery should steer", StringComparison.OrdinalIgnoreCase) == true, "Registry preview should surface the latest publication trust summary.");
+Assert(publicationPreview.PublicationDiscoverySummary?.Contains("successor-forward caution", StringComparison.OrdinalIgnoreCase) == true, "Registry preview should surface the latest publication discovery summary.");
+Assert(publicationPreview.PublicationLineageSummary?.Contains("add one", StringComparison.OrdinalIgnoreCase) == true, "Registry preview should surface the latest publication lineage summary.");
+Assert(publicationPreview.PublicationDiscoverable == false, "Registry preview should surface the latest publication discoverability posture.");
 Assert(publicationPreview.PublicationNextSafeActionSummary?.Contains("replacement artifact", StringComparison.OrdinalIgnoreCase) == true, "Registry preview should surface the latest publication next safe action.");
 Assert(publicationPreview.ShelfOwnershipSummary.Contains("creator publication lane", StringComparison.OrdinalIgnoreCase), "Registry preview should retain ownership posture after publication changes.");
 

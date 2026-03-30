@@ -20,7 +20,11 @@ public sealed record RegistrySearchItem(
     string? LatestPublicationId = null,
     string? LatestPublicationState = null,
     string? PublicationNextSafeActionSummary = null,
-    string? PublicationTrustBand = null);
+    string? PublicationTrustBand = null,
+    string? PublicationTrustSummary = null,
+    string? PublicationDiscoverySummary = null,
+    string? PublicationLineageSummary = null,
+    bool? PublicationDiscoverable = null);
 
 public sealed record RegistrySearchResponse(
     IReadOnlyList<RegistrySearchItem> Items,
@@ -48,7 +52,11 @@ public sealed record RegistryPreviewResponse(
     string? LatestPublicationId = null,
     string? LatestPublicationState = null,
     string? PublicationNextSafeActionSummary = null,
-    string? PublicationTrustBand = null);
+    string? PublicationTrustBand = null,
+    string? PublicationTrustSummary = null,
+    string? PublicationDiscoverySummary = null,
+    string? PublicationLineageSummary = null,
+    bool? PublicationDiscoverable = null);
 
 public sealed record RegistryProjectionResponse(
     string Id,
@@ -75,7 +83,11 @@ public sealed record RegistryProjectionResponse(
     string? LatestPublicationId = null,
     string? LatestPublicationState = null,
     string? PublicationNextSafeActionSummary = null,
-    string? PublicationTrustBand = null);
+    string? PublicationTrustBand = null,
+    string? PublicationTrustSummary = null,
+    string? PublicationDiscoverySummary = null,
+    string? PublicationLineageSummary = null,
+    bool? PublicationDiscoverable = null);
 
 public sealed record RegistryProjectionListResponse(
     IReadOnlyList<RegistryProjectionResponse> Items,

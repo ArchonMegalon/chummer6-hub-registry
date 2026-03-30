@@ -638,7 +638,11 @@ public sealed class HubRegistryController : ControllerBase
             LatestPublicationId = publication.PublicationId,
             LatestPublicationState = publication.State.ToString(),
             PublicationNextSafeActionSummary = publication.ModerationTimeline.NextSafeActionSummary,
-            PublicationTrustBand = publication.TrustProjection?.RankingBand
+            PublicationTrustBand = publication.TrustProjection?.RankingBand,
+            PublicationTrustSummary = publication.TrustProjection?.TrustSummary,
+            PublicationDiscoverySummary = publication.TrustProjection?.DiscoverySummary,
+            PublicationLineageSummary = publication.TrustProjection?.LineageSummary,
+            PublicationDiscoverable = publication.TrustProjection?.Discoverable
         };
     }
 
@@ -660,7 +664,11 @@ public sealed class HubRegistryController : ControllerBase
             LatestPublicationId = publication.PublicationId,
             LatestPublicationState = publication.State.ToString(),
             PublicationNextSafeActionSummary = publication.ModerationTimeline.NextSafeActionSummary,
-            PublicationTrustBand = publication.TrustProjection?.RankingBand
+            PublicationTrustBand = publication.TrustProjection?.RankingBand,
+            PublicationTrustSummary = publication.TrustProjection?.TrustSummary,
+            PublicationDiscoverySummary = publication.TrustProjection?.DiscoverySummary,
+            PublicationLineageSummary = publication.TrustProjection?.LineageSummary,
+            PublicationDiscoverable = publication.TrustProjection?.Discoverable
         };
     }
 
@@ -682,7 +690,11 @@ public sealed class HubRegistryController : ControllerBase
             LatestPublicationId = publication.PublicationId,
             LatestPublicationState = publication.State.ToString(),
             PublicationNextSafeActionSummary = publication.ModerationTimeline.NextSafeActionSummary,
-            PublicationTrustBand = publication.TrustProjection?.RankingBand
+            PublicationTrustBand = publication.TrustProjection?.RankingBand,
+            PublicationTrustSummary = publication.TrustProjection?.TrustSummary,
+            PublicationDiscoverySummary = publication.TrustProjection?.DiscoverySummary,
+            PublicationLineageSummary = publication.TrustProjection?.LineageSummary,
+            PublicationDiscoverable = publication.TrustProjection?.Discoverable
         };
     }
 }
