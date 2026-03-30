@@ -8,6 +8,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using System.Text.Json;
 using RegistryReleaseChannelHeadProjection = Chummer.Hub.Registry.Contracts.ReleaseChannelHeadProjection;
+using RegistryOwner = Chummer.Hub.Registry.Contracts;
 
 HubArtifactStore store = new();
 var releaseManifestRoot = Path.Combine(Path.GetTempPath(), "registry-release-channel", Guid.NewGuid().ToString("N"));
@@ -79,8 +80,10 @@ var config = new ConfigurationBuilder()
     .Build();
 FileReleaseChannelManifestStore releaseChannelStore = new(config);
 PublicationWorkflowService workflow = new(store);
+HubPublicationDraftService draftWorkflow = new();
 HubRegistryController registryController = CreateController(new HubRegistryController(store, releaseChannelStore, workflow));
 PublicationsController publicationsController = CreateController(new PublicationsController(workflow));
+HubPublicationDraftsController draftController = CreateController(new HubPublicationDraftsController(draftWorkflow));
 
 RegistryReleaseChannelHeadProjection releaseChannel = RequireOk(registryController.GetCurrentReleaseChannel());
 Assert(string.Equals(releaseChannel.ChannelId, "docker", StringComparison.Ordinal), "Release-channel read model should load the current registry manifest.");
@@ -272,6 +275,77 @@ RegistryPreviewResponse replayPreview = RequireOk(registryController.GetPreview(
 Assert(string.Equals(replayPreview.ShelfAudience, "creator", StringComparison.Ordinal), "Replay package artifacts with publisher context should project creator shelf posture.");
 Assert(replayPreview.ShelfSummary.Contains("replay artifact", StringComparison.OrdinalIgnoreCase), "Replay package previews should name replay artifacts explicitly.");
 Assert(replayPreview.ShelfOwnershipSummary.Contains("creator publication lane", StringComparison.OrdinalIgnoreCase), "Replay package previews should keep creator ownership posture explicit.");
+
+RegistryOwner.HubPublishDraftReceipt createdDraft = RequireCreated(draftController.CreateDraft(
+    new RegistryOwner.HubPublishDraftRequest(
+        ProjectKind: nameof(RegistryOwner.HubArtifactKind.ReplayPackage),
+        ProjectId: replayArtifact.Id,
+        RulesetId: "sr6",
+        Title: "Redmond replay review packet",
+        Summary: "Replay-safe creator packet awaiting governed review.",
+        Description: "Milestone 13 verification draft."),
+    ownerId: "creator.runner",
+    preferredDraftId: "publication:redmond-replay"));
+Assert(string.Equals(createdDraft.DraftId, "publication:redmond-replay", StringComparison.Ordinal), "Draft creation should preserve the preferred draft id when Hub already owns the publication id.");
+Assert(string.Equals(createdDraft.State, RegistryOwner.HubPublicationStates.Draft, StringComparison.Ordinal), "New registry publication drafts should start in draft state.");
+
+RegistryOwner.HubPublishDraftList draftList = RequireOk(draftController.ListDrafts(ownerId: "creator.runner", state: RegistryOwner.HubPublicationStates.Draft, projectId: replayArtifact.Id));
+Assert(draftList.Items.Count == 1, "Draft listing should filter by owner, state, and project without client-side re-filtering.");
+
+RegistryOwner.HubDraftDetailProjection initialDraftDetail = RequireOk(draftController.GetDraftDetail(createdDraft.DraftId));
+Assert(initialDraftDetail.Moderation is null, "Fresh drafts should not fabricate moderation cases before submission.");
+
+RegistryOwner.HubPublishDraftReceipt updatedDraft = RequireOk(draftController.UpdateDraft(
+    createdDraft.DraftId,
+    new RegistryOwner.HubUpdateDraftRequest(
+        Title: "Redmond replay review packet",
+        Summary: "Replay-safe creator packet with refreshed provenance.",
+        Description: "Milestone 13 verification draft updated before submission.",
+        PublisherId: "pub.shadowops"),
+    ownerId: "creator.runner"));
+Assert(string.Equals(updatedDraft.PublisherId, "pub.shadowops", StringComparison.Ordinal), "Draft updates should preserve publisher ownership posture.");
+
+RegistryOwner.HubProjectSubmissionReceipt submittedDraft = RequireOk(draftController.SubmitProject(
+    createdDraft.DraftId,
+    new RegistryOwner.HubSubmitProjectRequest(
+        Notes: "Ready for explicit moderation and trust review.",
+        PublisherId: "pub.shadowops"),
+    ownerId: "creator.runner"));
+Assert(string.Equals(submittedDraft.ReviewState, RegistryOwner.HubReviewStates.PendingReview, StringComparison.Ordinal), "Submitted drafts should enter pending review.");
+
+RegistryOwner.HubModerationQueue moderationQueue = RequireOk(draftController.ListModerationQueue(ownerId: "creator.runner", state: RegistryOwner.HubModerationStates.PendingReview));
+Assert(moderationQueue.Items.Any(item => string.Equals(item.CaseId, submittedDraft.CaseId, StringComparison.Ordinal)), "Moderation queue listing should surface the pending review case.");
+
+RegistryOwner.HubModerationDecisionReceipt approvedDraft = RequireOk(draftController.ApproveModerationCase(
+    submittedDraft.CaseId,
+    new RegistryOwner.HubModerationDecisionRequest("Provenance, lineage, and replay-safe trust checks passed."),
+    actorId: "operator.registry"));
+Assert(string.Equals(approvedDraft.State, RegistryOwner.HubModerationStates.Approved, StringComparison.Ordinal), "Moderation approval should close the pending review case.");
+
+RegistryOwner.HubDraftDetailProjection approvedDraftDetail = RequireOk(draftController.GetDraftDetail(createdDraft.DraftId));
+Assert(string.Equals(approvedDraftDetail.Draft.State, RegistryOwner.HubPublicationStates.Submitted, StringComparison.Ordinal), "Approved drafts should stay on the submitted rail until a later publication lane promotes them live.");
+Assert(approvedDraftDetail.LatestModerationNotes?.Contains("trust checks passed", StringComparison.OrdinalIgnoreCase) == true, "Draft detail should retain the latest moderation notes.");
+
+RegistryOwner.HubPublicationReceipt draftReceipt = RequireOk(draftController.GetPublicationReceipt(createdDraft.DraftId));
+Assert(string.Equals(draftReceipt.ReviewState, RegistryOwner.HubReviewStates.Approved, StringComparison.Ordinal), "Publication receipts should surface the approved moderation posture.");
+Assert(string.Equals(draftReceipt.Visibility, RegistryOwner.ArtifactVisibilityModes.Shared, StringComparison.Ordinal), "Publication receipts should preserve publisher-backed shared visibility.");
+
+RegistryOwner.HubPublishDraftReceipt archivedDraft = RequireOk(draftController.ArchiveDraft(createdDraft.DraftId, ownerId: "creator.runner"));
+Assert(string.Equals(archivedDraft.State, RegistryOwner.HubPublicationStates.Archived, StringComparison.Ordinal), "Draft archive should transition the draft into archived state.");
+
+RegistryOwner.HubPublishDraftReceipt deletedDraft = RequireCreated(draftController.CreateDraft(
+    new RegistryOwner.HubPublishDraftRequest(
+        ProjectKind: nameof(RegistryOwner.HubArtifactKind.RecapPackage),
+        ProjectId: recapArtifact.Id,
+        RulesetId: "sr6",
+        Title: "Redmond recap review packet",
+        Summary: "Recap-safe creator packet staged for delete coverage.",
+        Description: "Deletion verification draft."),
+    ownerId: "creator.runner",
+    preferredDraftId: "publication:redmond-recap"));
+IActionResult deleteResult = draftController.DeleteDraft(deletedDraft.DraftId, ownerId: "creator.runner");
+Assert(deleteResult is NoContentResult, "Draft deletion should remove the draft and its moderation history.");
+Assert(draftController.GetDraftDetail(deletedDraft.DraftId).Result is NotFoundResult, "Deleted drafts should no longer resolve through the draft-detail route.");
 
 ActionResult<RegistrySearchResponse> invalidShelfAudienceSearch = registryController.SearchArtifacts("Shelf Relay", null, null, page: 1, pageSize: 10, shelfAudience: "shadow");
 Assert(invalidShelfAudienceSearch.Result is BadRequestObjectResult { Value: string message } && message.Contains("shelfAudience", StringComparison.Ordinal), "Registry search should reject unknown shelf audiences instead of silently inventing new shelf views.");
