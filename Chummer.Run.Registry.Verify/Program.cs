@@ -238,6 +238,41 @@ RegistryProjectionListResponse creatorShelfProjectionSearch = RequireOk(registry
 Assert(creatorShelfProjectionSearch.TotalCount == 1, "Projection search should honor creator shelf filtering.");
 Assert(string.Equals(creatorShelfProjectionSearch.Items[0].Id, creatorShelfArtifact.Id, StringComparison.Ordinal), "Projection search should keep the creator-shelf artifact when the audience filter is applied.");
 
+HubArtifactMetadata recapArtifact = RequireCreated(registryController.CreateArtifact(new HubArtifactCreateRequest(
+    Name: "Redmond Session Recap",
+    Kind: HubArtifactKind.RecapPackage,
+    Version: "2026.03.30-session-recap",
+    RulesetId: "sr6",
+    Visibility: ArtifactVisibilityModes.CampaignShared,
+    TrustTier: ArtifactTrustTiers.Curated,
+    OwnerId: "ops.registry",
+    Summary: "Durable governed recap artifact",
+    Description: "Used to verify recap package artifact posture.",
+    RuntimeFingerprint: "sha256:recap-artifact")));
+HubArtifactMetadata replayArtifact = RequireCreated(registryController.CreateArtifact(new HubArtifactCreateRequest(
+    Name: "Redmond Replay Timeline",
+    Kind: HubArtifactKind.ReplayPackage,
+    Version: "2026.03.30-replay",
+    RulesetId: "sr6",
+    Visibility: ArtifactVisibilityModes.Shared,
+    TrustTier: ArtifactTrustTiers.Curated,
+    OwnerId: "ops.registry",
+    PublisherId: "pub.replay",
+    Summary: "Durable governed replay artifact",
+    Description: "Used to verify replay package artifact posture.",
+    RuntimeFingerprint: "sha256:replay-artifact")));
+
+RegistrySearchResponse recapSearch = RequireOk(registryController.SearchArtifacts("Redmond Session Recap", "RecapPackage", null, page: 1, pageSize: 10));
+Assert(recapSearch.TotalCount == 1, "Registry search should parse recap package artifact kinds.");
+Assert(string.Equals(recapSearch.Items[0].Id, recapArtifact.Id, StringComparison.Ordinal), "Recap package search should return the durable recap artifact.");
+Assert(string.Equals(recapSearch.Items[0].ShelfAudience, "campaign", StringComparison.Ordinal), "Recap package artifacts should project campaign shelf posture by default.");
+Assert(recapSearch.Items[0].ShelfSummary.Contains("recap artifact", StringComparison.OrdinalIgnoreCase), "Recap package shelf summaries should name recap artifacts explicitly.");
+
+RegistryPreviewResponse replayPreview = RequireOk(registryController.GetPreview(replayArtifact.Id));
+Assert(string.Equals(replayPreview.ShelfAudience, "creator", StringComparison.Ordinal), "Replay package artifacts with publisher context should project creator shelf posture.");
+Assert(replayPreview.ShelfSummary.Contains("replay artifact", StringComparison.OrdinalIgnoreCase), "Replay package previews should name replay artifacts explicitly.");
+Assert(replayPreview.ShelfOwnershipSummary.Contains("creator publication lane", StringComparison.OrdinalIgnoreCase), "Replay package previews should keep creator ownership posture explicit.");
+
 ActionResult<RegistrySearchResponse> invalidShelfAudienceSearch = registryController.SearchArtifacts("Shelf Relay", null, null, page: 1, pageSize: 10, shelfAudience: "shadow");
 Assert(invalidShelfAudienceSearch.Result is BadRequestObjectResult { Value: string message } && message.Contains("shelfAudience", StringComparison.Ordinal), "Registry search should reject unknown shelf audiences instead of silently inventing new shelf views.");
 

@@ -26,6 +26,8 @@ Assert(InstallAccessClasses.OpenPublic == "open_public", "Install access classes
 Assert(InstallClaimTicketStates.Pending == "pending", "Install claim ticket states must preserve pending.");
 Assert(InstallationGrantStates.Active == "active", "Installation grant states must preserve active.");
 Assert(Enum.GetNames<HubArtifactKind>().Contains(nameof(HubArtifactKind.RuntimeBundle)), "Artifact kinds must include RuntimeBundle.");
+Assert(Enum.GetNames<HubArtifactKind>().Contains(nameof(HubArtifactKind.ReplayPackage)), "Artifact kinds must include ReplayPackage.");
+Assert(Enum.GetNames<HubArtifactKind>().Contains(nameof(HubArtifactKind.RecapPackage)), "Artifact kinds must include RecapPackage.");
 Assert(Enum.GetNames<RuntimeBundleHeadKind>().SequenceEqual(["Session", "Mobile", "Offline"]), "Runtime bundle heads must stay Session/Mobile/Offline.");
 Assert(ReleaseChannelStatuses.Published == "published", "Release channel statuses must preserve published.");
 Assert(ReleaseArtifactKinds.Installer == "installer", "Release artifact kinds must preserve installer.");

@@ -9,7 +9,9 @@ public enum HubArtifactKind
     BuildKit,
     NpcVault,
     BuildIdea,
-    RuntimeBundle
+    RuntimeBundle,
+    ReplayPackage,
+    RecapPackage
 }
 
 public enum HubArtifactState

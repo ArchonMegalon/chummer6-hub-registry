@@ -1034,6 +1034,19 @@ public sealed class HubArtifactStore : IHubArtifactStore
     private static string BuildShelfSummary(HubArtifactInternal internalState)
     {
         var shelfAudience = DetermineShelfAudience(internalState);
+        if (internalState.Kind is HubArtifactKind.ReplayPackage or HubArtifactKind.RecapPackage)
+        {
+            var packageLabel = internalState.Kind == HubArtifactKind.ReplayPackage ? "replay artifact" : "recap artifact";
+            return shelfAudience switch
+            {
+                "retained-history" => $"{internalState.TrustTier} {packageLabel} is {internalState.State.ToString().ToLowerInvariant()} and belongs on retained-history audit shelves.",
+                "campaign" => $"{internalState.TrustTier} {internalState.Visibility} {packageLabel} is best projected on campaign return, replay, and audit shelves.",
+                "owner-only" => $"{internalState.TrustTier} {internalState.Visibility} {packageLabel} should stay on owner-controlled audit shelves until an explicit share or publication step promotes it.",
+                "creator" => $"{internalState.TrustTier} {internalState.Visibility} {packageLabel} is suited for creator shelves with explicit lineage, review, and audit posture.",
+                _ => $"{internalState.TrustTier} {internalState.Visibility} {packageLabel} is suited for governed personal shelves without forking campaign provenance."
+            };
+        }
+
         return shelfAudience switch
         {
             "retained-history" => $"{internalState.TrustTier} artifact is {internalState.State.ToString().ToLowerInvariant()} and belongs on retained-history surfaces, not first-rank discovery.",
@@ -1047,6 +1060,18 @@ public sealed class HubArtifactStore : IHubArtifactStore
     private static string BuildShelfOwnershipSummary(HubArtifactInternal internalState)
     {
         var shelfAudience = DetermineShelfAudience(internalState);
+        if (internalState.Kind is HubArtifactKind.ReplayPackage or HubArtifactKind.RecapPackage)
+        {
+            return shelfAudience switch
+            {
+                "retained-history" => "Ownership stays attached to retained campaign history so replay and recap audit can survive supersession without forking the record.",
+                "campaign" => "Ownership stays with the governed campaign continuity lane, so return, replay, and audit surfaces all point at the same artifact.",
+                "owner-only" => "Ownership stays with the originating account or install until the governed replay or recap artifact is deliberately widened to another audience.",
+                "creator" => "Ownership stays with the creator publication lane while the governed replay or recap artifact keeps pointing back to the same campaign truth.",
+                _ => "Ownership stays with the personal shelf until the replay or recap artifact is deliberately promoted beyond the originating account."
+            };
+        }
+
         return shelfAudience switch
         {
             "retained-history" => "Ownership stays attached to retained history for lineage and audit, not first-rank active shelves.",

@@ -549,7 +549,7 @@ public sealed class HubRegistryController : ControllerBase
             return true;
         }
 
-        error = "kind must be one of RulePack, RuleProfile, BuildKit, NpcVault, BuildIdea, or RuntimeBundle.";
+        error = "kind must be one of RulePack, RuleProfile, BuildKit, NpcVault, BuildIdea, RuntimeBundle, ReplayPackage, or RecapPackage.";
         return false;
     }
 
@@ -631,6 +631,19 @@ public sealed class HubRegistryController : ControllerBase
     private static string BuildShelfSummary(HubArtifactMetadata metadata)
     {
         var shelfAudience = DetermineShelfAudience(metadata);
+        if (metadata.Kind is HubArtifactKind.ReplayPackage or HubArtifactKind.RecapPackage)
+        {
+            var packageLabel = metadata.Kind == HubArtifactKind.ReplayPackage ? "replay artifact" : "recap artifact";
+            return shelfAudience switch
+            {
+                "retained-history" => $"{metadata.TrustTier} {packageLabel} is {metadata.State.ToString().ToLowerInvariant()} and belongs on retained-history audit shelves.",
+                "campaign" => $"{metadata.TrustTier} {metadata.Visibility} {packageLabel} is best projected on campaign return, replay, and audit shelves.",
+                "owner-only" => $"{metadata.TrustTier} {metadata.Visibility} {packageLabel} should stay on owner-controlled audit shelves until an explicit share or publication step promotes it.",
+                "creator" => $"{metadata.TrustTier} {metadata.Visibility} {packageLabel} is suited for creator shelves with explicit lineage, review, and audit posture.",
+                _ => $"{metadata.TrustTier} {metadata.Visibility} {packageLabel} is suited for governed personal shelves without forking campaign provenance."
+            };
+        }
+
         return shelfAudience switch
         {
             "retained-history" => $"{metadata.TrustTier} artifact is {metadata.State.ToString().ToLowerInvariant()} and belongs on retained-history surfaces, not first-rank discovery.",
@@ -644,6 +657,18 @@ public sealed class HubRegistryController : ControllerBase
     private static string BuildShelfOwnershipSummary(HubArtifactMetadata metadata)
     {
         var shelfAudience = DetermineShelfAudience(metadata);
+        if (metadata.Kind is HubArtifactKind.ReplayPackage or HubArtifactKind.RecapPackage)
+        {
+            return shelfAudience switch
+            {
+                "retained-history" => "Ownership stays attached to retained campaign history so replay and recap audit can survive supersession without forking the record.",
+                "campaign" => "Ownership stays with the governed campaign continuity lane, so return, replay, and audit surfaces all point at the same artifact.",
+                "owner-only" => "Ownership stays with the originating account or install until the governed replay or recap artifact is deliberately widened to another audience.",
+                "creator" => "Ownership stays with the creator publication lane while the governed replay or recap artifact keeps pointing back to the same campaign truth.",
+                _ => "Ownership stays with the personal shelf until the replay or recap artifact is deliberately promoted beyond the originating account."
+            };
+        }
+
         return shelfAudience switch
         {
             "retained-history" => "Ownership stays attached to retained history for lineage and audit, not first-rank active shelves.",
