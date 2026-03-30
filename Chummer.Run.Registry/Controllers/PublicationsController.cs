@@ -29,7 +29,10 @@ public sealed class PublicationsController : ControllerBase
     [HttpGet]
     [ProducesResponseType<IReadOnlyList<PublicationRecordResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
-    public ActionResult<IReadOnlyList<PublicationRecordResponse>> List([FromQuery] string? state = null)
+    public ActionResult<IReadOnlyList<PublicationRecordResponse>> List(
+        [FromQuery] string? state = null,
+        [FromQuery] bool? discoverable = null,
+        [FromQuery] string? rankingBand = null)
     {
         if (!TryParseState(state, out var parsedState, out var error))
         {
@@ -40,7 +43,19 @@ public sealed class PublicationsController : ControllerBase
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        return Ok(_workflow.List(parsedState));
+        IEnumerable<PublicationRecordResponse> results = _workflow.List(parsedState);
+
+        if (discoverable.HasValue)
+        {
+            results = results.Where(item => (item.TrustProjection?.Discoverable ?? false) == discoverable.Value);
+        }
+
+        if (!string.IsNullOrWhiteSpace(rankingBand))
+        {
+            results = results.Where(item => string.Equals(item.TrustProjection?.RankingBand, rankingBand.Trim(), StringComparison.OrdinalIgnoreCase));
+        }
+
+        return Ok(results.ToArray());
     }
 
     [HttpGet("{publicationId}")]

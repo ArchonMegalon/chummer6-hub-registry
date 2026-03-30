@@ -184,6 +184,7 @@ Assert(submitted.State == PublicationState.PendingReview, "Submitted publication
 Assert(HasHeader(publicationsController, "ETag", submitted.ConcurrencyToken), "Submit should write the publication concurrency token to response headers.");
 Assert(RequireOk(publicationsController.Get(submitted.PublicationId)).PublicationId == submitted.PublicationId, "Publication lookup should return the submitted publication.");
 Assert(RequireOk(publicationsController.List(PublicationState.PendingReview.ToString())).Count == 1, "Publication list should filter pending-review entries.");
+Assert(RequireOk(publicationsController.List(discoverable: true)).Count == 0, "Publication list should not surface pending-review items as discoverable.");
 Assert(submitted.ModerationTimeline.NextSafeActionSummary?.Contains("approval review", StringComparison.OrdinalIgnoreCase) == true, "Pending-review publications should project an explicit next safe action.");
 Assert(string.Equals(submitted.TrustProjection?.RankingBand, "review-pending", StringComparison.Ordinal), "Pending-review publications should project a review-pending trust band.");
 Assert(submitted.TrustProjection?.Discoverable == false, "Pending-review publications should stay off discovery surfaces.");
@@ -204,6 +205,8 @@ PublicationRecordResponse published = RequireOk(publicationsController.Publish(
     approved.ConcurrencyToken));
 Assert(published.State == PublicationState.Published, "Published read model should project published state.");
 Assert(RequireOk(publicationsController.List(PublicationState.Published.ToString())).Count == 1, "Publication list should filter published entries.");
+Assert(RequireOk(publicationsController.List(discoverable: true)).Count == 1, "Publication list should expose only discoverable published items through the discoverable filter.");
+Assert(RequireOk(publicationsController.List(rankingBand: "curated-live")).Count == 1, "Publication list should filter by the live trust band.");
 Assert(published.ModerationTimeline.NextSafeActionSummary?.Contains("live published artifact", StringComparison.OrdinalIgnoreCase) == true, "Published publications should project a support-safe moderation-watch next action.");
 Assert(string.Equals(published.TrustProjection?.RankingBand, "curated-live", StringComparison.Ordinal), "Published publications should project a curated-live trust band from artifact metadata.");
 Assert(published.TrustProjection?.Discoverable == true, "Published shared publications should be discoverable.");
@@ -228,6 +231,7 @@ Assert(string.Equals(creatorPublished.ArtifactKind, "CampaignPacket", StringComp
 Assert(string.Equals(creatorPublished.ModerationTimeline.PendingDecision, "moderation-watch", StringComparison.Ordinal), "Published creator packets should project the standard moderation-watch follow-up.");
 Assert(creatorPublished.ModerationTimeline.NextSafeActionSummary?.Contains("live published artifact", StringComparison.OrdinalIgnoreCase) == true, "Published creator packets should project the moderation-watch next safe action.");
 Assert(RequireOk(publicationsController.List(PublicationState.Published.ToString())).Count >= 2, "Publication list should retain creator publication rows beside install/update publications.");
+Assert(RequireOk(publicationsController.List(discoverable: true)).Count >= 2, "Publication list discoverable filter should retain creator publication rows beside install/update publications.");
 Assert(creatorPublished.TrustProjection?.Discoverable == true, "Published creator packets should be discoverable when no restrictive visibility is attached.");
 
 PublicationRecordResponse deprecated = RequireOk(publicationsController.Moderate(
@@ -238,6 +242,7 @@ Assert(deprecated.State == PublicationState.Deprecated, "Moderation should proje
 Assert(string.Equals(deprecated.ModerationTimeline.PendingDecision, "supersede-review", StringComparison.Ordinal), "Moderation timeline should reflect the next canonical decision.");
 Assert(deprecated.ModerationTimeline.NextSafeActionSummary?.Contains("replacement artifact", StringComparison.OrdinalIgnoreCase) == true, "Deprecated publications should project an explicit successor-oriented next safe action.");
 Assert(string.Equals(deprecated.TrustProjection?.RankingBand, "replacement-advised", StringComparison.Ordinal), "Deprecated publications should project a replacement-advised trust band.");
+Assert(RequireOk(publicationsController.List(rankingBand: "replacement-advised")).Any(item => string.Equals(item.PublicationId, deprecated.PublicationId, StringComparison.Ordinal)), "Publication list should filter by replacement-advised trust band.");
 Assert(deprecated.TrustProjection?.LineageSummary.Contains("add one", StringComparison.OrdinalIgnoreCase) == true, "Deprecated publications without a successor should ask for an attached replacement in the lineage summary.");
 RegistryProjectionResponse deprecatedProjection = RequireOk(registryController.GetProjection(artifact.Id));
 Assert(string.Equals(deprecatedProjection.LatestPublicationState, PublicationState.Deprecated.ToString(), StringComparison.Ordinal), "Artifact projections should surface the latest publication state.");
