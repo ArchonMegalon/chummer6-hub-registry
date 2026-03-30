@@ -31,7 +31,8 @@ public sealed class HubRegistryController : ControllerBase
         [FromQuery] string? kind = null,
         [FromQuery] string? state = null,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? shelfAudience = null)
     {
         if (page < 1)
         {
@@ -53,14 +54,19 @@ public sealed class HubRegistryController : ControllerBase
             return BadRequest(stateError);
         }
 
+        if (!TryParseShelfAudience(shelfAudience, out var parsedShelfAudience, out var shelfAudienceError))
+        {
+            return BadRequest(shelfAudienceError);
+        }
+
         var response = new RegistrySearchResponse(
-            Items: _artifactStore.Search(query, parsedKind, parsedState, page, pageSize)
+            Items: _artifactStore.Search(query, parsedKind, parsedState, page, pageSize, parsedShelfAudience)
                 .Select(ToSearchItem)
                 .Select(DecoratePublicationPosture)
                 .ToList(),
             Page: page,
             PageSize: pageSize,
-            TotalCount: _artifactStore.SearchCount(query, parsedKind, parsedState));
+            TotalCount: _artifactStore.SearchCount(query, parsedKind, parsedState, parsedShelfAudience));
 
         return Ok(response);
     }
@@ -72,9 +78,10 @@ public sealed class HubRegistryController : ControllerBase
         [FromQuery] string? kind = null,
         [FromQuery] string? state = null,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? shelfAudience = null)
     {
-        return SearchArtifacts(query, kind, state, page, pageSize);
+        return SearchArtifacts(query, kind, state, page, pageSize, shelfAudience);
     }
 
     [HttpGet("release-channel/current")]
@@ -288,7 +295,8 @@ public sealed class HubRegistryController : ControllerBase
         [FromQuery] string? kind = null,
         [FromQuery] string? state = null,
         [FromQuery] int page = 1,
-        [FromQuery] int pageSize = 20)
+        [FromQuery] int pageSize = 20,
+        [FromQuery] string? shelfAudience = null)
     {
         if (page < 1)
         {
@@ -310,13 +318,18 @@ public sealed class HubRegistryController : ControllerBase
             return BadRequest(stateError);
         }
 
+        if (!TryParseShelfAudience(shelfAudience, out var parsedShelfAudience, out var shelfAudienceError))
+        {
+            return BadRequest(shelfAudienceError);
+        }
+
         return Ok(new RegistryProjectionListResponse(
-            Items: _artifactStore.SearchProjections(query, parsedKind, parsedState, page, pageSize)
+            Items: _artifactStore.SearchProjections(query, parsedKind, parsedState, page, pageSize, parsedShelfAudience)
                 .Select(DecoratePublicationPosture)
                 .ToArray(),
             Page: page,
             PageSize: pageSize,
-            TotalCount: _artifactStore.SearchProjectionCount(query, parsedKind, parsedState)));
+            TotalCount: _artifactStore.SearchProjectionCount(query, parsedKind, parsedState, parsedShelfAudience)));
     }
 
     [HttpGet("projections/pipelines")]
@@ -557,6 +570,27 @@ public sealed class HubRegistryController : ControllerBase
         }
 
         error = "state must be one of Active, Delisted, Deprecated, Superseded, or BannedButRetained.";
+        return false;
+    }
+
+    private static bool TryParseShelfAudience(string? value, out string? shelfAudience, out string? error)
+    {
+        error = null;
+        shelfAudience = null;
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return true;
+        }
+
+        string normalized = value.Trim().ToLowerInvariant();
+        if (normalized is "personal" or "creator" or "campaign" or "owner-only" or "retained-history")
+        {
+            shelfAudience = normalized;
+            return true;
+        }
+
+        error = "shelfAudience must be one of personal, creator, campaign, owner-only, or retained-history.";
         return false;
     }
 

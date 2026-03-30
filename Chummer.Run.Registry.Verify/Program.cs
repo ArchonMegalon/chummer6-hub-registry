@@ -168,6 +168,79 @@ RegistryProjectionListResponse projectionSearch = RequireOk(registryController.L
 Assert(projectionSearch.TotalCount == 1, "Projection search should return the created artifact.");
 Assert(projectionSearch.Items.Count == 1, "Projection search should return exactly one artifact.");
 
+HubArtifactMetadata creatorShelfArtifact = RequireCreated(registryController.CreateArtifact(new HubArtifactCreateRequest(
+    Name: "Creator Shelf Relay",
+    Kind: HubArtifactKind.BuildIdea,
+    Version: "2026.03.20",
+    RulesetId: "sr6",
+    Visibility: ArtifactVisibilityModes.Shared,
+    TrustTier: ArtifactTrustTiers.Curated,
+    OwnerId: "ops.registry",
+    PublisherId: "pub.creator-shelf",
+    Summary: "Creator shelf verification fixture",
+    Description: "Used to verify creator shelf filtering.",
+    RuntimeFingerprint: "sha256:creator-shelf")));
+HubArtifactMetadata campaignShelfArtifact = RequireCreated(registryController.CreateArtifact(new HubArtifactCreateRequest(
+    Name: "Campaign Shelf Relay",
+    Kind: HubArtifactKind.BuildKit,
+    Version: "2026.03.20",
+    RulesetId: "sr6",
+    Visibility: ArtifactVisibilityModes.CampaignShared,
+    TrustTier: ArtifactTrustTiers.Curated,
+    OwnerId: "ops.registry",
+    Summary: "Campaign shelf verification fixture",
+    Description: "Used to verify campaign shelf filtering.",
+    RuntimeFingerprint: "sha256:campaign-shelf")));
+HubArtifactMetadata ownerOnlyShelfArtifact = RequireCreated(registryController.CreateArtifact(new HubArtifactCreateRequest(
+    Name: "Owner Shelf Relay",
+    Kind: HubArtifactKind.NpcVault,
+    Version: "2026.03.20",
+    RulesetId: "sr6",
+    Visibility: ArtifactVisibilityModes.Private,
+    TrustTier: ArtifactTrustTiers.Curated,
+    OwnerId: "ops.registry",
+    Summary: "Owner-only shelf verification fixture",
+    Description: "Used to verify owner-only shelf filtering.",
+    RuntimeFingerprint: "sha256:owner-shelf")));
+HubArtifactMetadata personalShelfArtifact = RequireCreated(registryController.CreateArtifact(new HubArtifactCreateRequest(
+    Name: "Personal Shelf Relay",
+    Kind: HubArtifactKind.RuleProfile,
+    Version: "2026.03.20",
+    RulesetId: "sr6",
+    Visibility: ArtifactVisibilityModes.Shared,
+    TrustTier: ArtifactTrustTiers.Curated,
+    OwnerId: "ops.registry",
+    Summary: "Personal shelf verification fixture",
+    Description: "Used to verify personal shelf filtering.",
+    RuntimeFingerprint: "sha256:personal-shelf")));
+
+RegistrySearchResponse creatorShelfSearch = RequireOk(registryController.SearchArtifacts("Shelf Relay", null, null, page: 1, pageSize: 10, shelfAudience: "creator"));
+Assert(creatorShelfSearch.TotalCount == 1, "Registry search should filter creator shelf views without client-side post-filtering.");
+Assert(string.Equals(creatorShelfSearch.Items[0].Id, creatorShelfArtifact.Id, StringComparison.Ordinal), "Creator shelf filtering should keep the governed creator artifact.");
+Assert(string.Equals(creatorShelfSearch.Items[0].ShelfAudience, "creator", StringComparison.Ordinal), "Creator shelf filtering should keep creator shelf posture explicit.");
+
+RegistrySearchResponse campaignShelfSearch = RequireOk(registryController.SearchArtifacts("Shelf Relay", null, null, page: 1, pageSize: 10, shelfAudience: "campaign"));
+Assert(campaignShelfSearch.TotalCount == 1, "Registry search should filter campaign shelf views without duplicating artifact records.");
+Assert(string.Equals(campaignShelfSearch.Items[0].Id, campaignShelfArtifact.Id, StringComparison.Ordinal), "Campaign shelf filtering should keep the governed campaign artifact.");
+Assert(campaignShelfSearch.Items[0].ShelfOwnershipSummary.Contains("campaign or crew lane", StringComparison.OrdinalIgnoreCase), "Campaign shelf filtering should keep ownership posture explicit.");
+
+RegistrySearchResponse ownerOnlyShelfSearch = RequireOk(registryController.SearchArtifacts("Shelf Relay", null, null, page: 1, pageSize: 10, shelfAudience: "owner-only"));
+Assert(ownerOnlyShelfSearch.TotalCount == 1, "Registry search should filter owner-only shelf views without client-side ad hoc rules.");
+Assert(string.Equals(ownerOnlyShelfSearch.Items[0].Id, ownerOnlyShelfArtifact.Id, StringComparison.Ordinal), "Owner-only shelf filtering should keep the governed private artifact.");
+Assert(ownerOnlyShelfSearch.Items[0].ShelfSummary.Contains("owner-controlled shelves", StringComparison.OrdinalIgnoreCase), "Owner-only shelf filtering should keep shelf posture explainable.");
+
+RegistrySearchResponse personalShelfSearch = RequireOk(registryController.SearchArtifacts("Shelf Relay", null, null, page: 1, pageSize: 10, shelfAudience: "personal"));
+Assert(personalShelfSearch.TotalCount == 1, "Registry search should filter personal shelf views without mistaking them for creator discovery.");
+Assert(string.Equals(personalShelfSearch.Items[0].Id, personalShelfArtifact.Id, StringComparison.Ordinal), "Personal shelf filtering should keep the governed personal artifact.");
+Assert(personalShelfSearch.Items[0].ShelfSummary.Contains("personal shelves", StringComparison.OrdinalIgnoreCase), "Personal shelf filtering should keep personal shelf posture explainable.");
+
+RegistryProjectionListResponse creatorShelfProjectionSearch = RequireOk(registryController.ListProjections("Shelf Relay", null, null, page: 1, pageSize: 10, shelfAudience: "creator"));
+Assert(creatorShelfProjectionSearch.TotalCount == 1, "Projection search should honor creator shelf filtering.");
+Assert(string.Equals(creatorShelfProjectionSearch.Items[0].Id, creatorShelfArtifact.Id, StringComparison.Ordinal), "Projection search should keep the creator-shelf artifact when the audience filter is applied.");
+
+ActionResult<RegistrySearchResponse> invalidShelfAudienceSearch = registryController.SearchArtifacts("Shelf Relay", null, null, page: 1, pageSize: 10, shelfAudience: "shadow");
+Assert(invalidShelfAudienceSearch.Result is BadRequestObjectResult { Value: string message } && message.Contains("shelfAudience", StringComparison.Ordinal), "Registry search should reject unknown shelf audiences instead of silently inventing new shelf views.");
+
 HubArtifactInstallProjection installProjection = RequireOk(registryController.GetInstallProjection(artifact.Id));
 Assert(installProjection.HasInstallReferences, "Install projection should keep install-reference truth.");
 
