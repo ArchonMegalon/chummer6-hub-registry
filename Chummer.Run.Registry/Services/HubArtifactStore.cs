@@ -1042,7 +1042,7 @@ public sealed class HubArtifactStore : IHubArtifactStore
                 "retained-history" => $"{internalState.TrustTier} {packageLabel} is {internalState.State.ToString().ToLowerInvariant()} and belongs on retained-history audit shelves.",
                 "campaign" => $"{internalState.TrustTier} {internalState.Visibility} {packageLabel} is best projected on campaign return, replay, and audit shelves.",
                 "owner-only" => $"{internalState.TrustTier} {internalState.Visibility} {packageLabel} should stay on owner-controlled audit shelves until an explicit share or publication step promotes it.",
-                "creator" => $"{internalState.TrustTier} {internalState.Visibility} {packageLabel} is suited for creator shelves with explicit lineage, review, and audit posture.",
+                "creator" => $"{internalState.TrustTier} {internalState.Visibility} {packageLabel} is suited for shared publication shelves with explicit lineage, review, and audit posture.",
                 _ => $"{internalState.TrustTier} {internalState.Visibility} {packageLabel} is suited for governed personal shelves without forking campaign provenance."
             };
         }
@@ -1052,7 +1052,7 @@ public sealed class HubArtifactStore : IHubArtifactStore
             "retained-history" => $"{internalState.TrustTier} artifact is {internalState.State.ToString().ToLowerInvariant()} and belongs on retained-history surfaces, not first-rank discovery.",
             "campaign" => $"{internalState.TrustTier} {internalState.Visibility} artifact is best projected on campaign shelves and governed crew surfaces.",
             "owner-only" => $"{internalState.TrustTier} {internalState.Visibility} artifact should stay on owner-controlled shelves.",
-            "creator" => $"{internalState.TrustTier} {internalState.Visibility} artifact is suited for creator shelves with explicit lineage and trust posture.",
+            "creator" => $"{internalState.TrustTier} {internalState.Visibility} artifact is suited for shared publication shelves with explicit lineage and trust posture.",
             _ => $"{internalState.TrustTier} {internalState.Visibility} artifact is suited for personal shelves and governed discovery."
         };
     }
@@ -1067,7 +1067,7 @@ public sealed class HubArtifactStore : IHubArtifactStore
                 "retained-history" => "Ownership stays attached to retained campaign history so replay and recap audit can survive supersession without forking the record.",
                 "campaign" => "Ownership stays with the governed campaign continuity lane, so return, replay, and audit surfaces all point at the same artifact.",
                 "owner-only" => "Ownership stays with the originating account or install until the governed replay or recap artifact is deliberately widened to another audience.",
-                "creator" => "Ownership stays with the creator publication lane while the governed replay or recap artifact keeps pointing back to the same campaign truth.",
+                "creator" => "Ownership stays with the shared publication lane while the governed replay or recap artifact keeps pointing back to the same campaign truth.",
                 _ => "Ownership stays with the personal shelf until the replay or recap artifact is deliberately promoted beyond the originating account."
             };
         }
@@ -1077,7 +1077,7 @@ public sealed class HubArtifactStore : IHubArtifactStore
             "retained-history" => "Ownership stays attached to retained history for lineage and audit, not first-rank active shelves.",
             "campaign" => "Ownership stays with the campaign or crew lane even when the artifact is browsed from shared surfaces.",
             "owner-only" => "Ownership stays with the originating account or install until an explicit share or publication step promotes it.",
-            "creator" => "Ownership stays with the creator publication lane, so discovery does not fork the underlying artifact record.",
+            "creator" => "Ownership stays with the shared publication lane, so discovery does not fork the underlying artifact record.",
             _ => "Ownership stays with the personal shelf until the user or publisher deliberately widens its audience."
         };
     }

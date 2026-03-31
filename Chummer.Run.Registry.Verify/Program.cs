@@ -144,8 +144,8 @@ Assert(searchResponse.Items.Count == 1, "Search should include exactly one artif
 Assert(string.Equals(searchResponse.Items[0].Visibility, ArtifactVisibilityModes.Shared, StringComparison.Ordinal), "Search results should project artifact visibility.");
 Assert(string.Equals(searchResponse.Items[0].TrustTier, ArtifactTrustTiers.Curated, StringComparison.Ordinal), "Search results should project artifact trust tier.");
 Assert(string.Equals(searchResponse.Items[0].ShelfAudience, "creator", StringComparison.Ordinal), "Shared artifacts with publisher context should project creator shelf audience.");
-Assert(searchResponse.Items[0].ShelfSummary.Contains("creator shelves", StringComparison.OrdinalIgnoreCase), "Search results should explain creator shelf posture.");
-Assert(searchResponse.Items[0].ShelfOwnershipSummary.Contains("creator publication lane", StringComparison.OrdinalIgnoreCase), "Search results should explain creator ownership posture.");
+Assert(searchResponse.Items[0].ShelfSummary.Contains("shared publication shelves", StringComparison.OrdinalIgnoreCase), "Search results should explain shared-publication shelf posture.");
+Assert(searchResponse.Items[0].ShelfOwnershipSummary.Contains("shared publication lane", StringComparison.OrdinalIgnoreCase), "Search results should explain shared-publication ownership posture.");
 
 RegistrySearchResponse listResponse = RequireOk(registryController.ListArtifacts("Seattle", "RulePack", null, page: 1, pageSize: 10));
 Assert(listResponse.TotalCount == 1, "ListArtifacts should mirror SearchArtifacts.");
@@ -153,8 +153,8 @@ Assert(listResponse.TotalCount == 1, "ListArtifacts should mirror SearchArtifact
 RegistryPreviewResponse preview = RequireOk(registryController.GetPreview(artifact.Id));
 Assert(string.Equals(preview.Id, artifact.Id, StringComparison.Ordinal), "Preview should resolve the created artifact.");
 Assert(string.Equals(preview.ShelfAudience, "creator", StringComparison.Ordinal), "Preview should project creator shelf posture.");
-Assert(preview.ShelfSummary.Contains("creator shelves", StringComparison.OrdinalIgnoreCase), "Preview should explain creator shelf posture.");
-Assert(preview.ShelfOwnershipSummary.Contains("creator publication lane", StringComparison.OrdinalIgnoreCase), "Preview should explain creator ownership posture.");
+Assert(preview.ShelfSummary.Contains("shared publication shelves", StringComparison.OrdinalIgnoreCase), "Preview should explain shared-publication shelf posture.");
+Assert(preview.ShelfOwnershipSummary.Contains("shared publication lane", StringComparison.OrdinalIgnoreCase), "Preview should explain shared-publication ownership posture.");
 
 HubArtifactMetadata artifactLookup = RequireOk(registryController.GetArtifact(artifact.Id));
 Assert(string.Equals(artifactLookup.Id, artifact.Id, StringComparison.Ordinal), "Artifact lookup should resolve the created artifact.");
@@ -164,8 +164,8 @@ Assert(projection.InstallCount == 1, "Projection should retain install count.");
 Assert(string.Equals(projection.Visibility, ArtifactVisibilityModes.Shared, StringComparison.Ordinal), "Projection should carry artifact visibility.");
 Assert(string.Equals(projection.TrustTier, ArtifactTrustTiers.Curated, StringComparison.Ordinal), "Projection should carry artifact trust tier.");
 Assert(string.Equals(projection.ShelfAudience, "creator", StringComparison.Ordinal), "Projection should project creator shelf posture.");
-Assert(projection.ShelfSummary.Contains("creator shelves", StringComparison.OrdinalIgnoreCase), "Projection should explain creator shelf posture.");
-Assert(projection.ShelfOwnershipSummary.Contains("creator publication lane", StringComparison.OrdinalIgnoreCase), "Projection should explain creator ownership posture.");
+Assert(projection.ShelfSummary.Contains("shared publication shelves", StringComparison.OrdinalIgnoreCase), "Projection should explain shared-publication shelf posture.");
+Assert(projection.ShelfOwnershipSummary.Contains("shared publication lane", StringComparison.OrdinalIgnoreCase), "Projection should explain shared-publication ownership posture.");
 
 RegistryProjectionListResponse projectionSearch = RequireOk(registryController.ListProjections("Seattle", "RulePack", null, page: 1, pageSize: 10));
 Assert(projectionSearch.TotalCount == 1, "Projection search should return the created artifact.");
@@ -274,7 +274,7 @@ Assert(recapSearch.Items[0].ShelfSummary.Contains("recap artifact", StringCompar
 RegistryPreviewResponse replayPreview = RequireOk(registryController.GetPreview(replayArtifact.Id));
 Assert(string.Equals(replayPreview.ShelfAudience, "creator", StringComparison.Ordinal), "Replay package artifacts with publisher context should project creator shelf posture.");
 Assert(replayPreview.ShelfSummary.Contains("replay artifact", StringComparison.OrdinalIgnoreCase), "Replay package previews should name replay artifacts explicitly.");
-Assert(replayPreview.ShelfOwnershipSummary.Contains("creator publication lane", StringComparison.OrdinalIgnoreCase), "Replay package previews should keep creator ownership posture explicit.");
+Assert(replayPreview.ShelfOwnershipSummary.Contains("shared publication lane", StringComparison.OrdinalIgnoreCase), "Replay package previews should keep shared-publication ownership posture explicit.");
 
 RegistryOwner.HubPublishDraftReceipt createdDraft = RequireCreated(draftController.CreateDraft(
     new RegistryOwner.HubPublishDraftRequest(
@@ -458,7 +458,7 @@ Assert(publicationSearch.Items[0].PublicationDiscoverySummary?.Contains("success
 Assert(publicationSearch.Items[0].PublicationLineageSummary?.Contains("add one", StringComparison.OrdinalIgnoreCase) == true, "Registry search should surface the latest publication lineage summary.");
 Assert(publicationSearch.Items[0].PublicationDiscoverable == false, "Registry search should surface the latest publication discoverability posture.");
 Assert(publicationSearch.Items[0].PublicationNextSafeActionSummary?.Contains("replacement artifact", StringComparison.OrdinalIgnoreCase) == true, "Registry search should surface the latest publication next safe action.");
-Assert(publicationSearch.Items[0].ShelfOwnershipSummary.Contains("creator publication lane", StringComparison.OrdinalIgnoreCase), "Registry search should retain ownership posture after publication changes.");
+Assert(publicationSearch.Items[0].ShelfOwnershipSummary.Contains("shared publication lane", StringComparison.OrdinalIgnoreCase), "Registry search should retain shared-publication ownership posture after publication changes.");
 
 RegistryPreviewResponse publicationPreview = RequireOk(registryController.GetPreview(artifact.Id));
 Assert(string.Equals(publicationPreview.LatestPublicationState, PublicationState.Deprecated.ToString(), StringComparison.Ordinal), "Registry preview should surface the latest publication state.");
@@ -468,7 +468,7 @@ Assert(publicationPreview.PublicationDiscoverySummary?.Contains("successor-forwa
 Assert(publicationPreview.PublicationLineageSummary?.Contains("add one", StringComparison.OrdinalIgnoreCase) == true, "Registry preview should surface the latest publication lineage summary.");
 Assert(publicationPreview.PublicationDiscoverable == false, "Registry preview should surface the latest publication discoverability posture.");
 Assert(publicationPreview.PublicationNextSafeActionSummary?.Contains("replacement artifact", StringComparison.OrdinalIgnoreCase) == true, "Registry preview should surface the latest publication next safe action.");
-Assert(publicationPreview.ShelfOwnershipSummary.Contains("creator publication lane", StringComparison.OrdinalIgnoreCase), "Registry preview should retain ownership posture after publication changes.");
+Assert(publicationPreview.ShelfOwnershipSummary.Contains("shared publication lane", StringComparison.OrdinalIgnoreCase), "Registry preview should retain shared-publication ownership posture after publication changes.");
 
 PublicationRecordResponse superseded = RequireOk(publicationsController.Moderate(
     creatorPublished.PublicationId,
