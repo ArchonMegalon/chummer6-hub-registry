@@ -40,3 +40,5 @@ Exit criteria addressed by this slice:
 
 - 2026-03-21: Revalidated for prepend queue item "Add milestone mapping or executable queue work for Moderation and publication projections still need explicit registry-owned read models.."; no milestone-mapping duplication required because this mapping and linked completion evidence already exist.
 - Audit sources: `.codex-studio/published/QUEUE.generated.yaml`, `feedback/2026-03-10-public-repo-graph-audit.md`
+- 2026-03-31: Revalidated on `/fast` system re-entry; missing backlog-linked deliverables for projection ownership inventory and cutover checklist were published and linked as concrete evidence while milestone scope stayed unchanged.
+- Audit sources: `.codex-studio/published/QUEUE.generated.yaml`, `feedback/2026-03-10-public-repo-graph-audit.md`, `feedback/2026-03-21-github-review-pr.md`
