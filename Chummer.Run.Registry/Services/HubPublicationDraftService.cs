@@ -221,7 +221,7 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
             }
 
             DateTimeOffset now = DateTimeOffset.UtcNow;
-            string? notes = NormalizeOptional(request.Notes);
+            string? notes = NormalizeOptional(request.Notes) ?? $"{row.Title} entered governed shared-publication review.";
             if (!string.IsNullOrWhiteSpace(request.PublisherId))
             {
                 row.PublisherId = request.PublisherId.Trim();
@@ -289,8 +289,7 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
             row.UpdatedAtUtc = now;
             row.Visibility = ResolveVisibility(row.PublisherId);
             row.LatestModerationNotes = NormalizeOptional(request.Notes)
-                ?? row.LatestModerationNotes
-                ?? $"Published for governed creator discovery by {actorId}.";
+                ?? $"Published for governed shared publication discovery by {actorId}.";
             row.LatestModerationUpdatedAtUtc = now;
             return ToPublicationReceipt(row);
         }
@@ -355,8 +354,8 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
             DateTimeOffset now = DateTimeOffset.UtcNow;
             string notes = NormalizeOptional(request.Notes)
                 ?? (approved
-                    ? $"Approved for governed publication follow-through by {actorId}."
-                    : $"Returned for revision by {actorId}.");
+                    ? $"Approved for governed shared-publication follow-through by {actorId}."
+                    : $"Returned for revision before governed shared-publication follow-through by {actorId}.");
             moderationCase.State = approved ? HubModerationStates.Approved : HubModerationStates.Rejected;
             moderationCase.Notes = notes;
             moderationCase.UpdatedAtUtc = now;

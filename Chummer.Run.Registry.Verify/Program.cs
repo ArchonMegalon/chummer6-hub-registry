@@ -282,7 +282,7 @@ RegistryOwner.HubPublishDraftReceipt createdDraft = RequireCreated(draftControll
         ProjectId: replayArtifact.Id,
         RulesetId: "sr6",
         Title: "Redmond replay review packet",
-        Summary: "Replay-safe creator packet awaiting governed review.",
+        Summary: "Replay-safe shared publication awaiting governed review.",
         Description: "Milestone 13 verification draft."),
     ownerId: "creator.runner",
     preferredDraftId: "publication:redmond-replay"));
@@ -299,7 +299,7 @@ RegistryOwner.HubPublishDraftReceipt updatedDraft = RequireOk(draftController.Up
     createdDraft.DraftId,
     new RegistryOwner.HubUpdateDraftRequest(
         Title: "Redmond replay review packet",
-        Summary: "Replay-safe creator packet with refreshed provenance.",
+        Summary: "Replay-safe shared publication with refreshed provenance.",
         Description: "Milestone 13 verification draft updated before submission.",
         PublisherId: "pub.shadowops"),
     ownerId: "creator.runner"));
@@ -308,23 +308,23 @@ Assert(string.Equals(updatedDraft.PublisherId, "pub.shadowops", StringComparison
 RegistryOwner.HubProjectSubmissionReceipt submittedDraft = RequireOk(draftController.SubmitProject(
     createdDraft.DraftId,
     new RegistryOwner.HubSubmitProjectRequest(
-        Notes: "Ready for explicit moderation and trust review.",
         PublisherId: "pub.shadowops"),
     ownerId: "creator.runner"));
 Assert(string.Equals(submittedDraft.ReviewState, RegistryOwner.HubReviewStates.PendingReview, StringComparison.Ordinal), "Submitted drafts should enter pending review.");
+Assert(submittedDraft.Notes?.Contains("shared-publication review", StringComparison.OrdinalIgnoreCase) == true, "Submission receipts should stamp shared-publication review notes when callers leave notes blank.");
 
 RegistryOwner.HubModerationQueue moderationQueue = RequireOk(draftController.ListModerationQueue(ownerId: "creator.runner", state: RegistryOwner.HubModerationStates.PendingReview));
 Assert(moderationQueue.Items.Any(item => string.Equals(item.CaseId, submittedDraft.CaseId, StringComparison.Ordinal)), "Moderation queue listing should surface the pending review case.");
 
 RegistryOwner.HubModerationDecisionReceipt approvedDraft = RequireOk(draftController.ApproveModerationCase(
     submittedDraft.CaseId,
-    new RegistryOwner.HubModerationDecisionRequest("Provenance, lineage, and replay-safe trust checks passed."),
+    new RegistryOwner.HubModerationDecisionRequest(),
     actorId: "operator.registry"));
 Assert(string.Equals(approvedDraft.State, RegistryOwner.HubModerationStates.Approved, StringComparison.Ordinal), "Moderation approval should close the pending review case.");
 
 RegistryOwner.HubDraftDetailProjection approvedDraftDetail = RequireOk(draftController.GetDraftDetail(createdDraft.DraftId));
 Assert(string.Equals(approvedDraftDetail.Draft.State, RegistryOwner.HubPublicationStates.Submitted, StringComparison.Ordinal), "Approved drafts should stay on the submitted rail until a later publication lane promotes them live.");
-Assert(approvedDraftDetail.LatestModerationNotes?.Contains("trust checks passed", StringComparison.OrdinalIgnoreCase) == true, "Draft detail should retain the latest moderation notes.");
+Assert(approvedDraftDetail.LatestModerationNotes?.Contains("shared-publication follow-through", StringComparison.OrdinalIgnoreCase) == true, "Draft detail should retain the latest shared-publication moderation notes.");
 
 RegistryOwner.HubPublicationReceipt draftReceipt = RequireOk(draftController.GetPublicationReceipt(createdDraft.DraftId));
 Assert(string.Equals(draftReceipt.ReviewState, RegistryOwner.HubReviewStates.Approved, StringComparison.Ordinal), "Publication receipts should surface the approved moderation posture.");
@@ -332,7 +332,7 @@ Assert(string.Equals(draftReceipt.Visibility, RegistryOwner.ArtifactVisibilityMo
 
 RegistryOwner.HubPublicationReceipt publishedDraft = RequireOk(draftController.PublishProject(
     createdDraft.DraftId,
-    new RegistryOwner.HubPublishProjectRequest("Promote the approved packet onto governed creator discovery."),
+    new RegistryOwner.HubPublishProjectRequest(),
     actorId: "creator.runner"));
 Assert(string.Equals(publishedDraft.PublicationStatus, RegistryOwner.HubPublicationStates.Published, StringComparison.Ordinal), "Approved drafts should promote to a published receipt when the publish lane runs.");
 Assert(publishedDraft.PublishedAtUtc is not null, "Published drafts should stamp the publish timestamp on the receipt.");
@@ -343,7 +343,7 @@ Assert(publishedDraftList.Items.Count == 1, "Draft listing should expose the liv
 
 RegistryOwner.HubDraftDetailProjection publishedDraftDetail = RequireOk(draftController.GetDraftDetail(createdDraft.DraftId));
 Assert(string.Equals(publishedDraftDetail.Draft.State, RegistryOwner.HubPublicationStates.Published, StringComparison.Ordinal), "Published drafts should stay on the published rail in draft detail projections.");
-Assert(publishedDraftDetail.LatestModerationNotes?.Contains("discover", StringComparison.OrdinalIgnoreCase) == true, "Draft detail should retain the latest publish note after the live promotion.");
+Assert(publishedDraftDetail.LatestModerationNotes?.Contains("shared publication discovery", StringComparison.OrdinalIgnoreCase) == true, "Draft detail should retain the latest shared-publication publish note after the live promotion.");
 
 RegistryOwner.HubPublishDraftReceipt archivedDraft = RequireOk(draftController.ArchiveDraft(createdDraft.DraftId, ownerId: "creator.runner"));
 Assert(string.Equals(archivedDraft.State, RegistryOwner.HubPublicationStates.Archived, StringComparison.Ordinal), "Draft archive should transition the draft into archived state.");
@@ -354,7 +354,7 @@ RegistryOwner.HubPublishDraftReceipt deletedDraft = RequireCreated(draftControll
         ProjectId: recapArtifact.Id,
         RulesetId: "sr6",
         Title: "Redmond recap review packet",
-        Summary: "Recap-safe creator packet staged for delete coverage.",
+        Summary: "Recap-safe shared publication staged for delete coverage.",
         Description: "Deletion verification draft."),
     ownerId: "creator.runner",
     preferredDraftId: "publication:redmond-recap"));
