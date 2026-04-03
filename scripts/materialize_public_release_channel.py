@@ -26,12 +26,19 @@ RID_TO_PLATFORM_ARCH = {
 ARTIFACT_PATTERN = re.compile(
     r"^chummer-(?P<head>avalonia|blazor-desktop)-(?P<rid>[^.]+?)(?P<installer>-installer)?\.(?P<ext>exe|zip|tar\.gz|deb|dmg|pkg|msix)$"
 )
+WINDOWS_INSTALLER_PAYLOAD_MARKERS = (
+    b"ChummerInstaller.Payload.zip",
+    b"Samples/Legacy/Soma-Career.chum5",
+)
+STARTUP_SMOKE_GATED_KINDS = {"installer", "dmg", "pkg", "msix"}
+STARTUP_SMOKE_GATED_PLATFORMS = {"linux"}
 
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Materialize registry-owned public release channel projections.")
     parser.add_argument("--manifest", type=Path, help="Optional input compatibility manifest (`releases.json`) or canonical artifact payload.")
     parser.add_argument("--downloads-dir", type=Path, help="Optional raw downloads/files directory to scan when no manifest exists.")
+    parser.add_argument("--startup-smoke-dir", type=Path, help="Optional startup-smoke receipt directory used to keep unproven installers off the public shelf.")
     parser.add_argument("--output", type=Path, required=True, help="Canonical release-channel output path.")
     parser.add_argument("--compat-output", type=Path, help="Optional compatibility `releases.json` output path.")
     parser.add_argument("--runtime-bundles", type=Path, help="Optional JSON file with runtime bundle head metadata.")
@@ -65,6 +72,14 @@ def artifact_kind(ext: str, installer_suffix: bool) -> str:
     }.get(ext, "artifact")
 
 
+def default_install_access_class(platform: str, kind: str) -> str:
+    normalized_platform = str(platform or "").strip().lower()
+    normalized_kind = str(kind or "").strip().lower()
+    if normalized_platform == "macos" and normalized_kind in {"installer", "dmg", "pkg"}:
+        return "account_required"
+    return "open_public"
+
+
 def platform_label(head: str, platform: str, arch: str, kind: str) -> str:
     app_label = APP_LABELS.get(head, head)
     platform_label = {
@@ -94,6 +109,7 @@ def row_from_file(path: Path, *, downloads_prefix: str) -> dict[str, Any] | None
     return {
         "artifactId": artifact_id,
         "head": head,
+        "rid": rid,
         "platform": platform,
         "arch": arch,
         "kind": kind,
@@ -105,8 +121,16 @@ def row_from_file(path: Path, *, downloads_prefix: str) -> dict[str, Any] | None
         "updateFeedUrl": None,
         "embeddedRuntimeBundleHeadId": None,
         "compatibilityState": None,
-        "installAccessClass": "open_public",
+        "installAccessClass": default_install_access_class(platform, kind),
     }
+
+
+def has_windows_installer_payload_markers(path: Path) -> bool:
+    try:
+        blob = path.read_bytes()
+    except OSError:
+        return False
+    return all(marker in blob for marker in WINDOWS_INSTALLER_PAYLOAD_MARKERS)
 
 
 def artifacts_from_downloads_dir(downloads_dir: Path, *, downloads_prefix: str) -> list[dict[str, Any]]:
@@ -118,8 +142,140 @@ def artifacts_from_downloads_dir(downloads_dir: Path, *, downloads_prefix: str) 
             continue
         row = row_from_file(entry, downloads_prefix=downloads_prefix)
         if row is not None:
+            if (
+                str(row.get("platform") or "").strip().lower() == "windows"
+                and str(row.get("kind") or "").strip().lower() == "installer"
+                and not has_windows_installer_payload_markers(entry)
+            ):
+                continue
             rows.append(row)
     return rows
+
+
+def refresh_artifacts_from_downloads_dir(
+    artifacts: list[dict[str, Any]],
+    downloads_dir: Path | None,
+    *,
+    downloads_prefix: str,
+) -> list[dict[str, Any]]:
+    if downloads_dir is None or not downloads_dir.exists():
+        return artifacts
+
+    existing_by_file_name: dict[str, dict[str, Any]] = {}
+    for item in artifacts:
+        file_name = str(item.get("fileName") or "").strip()
+        if not file_name:
+            file_name = Path(str(item.get("downloadUrl") or "").strip()).name
+        if file_name:
+            existing_by_file_name[file_name] = item
+
+    discovered_rows = artifacts_from_downloads_dir(downloads_dir, downloads_prefix=downloads_prefix)
+    for discovered in discovered_rows:
+        file_name = str(discovered.get("fileName") or "").strip()
+        if file_name:
+            existing_by_file_name.setdefault(file_name, discovered)
+
+    rows: list[dict[str, Any]] = []
+    for file_name, item in sorted(existing_by_file_name.items()):
+        if not file_name:
+            file_name = Path(str(item.get("downloadUrl") or "").strip()).name
+            if not file_name:
+                continue
+        path = downloads_dir / file_name
+        if not path.is_file():
+            continue
+        refreshed = row_from_file(path, downloads_prefix=downloads_prefix)
+        if refreshed is None:
+            continue
+        if (
+            str(refreshed.get("platform") or "").strip().lower() == "windows"
+            and str(refreshed.get("kind") or "").strip().lower() == "installer"
+            and not has_windows_installer_payload_markers(path)
+        ):
+            continue
+        refreshed["updateFeedUrl"] = item.get("updateFeedUrl")
+        refreshed["embeddedRuntimeBundleHeadId"] = item.get("embeddedRuntimeBundleHeadId")
+        refreshed["compatibilityState"] = item.get("compatibilityState")
+        refreshed["installAccessClass"] = (
+            str(item.get("installAccessClass") or refreshed.get("installAccessClass") or default_install_access_class(refreshed.get("platform"), refreshed.get("kind"))).strip()
+            or default_install_access_class(refreshed.get("platform"), refreshed.get("kind"))
+        )
+        rows.append(refreshed)
+    return rows
+
+
+def load_startup_smoke_receipts(startup_smoke_dir: Path | None) -> list[dict[str, str]]:
+    if startup_smoke_dir is None or not startup_smoke_dir.exists():
+        return []
+
+    receipts: list[dict[str, str]] = []
+    for entry in sorted(startup_smoke_dir.rglob("startup-smoke-*.receipt.json")):
+        try:
+            loaded = json.loads(entry.read_text(encoding="utf-8-sig"))
+        except (OSError, json.JSONDecodeError):
+            continue
+        if not isinstance(loaded, dict):
+            continue
+        head = str(loaded.get("headId") or "").strip()
+        platform = str(loaded.get("platform") or "").strip().lower()
+        arch = str(loaded.get("arch") or "").strip().lower()
+        artifact_digest = str(loaded.get("artifactDigest") or "").strip().lower()
+        if not head or not platform or not arch:
+            continue
+        receipts.append(
+            {
+                "head": head,
+                "platform": platform,
+                "arch": arch,
+                "artifactDigest": artifact_digest,
+            }
+        )
+    return receipts
+
+
+def filter_unproven_installers(
+    artifacts: list[dict[str, Any]],
+    startup_smoke_receipts: list[dict[str, str]],
+) -> list[dict[str, Any]]:
+    if not startup_smoke_receipts:
+        return artifacts
+
+    filtered: list[dict[str, Any]] = []
+    for artifact in artifacts:
+        kind = str(artifact.get("kind") or "").strip().lower()
+        if kind not in STARTUP_SMOKE_GATED_KINDS:
+            filtered.append(artifact)
+            continue
+
+        platform = str(artifact.get("platform") or "").strip().lower()
+        if platform not in STARTUP_SMOKE_GATED_PLATFORMS:
+            filtered.append(artifact)
+            continue
+        arch = str(artifact.get("arch") or "").strip().lower()
+        head = str(artifact.get("head") or "").strip()
+        expected_digest = str(artifact.get("sha256") or "").strip().lower()
+        if expected_digest:
+            expected_digest = f"sha256:{expected_digest}"
+
+        matching_receipts = [
+            receipt
+            for receipt in startup_smoke_receipts
+            if receipt["head"] == head and receipt["platform"] == platform and receipt["arch"] == arch
+        ]
+        if not matching_receipts:
+            continue
+
+        if expected_digest and any(
+            not receipt["artifactDigest"] or receipt["artifactDigest"] == expected_digest
+            for receipt in matching_receipts
+        ):
+            filtered.append(artifact)
+            continue
+
+        if not expected_digest:
+            filtered.append(artifact)
+
+    return filtered
 
 
 def parse_download_row(item: dict[str, Any]) -> dict[str, Any]:
@@ -127,16 +283,19 @@ def parse_download_row(item: dict[str, Any]) -> dict[str, Any]:
     file_name = Path(raw_url).name
     match = ARTIFACT_PATTERN.match(file_name)
     head = "desktop"
+    rid = "unknown"
     platform = "unknown"
     arch = "unknown"
     kind = "artifact"
     if match:
         head = match.group("head")
-        platform, arch = RID_TO_PLATFORM_ARCH.get(match.group("rid"), ("unknown", "unknown"))
+        rid = match.group("rid")
+        platform, arch = RID_TO_PLATFORM_ARCH.get(rid, ("unknown", "unknown"))
         kind = artifact_kind(match.group("ext"), bool(match.group("installer")))
     return {
         "artifactId": str(item.get("id") or item.get("artifactId") or file_name).strip() or file_name,
         "head": head,
+        "rid": str(item.get("rid") or rid).strip() or rid,
         "platform": platform,
         "arch": arch,
         "kind": str(item.get("kind") or kind).strip() or kind,
@@ -148,7 +307,11 @@ def parse_download_row(item: dict[str, Any]) -> dict[str, Any]:
         "updateFeedUrl": item.get("updateFeedUrl"),
         "embeddedRuntimeBundleHeadId": item.get("embeddedRuntimeBundleHeadId"),
         "compatibilityState": item.get("compatibilityState"),
-        "installAccessClass": str(item.get("installAccessClass") or item.get("accessClass") or "open_public").strip() or "open_public",
+        "installAccessClass": str(
+            item.get("installAccessClass")
+            or item.get("accessClass")
+            or default_install_access_class(platform, kind)
+        ).strip() or default_install_access_class(platform, kind),
     }
 
 
@@ -345,14 +508,36 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         artifacts = [parse_download_row(item) for item in loaded.get("downloads") or [] if isinstance(item, dict)]
     else:
         artifacts = artifacts_from_downloads_dir(args.downloads_dir or Path("."), downloads_prefix=args.downloads_prefix)
+    artifacts = refresh_artifacts_from_downloads_dir(
+        artifacts,
+        args.downloads_dir,
+        downloads_prefix=args.downloads_prefix,
+    )
+    artifacts = filter_unproven_installers(
+        artifacts,
+        load_startup_smoke_receipts(args.startup_smoke_dir),
+    )
     artifacts.sort(key=lambda row: (0 if row.get("kind") == "installer" else 1, row.get("platform"), row.get("arch"), row.get("head"), row.get("fileName")))
-    published_at = str(loaded.get("publishedAt") or args.published_at or "").strip()
+    loaded_published_at = str(loaded.get("publishedAt") or "").strip()
+    published_at = str(args.published_at or loaded_published_at or "").strip()
     if not published_at:
         from datetime import datetime, timezone
 
         published_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    version = str(loaded.get("version") or args.version).strip() or "unpublished"
-    channel = str(loaded.get("channel") or loaded.get("channelId") or args.channel).strip() or "preview"
+    loaded_version = str(loaded.get("version") or "").strip()
+    requested_version = str(args.version or "").strip()
+    version = (
+        requested_version
+        if requested_version and (requested_version != "unpublished" or not loaded_version)
+        else loaded_version
+    ) or "unpublished"
+    loaded_channel = str(loaded.get("channel") or loaded.get("channelId") or "").strip()
+    requested_channel = str(args.channel or "").strip()
+    channel = (
+        requested_channel
+        if requested_channel and (requested_channel != "preview" or not loaded_channel)
+        else loaded_channel
+    ) or "preview"
     status = str(loaded.get("status") or ("published" if artifacts else "unpublished")).strip()
     message = loaded.get("message")
     release_proof = load_release_proof(args.proof) or normalize_release_proof_payload(
@@ -416,6 +601,9 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
             continue
         file_name = str(artifact.get("fileName") or "")
         file_format = "tar.gz" if file_name.endswith(".tar.gz") else Path(file_name).suffix.lower().lstrip(".")
+        platform = str(artifact.get("platform") or "").strip()
+        arch = str(artifact.get("arch") or "").strip()
+        kind = str(artifact.get("kind") or "").strip()
         downloads.append(
             {
                 "id": artifact.get("artifactId"),
@@ -424,8 +612,16 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
                 "sha256": artifact.get("sha256"),
                 "sizeBytes": artifact.get("sizeBytes"),
                 "format": file_format,
-                "flavor": artifact.get("kind"),
-                "kind": artifact.get("kind"),
+                "flavor": kind,
+                "kind": kind,
+                "head": artifact.get("head"),
+                "platformId": f"{platform}-{arch}" if platform and arch else platform or None,
+                "arch": arch or None,
+                "fileName": artifact.get("fileName"),
+                "installAccessClass": (
+                    str(artifact.get("installAccessClass") or "").strip()
+                    or default_install_access_class(platform, kind)
+                ),
             }
         )
     return {
