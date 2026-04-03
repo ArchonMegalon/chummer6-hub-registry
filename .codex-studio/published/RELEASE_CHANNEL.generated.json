@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-04-03T23:07:19Z",
-  "generatedAt": "2026-04-03T23:07:19Z",
+  "generated_at": "2026-04-03T23:35:17Z",
+  "generatedAt": "2026-04-03T23:35:17Z",
   "schemaVersion": 1,
   "product": "chummer6",
   "channelId": "docker",
-  "version": "unpublished",
-  "publishedAt": "2026-04-03T21:29:27Z",
+  "version": "local-docker",
+  "publishedAt": "2026-04-03T23:35:17Z",
   "status": "published",
   "artifactSource": "ui_desktop_bundle",
   "message": null,
@@ -16,23 +16,11 @@
   "knownIssueSummary": "Known issue: required desktop tuple coverage is incomplete (platforms: windows, macos; pairs: avalonia:windows, blazor-desktop:windows, avalonia:macos, blazor-desktop:macos).",
   "fixAvailabilitySummary": "Do not send fixed notices until required desktop tuple coverage is complete for the promoted shelf.",
   "releaseProof": {
-    "status": "passed",
-    "generatedAt": "2026-03-29T09:48:56Z",
-    "baseUrl": "https://chummer.run",
-    "journeysPassed": [
-      "install_claim_restore_continue",
-      "build_explain_publish",
-      "campaign_session_recover_recap",
-      "report_cluster_release_notify"
-    ],
-    "proofRoutes": [
-      "/downloads/install/avalonia-linux-x64-installer",
-      "/home/access",
-      "/home/work",
-      "/account/work",
-      "/account/support",
-      "/contact"
-    ],
+    "status": "missing",
+    "generatedAt": null,
+    "baseUrl": null,
+    "journeysPassed": [],
+    "proofRoutes": [],
     "uiLocalizationReleaseGate": {
       "status": "pass",
       "generatedAt": "2026-04-03T22:59:41Z",
@@ -84,14 +72,14 @@
       "kind": "installer",
       "fileName": "chummer-avalonia-linux-x64-installer.deb",
       "downloadUrl": "/downloads/files/chummer-avalonia-linux-x64-installer.deb",
-      "sha256": "6b0a63c39850a257e66d142c0bad196a7cc4fcbaf027635965f138f534bb13ea",
-      "sizeBytes": 34297862,
+      "sha256": "db286c2cde05206a2826817d91abfd331ed0fca1d11df550c368e510d43d8808",
+      "sizeBytes": 31791888,
       "platformLabel": "Avalonia Desktop Linux X64 Installer",
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
-      "compatibilityState": "compatible",
-      "channel": "docker",
-      "installAccessClass": "open_public"
+      "compatibilityState": "unknown",
+      "installAccessClass": "open_public",
+      "channel": "docker"
     },
     {
       "artifactId": "blazor-desktop-linux-x64-installer",
@@ -102,14 +90,14 @@
       "kind": "installer",
       "fileName": "chummer-blazor-desktop-linux-x64-installer.deb",
       "downloadUrl": "/downloads/files/chummer-blazor-desktop-linux-x64-installer.deb",
-      "sha256": "2548564550bc2c8ec4dbc0d5c8566e44ac87610ddbb9cf8ea15b08b5c64518e4",
-      "sizeBytes": 34147692,
+      "sha256": "e045312eab4982b801edcba6edef0ae0d32065fe9c29e1d502b70d83b33fc37e",
+      "sizeBytes": 34181284,
       "platformLabel": "Blazor Desktop Linux X64 Installer",
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
-      "compatibilityState": "compatible",
-      "channel": "docker",
-      "installAccessClass": "open_public"
+      "compatibilityState": "unknown",
+      "installAccessClass": "open_public",
+      "channel": "docker"
     }
   ],
   "desktopTupleCoverage": {
