@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-04-03T21:08:34Z",
-  "generatedAt": "2026-04-03T21:08:34Z",
-  "version": "run-20260403-2110",
+  "generated_at": "2026-04-03T21:29:28Z",
+  "generatedAt": "2026-04-03T21:29:28Z",
+  "version": "unpublished",
   "channel": "docker",
-  "publishedAt": "2026-04-03T21:08:34Z",
+  "publishedAt": "2026-04-03T21:29:27Z",
   "downloads": [
     {
       "id": "avalonia-linux-x64-installer",
@@ -39,12 +39,12 @@
   "source": "registry",
   "status": "published",
   "message": null,
-  "rolloutState": "local_docker_preview",
-  "rolloutReason": "Current release shelf was exercised by the local docker release proof harness before publication.",
-  "supportabilityState": "local_docker_proven",
-  "supportabilitySummary": "Local release proof passed for: install_claim_restore_continue, build_explain_publish, campaign_session_recover_recap, report_cluster_release_notify. Claimed-device restore and bounded offline prefetch stayed grounded on the current shelf.",
-  "knownIssueSummary": "Preview caveats still apply, but the current shelf has recent install, claimed-device recovery, bounded offline prefetch, and support proof instead of only manifest presence.",
-  "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
+  "rolloutState": "coverage_incomplete",
+  "rolloutReason": "Current shelf is published, but promotion stays blocked because required desktop tuple coverage is incomplete (platforms: windows, macos; pairs: avalonia:windows, blazor-desktop:windows, avalonia:macos, blazor-desktop:macos).",
+  "supportabilityState": "review_required",
+  "supportabilitySummary": "Treat the current shelf as review-required because required desktop tuple coverage is incomplete (platforms: windows, macos; pairs: avalonia:windows, blazor-desktop:windows, avalonia:macos, blazor-desktop:macos).",
+  "knownIssueSummary": "Known issue: required desktop tuple coverage is incomplete (platforms: windows, macos; pairs: avalonia:windows, blazor-desktop:windows, avalonia:macos, blazor-desktop:macos).",
+  "fixAvailabilitySummary": "Do not send fixed notices until required desktop tuple coverage is complete for the promoted shelf.",
   "releaseProof": {
     "status": "passed",
     "generatedAt": "2026-03-29T09:48:56Z",

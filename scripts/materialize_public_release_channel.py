@@ -545,6 +545,37 @@ def desktop_tuple_coverage(
     }
 
 
+def desktop_tuple_coverage_is_complete(coverage: dict[str, Any] | None) -> bool:
+    if not isinstance(coverage, dict):
+        return False
+    return not any(
+        coverage.get(key)
+        for key in (
+            "missingRequiredPlatforms",
+            "missingRequiredHeads",
+            "missingRequiredPlatformHeadPairs",
+        )
+    )
+
+
+def desktop_tuple_coverage_gap_summary(coverage: dict[str, Any] | None) -> str:
+    if not isinstance(coverage, dict):
+        return "required desktop tuple coverage is unavailable"
+    missing_platforms = [str(item).strip() for item in coverage.get("missingRequiredPlatforms") or [] if str(item).strip()]
+    missing_heads = [str(item).strip() for item in coverage.get("missingRequiredHeads") or [] if str(item).strip()]
+    missing_pairs = [str(item).strip() for item in coverage.get("missingRequiredPlatformHeadPairs") or [] if str(item).strip()]
+    details: list[str] = []
+    if missing_platforms:
+        details.append("platforms: " + ", ".join(missing_platforms))
+    if missing_heads:
+        details.append("heads: " + ", ".join(missing_heads))
+    if missing_pairs:
+        details.append("pairs: " + ", ".join(missing_pairs))
+    if not details:
+        return "required desktop tuple coverage is complete"
+    return "required desktop tuple coverage is incomplete (" + "; ".join(details) + ")"
+
+
 def derive_default_compatibility_state(status: str, proof: dict[str, Any] | None) -> str:
     if status == "published" and proof and str(proof.get("status") or "").strip().lower() == "passed":
         return "compatible"
@@ -592,17 +623,38 @@ def apply_artifact_compatibility(
     return rows
 
 
-def derive_rollout_state(channel: str, status: str, proof: dict[str, Any] | None) -> str:
+def derive_rollout_state(
+    channel: str,
+    status: str,
+    proof: dict[str, Any] | None,
+    *,
+    desktop_coverage_complete: bool,
+) -> str:
     if status != "published":
         return "unpublished"
+    if not desktop_coverage_complete:
+        return "coverage_incomplete"
     if proof and str(proof.get("status") or "").strip().lower() == "passed":
         return "local_docker_preview" if channel in {"preview", "docker"} else channel
     return "promoted_preview" if channel == "preview" else channel
 
 
-def derive_rollout_reason(channel: str, status: str, proof: dict[str, Any] | None) -> str:
+def derive_rollout_reason(
+    channel: str,
+    status: str,
+    proof: dict[str, Any] | None,
+    *,
+    desktop_coverage_complete: bool,
+    coverage: dict[str, Any] | None,
+) -> str:
     if status != "published":
         return "No published artifact shelf exists yet."
+    if not desktop_coverage_complete:
+        return (
+            "Current shelf is published, but promotion stays blocked because "
+            + desktop_tuple_coverage_gap_summary(coverage)
+            + "."
+        )
     if proof and str(proof.get("status") or "").strip().lower() == "passed":
         return "Current release shelf was exercised by the local docker release proof harness before publication."
     return (
@@ -612,17 +664,36 @@ def derive_rollout_reason(channel: str, status: str, proof: dict[str, Any] | Non
     )
 
 
-def derive_supportability_state(status: str, proof: dict[str, Any] | None) -> str:
+def derive_supportability_state(
+    status: str,
+    proof: dict[str, Any] | None,
+    *,
+    desktop_coverage_complete: bool,
+) -> str:
     if status != "published":
         return "unpublished"
+    if not desktop_coverage_complete:
+        return "review_required"
     if proof and str(proof.get("status") or "").strip().lower() == "passed":
         return "local_docker_proven"
     return "review_required"
 
 
-def derive_supportability_summary(status: str, proof: dict[str, Any] | None) -> str:
+def derive_supportability_summary(
+    status: str,
+    proof: dict[str, Any] | None,
+    *,
+    desktop_coverage_complete: bool,
+    coverage: dict[str, Any] | None,
+) -> str:
     if status != "published":
         return "No published channel support posture exists because no release shelf is live."
+    if not desktop_coverage_complete:
+        return (
+            "Treat the current shelf as review-required because "
+            + desktop_tuple_coverage_gap_summary(coverage)
+            + "."
+        )
     if proof and str(proof.get("status") or "").strip().lower() == "passed":
         journeys = proof.get("journeysPassed") or []
         if journeys:
@@ -637,9 +708,18 @@ def derive_supportability_summary(status: str, proof: dict[str, Any] | None) -> 
     return "Treat the current shelf as review-required until release proof and support closure checks pass."
 
 
-def derive_known_issue_summary(channel: str, status: str, proof: dict[str, Any] | None) -> str:
+def derive_known_issue_summary(
+    channel: str,
+    status: str,
+    proof: dict[str, Any] | None,
+    *,
+    desktop_coverage_complete: bool,
+    coverage: dict[str, Any] | None,
+) -> str:
     if status != "published":
         return "No active channel issues are published because the shelf is still empty."
+    if not desktop_coverage_complete:
+        return "Known issue: " + desktop_tuple_coverage_gap_summary(coverage) + "."
     if proof and str(proof.get("status") or "").strip().lower() == "passed":
         return (
             "Preview caveats still apply, but the current shelf has recent install, claimed-device recovery, bounded offline prefetch, and support proof instead of only manifest presence."
@@ -647,9 +727,16 @@ def derive_known_issue_summary(channel: str, status: str, proof: dict[str, Any] 
     return f"The {channel} shelf is visible, but known-issue review should stay front-and-center until proof is refreshed."
 
 
-def derive_fix_availability_summary(status: str, proof: dict[str, Any] | None) -> str:
+def derive_fix_availability_summary(
+    status: str,
+    proof: dict[str, Any] | None,
+    *,
+    desktop_coverage_complete: bool,
+) -> str:
     if status != "published":
         return "Fix notices should stay pending until a published shelf exists."
+    if not desktop_coverage_complete:
+        return "Do not send fixed notices until required desktop tuple coverage is complete for the promoted shelf."
     if proof and str(proof.get("status") or "").strip().lower() == "passed":
         return "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf."
     return "Verify fix availability against the live channel artifact before closing support loops."
@@ -724,23 +811,54 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         required_heads=required_heads,
         required_platforms=list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS),
     )
-    rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip() or derive_rollout_state(channel, status, release_proof)
-    rollout_reason = str(loaded.get("rolloutReason") or loaded.get("rollout_reason") or "").strip() or derive_rollout_reason(channel, status, release_proof)
+    desktop_coverage_complete = desktop_tuple_coverage_is_complete(tuple_coverage)
+    rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip() or derive_rollout_state(
+        channel,
+        status,
+        release_proof,
+        desktop_coverage_complete=desktop_coverage_complete,
+    )
+    rollout_reason = str(loaded.get("rolloutReason") or loaded.get("rollout_reason") or "").strip() or derive_rollout_reason(
+        channel,
+        status,
+        release_proof,
+        desktop_coverage_complete=desktop_coverage_complete,
+        coverage=tuple_coverage,
+    )
     supportability_state = (
         str(loaded.get("supportabilityState") or loaded.get("supportability_state") or "").strip()
-        or derive_supportability_state(status, release_proof)
+        or derive_supportability_state(
+            status,
+            release_proof,
+            desktop_coverage_complete=desktop_coverage_complete,
+        )
     )
     supportability_summary = (
         str(loaded.get("supportabilitySummary") or loaded.get("supportability_summary") or "").strip()
-        or derive_supportability_summary(status, release_proof)
+        or derive_supportability_summary(
+            status,
+            release_proof,
+            desktop_coverage_complete=desktop_coverage_complete,
+            coverage=tuple_coverage,
+        )
     )
     known_issue_summary = (
         str(loaded.get("knownIssueSummary") or loaded.get("known_issue_summary") or "").strip()
-        or derive_known_issue_summary(channel, status, release_proof)
+        or derive_known_issue_summary(
+            channel,
+            status,
+            release_proof,
+            desktop_coverage_complete=desktop_coverage_complete,
+            coverage=tuple_coverage,
+        )
     )
     fix_availability_summary = (
         str(loaded.get("fixAvailabilitySummary") or loaded.get("fix_availability_summary") or "").strip()
-        or derive_fix_availability_summary(status, release_proof)
+        or derive_fix_availability_summary(
+            status,
+            release_proof,
+            desktop_coverage_complete=desktop_coverage_complete,
+        )
     )
     generated_at = dt.datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     return {

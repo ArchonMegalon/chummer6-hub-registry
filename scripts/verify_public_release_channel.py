@@ -20,6 +20,18 @@ PUBLIC_DESKTOP_ARTIFACT_RE = re.compile(
     r"^chummer-(avalonia|blazor-desktop)-.+\.(exe|zip|tar\.gz|deb|dmg|pkg|msix)$",
     re.IGNORECASE,
 )
+MANIFEST_ARTIFACT_RE = re.compile(
+    r"^chummer-(?P<head>avalonia|blazor-desktop)-(?P<rid>[^.]+?)(?P<installer>-installer)?\.(?P<ext>exe|zip|tar\.gz|deb|dmg|pkg|msix)$",
+    re.IGNORECASE,
+)
+RID_TO_PLATFORM = {
+    "win-x64": "windows",
+    "win-arm64": "windows",
+    "linux-x64": "linux",
+    "linux-arm64": "linux",
+    "osx-arm64": "macos",
+    "osx-x64": "macos",
+}
 DEFAULT_HTTP_HEADERS = {
     "User-Agent": (
         "Mozilla/5.0 (Macintosh; Intel Mac OS X 14_4) "
@@ -201,6 +213,29 @@ def is_desktop_install_media(platform: object, kind: object) -> bool:
     return kind_token == "installer"
 
 
+def parse_manifest_tuple_fields(item: dict) -> tuple[str, str, str, str]:
+    file_name = normalize_file_name(item)
+    head = normalized_token(item.get("head"))
+    rid = normalized_token(item.get("rid"))
+    kind = normalized_token(item.get("kind") or item.get("flavor"))
+    platform = normalized_token(item.get("platform"))
+    platform_id = normalized_token(item.get("platformId"))
+
+    match = MANIFEST_ARTIFACT_RE.match(file_name)
+    if match:
+        head = head or normalized_token(match.group("head"))
+        rid = rid or normalized_token(match.group("rid"))
+        if not kind:
+            kind = "installer" if match.group("installer") else "artifact"
+
+    if (not platform or platform not in REQUIRED_DESKTOP_PLATFORMS) and platform_id:
+        platform = platform_id.split("-", 1)[0]
+    if not platform and rid:
+        platform = RID_TO_PLATFORM.get(rid, "")
+
+    return head, platform, rid, kind
+
+
 def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[str]]:
     coverage = payload.get("desktopTupleCoverage")
     if not isinstance(coverage, dict):
@@ -251,16 +286,14 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
 
     expected_promoted_tuples: list[str] = []
     expected_promoted_platform_heads: dict[str, set[str]] = {platform: set() for platform in REQUIRED_DESKTOP_PLATFORMS}
-    for artifact in payload.get("artifacts") or []:
+    for artifact in iter_manifest_download_entries(payload):
         if not isinstance(artifact, dict):
             continue
-        platform = normalized_token(artifact.get("platform"))
+        head, platform, rid, kind = parse_manifest_tuple_fields(artifact)
         if platform not in REQUIRED_DESKTOP_PLATFORMS:
             continue
-        if not is_desktop_install_media(artifact.get("platform"), artifact.get("kind")):
+        if not is_desktop_install_media(platform, kind):
             continue
-        head = normalized_token(artifact.get("head"))
-        rid = normalized_token(artifact.get("rid"))
         expected_promoted_tuples.append(f"{head}:{platform}:{rid}" if rid else f"{head}:{platform}")
         if head:
             expected_promoted_platform_heads[platform].add(head)
@@ -344,6 +377,30 @@ def verify_desktop_tuple_completeness(coverage: dict[str, list[str]], source: st
         )
 
 
+def verify_desktop_tuple_honesty(payload: dict, source: str, coverage: dict[str, list[str]] | None) -> None:
+    if not isinstance(coverage, dict):
+        return
+    status = normalized_token(payload.get("status"))
+    if status != "published":
+        return
+    coverage_incomplete = any(
+        coverage.get(key)
+        for key in ("missing_platforms", "missing_heads", "missing_pairs")
+    )
+    if not coverage_incomplete:
+        return
+    rollout_state = normalized_token(payload.get("rolloutState"))
+    supportability_state = normalized_token(payload.get("supportabilityState"))
+    if rollout_state != "coverage_incomplete":
+        raise SystemExit(
+            f"{source} must set rolloutState='coverage_incomplete' when required desktop tuple coverage is incomplete"
+        )
+    if supportability_state != "review_required":
+        raise SystemExit(
+            f"{source} must set supportabilityState='review_required' when required desktop tuple coverage is incomplete"
+        )
+
+
 def verify_local_release_artifact_bytes(payload: dict, files_dir: Path, source: str) -> None:
     for index, item in enumerate(iter_manifest_download_entries(payload)):
         file_name = normalize_file_name(item)
@@ -396,13 +453,18 @@ def verify_local_download_files(payload: dict, root: Path | None, source: str) -
         raise SystemExit(f"{source} exposes desktop files that are not present in manifest truth: {joined}")
 
 
-def verify_artifacts(payload: dict, source: str, *, require_complete_desktop_coverage: bool = False) -> None:
+def verify_artifacts(
+    payload: dict,
+    source: str,
+    *,
+    require_complete_desktop_coverage: bool = False,
+) -> dict[str, list[str]] | None:
     status = str(payload.get("status") or "").strip().lower()
     channel = str(payload.get("channelId") or payload.get("channel") or "").strip()
     if isinstance(payload.get("artifacts"), list):
         artifacts = payload.get("artifacts") or []
         if not artifacts and status == "unpublished":
-            return
+            return None
         for index, item in enumerate(artifacts):
             if not isinstance(item, dict):
                 raise SystemExit(f"artifacts[{index}] is not an object in {source}")
@@ -422,18 +484,23 @@ def verify_artifacts(payload: dict, source: str, *, require_complete_desktop_cov
         coverage = verify_desktop_tuple_coverage(payload, source)
         if require_complete_desktop_coverage:
             verify_desktop_tuple_completeness(coverage, source)
+        return coverage
     elif isinstance(payload.get("downloads"), list):
         downloads = payload.get("downloads") or []
         if not downloads and status != "unpublished":
             raise SystemExit(f"downloads is empty in {source}")
         if not downloads:
-            return
+            return None
         for index, item in enumerate(downloads):
             if not isinstance(item, dict):
                 raise SystemExit(f"downloads[{index}] is not an object in {source}")
             for field in ("id", "url", "sha256", "sizeBytes"):
                 if item.get(field) in (None, ""):
                     raise SystemExit(f"downloads[{index}] is missing {field} in {source}")
+        coverage = verify_desktop_tuple_coverage(payload, source)
+        if require_complete_desktop_coverage:
+            verify_desktop_tuple_completeness(coverage, source)
+        return coverage
     else:
         raise SystemExit(f"{source} is missing both artifacts and downloads arrays")
 
@@ -507,12 +574,13 @@ def main() -> int:
     if not isinstance(payload, dict):
         raise SystemExit(f"manifest must be a JSON object: {source}")
     verify_generated_timestamp(payload, source)
-    verify_artifacts(
+    coverage = verify_artifacts(
         payload,
         source,
         require_complete_desktop_coverage=require_complete_desktop_coverage,
     )
     verify_release_truth(payload, source)
+    verify_desktop_tuple_honesty(payload, source, coverage)
     verify_local_download_files(payload, local_root, source)
     print(f"verified public release manifest: {source}")
     return 0

@@ -214,11 +214,11 @@ assert all(str(item.get("channel") or "") == str(canonical.get("channelId") or "
 assert artifacts["avalonia-win-x64-installer"]["compatibilityState"] == "compatible"
 assert artifacts["avalonia-win-x64-portable"]["compatibilityState"] == "compatible"
 assert artifacts["avalonia-linux-x64-archive"]["compatibilityState"] == "compatible"
-assert canonical["rolloutState"] == "local_docker_preview"
-assert canonical["supportabilityState"] == "local_docker_proven"
+assert canonical["rolloutState"] == "coverage_incomplete"
+assert canonical["supportabilityState"] == "review_required"
 assert canonical["releaseProof"]["status"] == "passed"
-assert "bounded offline prefetch" in canonical["supportabilitySummary"]
-assert "bounded offline prefetch" in canonical["knownIssueSummary"]
+assert "required desktop tuple coverage is incomplete" in canonical["supportabilitySummary"]
+assert "required desktop tuple coverage is incomplete" in canonical["knownIssueSummary"]
 coverage = canonical.get("desktopTupleCoverage") or {}
 assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows", "macos"]
 assert coverage.get("requiredDesktopHeads") == ["avalonia", "blazor-desktop"]
@@ -235,7 +235,7 @@ assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == sorted(
 downloads = {item["id"]: item for item in compat["downloads"]}
 assert downloads["avalonia-win-x64-portable"]["kind"] == "portable"
 assert downloads["avalonia-linux-x64-archive"]["format"] == "tar.gz"
-assert compat["supportabilityState"] == "local_docker_proven"
-assert "bounded offline prefetch" in compat["supportabilitySummary"]
+assert compat["supportabilityState"] == "review_required"
+assert "required desktop tuple coverage is incomplete" in compat["supportabilitySummary"]
 assert compat.get("desktopTupleCoverage") == canonical.get("desktopTupleCoverage")
 PY
