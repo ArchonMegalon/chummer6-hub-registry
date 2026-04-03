@@ -557,6 +557,19 @@ def iter_promoted_desktop_installer_tuples(payload: dict) -> Iterable[tuple[str,
         yield record
 
 
+def expected_channel_id(payload: dict) -> str:
+    channel_id = normalized_token(payload.get("channelId") or payload.get("channel"))
+    if channel_id:
+        return channel_id
+    for item in iter_manifest_download_entries(payload):
+        if not isinstance(item, dict):
+            continue
+        item_channel = normalized_token(item.get("channel"))
+        if item_channel:
+            return item_channel
+    return ""
+
+
 def promoted_desktop_installer_tuple_sha_map(payload: dict) -> dict[tuple[str, str, str], str]:
     expected_sha_by_tuple: dict[tuple[str, str, str], str] = {}
     for item in iter_manifest_download_entries(payload):
@@ -602,6 +615,7 @@ def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) 
         os.environ.get("CHUMMER_VERIFY_STARTUP_SMOKE_MAX_AGE_SECONDS")
         or os.environ.get("CHUMMER_DESKTOP_STARTUP_SMOKE_MAX_AGE_SECONDS")
     )
+    channel_id = expected_channel_id(payload)
     now = datetime.now(timezone.utc)
     for head, platform, rid in promoted_tuples:
         receipt_path = startup_smoke_dir / f"startup-smoke-{head}-{rid}.receipt.json"
@@ -672,6 +686,16 @@ def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) 
             raise SystemExit(
                 f"{source} startup-smoke receipt artifactDigest does not match release-channel artifact sha256 for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
+        if channel_id:
+            receipt_channel = normalized_token(receipt.get("channelId") or receipt.get("channel"))
+            if not receipt_channel:
+                raise SystemExit(
+                    f"{source} startup-smoke receipt channelId is missing for promoted desktop installer tuple {head}:{platform}:{rid}"
+                )
+            if receipt_channel != channel_id:
+                raise SystemExit(
+                    f"{source} startup-smoke receipt channelId mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
+                )
 
         receipt_timestamp = parse_startup_smoke_receipt_timestamp(receipt)
         if receipt_timestamp is None:

@@ -40,6 +40,10 @@ DEFAULT_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
 UTC = dt.timezone.utc
 
 
+def normalize_token(value: Any) -> str:
+    return str(value or "").strip().lower()
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Materialize registry-owned public release channel projections.")
     parser.add_argument("--manifest", type=Path, help="Optional input compatibility manifest (`releases.json`) or canonical artifact payload.")
@@ -252,6 +256,7 @@ def load_startup_smoke_receipts(
     startup_smoke_dir: Path | None,
     *,
     max_age_seconds: int = STARTUP_SMOKE_MAX_AGE_SECONDS,
+    expected_channel: str = "",
     now: dt.datetime | None = None,
 ) -> list[dict[str, str]] | None:
     if startup_smoke_dir is None or not startup_smoke_dir.exists():
@@ -284,7 +289,10 @@ def load_startup_smoke_receipts(
         platform = str(loaded.get("platform") or "").strip().lower()
         arch = str(loaded.get("arch") or "").strip().lower()
         artifact_digest = str(loaded.get("artifactDigest") or "").strip().lower()
+        channel_id = normalize_token(loaded.get("channelId") or loaded.get("channel"))
         if not head or not platform or not arch:
+            continue
+        if expected_channel and channel_id != expected_channel:
             continue
         receipts.append(
             {
@@ -292,6 +300,7 @@ def load_startup_smoke_receipts(
                 "platform": platform,
                 "arch": arch,
                 "artifactDigest": artifact_digest,
+                "channelId": channel_id,
             }
         )
     return receipts
@@ -748,6 +757,21 @@ def derive_fix_availability_summary(
 
 def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     loaded = load_input_payload(args)
+    loaded_version = str(loaded.get("version") or "").strip()
+    requested_version = str(args.version or "").strip()
+    version = (
+        requested_version
+        if requested_version and (requested_version != "unpublished" or not loaded_version)
+        else loaded_version
+    ) or "unpublished"
+    loaded_channel = str(loaded.get("channel") or loaded.get("channelId") or "").strip()
+    requested_channel = str(args.channel or "").strip()
+    channel = (
+        requested_channel
+        if requested_channel and (requested_channel != "preview" or not loaded_channel)
+        else loaded_channel
+    ) or "preview"
+
     if isinstance(loaded.get("artifacts"), list):
         artifacts = [parse_download_row(item) for item in loaded.get("artifacts") or [] if isinstance(item, dict)]
     elif isinstance(loaded.get("downloads"), list):
@@ -764,6 +788,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         load_startup_smoke_receipts(
             args.startup_smoke_dir,
             max_age_seconds=args.startup_smoke_max_age_seconds,
+            expected_channel=normalize_token(channel),
         ),
     )
     artifacts.sort(key=lambda row: (0 if row.get("kind") == "installer" else 1, row.get("platform"), row.get("arch"), row.get("head"), row.get("fileName")))
@@ -773,20 +798,6 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         from datetime import datetime, timezone
 
         published_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    loaded_version = str(loaded.get("version") or "").strip()
-    requested_version = str(args.version or "").strip()
-    version = (
-        requested_version
-        if requested_version and (requested_version != "unpublished" or not loaded_version)
-        else loaded_version
-    ) or "unpublished"
-    loaded_channel = str(loaded.get("channel") or loaded.get("channelId") or "").strip()
-    requested_channel = str(args.channel or "").strip()
-    channel = (
-        requested_channel
-        if requested_channel and (requested_channel != "preview" or not loaded_channel)
-        else loaded_channel
-    ) or "preview"
     for artifact in artifacts:
         if isinstance(artifact, dict):
             artifact["channel"] = channel

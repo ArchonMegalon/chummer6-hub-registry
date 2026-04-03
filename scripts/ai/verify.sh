@@ -66,6 +66,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "status": "pass",
   "readyCheckpoint": "pre_ui_event_loop",
   "headId": "avalonia",
+  "channelId": "preview",
   "platform": "windows",
   "rid": "win-x64",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
@@ -85,6 +86,7 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startu
   "status": "pass",
   "readyCheckpoint": "pre_ui_event_loop",
   "headId": "avalonia",
+  "channelId": "preview",
   "platform": "linux",
   "arch": "x64",
   "artifactDigest": "sha256:STARTUP_FILTER_LINUX_DIGEST",
@@ -128,6 +130,34 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startu
   "status": "pass",
   "readyCheckpoint": "pre_ui_event_loop",
   "headId": "avalonia",
+  "channelId": "wrong-channel",
+  "platform": "linux",
+  "arch": "x64",
+  "artifactDigest": "sha256:STARTUP_FILTER_LINUX_DIGEST",
+  "recordedAtUtc": "2026-04-03T16:00:00Z"
+}
+JSON
+sed -i "s/STARTUP_FILTER_LINUX_DIGEST/${startup_filter_linux_digest}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
+  --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
+  --startup-smoke-max-age-seconds 86400 \
+  --channel preview \
+  --version 0.0.0-smoke-startup-filter-channel-mismatch \
+  --output /tmp/chummer-hub-registry-startup-smoke-filter-fixture/RELEASE_CHANNEL.generated.json >/dev/null
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+payload = json.loads(Path("/tmp/chummer-hub-registry-startup-smoke-filter-fixture/RELEASE_CHANNEL.generated.json").read_text(encoding="utf-8"))
+assert payload.get("artifacts") == []
+PY
+cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "avalonia",
+  "channelId": "preview",
   "platform": "linux",
   "arch": "x64",
   "artifactDigest": "sha256:STARTUP_FILTER_LINUX_DIGEST",
@@ -207,6 +237,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "status": "pass",
   "readyCheckpoint": "pre_ui_event_loop",
   "headId": "avalonia",
+  "channelId": "preview",
   "platform": "windows",
   "rid": "win-x64",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
@@ -217,8 +248,26 @@ sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g" /t
 cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
 {
   "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "avalonia",
+  "channelId": "wrong-channel",
+  "platform": "windows",
+  "rid": "win-x64",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
+  "recordedAtUtc": "2026-04-03T16:00:00Z"
+}
+JSON
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject startup-smoke receipts whose channelId does not match the release channel." >&2
+  exit 1
+fi
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
   "readyCheckpoint": "before_ui",
   "headId": "avalonia",
+  "channelId": "preview",
   "platform": "windows",
   "rid": "win-x64",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
@@ -235,6 +284,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "status": "pass",
   "readyCheckpoint": "pre_ui_event_loop",
   "headId": "avalonia",
+  "channelId": "preview",
   "platform": "windows",
   "rid": "win-x64",
   "artifactDigest": "sha256:deadbeef",
@@ -250,6 +300,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "status": "pass",
   "readyCheckpoint": "pre_ui_event_loop",
   "headId": "avalonia",
+  "channelId": "preview",
   "platform": "windows",
   "rid": "win-x64",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
