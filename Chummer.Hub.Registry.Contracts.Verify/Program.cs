@@ -35,6 +35,7 @@ Assert(ReleaseArtifactKinds.Portable == "portable", "Release artifact kinds must
 Assert(ReleaseArtifactKinds.Archive == "archive", "Release artifact kinds must preserve archive.");
 Assert(ReleaseProofStatuses.Passed == "passed", "Release proof statuses must preserve passed.");
 Assert(ReleaseRolloutStates.LocalDockerPreview == "local_docker_preview", "Release rollout states must preserve local_docker_preview.");
+Assert(ReleaseRolloutStates.CoverageIncomplete == "coverage_incomplete", "Release rollout states must preserve coverage_incomplete.");
 Assert(ReleaseSupportabilityStates.LocalDockerProven == "local_docker_proven", "Release supportability states must preserve local_docker_proven.");
 
 ArtifactInstallState install = new(
@@ -158,11 +159,11 @@ ReleaseChannelHeadProjection releaseChannel = new(
             ProjectionFingerprint: "sha256:runtime",
             CompatibilityState: ArtifactCompatibilityStates.Compatible)
     ],
-    RolloutState: ReleaseRolloutStates.LocalDockerPreview,
-    RolloutReason: "Local docker preview shelf was verified before publication.",
-    SupportabilityState: ReleaseSupportabilityStates.LocalDockerProven,
-    SupportabilitySummary: "Local release proof passed for: install_claim_restore_continue, build_explain_publish, campaign_session_recover_recap, report_cluster_release_notify. Claimed-device restore and bounded offline prefetch stayed grounded on the current shelf.",
-    KnownIssueSummary: "Preview caveats still apply, but the current shelf has recent install, claimed-device recovery, bounded offline prefetch, and support proof instead of only manifest presence.",
+    RolloutState: ReleaseRolloutStates.CoverageIncomplete,
+    RolloutReason: "Required desktop platform/head tuple coverage is incomplete.",
+    SupportabilityState: ReleaseSupportabilityStates.ReviewRequired,
+    SupportabilitySummary: "Required desktop tuple coverage remains incomplete, so supportability stays review-required until promoted tuple proof is complete.",
+    KnownIssueSummary: "Required desktop tuple coverage is incomplete for this channel; treat this shelf as a review-required projection, not promotion truth.",
     FixAvailabilitySummary: "Only send fixed notices after the affected channel artifact is on the current shelf.",
     ReleaseProof: new ReleaseProofProjection(
         Status: ReleaseProofStatuses.Passed,
@@ -183,7 +184,9 @@ Assert(string.Equals(releaseChannel.Artifacts[0].EmbeddedRuntimeBundleHeadId, "r
     "Release channel projections must retain embedded runtime bundle references.");
 Assert(string.Equals(releaseChannel.Artifacts[0].InstallAccessClass, "open_public", StringComparison.Ordinal),
     "Release channel projections must retain install access posture.");
-Assert(string.Equals(releaseChannel.SupportabilityState, ReleaseSupportabilityStates.LocalDockerProven, StringComparison.Ordinal),
+Assert(string.Equals(releaseChannel.RolloutState, ReleaseRolloutStates.CoverageIncomplete, StringComparison.Ordinal),
+    "Release channel projections must retain coverage_incomplete rollout posture.");
+Assert(string.Equals(releaseChannel.SupportabilityState, ReleaseSupportabilityStates.ReviewRequired, StringComparison.Ordinal),
     "Release channel projections must retain supportability posture.");
 ReleaseProofProjection releaseProof = releaseChannel.ReleaseProof
     ?? throw new InvalidOperationException("Release channel projections must retain release-proof payloads.");

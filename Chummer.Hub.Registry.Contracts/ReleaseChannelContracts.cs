@@ -28,6 +28,7 @@ public static class ReleaseProofStatuses
 public static class ReleaseRolloutStates
 {
     public const string LocalDockerPreview = "local_docker_preview";
+    public const string CoverageIncomplete = "coverage_incomplete";
     public const string PromotedPreview = "promoted_preview";
     public const string ReleaseCandidate = "release_candidate";
     public const string PublicStable = "public_stable";
