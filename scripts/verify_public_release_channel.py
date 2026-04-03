@@ -316,6 +316,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         raise SystemExit(f"{source} desktopTupleCoverage.requiredDesktopHeads must include at least one head")
 
     expected_promoted_tuples: list[str] = []
+    expected_promoted_tuple_rows: list[dict[str, str]] = []
     expected_promoted_platform_heads: dict[str, set[str]] = {platform: set() for platform in REQUIRED_DESKTOP_PLATFORMS}
     for artifact in iter_manifest_download_entries(payload):
         if not isinstance(artifact, dict):
@@ -325,18 +326,68 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
             continue
         if not is_desktop_install_media(platform, kind):
             continue
-        expected_promoted_tuples.append(f"{head}:{platform}:{rid}" if rid else f"{head}:{platform}")
+        tuple_id = f"{head}:{platform}:{rid}" if rid else f"{head}:{platform}"
+        expected_promoted_tuples.append(tuple_id)
+        expected_promoted_tuple_rows.append(
+            {
+                "tupleId": tuple_id,
+                "head": head,
+                "platform": platform,
+                "rid": rid,
+                "arch": normalized_token(artifact.get("arch")),
+                "kind": normalized_token(kind),
+                "artifactId": normalized_token(artifact.get("artifactId") or artifact.get("id")),
+            }
+        )
         if head:
             expected_promoted_platform_heads[platform].add(head)
 
-    reported_promoted_tuples = sorted(
-        str(item.get("tupleId") or "").strip().lower()
-        for item in promoted_tuples
-        if isinstance(item, dict)
+    expected_promoted_tuple_rows.sort(
+        key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"])
     )
+
+    reported_promoted_tuples: list[str] = []
+    reported_promoted_tuple_rows: list[dict[str, str]] = []
+    for item in promoted_tuples:
+        if not isinstance(item, dict):
+            raise SystemExit(f"{source} desktopTupleCoverage.promotedInstallerTuples must contain only objects")
+        head = normalized_token(item.get("head"))
+        platform = normalized_platform_token(item.get("platform"))
+        rid = normalized_token(item.get("rid"))
+        tuple_id = normalized_token(item.get("tupleId"))
+        derived_tuple_id = f"{head}:{platform}:{rid}" if rid else f"{head}:{platform}"
+        if not tuple_id:
+            raise SystemExit(f"{source} desktopTupleCoverage.promotedInstallerTuples entries must include tupleId")
+        if tuple_id != derived_tuple_id:
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.promotedInstallerTuples entry tupleId does not match head/platform/rid: {tuple_id}"
+            )
+        reported_promoted_tuples.append(tuple_id)
+        reported_promoted_tuple_rows.append(
+            {
+                "tupleId": tuple_id,
+                "head": head,
+                "platform": platform,
+                "rid": rid,
+                "arch": normalized_token(item.get("arch")),
+                "kind": normalized_token(item.get("kind")),
+                "artifactId": normalized_token(item.get("artifactId")),
+            }
+        )
+    if len(set(reported_promoted_tuples)) != len(reported_promoted_tuples):
+        raise SystemExit(f"{source} desktopTupleCoverage.promotedInstallerTuples must not contain duplicate tupleId values")
+
+    reported_promoted_tuples = sorted(reported_promoted_tuples)
     if sorted(expected_promoted_tuples) != reported_promoted_tuples:
         raise SystemExit(
             f"{source} desktopTupleCoverage.promotedInstallerTuples does not match canonical artifact installer tuples"
+        )
+    reported_promoted_tuple_rows.sort(
+        key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"])
+    )
+    if reported_promoted_tuple_rows != expected_promoted_tuple_rows:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.promotedInstallerTuples object rows do not match canonical artifact tuple metadata"
         )
 
     normalized_promoted_platform_heads: dict[str, list[str]] = {}
