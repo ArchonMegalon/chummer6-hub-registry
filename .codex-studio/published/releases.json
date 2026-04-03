@@ -46,5 +46,48 @@
       "/account/support",
       "/contact"
     ]
+  },
+  "desktopTupleCoverage": {
+    "requiredDesktopPlatforms": [
+      "linux",
+      "windows",
+      "macos"
+    ],
+    "requiredDesktopHeads": [
+      "avalonia",
+      "blazor-desktop"
+    ],
+    "promotedInstallerTuples": [
+      {
+        "tupleId": "avalonia:linux:linux-x64",
+        "head": "avalonia",
+        "platform": "linux",
+        "rid": "linux-x64",
+        "arch": "x64",
+        "kind": "installer",
+        "artifactId": "avalonia-linux-x64-installer"
+      }
+    ],
+    "promotedPlatformHeads": {
+      "linux": [
+        "avalonia"
+      ],
+      "windows": [],
+      "macos": []
+    },
+    "missingRequiredPlatforms": [
+      "windows",
+      "macos"
+    ],
+    "missingRequiredHeads": [
+      "blazor-desktop"
+    ],
+    "missingRequiredPlatformHeadPairs": [
+      "blazor-desktop:linux",
+      "avalonia:windows",
+      "blazor-desktop:windows",
+      "avalonia:macos",
+      "blazor-desktop:macos"
+    ]
   }
 }

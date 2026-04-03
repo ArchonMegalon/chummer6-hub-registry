@@ -28,6 +28,7 @@ DEFAULT_HTTP_HEADERS = {
     "Cache-Control": "no-cache",
     "Pragma": "no-cache",
 }
+REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
 
 
 def open_json_url_via_urllib(raw_target: str) -> dict:
@@ -164,6 +165,137 @@ def normalize_sha256(value: object) -> str:
     return str(value or "").strip().lower()
 
 
+def normalized_token(value: object) -> str:
+    return str(value or "").strip().lower()
+
+
+def is_desktop_install_media(platform: object, kind: object) -> bool:
+    platform_token = normalized_token(platform)
+    kind_token = normalized_token(kind)
+    if platform_token == "macos":
+        return kind_token in {"installer", "dmg", "pkg"}
+    return kind_token == "installer"
+
+
+def verify_desktop_tuple_coverage(payload: dict, source: str) -> None:
+    coverage = payload.get("desktopTupleCoverage")
+    if not isinstance(coverage, dict):
+        raise SystemExit(f"{source} is missing desktopTupleCoverage")
+
+    required_platforms = coverage.get("requiredDesktopPlatforms")
+    required_heads = coverage.get("requiredDesktopHeads")
+    promoted_tuples = coverage.get("promotedInstallerTuples")
+    promoted_platform_heads = coverage.get("promotedPlatformHeads")
+    missing_platforms = coverage.get("missingRequiredPlatforms")
+    missing_heads = coverage.get("missingRequiredHeads")
+    missing_pairs = coverage.get("missingRequiredPlatformHeadPairs")
+
+    for key, value in (
+        ("requiredDesktopPlatforms", required_platforms),
+        ("requiredDesktopHeads", required_heads),
+        ("promotedInstallerTuples", promoted_tuples),
+        ("promotedPlatformHeads", promoted_platform_heads),
+        ("missingRequiredPlatforms", missing_platforms),
+        ("missingRequiredHeads", missing_heads),
+        ("missingRequiredPlatformHeadPairs", missing_pairs),
+    ):
+        if value is None:
+            raise SystemExit(f"{source} desktopTupleCoverage is missing {key}")
+    if not isinstance(required_platforms, list) or not all(isinstance(item, str) for item in required_platforms):
+        raise SystemExit(f"{source} desktopTupleCoverage.requiredDesktopPlatforms must be a string list")
+    if not isinstance(required_heads, list) or not all(isinstance(item, str) for item in required_heads):
+        raise SystemExit(f"{source} desktopTupleCoverage.requiredDesktopHeads must be a string list")
+    if not isinstance(promoted_tuples, list):
+        raise SystemExit(f"{source} desktopTupleCoverage.promotedInstallerTuples must be a list")
+    if not isinstance(promoted_platform_heads, dict):
+        raise SystemExit(f"{source} desktopTupleCoverage.promotedPlatformHeads must be an object")
+    if not isinstance(missing_platforms, list) or not all(isinstance(item, str) for item in missing_platforms):
+        raise SystemExit(f"{source} desktopTupleCoverage.missingRequiredPlatforms must be a string list")
+    if not isinstance(missing_heads, list) or not all(isinstance(item, str) for item in missing_heads):
+        raise SystemExit(f"{source} desktopTupleCoverage.missingRequiredHeads must be a string list")
+    if not isinstance(missing_pairs, list) or not all(isinstance(item, str) for item in missing_pairs):
+        raise SystemExit(f"{source} desktopTupleCoverage.missingRequiredPlatformHeadPairs must be a string list")
+
+    normalized_required_platforms = [normalized_token(item) for item in required_platforms if normalized_token(item)]
+    normalized_required_heads = [normalized_token(item) for item in required_heads if normalized_token(item)]
+    if normalized_required_platforms != list(REQUIRED_DESKTOP_PLATFORMS):
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.requiredDesktopPlatforms must be exactly {list(REQUIRED_DESKTOP_PLATFORMS)}"
+        )
+    if not normalized_required_heads:
+        raise SystemExit(f"{source} desktopTupleCoverage.requiredDesktopHeads must include at least one head")
+
+    expected_promoted_tuples: list[str] = []
+    expected_promoted_platform_heads: dict[str, set[str]] = {platform: set() for platform in REQUIRED_DESKTOP_PLATFORMS}
+    for artifact in payload.get("artifacts") or []:
+        if not isinstance(artifact, dict):
+            continue
+        platform = normalized_token(artifact.get("platform"))
+        if platform not in REQUIRED_DESKTOP_PLATFORMS:
+            continue
+        if not is_desktop_install_media(artifact.get("platform"), artifact.get("kind")):
+            continue
+        head = normalized_token(artifact.get("head"))
+        rid = normalized_token(artifact.get("rid"))
+        expected_promoted_tuples.append(f"{head}:{platform}:{rid}" if rid else f"{head}:{platform}")
+        if head:
+            expected_promoted_platform_heads[platform].add(head)
+
+    reported_promoted_tuples = sorted(
+        str(item.get("tupleId") or "").strip().lower()
+        for item in promoted_tuples
+        if isinstance(item, dict)
+    )
+    if sorted(expected_promoted_tuples) != reported_promoted_tuples:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.promotedInstallerTuples does not match canonical artifact installer tuples"
+        )
+
+    normalized_promoted_platform_heads: dict[str, list[str]] = {}
+    for platform in REQUIRED_DESKTOP_PLATFORMS:
+        reported_heads = promoted_platform_heads.get(platform)
+        if not isinstance(reported_heads, list) or not all(isinstance(item, str) for item in reported_heads):
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.promotedPlatformHeads.{platform} must be a string list"
+            )
+        normalized_promoted_platform_heads[platform] = sorted(
+            normalized_token(item) for item in reported_heads if normalized_token(item)
+        )
+        if normalized_promoted_platform_heads[platform] != sorted(expected_promoted_platform_heads[platform]):
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.promotedPlatformHeads.{platform} does not match promoted tuples"
+            )
+
+    expected_missing_platforms = sorted(
+        platform for platform in REQUIRED_DESKTOP_PLATFORMS if not expected_promoted_platform_heads[platform]
+    )
+    if sorted(normalized_token(item) for item in missing_platforms if normalized_token(item)) != expected_missing_platforms:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.missingRequiredPlatforms does not match promoted tuple coverage"
+        )
+
+    promoted_heads = sorted({head for heads in expected_promoted_platform_heads.values() for head in heads})
+    expected_missing_heads = sorted(head for head in normalized_required_heads if head not in promoted_heads)
+    if sorted(normalized_token(item) for item in missing_heads if normalized_token(item)) != expected_missing_heads:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.missingRequiredHeads does not match promoted tuple coverage"
+        )
+
+    expected_missing_pairs = sorted(
+        f"{head}:{platform}"
+        for platform in REQUIRED_DESKTOP_PLATFORMS
+        for head in normalized_required_heads
+        if head not in expected_promoted_platform_heads[platform]
+    )
+    reported_missing_pairs = sorted(
+        normalized_token(item) for item in missing_pairs if normalized_token(item)
+    )
+    if reported_missing_pairs != expected_missing_pairs:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.missingRequiredPlatformHeadPairs does not match promoted tuple coverage"
+        )
+
+
 def verify_local_release_artifact_bytes(payload: dict, files_dir: Path, source: str) -> None:
     for index, item in enumerate(iter_manifest_download_entries(payload)):
         file_name = normalize_file_name(item)
@@ -239,6 +371,7 @@ def verify_artifacts(payload: dict, source: str) -> None:
                 raise SystemExit(
                     f"artifacts[{index}] channel '{artifact_channel}' does not match channel '{channel}' in {source}"
                 )
+        verify_desktop_tuple_coverage(payload, source)
     elif isinstance(payload.get("downloads"), list):
         downloads = payload.get("downloads") or []
         if not downloads and status != "unpublished":

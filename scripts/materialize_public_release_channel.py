@@ -34,6 +34,8 @@ WINDOWS_INSTALLER_PAYLOAD_MARKERS = (
 STARTUP_SMOKE_GATED_KINDS = {"installer", "dmg", "pkg", "msix"}
 STARTUP_SMOKE_GATED_PLATFORMS = {"linux", "windows", "macos"}
 STARTUP_SMOKE_MAX_AGE_SECONDS = 24 * 3600
+DEFAULT_REQUIRED_DESKTOP_HEADS = ("avalonia", "blazor-desktop")
+DEFAULT_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
 UTC = dt.timezone.utc
 
 
@@ -58,6 +60,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--published-at", default="")
     parser.add_argument("--artifact-source", default="ui_desktop_bundle")
     parser.add_argument("--downloads-prefix", default="/downloads/files")
+    parser.add_argument(
+        "--required-desktop-heads",
+        default=",".join(DEFAULT_REQUIRED_DESKTOP_HEADS),
+        help="comma-separated required desktop head ids for tuple coverage proof",
+    )
     return parser.parse_args()
 
 
@@ -444,6 +451,100 @@ def normalize_optional_string(value: Any) -> str | None:
     return normalized or None
 
 
+def normalized_token(value: Any) -> str:
+    return str(value or "").strip().lower()
+
+
+def dedupe_preserve_order(values: list[str]) -> list[str]:
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for value in values:
+        if value in seen:
+            continue
+        seen.add(value)
+        deduped.append(value)
+    return deduped
+
+
+def required_desktop_heads(raw: Any) -> list[str]:
+    if isinstance(raw, list):
+        values = [normalized_token(item) for item in raw]
+    else:
+        values = [normalized_token(item) for item in str(raw or "").split(",")]
+    return dedupe_preserve_order([item for item in values if item])
+
+
+def is_desktop_install_media(platform: Any, kind: Any) -> bool:
+    platform_token = normalized_token(platform)
+    kind_token = normalized_token(kind)
+    if platform_token == "macos":
+        return kind_token in {"installer", "dmg", "pkg"}
+    return kind_token == "installer"
+
+
+def desktop_tuple_coverage(
+    artifacts: list[dict[str, Any]],
+    required_heads: list[str],
+    required_platforms: list[str],
+) -> dict[str, Any]:
+    promoted_tuples: list[dict[str, Any]] = []
+    promoted_head_tokens: set[str] = set()
+    promoted_platform_tokens: set[str] = set()
+    promoted_pairs: set[str] = set()
+    promoted_platform_heads: dict[str, list[str]] = {platform: [] for platform in required_platforms}
+    promoted_platform_heads_seen: dict[str, set[str]] = {platform: set() for platform in required_platforms}
+    for item in artifacts:
+        if not isinstance(item, dict):
+            continue
+        platform = normalized_token(item.get("platform"))
+        if platform not in required_platforms:
+            continue
+        if not is_desktop_install_media(platform, item.get("kind")):
+            continue
+        head = normalized_token(item.get("head"))
+        rid = normalized_token(item.get("rid"))
+        arch = normalized_token(item.get("arch"))
+        tuple_id = f"{head}:{platform}:{rid}" if rid else f"{head}:{platform}"
+        promoted_tuples.append(
+            {
+                "tupleId": tuple_id,
+                "head": head,
+                "platform": platform,
+                "rid": rid,
+                "arch": arch,
+                "kind": str(item.get("kind") or "").strip().lower(),
+                "artifactId": str(item.get("artifactId") or "").strip(),
+            }
+        )
+        if head:
+            promoted_head_tokens.add(head)
+            promoted_pairs.add(f"{head}:{platform}")
+            if head not in promoted_platform_heads_seen[platform]:
+                promoted_platform_heads_seen[platform].add(head)
+                promoted_platform_heads[platform].append(head)
+        promoted_platform_tokens.add(platform)
+    promoted_tuples.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
+    for platform in promoted_platform_heads:
+        promoted_platform_heads[platform] = sorted(promoted_platform_heads[platform])
+    missing_required_platforms = [platform for platform in required_platforms if platform not in promoted_platform_tokens]
+    missing_required_heads = [head for head in required_heads if head not in promoted_head_tokens]
+    missing_required_platform_head_pairs = [
+        f"{head}:{platform}"
+        for platform in required_platforms
+        for head in required_heads
+        if f"{head}:{platform}" not in promoted_pairs
+    ]
+    return {
+        "requiredDesktopPlatforms": list(required_platforms),
+        "requiredDesktopHeads": list(required_heads),
+        "promotedInstallerTuples": promoted_tuples,
+        "promotedPlatformHeads": promoted_platform_heads,
+        "missingRequiredPlatforms": missing_required_platforms,
+        "missingRequiredHeads": missing_required_heads,
+        "missingRequiredPlatformHeadPairs": missing_required_platform_head_pairs,
+    }
+
+
 def derive_default_compatibility_state(status: str, proof: dict[str, Any] | None) -> str:
     if status == "published" and proof and str(proof.get("status") or "").strip().lower() == "passed":
         return "compatible"
@@ -615,6 +716,14 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         status=status,
         proof=release_proof,
     )
+    required_heads = required_desktop_heads(args.required_desktop_heads)
+    if not required_heads:
+        required_heads = list(DEFAULT_REQUIRED_DESKTOP_HEADS)
+    tuple_coverage = desktop_tuple_coverage(
+        artifacts,
+        required_heads=required_heads,
+        required_platforms=list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS),
+    )
     rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip() or derive_rollout_state(channel, status, release_proof)
     rollout_reason = str(loaded.get("rolloutReason") or loaded.get("rollout_reason") or "").strip() or derive_rollout_reason(channel, status, release_proof)
     supportability_state = (
@@ -650,6 +759,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "fixAvailabilitySummary": fix_availability_summary,
         "releaseProof": release_proof or {"status": "missing", "generatedAt": None, "baseUrl": None, "journeysPassed": [], "proofRoutes": []},
         "artifacts": artifacts,
+        "desktopTupleCoverage": tuple_coverage,
         "runtimeBundleHeads": runtime_bundle_heads,
     }
 
@@ -699,6 +809,7 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         "knownIssueSummary": canonical.get("knownIssueSummary"),
         "fixAvailabilitySummary": canonical.get("fixAvailabilitySummary"),
         "releaseProof": canonical.get("releaseProof"),
+        "desktopTupleCoverage": canonical.get("desktopTupleCoverage"),
     }
 
 

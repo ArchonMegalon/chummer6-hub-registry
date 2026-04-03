@@ -93,6 +93,18 @@ assert "avalonia-linux-x64-installer" in artifacts
 assert "avalonia-win-x64-installer" not in artifacts
 assert "avalonia-osx-arm64-installer" not in artifacts
 assert all(str(item.get("channel") or "") == str(payload.get("channelId") or "") for item in artifacts.values())
+coverage = payload.get("desktopTupleCoverage") or {}
+assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows", "macos"]
+assert coverage.get("requiredDesktopHeads") == ["avalonia", "blazor-desktop"]
+assert coverage.get("missingRequiredPlatforms") == ["windows", "macos"]
+assert coverage.get("missingRequiredHeads") == ["blazor-desktop"]
+assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == sorted([
+    "blazor-desktop:linux",
+    "avalonia:windows",
+    "blazor-desktop:windows",
+    "avalonia:macos",
+    "blazor-desktop:macos",
+])
 PY
 cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json <<'JSON'
 {
@@ -203,10 +215,23 @@ assert canonical["supportabilityState"] == "local_docker_proven"
 assert canonical["releaseProof"]["status"] == "passed"
 assert "bounded offline prefetch" in canonical["supportabilitySummary"]
 assert "bounded offline prefetch" in canonical["knownIssueSummary"]
+coverage = canonical.get("desktopTupleCoverage") or {}
+assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows", "macos"]
+assert coverage.get("requiredDesktopHeads") == ["avalonia", "blazor-desktop"]
+assert coverage.get("missingRequiredPlatforms") == ["linux", "macos"]
+assert coverage.get("missingRequiredHeads") == ["blazor-desktop"]
+assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == sorted([
+    "avalonia:linux",
+    "blazor-desktop:linux",
+    "blazor-desktop:windows",
+    "avalonia:macos",
+    "blazor-desktop:macos",
+])
 
 downloads = {item["id"]: item for item in compat["downloads"]}
 assert downloads["avalonia-win-x64-portable"]["kind"] == "portable"
 assert downloads["avalonia-linux-x64-archive"]["format"] == "tar.gz"
 assert compat["supportabilityState"] == "local_docker_proven"
 assert "bounded offline prefetch" in compat["supportabilitySummary"]
+assert compat.get("desktopTupleCoverage") == canonical.get("desktopTupleCoverage")
 PY

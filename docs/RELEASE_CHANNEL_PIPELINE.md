@@ -88,6 +88,49 @@ Minimum canonical payload:
       "embeddedRuntimeBundleHeadId": "runtime-head-preview-sr5"
     }
   ],
+  "desktopTupleCoverage": {
+    "requiredDesktopPlatforms": [
+      "linux",
+      "windows",
+      "macos"
+    ],
+    "requiredDesktopHeads": [
+      "avalonia",
+      "blazor-desktop"
+    ],
+    "promotedInstallerTuples": [
+      {
+        "tupleId": "avalonia:windows:win-x64",
+        "head": "avalonia",
+        "platform": "windows",
+        "rid": "win-x64",
+        "arch": "x64",
+        "kind": "installer",
+        "artifactId": "avalonia-win-x64-installer"
+      }
+    ],
+    "promotedPlatformHeads": {
+      "linux": [],
+      "windows": [
+        "avalonia"
+      ],
+      "macos": []
+    },
+    "missingRequiredPlatforms": [
+      "linux",
+      "macos"
+    ],
+    "missingRequiredHeads": [
+      "blazor-desktop"
+    ],
+    "missingRequiredPlatformHeadPairs": [
+      "avalonia:linux",
+      "blazor-desktop:linux",
+      "blazor-desktop:windows",
+      "avalonia:macos",
+      "blazor-desktop:macos"
+    ]
+  },
   "runtimeBundleHeads": [
     {
       "headId": "runtime-head-preview-sr5",
@@ -120,6 +163,7 @@ If matching startup-smoke receipts for a promoted installer tuple are missing, t
 Startup-smoke receipts only count when they are passing and fresh (`status` in `pass|passed|ready` and timestamp fields such as `recordedAtUtc` inside the configured freshness window).
 Stale, failing, malformed, or timestamp-less receipts do not keep installer tuples promoted.
 Each promoted artifact row must carry explicit `channel` metadata that matches top-level `channelId` so channel/head/platform/arch truth stays aligned in one object graph.
+`desktopTupleCoverage` is required and must be internally consistent with published artifacts, so missing required heads/platforms are explicitly visible in release truth instead of implied by silent omissions.
 
 ## Operational rule
 
