@@ -79,6 +79,7 @@ mkdir -p /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke
 printf 'linux-smoke-release' >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/files/chummer-avalonia-linux-x64-installer.deb
 printf 'windows-smoke-release ChummerInstaller.Payload.zip Samples/Legacy/Soma-Career.chum5' >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/files/chummer-avalonia-win-x64-installer.exe
 printf 'macos-smoke-release' >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/files/chummer-avalonia-osx-arm64-installer.dmg
+startup_filter_linux_digest="$(sha256sum /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files/chummer-avalonia-linux-x64-installer.deb | awk '{print $1}')"
 cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json <<'JSON'
 {
   "status": "pass",
@@ -86,11 +87,12 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startu
   "headId": "avalonia",
   "platform": "linux",
   "arch": "x64",
-  "artifactDigest": "",
+  "artifactDigest": "sha256:STARTUP_FILTER_LINUX_DIGEST",
   "recordedAtUtc": "2026-04-03T16:00:00Z",
   "completedAtUtc": "2026-04-03T16:00:00Z"
 }
 JSON
+sed -i "s/STARTUP_FILTER_LINUX_DIGEST/${startup_filter_linux_digest}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
   --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
@@ -128,10 +130,11 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startu
   "headId": "avalonia",
   "platform": "linux",
   "arch": "x64",
-  "artifactDigest": "",
+  "artifactDigest": "sha256:STARTUP_FILTER_LINUX_DIGEST",
   "recordedAtUtc": "2026-03-01T00:00:00Z"
 }
 JSON
+sed -i "s/STARTUP_FILTER_LINUX_DIGEST/${startup_filter_linux_digest}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
   --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \

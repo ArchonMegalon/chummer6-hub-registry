@@ -330,7 +330,7 @@ def filter_unproven_installers(
             continue
 
         if expected_digest and any(
-            not receipt["artifactDigest"] or receipt["artifactDigest"] == expected_digest
+            receipt["artifactDigest"] == expected_digest
             for receipt in matching_receipts
         ):
             filtered.append(artifact)
