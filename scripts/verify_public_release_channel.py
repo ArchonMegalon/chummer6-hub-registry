@@ -45,6 +45,7 @@ DEFAULT_HTTP_HEADERS = {
 }
 REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
+REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT = "pre_ui_event_loop"
 
 
 def open_json_url_via_urllib(raw_target: str) -> dict:
@@ -524,6 +525,12 @@ def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) 
         if receipt_status not in {"pass", "passed", "ready"}:
             raise SystemExit(
                 f"{source} startup-smoke receipt status is not passing for promoted desktop installer tuple {head}:{platform}:{rid}"
+            )
+        ready_checkpoint = normalized_token(receipt.get("readyCheckpoint"))
+        if ready_checkpoint != REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT:
+            raise SystemExit(
+                f"{source} startup-smoke receipt readyCheckpoint is not {REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT} "
+                f"for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
         receipt_head = normalized_token(receipt.get("headId") or receipt.get("head"))
         if receipt_head and receipt_head != head:

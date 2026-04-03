@@ -188,6 +188,30 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "recordedAtUtc": "2026-04-03T16:00:00Z"
 }
 JSON
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "readyCheckpoint": "before_ui",
+  "headId": "avalonia",
+  "platform": "windows",
+  "rid": "win-x64",
+  "recordedAtUtc": "2026-04-03T16:00:00Z"
+}
+JSON
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject startup-smoke receipts that are not at pre_ui_event_loop." >&2
+  exit 1
+fi
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "avalonia",
+  "platform": "windows",
+  "rid": "win-x64",
+  "recordedAtUtc": "2026-04-03T16:00:00Z"
+}
+JSON
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py --require-complete-desktop-coverage /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: strict verifier should reject incomplete required desktop tuple coverage." >&2
   exit 1
