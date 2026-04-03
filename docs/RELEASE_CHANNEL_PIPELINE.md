@@ -56,7 +56,27 @@ Minimum canonical payload:
       "/account/work",
       "/account/support",
       "/contact"
-    ]
+    ],
+    "uiLocalizationReleaseGate": {
+      "status": "pass",
+      "generatedAt": "2026-04-03T22:59:41Z",
+      "defaultKeyCount": 383,
+      "shippingLocales": [
+        "en-us",
+        "de-de",
+        "fr-fr",
+        "ja-jp",
+        "pt-br",
+        "zh-cn"
+      ],
+      "localeSummary": [
+        { "locale": "de-de", "untranslatedKeyCount": 0, "overrideCount": 383 },
+        { "locale": "fr-fr", "untranslatedKeyCount": 0, "overrideCount": 383 },
+        { "locale": "ja-jp", "untranslatedKeyCount": 0, "overrideCount": 383 },
+        { "locale": "pt-br", "untranslatedKeyCount": 0, "overrideCount": 383 },
+        { "locale": "zh-cn", "untranslatedKeyCount": 0, "overrideCount": 383 }
+      ]
+    }
   },
   "artifacts": [
     {
@@ -157,6 +177,7 @@ Registry-owned release truth should also answer:
 * what known-issue posture the current shelf carries
 * whether fixes are actually available on the published channel
 * what local or hosted proof most recently exercised the shelf
+* whether the shipped desktop shelf is still backed by a passing UI localization release gate for all shipping locales
 
 Promoted installer media (`installer`, `.dmg`, `.pkg`, `.msix`) is startup-smoke gated across Linux, Windows, and macOS.
 If matching startup-smoke receipts for a promoted installer tuple are missing, that tuple must stay off the published shelf projection rather than being shown as downloadable truth.
@@ -167,6 +188,7 @@ Use `CHUMMER_VERIFY_STARTUP_SMOKE_MAX_AGE_SECONDS` (or shared `CHUMMER_DESKTOP_S
 Each promoted artifact row must carry explicit `channel` metadata that matches top-level `channelId` so channel/head/platform/arch truth stays aligned in one object graph.
 `desktopTupleCoverage` is required and must be internally consistent with published artifacts, so missing required heads/platforms are explicitly visible in release truth instead of implied by silent omissions.
 `promotedInstallerTuples` rows are also verifier-bound object truth (`tupleId`, `head`, `platform`, `rid`, `arch`, `kind`, `artifactId`) and must match canonical artifact metadata exactly.
+`releaseProof.uiLocalizationReleaseGate` is required and verifier-bound: it must be passing, timestamped, include all shipping locales (`en-us`, `de-de`, `fr-fr`, `ja-jp`, `pt-br`, `zh-cn`), and show zero `untranslatedKeyCount` for each non-default shipping locale.
 
 ## Operational rule
 

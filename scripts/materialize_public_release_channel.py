@@ -59,6 +59,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--compat-output", type=Path, help="Optional compatibility `releases.json` output path.")
     parser.add_argument("--runtime-bundles", type=Path, help="Optional JSON file with runtime bundle head metadata.")
     parser.add_argument("--proof", type=Path, help="Optional local release proof payload used to ground supportability and rollout truth.")
+    parser.add_argument(
+        "--ui-localization-release-gate",
+        type=Path,
+        help="Optional UI localization release-gate payload bound into releaseProof for desktop shelf trust.",
+    )
     parser.add_argument("--product", default="chummer6")
     parser.add_argument("--channel", default="preview")
     parser.add_argument("--version", default="unpublished")
@@ -443,12 +448,24 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
     ]
     generated_at = str(loaded.get("generated_at") or loaded.get("generatedAt") or "").strip() or None
     base_url = str(loaded.get("base_url") or loaded.get("baseUrl") or "").strip() or None
+    ui_localization_release_gate = normalize_ui_localization_release_gate_payload(
+        loaded.get("uiLocalizationReleaseGate") or loaded.get("ui_localization_release_gate"),
+        source=f"{source} uiLocalizationReleaseGate",
+    )
     return {
         "status": status,
         "generatedAt": generated_at,
         "baseUrl": base_url,
         "journeysPassed": journeys,
         "proofRoutes": routes,
+        "uiLocalizationReleaseGate": ui_localization_release_gate
+        or {
+            "status": "missing",
+            "generatedAt": None,
+            "defaultKeyCount": None,
+            "shippingLocales": [],
+            "localeSummary": [],
+        },
     }
 
 
@@ -457,6 +474,83 @@ def load_release_proof(path: Path | None) -> dict[str, Any] | None:
         return None
     loaded = json.loads(path.read_text(encoding="utf-8"))
     return normalize_release_proof_payload(loaded, source=str(path))
+
+
+def normalize_positive_int(value: Any) -> int | None:
+    if value in (None, ""):
+        return None
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, int):
+        return value if value >= 0 else None
+    if isinstance(value, float):
+        if int(value) != value or value < 0:
+            return None
+        return int(value)
+    raw = str(value).strip()
+    if not raw.isdigit():
+        return None
+    return int(raw, 10)
+
+
+def first_present(mapping: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in mapping:
+            return mapping.get(key)
+    return None
+
+
+def normalize_ui_localization_release_gate_payload(
+    loaded: Any,
+    *,
+    source: str,
+) -> dict[str, Any] | None:
+    if loaded is None:
+        return None
+    if not isinstance(loaded, dict):
+        raise ValueError(f"ui localization release gate payload must be a JSON object: {source}")
+
+    status = str(loaded.get("status") or "").strip().lower() or "missing"
+    generated_at = str(loaded.get("generated_at") or loaded.get("generatedAt") or "").strip() or None
+    default_key_count = normalize_positive_int(first_present(loaded, "default_key_count", "defaultKeyCount"))
+    shipping_locales = dedupe_preserve_order(
+        [
+            normalized_token(item)
+            for item in (loaded.get("shipping_locales") or loaded.get("shippingLocales") or [])
+            if normalized_token(item)
+        ]
+    )
+    locale_summary_rows: list[dict[str, Any]] = []
+    for item in (loaded.get("locale_summary") or loaded.get("localeSummary") or []):
+        if not isinstance(item, dict):
+            continue
+        locale = normalized_token(item.get("locale"))
+        if not locale:
+            continue
+        locale_summary_rows.append(
+            {
+                "locale": locale,
+                "untranslatedKeyCount": normalize_positive_int(
+                    first_present(item, "untranslated_key_count", "untranslatedKeyCount")
+                ),
+                "overrideCount": normalize_positive_int(first_present(item, "override_count", "overrideCount")),
+            }
+        )
+    locale_summary_rows.sort(key=lambda row: row.get("locale") or "")
+    return {
+        "status": status,
+        "generatedAt": generated_at,
+        "defaultKeyCount": default_key_count,
+        "shippingLocales": shipping_locales,
+        "localeSummary": locale_summary_rows,
+    }
+
+
+def load_ui_localization_release_gate(path: Path | None) -> dict[str, Any] | None:
+    if path is None or not path.exists():
+        return None
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    return normalize_ui_localization_release_gate_payload(loaded, source=str(path))
 
 
 def normalize_optional_string(value: Any) -> str | None:
@@ -807,6 +901,23 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         loaded.get("releaseProof") or loaded.get("release_proof"),
         source="embedded manifest releaseProof",
     )
+    ui_localization_release_gate = load_ui_localization_release_gate(args.ui_localization_release_gate) or normalize_ui_localization_release_gate_payload(
+        (
+            release_proof.get("uiLocalizationReleaseGate")
+            if isinstance(release_proof, dict)
+            else None
+        ),
+        source="embedded manifest releaseProof uiLocalizationReleaseGate",
+    )
+    if not isinstance(release_proof, dict):
+        release_proof = {"status": "missing", "generatedAt": None, "baseUrl": None, "journeysPassed": [], "proofRoutes": []}
+    release_proof["uiLocalizationReleaseGate"] = ui_localization_release_gate or {
+        "status": "missing",
+        "generatedAt": None,
+        "defaultKeyCount": None,
+        "shippingLocales": [],
+        "localeSummary": [],
+    }
     runtime_bundle_heads = apply_runtime_bundle_compatibility(
         load_runtime_bundle_heads(args.runtime_bundles),
         status=status,
@@ -893,7 +1004,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "supportabilitySummary": supportability_summary,
         "knownIssueSummary": known_issue_summary,
         "fixAvailabilitySummary": fix_availability_summary,
-        "releaseProof": release_proof or {"status": "missing", "generatedAt": None, "baseUrl": None, "journeysPassed": [], "proofRoutes": []},
+        "releaseProof": release_proof,
         "artifacts": artifacts,
         "desktopTupleCoverage": tuple_coverage,
         "runtimeBundleHeads": runtime_bundle_heads,

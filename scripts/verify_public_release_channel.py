@@ -44,6 +44,7 @@ DEFAULT_HTTP_HEADERS = {
     "Pragma": "no-cache",
 }
 REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
+REQUIRED_LOCALIZATION_SHIPPING_LOCALES = ("en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn")
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
 REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT = "pre_ui_event_loop"
 PLATFORM_ALIASES = {
@@ -234,6 +235,13 @@ def normalized_string_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
     return [normalized_token(item) for item in value if normalized_token(item)]
+
+
+def first_present(mapping: dict[str, Any], *keys: str) -> Any:
+    for key in keys:
+        if key in mapping:
+            return mapping.get(key)
+    return None
 
 
 def is_desktop_install_media(platform: object, kind: object) -> bool:
@@ -786,6 +794,75 @@ def verify_release_truth(payload: dict, source: str) -> None:
         value = proof.get(field)
         if value is not None and not isinstance(value, list):
             raise SystemExit(f"releaseProof.{field} must be a list in {source}")
+
+    ui_localization_release_gate = proof.get("uiLocalizationReleaseGate")
+    if not isinstance(ui_localization_release_gate, dict):
+        raise SystemExit(f"releaseProof.uiLocalizationReleaseGate is required in {source}")
+
+    gate_status = normalized_token(ui_localization_release_gate.get("status"))
+    if gate_status not in {"pass", "passed", "ready"}:
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.status must be pass/passed/ready in {source}"
+        )
+
+    gate_generated_at = ui_localization_release_gate.get("generatedAt") or ui_localization_release_gate.get("generated_at")
+    if parse_iso_timestamp(gate_generated_at) is None:
+        raise SystemExit(f"releaseProof.uiLocalizationReleaseGate.generatedAt must be an ISO timestamp in {source}")
+
+    default_key_count = parse_positive_int(
+        first_present(ui_localization_release_gate, "defaultKeyCount", "default_key_count")
+    )
+    if default_key_count is None or default_key_count <= 0:
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.defaultKeyCount must be a positive integer in {source}"
+        )
+
+    shipping_locales = normalized_string_list(
+        ui_localization_release_gate.get("shippingLocales")
+        or ui_localization_release_gate.get("shipping_locales")
+    )
+    if sorted(shipping_locales) != sorted(REQUIRED_LOCALIZATION_SHIPPING_LOCALES):
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.shippingLocales must equal {list(REQUIRED_LOCALIZATION_SHIPPING_LOCALES)} in {source}"
+        )
+
+    locale_summary = ui_localization_release_gate.get("localeSummary") or ui_localization_release_gate.get("locale_summary")
+    if not isinstance(locale_summary, list):
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.localeSummary must be a list in {source}"
+        )
+    locale_rows: dict[str, dict[str, Any]] = {}
+    for index, item in enumerate(locale_summary):
+        if not isinstance(item, dict):
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.localeSummary[{index}] must be an object in {source}"
+            )
+        locale = normalized_token(item.get("locale"))
+        if not locale:
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.localeSummary[{index}].locale is required in {source}"
+            )
+        locale_rows[locale] = item
+
+    for locale in REQUIRED_LOCALIZATION_SHIPPING_LOCALES:
+        if locale == "en-us":
+            continue
+        row = locale_rows.get(locale)
+        if row is None:
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.localeSummary is missing locale '{locale}' in {source}"
+            )
+        untranslated = parse_positive_int(
+            first_present(row, "untranslatedKeyCount", "untranslated_key_count")
+        )
+        if untranslated is None:
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' must include untranslatedKeyCount in {source}"
+            )
+        if untranslated != 0:
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' must have untranslatedKeyCount=0 in {source}"
+            )
     runtime_bundle_heads = payload.get("runtimeBundleHeads")
     if runtime_bundle_heads is not None and not isinstance(runtime_bundle_heads, list):
         raise SystemExit(f"runtimeBundleHeads must be a list in {source}")

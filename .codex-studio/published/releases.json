@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-03T22:35:44Z",
-  "generatedAt": "2026-04-03T22:35:44Z",
+  "generated_at": "2026-04-03T23:07:19Z",
+  "generatedAt": "2026-04-03T23:07:19Z",
   "version": "unpublished",
   "channel": "docker",
   "publishedAt": "2026-04-03T21:29:27Z",
@@ -62,7 +62,47 @@
       "/account/work",
       "/account/support",
       "/contact"
-    ]
+    ],
+    "uiLocalizationReleaseGate": {
+      "status": "pass",
+      "generatedAt": "2026-04-03T22:59:41Z",
+      "defaultKeyCount": 383,
+      "shippingLocales": [
+        "en-us",
+        "de-de",
+        "fr-fr",
+        "ja-jp",
+        "pt-br",
+        "zh-cn"
+      ],
+      "localeSummary": [
+        {
+          "locale": "de-de",
+          "untranslatedKeyCount": 0,
+          "overrideCount": 383
+        },
+        {
+          "locale": "fr-fr",
+          "untranslatedKeyCount": 0,
+          "overrideCount": 383
+        },
+        {
+          "locale": "ja-jp",
+          "untranslatedKeyCount": 0,
+          "overrideCount": 383
+        },
+        {
+          "locale": "pt-br",
+          "untranslatedKeyCount": 0,
+          "overrideCount": 383
+        },
+        {
+          "locale": "zh-cn",
+          "untranslatedKeyCount": 0,
+          "overrideCount": 383
+        }
+      ]
+    }
   },
   "desktopTupleCoverage": {
     "requiredDesktopPlatforms": [

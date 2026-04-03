@@ -195,9 +195,32 @@ cat >/tmp/chummer-hub-registry-release-fixture/proof.json <<'JSON'
   ]
 }
 JSON
+cat >/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json <<'JSON'
+{
+  "status": "pass",
+  "generated_at": "2026-04-03T22:59:41Z",
+  "default_key_count": 383,
+  "shipping_locales": [
+    "en-us",
+    "de-de",
+    "fr-fr",
+    "ja-jp",
+    "pt-br",
+    "zh-cn"
+  ],
+  "locale_summary": [
+    { "locale": "de-de", "untranslated_key_count": 0, "override_count": 383 },
+    { "locale": "fr-fr", "untranslated_key_count": 0, "override_count": 383 },
+    { "locale": "ja-jp", "untranslated_key_count": 0, "override_count": 383 },
+    { "locale": "pt-br", "untranslated_key_count": 0, "override_count": 383 },
+    { "locale": "zh-cn", "untranslated_key_count": 0, "override_count": 383 }
+  ]
+}
+JSON
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
   --channel preview \
   --version 0.0.0-smoke \
   --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
@@ -308,6 +331,21 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 }
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"]["uiLocalizationReleaseGate"]["status"] = "missing"
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject release channel payloads missing passing UI localization gate proof." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py --require-complete-desktop-coverage /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: strict verifier should reject incomplete required desktop tuple coverage." >&2
   exit 1
@@ -367,6 +405,11 @@ assert artifacts["avalonia-linux-x64-archive"]["compatibilityState"] == "compati
 assert canonical["rolloutState"] == "coverage_incomplete"
 assert canonical["supportabilityState"] == "review_required"
 assert canonical["releaseProof"]["status"] == "passed"
+assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["status"] == "pass"
+assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["defaultKeyCount"] == 383
+assert sorted(canonical["releaseProof"]["uiLocalizationReleaseGate"]["shippingLocales"]) == sorted(
+    ["en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn"]
+)
 assert "required desktop tuple coverage is incomplete" in canonical["supportabilitySummary"]
 assert "required desktop tuple coverage is incomplete" in canonical["knownIssueSummary"]
 coverage = canonical.get("desktopTupleCoverage") or {}
