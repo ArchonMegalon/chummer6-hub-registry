@@ -55,7 +55,8 @@ dotnet run --project /docker/chummercomplete/chummer-hub-registry/Chummer.Hub.Re
 dotnet run --project /docker/chummercomplete/chummer-hub-registry/Chummer.Run.Registry.Verify/Chummer.Run.Registry.Verify.csproj
 rm -rf /tmp/chummer-hub-registry-release-fixture
 mkdir -p /tmp/chummer-hub-registry-release-fixture/files
-printf 'smoke-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64-installer.exe
+printf 'smoke-release ChummerInstaller.Payload.zip Samples/Legacy/Soma-Career.chum5' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64-installer.exe
+printf 'broken-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-blazor-desktop-win-x64-installer.exe
 printf 'portable-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64.exe
 printf 'archive-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-linux-x64.tar.gz
 cat >/tmp/chummer-hub-registry-release-fixture/proof.json <<'JSON'
@@ -79,21 +80,61 @@ python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --channel preview \
   --version 0.0.0-smoke \
-  --output /tmp/chummer-hub-registry-release-channel.json \
-  --compat-output /tmp/chummer-hub-registry-release-channel-compat.json >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-channel.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-channel-compat.json
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject bundle roots that still expose filtered-out desktop files." >&2
+  exit 1
+fi
+rm -f /tmp/chummer-hub-registry-release-fixture/files/chummer-blazor-desktop-win-x64-installer.exe
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture/releases.json
+rm -f /tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64-installer.exe
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject manifest entries whose local desktop bytes are missing." >&2
+  exit 1
+fi
+printf 'smoke-release ChummerInstaller.Payload.zip Samples/Legacy/Soma-Career.chum5' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64-installer.exe
+python3 - <<'PY'
+import functools
+import http.server
+import socketserver
+import subprocess
+import threading
+
+root = "/tmp/chummer-hub-registry-release-fixture"
+verifier = "/docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py"
+
+handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=root)
+with socketserver.TCPServer(("127.0.0.1", 0), handler) as httpd:
+    port = httpd.server_address[1]
+    thread = threading.Thread(target=httpd.serve_forever, daemon=True)
+    thread.start()
+    try:
+        subprocess.run(
+            ["python3", verifier, f"http://127.0.0.1:{port}/RELEASE_CHANNEL.generated.json"],
+            check=True,
+        )
+        subprocess.run(
+            ["python3", verifier, f"http://127.0.0.1:{port}/releases.json"],
+            check=True,
+        )
+    finally:
+        httpd.shutdown()
+        thread.join()
+PY
 python3 - <<'PY'
 import json
 from pathlib import Path
 
-canonical = json.loads(Path("/tmp/chummer-hub-registry-release-channel.json").read_text(encoding="utf-8"))
-compat = json.loads(Path("/tmp/chummer-hub-registry-release-channel-compat.json").read_text(encoding="utf-8"))
+canonical = json.loads(Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json").read_text(encoding="utf-8"))
+compat = json.loads(Path("/tmp/chummer-hub-registry-release-fixture/releases.json").read_text(encoding="utf-8"))
 
 artifacts = {item["artifactId"]: item for item in canonical["artifacts"]}
 assert artifacts["avalonia-win-x64-installer"]["kind"] == "installer"
 assert artifacts["avalonia-win-x64-portable"]["kind"] == "portable"
 assert artifacts["avalonia-linux-x64-archive"]["kind"] == "archive"
+assert "blazor-desktop-win-x64-installer" not in artifacts
 assert artifacts["avalonia-win-x64-installer"]["compatibilityState"] == "compatible"
 assert artifacts["avalonia-win-x64-portable"]["compatibilityState"] == "compatible"
 assert artifacts["avalonia-linux-x64-archive"]["compatibilityState"] == "compatible"
