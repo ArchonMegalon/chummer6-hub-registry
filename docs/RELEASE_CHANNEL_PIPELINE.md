@@ -162,6 +162,8 @@ Promoted installer media (`installer`, `.dmg`, `.pkg`, `.msix`) is startup-smoke
 If matching startup-smoke receipts for a promoted installer tuple are missing, that tuple must stay off the published shelf projection rather than being shown as downloadable truth.
 Startup-smoke receipts only count when they are passing and fresh (`status` in `pass|passed|ready` and timestamp fields such as `recordedAtUtc` inside the configured freshness window).
 Stale, failing, malformed, or timestamp-less receipts do not keep installer tuples promoted.
+When verifying a local published bundle root (`RELEASE_CHANNEL.generated.json` plus `files/`), `scripts/verify_public_release_channel.py` now fail-closes if any promoted installer tuple is missing a matching fresh passing receipt under `startup-smoke/` (`startup-smoke-{head}-{rid}.receipt.json`).
+Use `CHUMMER_VERIFY_STARTUP_SMOKE_MAX_AGE_SECONDS` (or shared `CHUMMER_DESKTOP_STARTUP_SMOKE_MAX_AGE_SECONDS`) to override the default `86400`-second freshness window during local verification.
 Each promoted artifact row must carry explicit `channel` metadata that matches top-level `channelId` so channel/head/platform/arch truth stays aligned in one object graph.
 `desktopTupleCoverage` is required and must be internally consistent with published artifacts, so missing required heads/platforms are explicitly visible in release truth instead of implied by silent omissions.
 
