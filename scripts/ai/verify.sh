@@ -55,10 +55,20 @@ dotnet run --project /docker/chummercomplete/chummer-hub-registry/Chummer.Hub.Re
 dotnet run --project /docker/chummercomplete/chummer-hub-registry/Chummer.Run.Registry.Verify/Chummer.Run.Registry.Verify.csproj
 rm -rf /tmp/chummer-hub-registry-release-fixture
 mkdir -p /tmp/chummer-hub-registry-release-fixture/files
+mkdir -p /tmp/chummer-hub-registry-release-fixture/startup-smoke
 printf 'smoke-release ChummerInstaller.Payload.zip Samples/Legacy/Soma-Career.chum5' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64-installer.exe
 printf 'broken-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-blazor-desktop-win-x64-installer.exe
 printf 'portable-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64.exe
 printf 'archive-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-linux-x64.tar.gz
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "headId": "avalonia",
+  "platform": "windows",
+  "rid": "win-x64",
+  "recordedAtUtc": "2026-04-03T16:00:00Z"
+}
+JSON
 rm -rf /tmp/chummer-hub-registry-startup-smoke-filter-fixture
 mkdir -p /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files
 mkdir -p /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke
@@ -160,6 +170,20 @@ fi
 rm -f /tmp/chummer-hub-registry-release-fixture/files/chummer-blazor-desktop-win-x64-installer.exe
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture/releases.json
+rm -f /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject promoted desktop installers when startup-smoke tuple receipts are missing." >&2
+  exit 1
+fi
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "headId": "avalonia",
+  "platform": "windows",
+  "rid": "win-x64",
+  "recordedAtUtc": "2026-04-03T16:00:00Z"
+}
+JSON
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py --require-complete-desktop-coverage /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: strict verifier should reject incomplete required desktop tuple coverage." >&2
   exit 1

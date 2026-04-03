@@ -14,7 +14,7 @@ import urllib.parse
 import urllib.request
 from datetime import datetime, timezone
 from pathlib import Path
-from typing import Iterable
+from typing import Any, Iterable
 
 PUBLIC_DESKTOP_ARTIFACT_RE = re.compile(
     r"^chummer-(avalonia|blazor-desktop)-.+\.(exe|zip|tar\.gz|deb|dmg|pkg|msix)$",
@@ -44,6 +44,7 @@ DEFAULT_HTTP_HEADERS = {
     "Pragma": "no-cache",
 }
 REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
+DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
 
 
 def open_json_url_via_urllib(raw_target: str) -> dict:
@@ -189,6 +190,13 @@ def parse_iso_timestamp(value: object) -> datetime | None:
     if parsed.tzinfo is None:
         parsed = parsed.replace(tzinfo=timezone.utc)
     return parsed.astimezone(timezone.utc)
+
+
+def parse_startup_smoke_max_age_seconds(raw_value: object) -> int:
+    parsed = parse_positive_int(raw_value)
+    if parsed is None or parsed <= 0:
+        return DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS
+    return parsed
 
 
 def normalize_sha256(value: object) -> str:
@@ -437,6 +445,7 @@ def verify_local_download_files(payload: dict, root: Path | None, source: str) -
         return
 
     verify_local_release_artifact_bytes(payload, files_dir, source)
+    verify_local_startup_smoke_receipts(payload, root, source)
 
     expected_file_names = manifest_file_names(payload)
     extra_artifacts = []
@@ -451,6 +460,100 @@ def verify_local_download_files(payload: dict, root: Path | None, source: str) -
     if extra_artifacts:
         joined = ", ".join(extra_artifacts)
         raise SystemExit(f"{source} exposes desktop files that are not present in manifest truth: {joined}")
+
+
+def iter_promoted_desktop_installer_tuples(payload: dict) -> Iterable[tuple[str, str, str]]:
+    seen: set[tuple[str, str, str]] = set()
+    for item in iter_manifest_download_entries(payload):
+        if not isinstance(item, dict):
+            continue
+        head, platform, rid, kind = parse_manifest_tuple_fields(item)
+        if platform not in REQUIRED_DESKTOP_PLATFORMS:
+            continue
+        if not is_desktop_install_media(platform, kind):
+            continue
+        if not head or not rid:
+            raise SystemExit(
+                "release channel desktop installer tuple is missing head or rid metadata required for startup-smoke verification"
+            )
+        record = (head, platform, rid)
+        if record in seen:
+            continue
+        seen.add(record)
+        yield record
+
+
+def parse_startup_smoke_receipt_timestamp(receipt: dict[str, Any]) -> datetime | None:
+    for key in ("completedAtUtc", "recordedAtUtc", "startedAtUtc", "generated_at", "generatedAt"):
+        parsed = parse_iso_timestamp(receipt.get(key))
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) -> None:
+    promoted_tuples = list(iter_promoted_desktop_installer_tuples(payload))
+    if not promoted_tuples:
+        return
+
+    startup_smoke_dir = root / "startup-smoke"
+    if not startup_smoke_dir.is_dir():
+        raise SystemExit(
+            f"{source} is missing startup-smoke receipt directory required for promoted desktop installer tuples: {startup_smoke_dir}"
+        )
+
+    max_age_seconds = parse_startup_smoke_max_age_seconds(
+        os.environ.get("CHUMMER_VERIFY_STARTUP_SMOKE_MAX_AGE_SECONDS")
+        or os.environ.get("CHUMMER_DESKTOP_STARTUP_SMOKE_MAX_AGE_SECONDS")
+    )
+    now = datetime.now(timezone.utc)
+    for head, platform, rid in promoted_tuples:
+        receipt_path = startup_smoke_dir / f"startup-smoke-{head}-{rid}.receipt.json"
+        if not receipt_path.is_file():
+            raise SystemExit(
+                f"{source} is missing startup-smoke receipt for promoted desktop installer tuple {head}:{platform}:{rid}"
+            )
+        try:
+            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        except json.JSONDecodeError as exc:
+            raise SystemExit(f"{source} startup-smoke receipt is not valid JSON: {receipt_path}") from exc
+        if not isinstance(receipt, dict):
+            raise SystemExit(f"{source} startup-smoke receipt is not an object: {receipt_path}")
+
+        receipt_status = normalized_token(receipt.get("status"))
+        if receipt_status not in {"pass", "passed", "ready"}:
+            raise SystemExit(
+                f"{source} startup-smoke receipt status is not passing for promoted desktop installer tuple {head}:{platform}:{rid}"
+            )
+        receipt_head = normalized_token(receipt.get("headId") or receipt.get("head"))
+        if receipt_head and receipt_head != head:
+            raise SystemExit(
+                f"{source} startup-smoke receipt head mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
+            )
+        receipt_platform = normalized_token(receipt.get("platform"))
+        if receipt_platform and receipt_platform != platform:
+            raise SystemExit(
+                f"{source} startup-smoke receipt platform mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
+            )
+        receipt_rid = normalized_token(receipt.get("rid"))
+        if receipt_rid and receipt_rid != rid:
+            raise SystemExit(
+                f"{source} startup-smoke receipt rid mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
+            )
+
+        receipt_timestamp = parse_startup_smoke_receipt_timestamp(receipt)
+        if receipt_timestamp is None:
+            raise SystemExit(
+                f"{source} startup-smoke receipt timestamp is missing/invalid for promoted desktop installer tuple {head}:{platform}:{rid}"
+            )
+        age_seconds = int((now - receipt_timestamp).total_seconds())
+        if age_seconds < 0:
+            age_seconds = 0
+        if age_seconds > max_age_seconds:
+            raise SystemExit(
+                f"{source} startup-smoke receipt is stale for promoted desktop installer tuple {head}:{platform}:{rid} "
+                f"({age_seconds}s old; max {max_age_seconds}s)"
+            )
 
 
 def verify_artifacts(
