@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-04-03T21:01:15Z",
-  "generatedAt": "2026-04-03T21:01:15Z",
-  "version": "run-20260403-111033",
+  "generated_at": "2026-04-03T21:08:34Z",
+  "generatedAt": "2026-04-03T21:08:34Z",
+  "version": "run-20260403-2110",
   "channel": "docker",
-  "publishedAt": "2026-04-03T21:01:14Z",
+  "publishedAt": "2026-04-03T21:08:34Z",
   "downloads": [
     {
       "id": "avalonia-linux-x64-installer",
