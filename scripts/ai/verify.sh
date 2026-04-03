@@ -59,6 +59,36 @@ printf 'smoke-release ChummerInstaller.Payload.zip Samples/Legacy/Soma-Career.ch
 printf 'broken-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-blazor-desktop-win-x64-installer.exe
 printf 'portable-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64.exe
 printf 'archive-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-linux-x64.tar.gz
+rm -rf /tmp/chummer-hub-registry-startup-smoke-filter-fixture
+mkdir -p /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files
+mkdir -p /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke
+printf 'linux-smoke-release' >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/files/chummer-avalonia-linux-x64-installer.deb
+printf 'windows-smoke-release ChummerInstaller.Payload.zip Samples/Legacy/Soma-Career.chum5' >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/files/chummer-avalonia-win-x64-installer.exe
+printf 'macos-smoke-release' >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/files/chummer-avalonia-osx-arm64-installer.dmg
+cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json <<'JSON'
+{
+  "headId": "avalonia",
+  "platform": "linux",
+  "arch": "x64",
+  "artifactDigest": ""
+}
+JSON
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
+  --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
+  --channel preview \
+  --version 0.0.0-smoke-startup-filter \
+  --output /tmp/chummer-hub-registry-startup-smoke-filter-fixture/RELEASE_CHANNEL.generated.json >/dev/null
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+payload = json.loads(Path("/tmp/chummer-hub-registry-startup-smoke-filter-fixture/RELEASE_CHANNEL.generated.json").read_text(encoding="utf-8"))
+artifacts = {item["artifactId"]: item for item in payload.get("artifacts", [])}
+assert "avalonia-linux-x64-installer" in artifacts
+assert "avalonia-win-x64-installer" not in artifacts
+assert "avalonia-osx-arm64-installer" not in artifacts
+PY
 cat >/tmp/chummer-hub-registry-release-fixture/proof.json <<'JSON'
 {
   "status": "passed",

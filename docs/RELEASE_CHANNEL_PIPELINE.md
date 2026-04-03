@@ -113,6 +113,9 @@ Registry-owned release truth should also answer:
 * whether fixes are actually available on the published channel
 * what local or hosted proof most recently exercised the shelf
 
+Promoted installer media (`installer`, `.dmg`, `.pkg`, `.msix`) is startup-smoke gated across Linux, Windows, and macOS.
+If matching startup-smoke receipts for a promoted installer tuple are missing, that tuple must stay off the published shelf projection rather than being shown as downloadable truth.
+
 ## Operational rule
 
 Hub, guide generators, and any public download UX must consume the registry-owned release-channel artifact or its explicit compatibility projection.

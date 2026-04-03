@@ -31,7 +31,7 @@ WINDOWS_INSTALLER_PAYLOAD_MARKERS = (
     b"Samples/Legacy/Soma-Career.chum5",
 )
 STARTUP_SMOKE_GATED_KINDS = {"installer", "dmg", "pkg", "msix"}
-STARTUP_SMOKE_GATED_PLATFORMS = {"linux"}
+STARTUP_SMOKE_GATED_PLATFORMS = {"linux", "windows", "macos"}
 
 
 def parse_args() -> argparse.Namespace:
