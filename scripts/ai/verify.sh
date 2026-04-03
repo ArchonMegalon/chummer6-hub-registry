@@ -160,6 +160,10 @@ fi
 rm -f /tmp/chummer-hub-registry-release-fixture/files/chummer-blazor-desktop-win-x64-installer.exe
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture/releases.json
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py --require-complete-desktop-coverage /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: strict verifier should reject incomplete required desktop tuple coverage." >&2
+  exit 1
+fi
 rm -f /tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64-installer.exe
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: verifier should reject manifest entries whose local desktop bytes are missing." >&2

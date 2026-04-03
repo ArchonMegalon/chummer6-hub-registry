@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import argparse
 import json
 import hashlib
+import os
 import re
 import shutil
 import subprocess
@@ -185,6 +187,12 @@ def normalized_token(value: object) -> str:
     return str(value or "").strip().lower()
 
 
+def normalized_string_list(value: object) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    return [normalized_token(item) for item in value if normalized_token(item)]
+
+
 def is_desktop_install_media(platform: object, kind: object) -> bool:
     platform_token = normalized_token(platform)
     kind_token = normalized_token(kind)
@@ -193,7 +201,7 @@ def is_desktop_install_media(platform: object, kind: object) -> bool:
     return kind_token == "installer"
 
 
-def verify_desktop_tuple_coverage(payload: dict, source: str) -> None:
+def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[str]]:
     coverage = payload.get("desktopTupleCoverage")
     if not isinstance(coverage, dict):
         raise SystemExit(f"{source} is missing desktopTupleCoverage")
@@ -285,14 +293,16 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> None:
     expected_missing_platforms = sorted(
         platform for platform in REQUIRED_DESKTOP_PLATFORMS if not expected_promoted_platform_heads[platform]
     )
-    if sorted(normalized_token(item) for item in missing_platforms if normalized_token(item)) != expected_missing_platforms:
+    normalized_missing_platforms = sorted(normalized_string_list(missing_platforms))
+    if normalized_missing_platforms != expected_missing_platforms:
         raise SystemExit(
             f"{source} desktopTupleCoverage.missingRequiredPlatforms does not match promoted tuple coverage"
         )
 
     promoted_heads = sorted({head for heads in expected_promoted_platform_heads.values() for head in heads})
     expected_missing_heads = sorted(head for head in normalized_required_heads if head not in promoted_heads)
-    if sorted(normalized_token(item) for item in missing_heads if normalized_token(item)) != expected_missing_heads:
+    normalized_missing_heads = sorted(normalized_string_list(missing_heads))
+    if normalized_missing_heads != expected_missing_heads:
         raise SystemExit(
             f"{source} desktopTupleCoverage.missingRequiredHeads does not match promoted tuple coverage"
         )
@@ -303,12 +313,34 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> None:
         for head in normalized_required_heads
         if head not in expected_promoted_platform_heads[platform]
     )
-    reported_missing_pairs = sorted(
-        normalized_token(item) for item in missing_pairs if normalized_token(item)
-    )
-    if reported_missing_pairs != expected_missing_pairs:
+    normalized_missing_pairs = sorted(normalized_string_list(missing_pairs))
+    if normalized_missing_pairs != expected_missing_pairs:
         raise SystemExit(
             f"{source} desktopTupleCoverage.missingRequiredPlatformHeadPairs does not match promoted tuple coverage"
+        )
+    return {
+        "required_platforms": list(REQUIRED_DESKTOP_PLATFORMS),
+        "required_heads": normalized_required_heads,
+        "missing_platforms": normalized_missing_platforms,
+        "missing_heads": normalized_missing_heads,
+        "missing_pairs": normalized_missing_pairs,
+    }
+
+
+def verify_desktop_tuple_completeness(coverage: dict[str, list[str]], source: str) -> None:
+    missing_platforms = coverage.get("missing_platforms") or []
+    missing_heads = coverage.get("missing_heads") or []
+    missing_pairs = coverage.get("missing_pairs") or []
+    if missing_platforms or missing_heads or missing_pairs:
+        details: list[str] = []
+        if missing_platforms:
+            details.append("missing platforms: " + ", ".join(missing_platforms))
+        if missing_heads:
+            details.append("missing heads: " + ", ".join(missing_heads))
+        if missing_pairs:
+            details.append("missing platform/head pairs: " + ", ".join(missing_pairs))
+        raise SystemExit(
+            f"{source} is missing required desktop tuple coverage for public release ({'; '.join(details)})"
         )
 
 
@@ -364,7 +396,7 @@ def verify_local_download_files(payload: dict, root: Path | None, source: str) -
         raise SystemExit(f"{source} exposes desktop files that are not present in manifest truth: {joined}")
 
 
-def verify_artifacts(payload: dict, source: str) -> None:
+def verify_artifacts(payload: dict, source: str, *, require_complete_desktop_coverage: bool = False) -> None:
     status = str(payload.get("status") or "").strip().lower()
     channel = str(payload.get("channelId") or payload.get("channel") or "").strip()
     if isinstance(payload.get("artifacts"), list):
@@ -387,7 +419,9 @@ def verify_artifacts(payload: dict, source: str) -> None:
                 raise SystemExit(
                     f"artifacts[{index}] channel '{artifact_channel}' does not match channel '{channel}' in {source}"
                 )
-        verify_desktop_tuple_coverage(payload, source)
+        coverage = verify_desktop_tuple_coverage(payload, source)
+        if require_complete_desktop_coverage:
+            verify_desktop_tuple_completeness(coverage, source)
     elif isinstance(payload.get("downloads"), list):
         downloads = payload.get("downloads") or []
         if not downloads and status != "unpublished":
@@ -447,15 +481,37 @@ def verify_generated_timestamp(payload: dict, source: str) -> None:
         raise SystemExit(f"{source} generated_at/generatedAt is not a valid ISO timestamp")
 
 
+def parse_args(argv: list[str]) -> argparse.Namespace:
+    parser = argparse.ArgumentParser(description="Verify release-channel and downloads manifest truth.")
+    parser.add_argument(
+        "target",
+        help="Manifest path/URL or downloads root directory.",
+    )
+    parser.add_argument(
+        "--require-complete-desktop-coverage",
+        action="store_true",
+        help="Fail when required desktop tuple coverage is incomplete.",
+    )
+    return parser.parse_args(argv)
+
+
 def main() -> int:
-    target = (sys.argv[1] if len(sys.argv) > 1 else "").strip()
+    args = parse_args(sys.argv[1:])
+    target = str(args.target or "").strip()
     if not target:
         raise SystemExit("Provide a manifest path or URL.")
+    require_complete_desktop_coverage = args.require_complete_desktop_coverage
+    if str(os.environ.get("CHUMMER_VERIFY_REQUIRE_COMPLETE_DESKTOP_COVERAGE", "")).strip().lower() in {"1", "true", "yes", "on"}:
+        require_complete_desktop_coverage = True
     payload, source, local_root = load_payload(target)
     if not isinstance(payload, dict):
         raise SystemExit(f"manifest must be a JSON object: {source}")
     verify_generated_timestamp(payload, source)
-    verify_artifacts(payload, source)
+    verify_artifacts(
+        payload,
+        source,
+        require_complete_desktop_coverage=require_complete_desktop_coverage,
+    )
     verify_release_truth(payload, source)
     verify_local_download_files(payload, local_root, source)
     print(f"verified public release manifest: {source}")
