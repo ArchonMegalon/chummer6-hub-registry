@@ -307,6 +307,7 @@ def parse_download_row(item: dict[str, Any]) -> dict[str, Any]:
         "updateFeedUrl": item.get("updateFeedUrl"),
         "embeddedRuntimeBundleHeadId": item.get("embeddedRuntimeBundleHeadId"),
         "compatibilityState": item.get("compatibilityState"),
+        "channel": normalize_optional_string(item.get("channel")),
         "installAccessClass": str(
             item.get("installAccessClass")
             or item.get("accessClass")
@@ -538,6 +539,9 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         if requested_channel and (requested_channel != "preview" or not loaded_channel)
         else loaded_channel
     ) or "preview"
+    for artifact in artifacts:
+        if isinstance(artifact, dict):
+            artifact["channel"] = channel
     status = str(loaded.get("status") or ("published" if artifacts else "unpublished")).strip()
     message = loaded.get("message")
     release_proof = load_release_proof(args.proof) or normalize_release_proof_payload(

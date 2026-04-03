@@ -65,6 +65,7 @@ Minimum canonical payload:
       "platform": "windows",
       "arch": "x64",
       "kind": "installer",
+      "channel": "preview",
       "fileName": "chummer-avalonia-win-x64-installer.exe",
       "downloadUrl": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
       "sha256": "…",
@@ -78,6 +79,7 @@ Minimum canonical payload:
       "platform": "windows",
       "arch": "x64",
       "kind": "portable",
+      "channel": "preview",
       "fileName": "chummer-avalonia-win-x64.exe",
       "downloadUrl": "/downloads/files/chummer-avalonia-win-x64.exe",
       "sha256": "…",
@@ -115,6 +117,7 @@ Registry-owned release truth should also answer:
 
 Promoted installer media (`installer`, `.dmg`, `.pkg`, `.msix`) is startup-smoke gated across Linux, Windows, and macOS.
 If matching startup-smoke receipts for a promoted installer tuple are missing, that tuple must stay off the published shelf projection rather than being shown as downloadable truth.
+Each promoted artifact row must carry explicit `channel` metadata that matches top-level `channelId` so channel/head/platform/arch truth stays aligned in one object graph.
 
 ## Operational rule
 

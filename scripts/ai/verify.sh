@@ -88,6 +88,7 @@ artifacts = {item["artifactId"]: item for item in payload.get("artifacts", [])}
 assert "avalonia-linux-x64-installer" in artifacts
 assert "avalonia-win-x64-installer" not in artifacts
 assert "avalonia-osx-arm64-installer" not in artifacts
+assert all(str(item.get("channel") or "") == str(payload.get("channelId") or "") for item in artifacts.values())
 PY
 cat >/tmp/chummer-hub-registry-release-fixture/proof.json <<'JSON'
 {
@@ -165,6 +166,7 @@ assert artifacts["avalonia-win-x64-installer"]["kind"] == "installer"
 assert artifacts["avalonia-win-x64-portable"]["kind"] == "portable"
 assert artifacts["avalonia-linux-x64-archive"]["kind"] == "archive"
 assert "blazor-desktop-win-x64-installer" not in artifacts
+assert all(str(item.get("channel") or "") == str(canonical.get("channelId") or "") for item in artifacts.values())
 assert artifacts["avalonia-win-x64-installer"]["compatibilityState"] == "compatible"
 assert artifacts["avalonia-win-x64-portable"]["compatibilityState"] == "compatible"
 assert artifacts["avalonia-linux-x64-archive"]["compatibilityState"] == "compatible"

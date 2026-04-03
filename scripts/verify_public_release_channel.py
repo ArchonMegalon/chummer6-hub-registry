@@ -218,6 +218,7 @@ def verify_local_download_files(payload: dict, root: Path | None, source: str) -
 
 def verify_artifacts(payload: dict, source: str) -> None:
     status = str(payload.get("status") or "").strip().lower()
+    channel = str(payload.get("channelId") or payload.get("channel") or "").strip()
     if isinstance(payload.get("artifacts"), list):
         artifacts = payload.get("artifacts") or []
         if not artifacts and status == "unpublished":
@@ -231,6 +232,13 @@ def verify_artifacts(payload: dict, source: str) -> None:
             compatibility_state = item.get("compatibilityState")
             if compatibility_state in (None, "") or not isinstance(compatibility_state, str):
                 raise SystemExit(f"artifacts[{index}] is missing compatibilityState in {source}")
+            artifact_channel = str(item.get("channel") or "").strip()
+            if not artifact_channel:
+                raise SystemExit(f"artifacts[{index}] is missing channel in {source}")
+            if channel and artifact_channel != channel:
+                raise SystemExit(
+                    f"artifacts[{index}] channel '{artifact_channel}' does not match channel '{channel}' in {source}"
+                )
     elif isinstance(payload.get("downloads"), list):
         downloads = payload.get("downloads") or []
         if not downloads and status != "unpublished":

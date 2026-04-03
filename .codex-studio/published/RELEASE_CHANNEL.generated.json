@@ -1,24 +1,36 @@
 {
   "schemaVersion": 1,
-  "product": "chummer",
-  "channelId": "preview",
+  "product": "chummer6",
+  "channelId": "docker",
   "version": "run-20260403-111033",
-  "publishedAt": "2026-04-03T11:11:24Z",
+  "publishedAt": "2026-04-03T16:43:11Z",
   "status": "published",
   "artifactSource": "ui_desktop_bundle",
   "message": null,
-  "rolloutState": "promoted_preview",
-  "rolloutReason": "Current preview shelf is published, but release proof should be re-run before widening trust claims.",
-  "supportabilityState": "review_required",
-  "supportabilitySummary": "Treat the current shelf as review-required until release proof and support closure checks pass.",
-  "knownIssueSummary": "The preview shelf is visible, but known-issue review should stay front-and-center until proof is refreshed.",
-  "fixAvailabilitySummary": "Verify fix availability against the live channel artifact before closing support loops.",
+  "rolloutState": "local_docker_preview",
+  "rolloutReason": "Current release shelf was exercised by the local docker release proof harness before publication.",
+  "supportabilityState": "local_docker_proven",
+  "supportabilitySummary": "Local release proof passed for: install_claim_restore_continue, build_explain_publish, campaign_session_recover_recap, report_cluster_release_notify. Claimed-device restore and bounded offline prefetch stayed grounded on the current shelf.",
+  "knownIssueSummary": "Preview caveats still apply, but the current shelf has recent install, claimed-device recovery, bounded offline prefetch, and support proof instead of only manifest presence.",
+  "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
   "releaseProof": {
-    "status": "missing",
-    "generatedAt": null,
-    "baseUrl": null,
-    "journeysPassed": [],
-    "proofRoutes": []
+    "status": "passed",
+    "generatedAt": "2026-03-29T09:48:56Z",
+    "baseUrl": "https://chummer.run",
+    "journeysPassed": [
+      "install_claim_restore_continue",
+      "build_explain_publish",
+      "campaign_session_recover_recap",
+      "report_cluster_release_notify"
+    ],
+    "proofRoutes": [
+      "/downloads/install/avalonia-linux-x64-installer",
+      "/home/access",
+      "/home/work",
+      "/account/work",
+      "/account/support",
+      "/contact"
+    ]
   },
   "artifacts": [
     {
@@ -36,6 +48,7 @@
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
+      "channel": "docker",
       "installAccessClass": "open_public"
     },
     {
@@ -52,8 +65,9 @@
       "platformLabel": "Avalonia Desktop macOS ARM64 Installer",
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
-      "compatibilityState": "unknown",
-      "installAccessClass": "open_public"
+      "compatibilityState": "compatible",
+      "channel": "docker",
+      "installAccessClass": "account_required"
     },
     {
       "artifactId": "blazor-desktop-osx-arm64-installer",
@@ -69,8 +83,9 @@
       "platformLabel": "Blazor Desktop macOS ARM64 Installer",
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
-      "compatibilityState": "unknown",
-      "installAccessClass": "open_public"
+      "compatibilityState": "compatible",
+      "channel": "docker",
+      "installAccessClass": "account_required"
     },
     {
       "artifactId": "avalonia-osx-x64-installer",
@@ -87,6 +102,7 @@
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
+      "channel": "docker",
       "installAccessClass": "account_required"
     },
     {
@@ -104,6 +120,7 @@
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
+      "channel": "docker",
       "installAccessClass": "open_public"
     }
   ],
