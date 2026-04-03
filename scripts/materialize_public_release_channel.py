@@ -742,7 +742,10 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         str(loaded.get("fixAvailabilitySummary") or loaded.get("fix_availability_summary") or "").strip()
         or derive_fix_availability_summary(status, release_proof)
     )
+    generated_at = dt.datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     return {
+        "generated_at": generated_at,
+        "generatedAt": generated_at,
         "schemaVersion": 1,
         "product": str(loaded.get("product") or args.product).strip() or "chummer6",
         "channelId": channel,
@@ -795,6 +798,8 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
             }
         )
     return {
+        "generated_at": canonical.get("generated_at") or canonical.get("generatedAt"),
+        "generatedAt": canonical.get("generatedAt") or canonical.get("generated_at"),
         "version": canonical.get("version") or "unpublished",
         "channel": canonical.get("channelId") or "preview",
         "publishedAt": canonical.get("publishedAt"),

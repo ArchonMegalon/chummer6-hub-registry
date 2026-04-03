@@ -10,6 +10,7 @@ import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Iterable
 
@@ -159,6 +160,21 @@ def parse_positive_int(value: object) -> int | None:
             return None
         return int(stripped, 10)
     return None
+
+
+def parse_iso_timestamp(value: object) -> datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    if raw.endswith("Z"):
+        raw = raw[:-1] + "+00:00"
+    try:
+        parsed = datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=timezone.utc)
+    return parsed.astimezone(timezone.utc)
 
 
 def normalize_sha256(value: object) -> str:
@@ -423,6 +439,14 @@ def verify_release_truth(payload: dict, source: str) -> None:
             raise SystemExit(f"runtimeBundleHeads[{index}] is missing compatibilityState in {source}")
 
 
+def verify_generated_timestamp(payload: dict, source: str) -> None:
+    generated_raw = str(payload.get("generated_at") or payload.get("generatedAt") or "").strip()
+    if not generated_raw:
+        raise SystemExit(f"{source} is missing generated_at/generatedAt")
+    if parse_iso_timestamp(generated_raw) is None:
+        raise SystemExit(f"{source} generated_at/generatedAt is not a valid ISO timestamp")
+
+
 def main() -> int:
     target = (sys.argv[1] if len(sys.argv) > 1 else "").strip()
     if not target:
@@ -430,6 +454,7 @@ def main() -> int:
     payload, source, local_root = load_payload(target)
     if not isinstance(payload, dict):
         raise SystemExit(f"manifest must be a JSON object: {source}")
+    verify_generated_timestamp(payload, source)
     verify_artifacts(payload, source)
     verify_release_truth(payload, source)
     verify_local_download_files(payload, local_root, source)
