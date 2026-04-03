@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-03T21:29:28Z",
-  "generatedAt": "2026-04-03T21:29:28Z",
+  "generated_at": "2026-04-03T22:35:44Z",
+  "generatedAt": "2026-04-03T22:35:44Z",
   "schemaVersion": 1,
   "product": "chummer6",
   "channelId": "docker",
@@ -50,8 +50,8 @@
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
-      "installAccessClass": "open_public",
-      "channel": "docker"
+      "channel": "docker",
+      "installAccessClass": "open_public"
     },
     {
       "artifactId": "blazor-desktop-linux-x64-installer",
@@ -68,8 +68,8 @@
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
-      "installAccessClass": "open_public",
-      "channel": "docker"
+      "channel": "docker",
+      "installAccessClass": "open_public"
     }
   ],
   "desktopTupleCoverage": {

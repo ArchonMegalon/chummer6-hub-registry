@@ -34,6 +34,7 @@ WINDOWS_INSTALLER_PAYLOAD_MARKERS = (
 STARTUP_SMOKE_GATED_KINDS = {"installer", "dmg", "pkg", "msix"}
 STARTUP_SMOKE_GATED_PLATFORMS = {"linux", "windows", "macos"}
 STARTUP_SMOKE_MAX_AGE_SECONDS = 24 * 3600
+STARTUP_SMOKE_REQUIRED_READY_CHECKPOINT = "pre_ui_event_loop"
 DEFAULT_REQUIRED_DESKTOP_HEADS = ("avalonia", "blazor-desktop")
 DEFAULT_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
 UTC = dt.timezone.utc
@@ -268,6 +269,9 @@ def load_startup_smoke_receipts(
             continue
         status = str(loaded.get("status") or "").strip().lower()
         if status not in {"pass", "passed", "ready"}:
+            continue
+        ready_checkpoint = str(loaded.get("readyCheckpoint") or "").strip().lower()
+        if ready_checkpoint != STARTUP_SMOKE_REQUIRED_READY_CHECKPOINT:
             continue
         recorded_at = _startup_smoke_recorded_at(loaded)
         if recorded_at is None:

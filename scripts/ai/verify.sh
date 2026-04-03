@@ -63,6 +63,7 @@ printf 'archive-release' >/tmp/chummer-hub-registry-release-fixture/files/chumme
 cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
 {
   "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
   "headId": "avalonia",
   "platform": "windows",
   "rid": "win-x64",
@@ -78,6 +79,7 @@ printf 'macos-smoke-release' >/tmp/chummer-hub-registry-startup-smoke-filter-fix
 cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json <<'JSON'
 {
   "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
   "headId": "avalonia",
   "platform": "linux",
   "arch": "x64",
@@ -119,6 +121,7 @@ PY
 cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json <<'JSON'
 {
   "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
   "headId": "avalonia",
   "platform": "linux",
   "arch": "x64",
@@ -178,6 +181,7 @@ fi
 cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
 {
   "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
   "headId": "avalonia",
   "platform": "windows",
   "rid": "win-x64",
