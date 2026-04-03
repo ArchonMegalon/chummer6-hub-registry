@@ -25,8 +25,8 @@ File.WriteAllText(
             publishedAt = "2026-03-28T16:31:31Z",
             status = "published",
             artifactSource = "ui_desktop_bundle",
-            rolloutState = "coverage_incomplete",
-            supportabilityState = "review_required",
+            rolloutState = RegistryOwner.ReleaseRolloutStates.CoverageIncomplete,
+            supportabilityState = RegistryOwner.ReleaseSupportabilityStates.ReviewRequired,
             supportabilitySummary = "Required desktop tuple coverage remains incomplete, so supportability stays review-required until promoted tuple proof is complete.",
             knownIssueSummary = "Required desktop tuple coverage is incomplete for this channel; treat this shelf as a review-required projection, not promotion truth.",
             fixAvailabilitySummary = "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
@@ -87,8 +87,8 @@ HubPublicationDraftsController draftController = CreateController(new HubPublica
 
 RegistryReleaseChannelHeadProjection releaseChannel = RequireOk(registryController.GetCurrentReleaseChannel());
 Assert(string.Equals(releaseChannel.ChannelId, "docker", StringComparison.Ordinal), "Release-channel read model should load the current registry manifest.");
-Assert(string.Equals(releaseChannel.RolloutState, "coverage_incomplete", StringComparison.Ordinal), "Release-channel read model should retain rollout posture.");
-Assert(string.Equals(releaseChannel.SupportabilityState, "review_required", StringComparison.Ordinal), "Release-channel read model should retain supportability posture.");
+Assert(string.Equals(releaseChannel.RolloutState, RegistryOwner.ReleaseRolloutStates.CoverageIncomplete, StringComparison.Ordinal), "Release-channel read model should retain rollout posture.");
+Assert(string.Equals(releaseChannel.SupportabilityState, RegistryOwner.ReleaseSupportabilityStates.ReviewRequired, StringComparison.Ordinal), "Release-channel read model should retain supportability posture.");
 Assert(string.Equals(releaseChannel.ReleaseProof?.Status, "passed", StringComparison.Ordinal), "Release-channel read model should retain proof posture.");
 Assert(string.Equals(releaseChannel.Artifacts[0].CompatibilityState, "compatible", StringComparison.Ordinal), "Release-channel artifacts should retain compatibility posture.");
 Assert(string.Equals(releaseChannel.RuntimeBundleHeads?[0].CompatibilityState, "compatible", StringComparison.Ordinal), "Release-channel runtime heads should retain compatibility posture.");
