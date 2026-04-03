@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-04-03T20:51:01Z",
-  "generatedAt": "2026-04-03T20:51:01Z",
+  "generated_at": "2026-04-03T21:01:15Z",
+  "generatedAt": "2026-04-03T21:01:15Z",
   "version": "run-20260403-111033",
   "channel": "docker",
-  "publishedAt": "2026-04-03T16:43:11Z",
+  "publishedAt": "2026-04-03T21:01:14Z",
   "downloads": [
     {
       "id": "avalonia-linux-x64-installer",
@@ -18,6 +18,21 @@
       "platformId": "linux-x64",
       "arch": "x64",
       "fileName": "chummer-avalonia-linux-x64-installer.deb",
+      "installAccessClass": "open_public"
+    },
+    {
+      "id": "blazor-desktop-linux-x64-installer",
+      "platform": "Blazor Desktop Linux X64 Installer",
+      "url": "/downloads/files/chummer-blazor-desktop-linux-x64-installer.deb",
+      "sha256": "2548564550bc2c8ec4dbc0d5c8566e44ac87610ddbb9cf8ea15b08b5c64518e4",
+      "sizeBytes": 34147692,
+      "format": "deb",
+      "flavor": "installer",
+      "kind": "installer",
+      "head": "blazor-desktop",
+      "platformId": "linux-x64",
+      "arch": "x64",
+      "fileName": "chummer-blazor-desktop-linux-x64-installer.deb",
       "installAccessClass": "open_public"
     }
   ],
@@ -68,11 +83,21 @@
         "arch": "x64",
         "kind": "installer",
         "artifactId": "avalonia-linux-x64-installer"
+      },
+      {
+        "tupleId": "blazor-desktop:linux:linux-x64",
+        "head": "blazor-desktop",
+        "platform": "linux",
+        "rid": "linux-x64",
+        "arch": "x64",
+        "kind": "installer",
+        "artifactId": "blazor-desktop-linux-x64-installer"
       }
     ],
     "promotedPlatformHeads": {
       "linux": [
-        "avalonia"
+        "avalonia",
+        "blazor-desktop"
       ],
       "windows": [],
       "macos": []
@@ -81,11 +106,8 @@
       "windows",
       "macos"
     ],
-    "missingRequiredHeads": [
-      "blazor-desktop"
-    ],
+    "missingRequiredHeads": [],
     "missingRequiredPlatformHeadPairs": [
-      "blazor-desktop:linux",
       "avalonia:windows",
       "blazor-desktop:windows",
       "avalonia:macos",

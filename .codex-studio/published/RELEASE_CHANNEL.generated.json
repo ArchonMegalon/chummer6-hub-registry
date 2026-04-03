@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-04-03T20:51:01Z",
-  "generatedAt": "2026-04-03T20:51:01Z",
+  "generated_at": "2026-04-03T21:01:15Z",
+  "generatedAt": "2026-04-03T21:01:15Z",
   "schemaVersion": 1,
   "product": "chummer6",
   "channelId": "docker",
   "version": "run-20260403-111033",
-  "publishedAt": "2026-04-03T16:43:11Z",
+  "publishedAt": "2026-04-03T21:01:14Z",
   "status": "published",
   "artifactSource": "ui_desktop_bundle",
   "message": null,
@@ -50,8 +50,26 @@
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
-      "channel": "docker",
-      "installAccessClass": "open_public"
+      "installAccessClass": "open_public",
+      "channel": "docker"
+    },
+    {
+      "artifactId": "blazor-desktop-linux-x64-installer",
+      "head": "blazor-desktop",
+      "rid": "linux-x64",
+      "platform": "linux",
+      "arch": "x64",
+      "kind": "installer",
+      "fileName": "chummer-blazor-desktop-linux-x64-installer.deb",
+      "downloadUrl": "/downloads/files/chummer-blazor-desktop-linux-x64-installer.deb",
+      "sha256": "2548564550bc2c8ec4dbc0d5c8566e44ac87610ddbb9cf8ea15b08b5c64518e4",
+      "sizeBytes": 34147692,
+      "platformLabel": "Blazor Desktop Linux X64 Installer",
+      "updateFeedUrl": null,
+      "embeddedRuntimeBundleHeadId": null,
+      "compatibilityState": "compatible",
+      "installAccessClass": "open_public",
+      "channel": "docker"
     }
   ],
   "desktopTupleCoverage": {
@@ -73,11 +91,21 @@
         "arch": "x64",
         "kind": "installer",
         "artifactId": "avalonia-linux-x64-installer"
+      },
+      {
+        "tupleId": "blazor-desktop:linux:linux-x64",
+        "head": "blazor-desktop",
+        "platform": "linux",
+        "rid": "linux-x64",
+        "arch": "x64",
+        "kind": "installer",
+        "artifactId": "blazor-desktop-linux-x64-installer"
       }
     ],
     "promotedPlatformHeads": {
       "linux": [
-        "avalonia"
+        "avalonia",
+        "blazor-desktop"
       ],
       "windows": [],
       "macos": []
@@ -86,11 +114,8 @@
       "windows",
       "macos"
     ],
-    "missingRequiredHeads": [
-      "blazor-desktop"
-    ],
+    "missingRequiredHeads": [],
     "missingRequiredPlatformHeadPairs": [
-      "blazor-desktop:linux",
       "avalonia:windows",
       "blazor-desktop:windows",
       "avalonia:macos",
