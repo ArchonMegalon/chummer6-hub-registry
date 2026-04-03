@@ -160,7 +160,7 @@ Registry-owned release truth should also answer:
 
 Promoted installer media (`installer`, `.dmg`, `.pkg`, `.msix`) is startup-smoke gated across Linux, Windows, and macOS.
 If matching startup-smoke receipts for a promoted installer tuple are missing, that tuple must stay off the published shelf projection rather than being shown as downloadable truth.
-Startup-smoke receipts only count when they are passing, at `readyCheckpoint=pre_ui_event_loop`, and fresh (`status` in `pass|passed|ready` with timestamp fields such as `recordedAtUtc` inside the configured freshness window).
+Startup-smoke receipts only count when they are passing, at `readyCheckpoint=pre_ui_event_loop`, fresh (`status` in `pass|passed|ready` with timestamp fields such as `recordedAtUtc` inside the configured freshness window), and cryptographically bound to the promoted installer bytes via `artifactDigest` (matching manifest `sha256` for the tuple).
 Stale, failing, malformed, or timestamp-less receipts do not keep installer tuples promoted.
 When verifying a local published bundle root (`RELEASE_CHANNEL.generated.json` plus `files/`), `scripts/verify_public_release_channel.py` now fail-closes if any promoted installer tuple is missing a matching fresh passing receipt at `readyCheckpoint=pre_ui_event_loop` under `startup-smoke/` (`startup-smoke-{head}-{rid}.receipt.json`).
 Use `CHUMMER_VERIFY_STARTUP_SMOKE_MAX_AGE_SECONDS` (or shared `CHUMMER_DESKTOP_STARTUP_SMOKE_MAX_AGE_SECONDS`) to override the default `86400`-second freshness window during local verification.

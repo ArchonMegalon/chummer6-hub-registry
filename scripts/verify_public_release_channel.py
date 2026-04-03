@@ -46,6 +46,9 @@ DEFAULT_HTTP_HEADERS = {
 REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
 REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT = "pre_ui_event_loop"
+PLATFORM_ALIASES = {
+    "osx": "macos",
+}
 
 
 def open_json_url_via_urllib(raw_target: str) -> dict:
@@ -208,6 +211,25 @@ def normalized_token(value: object) -> str:
     return str(value or "").strip().lower()
 
 
+def normalized_platform_token(value: object) -> str:
+    token = normalized_token(value)
+    return PLATFORM_ALIASES.get(token, token)
+
+
+def normalized_receipt_artifact_digest(value: object) -> str:
+    token = normalized_token(value)
+    if token.startswith("sha256:"):
+        token = token[len("sha256:") :]
+    return token
+
+
+def expected_arch_from_rid(rid: str) -> str:
+    normalized_rid = normalized_token(rid)
+    if "-" not in normalized_rid:
+        return ""
+    return normalized_rid.rsplit("-", 1)[-1]
+
+
 def normalized_string_list(value: object) -> list[str]:
     if not isinstance(value, list):
         return []
@@ -227,8 +249,8 @@ def parse_manifest_tuple_fields(item: dict) -> tuple[str, str, str, str]:
     head = normalized_token(item.get("head"))
     rid = normalized_token(item.get("rid"))
     kind = normalized_token(item.get("kind") or item.get("flavor"))
-    platform = normalized_token(item.get("platform"))
-    platform_id = normalized_token(item.get("platformId"))
+    platform = normalized_platform_token(item.get("platform"))
+    platform_id = normalized_platform_token(item.get("platformId"))
 
     match = MANIFEST_ARTIFACT_RE.match(file_name)
     if match:
@@ -238,7 +260,7 @@ def parse_manifest_tuple_fields(item: dict) -> tuple[str, str, str, str]:
             kind = "installer" if match.group("installer") else "artifact"
 
     if (not platform or platform not in REQUIRED_DESKTOP_PLATFORMS) and platform_id:
-        platform = platform_id.split("-", 1)[0]
+        platform = normalized_platform_token(platform_id.split("-", 1)[0])
     if not platform and rid:
         platform = RID_TO_PLATFORM.get(rid, "")
 
@@ -484,6 +506,27 @@ def iter_promoted_desktop_installer_tuples(payload: dict) -> Iterable[tuple[str,
         yield record
 
 
+def promoted_desktop_installer_tuple_sha_map(payload: dict) -> dict[tuple[str, str, str], str]:
+    expected_sha_by_tuple: dict[tuple[str, str, str], str] = {}
+    for item in iter_manifest_download_entries(payload):
+        if not isinstance(item, dict):
+            continue
+        head, platform, rid, kind = parse_manifest_tuple_fields(item)
+        if platform not in REQUIRED_DESKTOP_PLATFORMS:
+            continue
+        if not is_desktop_install_media(platform, kind):
+            continue
+        if not head or not rid:
+            continue
+        expected_sha = normalize_sha256(item.get("sha256"))
+        if not expected_sha:
+            raise SystemExit(
+                "release channel desktop installer tuple is missing sha256 metadata required for startup-smoke artifact digest verification"
+            )
+        expected_sha_by_tuple[(head, platform, rid)] = expected_sha
+    return expected_sha_by_tuple
+
+
 def parse_startup_smoke_receipt_timestamp(receipt: dict[str, Any]) -> datetime | None:
     for key in ("completedAtUtc", "recordedAtUtc", "startedAtUtc", "generated_at", "generatedAt"):
         parsed = parse_iso_timestamp(receipt.get(key))
@@ -496,6 +539,7 @@ def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) 
     promoted_tuples = list(iter_promoted_desktop_installer_tuples(payload))
     if not promoted_tuples:
         return
+    expected_sha_by_tuple = promoted_desktop_installer_tuple_sha_map(payload)
 
     startup_smoke_dir = root / "startup-smoke"
     if not startup_smoke_dir.is_dir():
@@ -533,19 +577,49 @@ def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) 
                 f"for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
         receipt_head = normalized_token(receipt.get("headId") or receipt.get("head"))
-        if receipt_head and receipt_head != head:
+        if not receipt_head:
+            raise SystemExit(
+                f"{source} startup-smoke receipt head is missing for promoted desktop installer tuple {head}:{platform}:{rid}"
+            )
+        if receipt_head != head:
             raise SystemExit(
                 f"{source} startup-smoke receipt head mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
-        receipt_platform = normalized_token(receipt.get("platform"))
-        if receipt_platform and receipt_platform != platform:
+        receipt_platform = normalized_platform_token(receipt.get("platform"))
+        if not receipt_platform:
+            raise SystemExit(
+                f"{source} startup-smoke receipt platform is missing for promoted desktop installer tuple {head}:{platform}:{rid}"
+            )
+        if receipt_platform != platform:
             raise SystemExit(
                 f"{source} startup-smoke receipt platform mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
         receipt_rid = normalized_token(receipt.get("rid"))
-        if receipt_rid and receipt_rid != rid:
+        expected_arch = expected_arch_from_rid(rid)
+        if receipt_rid:
+            if receipt_rid != rid:
+                raise SystemExit(
+                    f"{source} startup-smoke receipt rid mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
+                )
+        else:
+            receipt_arch = normalized_token(receipt.get("arch"))
+            if not receipt_arch:
+                raise SystemExit(
+                    f"{source} startup-smoke receipt rid/arch metadata is missing for promoted desktop installer tuple {head}:{platform}:{rid}"
+                )
+            if expected_arch and receipt_arch != expected_arch:
+                raise SystemExit(
+                    f"{source} startup-smoke receipt arch mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
+                )
+        expected_sha = normalize_sha256(expected_sha_by_tuple.get((head, platform, rid), ""))
+        receipt_digest = normalized_receipt_artifact_digest(receipt.get("artifactDigest"))
+        if not receipt_digest:
             raise SystemExit(
-                f"{source} startup-smoke receipt rid mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
+                f"{source} startup-smoke receipt artifactDigest is missing for promoted desktop installer tuple {head}:{platform}:{rid}"
+            )
+        if expected_sha and receipt_digest != expected_sha:
+            raise SystemExit(
+                f"{source} startup-smoke receipt artifactDigest does not match release-channel artifact sha256 for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
 
         receipt_timestamp = parse_startup_smoke_receipt_timestamp(receipt)

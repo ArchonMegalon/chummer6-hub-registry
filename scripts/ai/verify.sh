@@ -60,6 +60,7 @@ printf 'smoke-release ChummerInstaller.Payload.zip Samples/Legacy/Soma-Career.ch
 printf 'broken-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-blazor-desktop-win-x64-installer.exe
 printf 'portable-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64.exe
 printf 'archive-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-linux-x64.tar.gz
+release_fixture_windows_digest="$(sha256sum /tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64-installer.exe | awk '{print $1}')"
 cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
 {
   "status": "pass",
@@ -67,9 +68,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "platform": "windows",
   "rid": "win-x64",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "2026-04-03T16:00:00Z"
 }
 JSON
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 rm -rf /tmp/chummer-hub-registry-startup-smoke-filter-fixture
 mkdir -p /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files
 mkdir -p /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke
@@ -185,9 +188,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "platform": "windows",
   "rid": "win-x64",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "2026-04-03T16:00:00Z"
 }
 JSON
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
 {
   "status": "pass",
@@ -195,9 +200,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "platform": "windows",
   "rid": "win-x64",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "2026-04-03T16:00:00Z"
 }
 JSON
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: verifier should reject startup-smoke receipts that are not at pre_ui_event_loop." >&2
   exit 1
@@ -209,9 +216,26 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "platform": "windows",
   "rid": "win-x64",
+  "artifactDigest": "sha256:deadbeef",
   "recordedAtUtc": "2026-04-03T16:00:00Z"
 }
 JSON
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject startup-smoke receipts whose artifactDigest does not match release artifact bytes." >&2
+  exit 1
+fi
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "avalonia",
+  "platform": "windows",
+  "rid": "win-x64",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
+  "recordedAtUtc": "2026-04-03T16:00:00Z"
+}
+JSON
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py --require-complete-desktop-coverage /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: strict verifier should reject incomplete required desktop tuple coverage." >&2
   exit 1
@@ -222,6 +246,8 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_re
   exit 1
 fi
 printf 'smoke-release ChummerInstaller.Payload.zip Samples/Legacy/Soma-Career.chum5' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64-installer.exe
+release_fixture_windows_digest="$(sha256sum /tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64-installer.exe | awk '{print $1}')"
+sed -i "s/sha256:[a-f0-9]\\{8,\\}/sha256:${release_fixture_windows_digest}/" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 python3 - <<'PY'
 import functools
 import http.server
