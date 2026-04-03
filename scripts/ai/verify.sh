@@ -67,15 +67,19 @@ printf 'windows-smoke-release ChummerInstaller.Payload.zip Samples/Legacy/Soma-C
 printf 'macos-smoke-release' >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/files/chummer-avalonia-osx-arm64-installer.dmg
 cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json <<'JSON'
 {
+  "status": "pass",
   "headId": "avalonia",
   "platform": "linux",
   "arch": "x64",
-  "artifactDigest": ""
+  "artifactDigest": "",
+  "recordedAtUtc": "2026-04-03T16:00:00Z",
+  "completedAtUtc": "2026-04-03T16:00:00Z"
 }
 JSON
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
   --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
+  --startup-smoke-max-age-seconds 86400 \
   --channel preview \
   --version 0.0.0-smoke-startup-filter \
   --output /tmp/chummer-hub-registry-startup-smoke-filter-fixture/RELEASE_CHANNEL.generated.json >/dev/null
@@ -89,6 +93,30 @@ assert "avalonia-linux-x64-installer" in artifacts
 assert "avalonia-win-x64-installer" not in artifacts
 assert "avalonia-osx-arm64-installer" not in artifacts
 assert all(str(item.get("channel") or "") == str(payload.get("channelId") or "") for item in artifacts.values())
+PY
+cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "headId": "avalonia",
+  "platform": "linux",
+  "arch": "x64",
+  "artifactDigest": "",
+  "recordedAtUtc": "2026-03-01T00:00:00Z"
+}
+JSON
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
+  --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
+  --startup-smoke-max-age-seconds 86400 \
+  --channel preview \
+  --version 0.0.0-smoke-startup-filter-stale \
+  --output /tmp/chummer-hub-registry-startup-smoke-filter-fixture/RELEASE_CHANNEL.generated.json >/dev/null
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+payload = json.loads(Path("/tmp/chummer-hub-registry-startup-smoke-filter-fixture/RELEASE_CHANNEL.generated.json").read_text(encoding="utf-8"))
+assert payload.get("artifacts") == []
 PY
 cat >/tmp/chummer-hub-registry-release-fixture/proof.json <<'JSON'
 {

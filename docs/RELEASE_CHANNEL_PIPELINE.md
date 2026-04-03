@@ -117,6 +117,8 @@ Registry-owned release truth should also answer:
 
 Promoted installer media (`installer`, `.dmg`, `.pkg`, `.msix`) is startup-smoke gated across Linux, Windows, and macOS.
 If matching startup-smoke receipts for a promoted installer tuple are missing, that tuple must stay off the published shelf projection rather than being shown as downloadable truth.
+Startup-smoke receipts only count when they are passing and fresh (`status` in `pass|passed|ready` and timestamp fields such as `recordedAtUtc` inside the configured freshness window).
+Stale, failing, malformed, or timestamp-less receipts do not keep installer tuples promoted.
 Each promoted artifact row must carry explicit `channel` metadata that matches top-level `channelId` so channel/head/platform/arch truth stays aligned in one object graph.
 
 ## Operational rule

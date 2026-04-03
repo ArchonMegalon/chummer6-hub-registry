@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import hashlib
 import json
 import re
@@ -32,6 +33,8 @@ WINDOWS_INSTALLER_PAYLOAD_MARKERS = (
 )
 STARTUP_SMOKE_GATED_KINDS = {"installer", "dmg", "pkg", "msix"}
 STARTUP_SMOKE_GATED_PLATFORMS = {"linux", "windows", "macos"}
+STARTUP_SMOKE_MAX_AGE_SECONDS = 24 * 3600
+UTC = dt.timezone.utc
 
 
 def parse_args() -> argparse.Namespace:
@@ -39,6 +42,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--manifest", type=Path, help="Optional input compatibility manifest (`releases.json`) or canonical artifact payload.")
     parser.add_argument("--downloads-dir", type=Path, help="Optional raw downloads/files directory to scan when no manifest exists.")
     parser.add_argument("--startup-smoke-dir", type=Path, help="Optional startup-smoke receipt directory used to keep unproven installers off the public shelf.")
+    parser.add_argument(
+        "--startup-smoke-max-age-seconds",
+        type=int,
+        default=STARTUP_SMOKE_MAX_AGE_SECONDS,
+        help="Maximum allowed age for startup-smoke receipts; stale receipts are ignored.",
+    )
     parser.add_argument("--output", type=Path, required=True, help="Canonical release-channel output path.")
     parser.add_argument("--compat-output", type=Path, help="Optional compatibility `releases.json` output path.")
     parser.add_argument("--runtime-bundles", type=Path, help="Optional JSON file with runtime bundle head metadata.")
@@ -204,9 +213,43 @@ def refresh_artifacts_from_downloads_dir(
     return rows
 
 
-def load_startup_smoke_receipts(startup_smoke_dir: Path | None) -> list[dict[str, str]]:
+def utc_now() -> dt.datetime:
+    return dt.datetime.now(UTC)
+
+
+def parse_iso(value: Any) -> dt.datetime | None:
+    raw = str(value or "").strip()
+    if not raw:
+        return None
+    if raw.endswith("Z"):
+        raw = raw[:-1] + "+00:00"
+    try:
+        parsed = dt.datetime.fromisoformat(raw)
+    except ValueError:
+        return None
+    if parsed.tzinfo is None:
+        parsed = parsed.replace(tzinfo=UTC)
+    return parsed.astimezone(UTC)
+
+
+def _startup_smoke_recorded_at(loaded: dict[str, Any]) -> dt.datetime | None:
+    for key in ("recordedAtUtc", "completedAtUtc", "generatedAt", "generated_at", "startedAtUtc"):
+        parsed = parse_iso(loaded.get(key))
+        if parsed is not None:
+            return parsed
+    return None
+
+
+def load_startup_smoke_receipts(
+    startup_smoke_dir: Path | None,
+    *,
+    max_age_seconds: int = STARTUP_SMOKE_MAX_AGE_SECONDS,
+    now: dt.datetime | None = None,
+) -> list[dict[str, str]] | None:
     if startup_smoke_dir is None or not startup_smoke_dir.exists():
-        return []
+        return None
+    if now is None:
+        now = utc_now()
 
     receipts: list[dict[str, str]] = []
     for entry in sorted(startup_smoke_dir.rglob("startup-smoke-*.receipt.json")):
@@ -216,6 +259,16 @@ def load_startup_smoke_receipts(startup_smoke_dir: Path | None) -> list[dict[str
             continue
         if not isinstance(loaded, dict):
             continue
+        status = str(loaded.get("status") or "").strip().lower()
+        if status not in {"pass", "passed", "ready"}:
+            continue
+        recorded_at = _startup_smoke_recorded_at(loaded)
+        if recorded_at is None:
+            continue
+        if max_age_seconds >= 0:
+            age_seconds = max(0, int((now - recorded_at).total_seconds()))
+            if age_seconds > max_age_seconds:
+                continue
         head = str(loaded.get("headId") or "").strip()
         platform = str(loaded.get("platform") or "").strip().lower()
         arch = str(loaded.get("arch") or "").strip().lower()
@@ -235,9 +288,9 @@ def load_startup_smoke_receipts(startup_smoke_dir: Path | None) -> list[dict[str
 
 def filter_unproven_installers(
     artifacts: list[dict[str, Any]],
-    startup_smoke_receipts: list[dict[str, str]],
+    startup_smoke_receipts: list[dict[str, str]] | None,
 ) -> list[dict[str, Any]]:
-    if not startup_smoke_receipts:
+    if startup_smoke_receipts is None:
         return artifacts
 
     filtered: list[dict[str, Any]] = []
@@ -516,7 +569,10 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     )
     artifacts = filter_unproven_installers(
         artifacts,
-        load_startup_smoke_receipts(args.startup_smoke_dir),
+        load_startup_smoke_receipts(
+            args.startup_smoke_dir,
+            max_age_seconds=args.startup_smoke_max_age_seconds,
+        ),
     )
     artifacts.sort(key=lambda row: (0 if row.get("kind") == "installer" else 1, row.get("platform"), row.get("arch"), row.get("head"), row.get("fileName")))
     loaded_published_at = str(loaded.get("publishedAt") or "").strip()
