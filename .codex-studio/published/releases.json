@@ -205,5 +205,7 @@
       "blazor-desktop:osx-arm64:macos",
       "blazor-desktop:win-x64:windows"
     ]
-  }
+  },
+  "contract_name": "Chummer.Hub.Registry.Contracts",
+  "contractName": "Chummer.Hub.Registry.Contracts"
 }

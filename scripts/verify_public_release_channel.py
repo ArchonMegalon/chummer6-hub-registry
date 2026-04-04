@@ -563,6 +563,85 @@ def parse_manifest_tuple_fields(item: dict) -> tuple[str, str, str, str]:
     return head, platform, rid, kind
 
 
+def expected_artifact_kind_for_file_name(*, ext: str, installer_suffix: bool) -> str:
+    if installer_suffix:
+        return "installer"
+    if ext == "deb":
+        return "installer"
+    if ext == "exe":
+        return "portable"
+    return {
+        "zip": "archive",
+        "tar.gz": "archive",
+        "dmg": "dmg",
+        "pkg": "pkg",
+        "msix": "msix",
+    }.get(ext, "artifact")
+
+
+def expected_arch_for_rid(rid: str) -> str:
+    rid_token = normalized_token(rid)
+    if not rid_token or "-" not in rid_token:
+        return ""
+    return rid_token.rsplit("-", 1)[-1]
+
+
+def verify_artifact_row_tuple_metadata(item: dict, *, index: int, source: str, entry_name: str) -> None:
+    file_name = normalize_file_name(item)
+    match = MANIFEST_ARTIFACT_RE.match(file_name)
+    if not match:
+        raise SystemExit(
+            f"{entry_name}[{index}] fileName '{file_name}' is not a canonical desktop artifact name in {source}"
+        )
+    expected_head = normalized_token(match.group("head"))
+    expected_rid = normalized_token(match.group("rid"))
+    expected_platform = normalized_platform_token(RID_TO_PLATFORM.get(expected_rid, ""))
+    expected_kind = expected_artifact_kind_for_file_name(
+        ext=normalized_token(match.group("ext")),
+        installer_suffix=bool(match.group("installer")),
+    )
+    expected_arch = expected_arch_for_rid(expected_rid)
+
+    head = normalized_token(item.get("head"))
+    rid = normalized_token(item.get("rid"))
+    platform = normalized_platform_token(item.get("platform"))
+    if platform not in REQUIRED_DESKTOP_PLATFORMS:
+        platform = ""
+    platform_id = normalized_platform_token(item.get("platformId"))
+    if platform_id and platform_id not in REQUIRED_DESKTOP_PLATFORMS and "-" in platform_id:
+        platform_id = platform_id.split("-", 1)[0]
+    if not platform and platform_id in REQUIRED_DESKTOP_PLATFORMS:
+        platform = platform_id
+    arch = normalized_token(item.get("arch"))
+    kind = normalized_token(item.get("kind"))
+    flavor = normalized_token(item.get("flavor"))
+
+    if head and head != expected_head:
+        raise SystemExit(
+            f"{entry_name}[{index}] head '{head}' does not match file-name tuple head '{expected_head}' in {source}"
+        )
+    if rid and rid != expected_rid:
+        raise SystemExit(
+            f"{entry_name}[{index}] rid '{rid}' does not match file-name tuple rid '{expected_rid}' in {source}"
+        )
+    if expected_platform and platform and platform != expected_platform:
+        raise SystemExit(
+            f"{entry_name}[{index}] platform '{platform}' does not match file-name tuple platform '{expected_platform}' in {source}"
+        )
+    if expected_arch and arch and arch != expected_arch:
+        raise SystemExit(
+            f"{entry_name}[{index}] arch '{arch}' does not match file-name tuple arch '{expected_arch}' in {source}"
+        )
+    if kind and kind != expected_kind:
+        raise SystemExit(
+            f"{entry_name}[{index}] kind '{kind}' does not match file-name tuple kind '{expected_kind}' in {source}"
+        )
+    if flavor and flavor != expected_kind:
+        raise SystemExit(
+            f"{entry_name}[{index}] flavor '{flavor}' does not match file-name tuple kind '{expected_kind}' in {source}"
+        )
+
+
 def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[str]]:
     coverage = payload.get("desktopTupleCoverage")
     if not isinstance(coverage, dict):
@@ -1117,7 +1196,25 @@ def verify_artifacts(
     require_complete_desktop_coverage: bool = False,
 ) -> dict[str, list[str]] | None:
     status = str(payload.get("status") or "").strip().lower()
-    channel = str(payload.get("channelId") or payload.get("channel") or "").strip()
+    channel = normalized_token(
+        resolve_alias_value(
+            payload,
+            primary_key="channelId",
+            secondary_key="channel",
+            field_path="channelId",
+            source=source,
+        )
+    )
+    payload_version = str(
+        resolve_alias_value(
+            payload,
+            primary_key="version",
+            secondary_key="releaseVersion",
+            field_path="version",
+            source=source,
+        )
+        or ""
+    ).strip()
     if isinstance(payload.get("artifacts"), list):
         artifacts = payload.get("artifacts") or []
         if not artifacts and status == "unpublished":
@@ -1125,6 +1222,7 @@ def verify_artifacts(
         for index, item in enumerate(artifacts):
             if not isinstance(item, dict):
                 raise SystemExit(f"artifacts[{index}] is not an object in {source}")
+            verify_artifact_row_tuple_metadata(item, index=index, source=source, entry_name="artifacts")
             for field in ("artifactId", "downloadUrl", "sha256", "sizeBytes"):
                 if item.get(field) in (None, ""):
                     raise SystemExit(f"artifacts[{index}] is missing {field} in {source}")
@@ -1155,7 +1253,6 @@ def verify_artifacts(
                 raise SystemExit(
                     f"artifacts[{index}] version '{artifact_version}' does not match releaseVersion '{artifact_release_version}' in {source}"
                 )
-            payload_version = str(payload.get("version") or "").strip()
             if payload_version and artifact_version != payload_version:
                 raise SystemExit(
                     f"artifacts[{index}] version '{artifact_version}' does not match release-channel version '{payload_version}' in {source}"
@@ -1173,9 +1270,37 @@ def verify_artifacts(
         for index, item in enumerate(downloads):
             if not isinstance(item, dict):
                 raise SystemExit(f"downloads[{index}] is not an object in {source}")
+            verify_artifact_row_tuple_metadata(item, index=index, source=source, entry_name="downloads")
             for field in ("id", "url", "sha256", "sizeBytes"):
                 if item.get(field) in (None, ""):
                     raise SystemExit(f"downloads[{index}] is missing {field} in {source}")
+            item_channel = normalized_token(
+                resolve_alias_value(
+                    item,
+                    primary_key="channelId",
+                    secondary_key="channel",
+                    field_path=f"downloads[{index}].channelId",
+                    source=source,
+                )
+            )
+            if channel and item_channel and item_channel != channel:
+                raise SystemExit(
+                    f"downloads[{index}] channel '{item_channel}' does not match channel '{channel}' in {source}"
+                )
+            item_version = str(
+                resolve_alias_value(
+                    item,
+                    primary_key="version",
+                    secondary_key="releaseVersion",
+                    field_path=f"downloads[{index}].version",
+                    source=source,
+                )
+                or ""
+            ).strip()
+            if payload_version and item_version and item_version != payload_version:
+                raise SystemExit(
+                    f"downloads[{index}] version '{item_version}' does not match release-channel version '{payload_version}' in {source}"
+                )
         coverage = verify_desktop_tuple_coverage(payload, source)
         if require_complete_desktop_coverage:
             verify_desktop_tuple_completeness(coverage, source)
@@ -1967,6 +2092,21 @@ def verify_generated_timestamp(payload: dict, source: str) -> None:
         raise SystemExit(f"{source} generated_at/generatedAt is not a valid ISO timestamp")
 
 
+def verify_contract_identity(payload: dict, source: str) -> None:
+    contract_name = str(
+        resolve_alias_value(
+            payload,
+            primary_key="contract_name",
+            secondary_key="contractName",
+            field_path="contract_name",
+            source=source,
+        )
+        or ""
+    ).strip()
+    if not contract_name:
+        raise SystemExit(f"{source} is missing non-empty contract_name/contractName")
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Verify release-channel and downloads manifest truth.")
     parser.add_argument(
@@ -1993,6 +2133,7 @@ def main() -> int:
     if not isinstance(payload, dict):
         raise SystemExit(f"manifest must be a JSON object: {source}")
     verify_generated_timestamp(payload, source)
+    verify_contract_identity(payload, source)
     coverage = verify_artifacts(
         payload,
         source,

@@ -130,6 +130,7 @@ ALLOWED_LOCALIZATION_LOCALE_SUMMARY_ROW_KEYS = (
     "legacyDataXmlPresent",
 )
 DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
+DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME = "Chummer.Hub.Registry.Contracts"
 UTC = dt.timezone.utc
 
 
@@ -248,6 +249,11 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--product", default="chummer6")
     parser.add_argument("--channel", default="preview")
     parser.add_argument("--version", default="unpublished")
+    parser.add_argument(
+        "--contract-name",
+        default="",
+        help="Optional release-channel contract identity. Defaults to canonical registry contract package name.",
+    )
     parser.add_argument("--published-at", default="")
     parser.add_argument("--artifact-source", default="ui_desktop_bundle")
     parser.add_argument("--downloads-prefix", default="/downloads/files")
@@ -1665,6 +1671,21 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             artifact["generated_at"] = generated_at
             artifact["generatedAt"] = generated_at
     status = str(loaded.get("status") or ("published" if artifacts else "unpublished")).strip()
+    loaded_contract_name = resolve_alias_value(
+        loaded,
+        primary_key="contract_name",
+        secondary_key="contractName",
+        field_name="contract_name",
+        source="source manifest",
+    )
+    requested_contract_name = str(args.contract_name or "").strip()
+    contract_name = (
+        requested_contract_name
+        or str(loaded_contract_name or loaded.get("contract") or "").strip()
+        or DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
+    )
+    if not contract_name:
+        raise ValueError("release-channel contract_name must not be empty")
     message = loaded.get("message")
     release_proof = load_release_proof(args.proof) or normalize_release_proof_payload(
         loaded.get("releaseProof") or loaded.get("release_proof"),
@@ -1762,6 +1783,8 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "generatedAt": generated_at,
         "schemaVersion": 1,
         "product": str(loaded.get("product") or args.product).strip() or "chummer6",
+        "contract_name": contract_name,
+        "contractName": contract_name,
         "channelId": channel,
         "version": version,
         "publishedAt": published_at,

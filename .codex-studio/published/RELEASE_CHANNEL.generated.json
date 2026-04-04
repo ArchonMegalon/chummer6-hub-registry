@@ -287,5 +287,7 @@
       "blazor-desktop:win-x64:windows"
     ]
   },
-  "runtimeBundleHeads": []
+  "runtimeBundleHeads": [],
+  "contract_name": "Chummer.Hub.Registry.Contracts",
+  "contractName": "Chummer.Hub.Registry.Contracts"
 }
