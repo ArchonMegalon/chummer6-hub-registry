@@ -1396,6 +1396,84 @@ if ! rg -F "desktopTupleCoverage.promotedInstallerTuples must be a list" "$deskt
 fi
 rm -f "$desktop_tuple_coverage_log"
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+coverage = payload.get("desktopTupleCoverage") or {}
+coverage["requiredDesktopHeads"] = []
+payload["desktopTupleCoverage"] = coverage
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+desktop_tuple_coverage_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
+  echo "verify gate failed: verifier should reject empty desktopTupleCoverage.requiredDesktopHeads." >&2
+  rm -f "$desktop_tuple_coverage_log"
+  exit 1
+fi
+if ! rg -F "desktopTupleCoverage.requiredDesktopHeads must include at least one head" "$desktop_tuple_coverage_log" >/dev/null; then
+  echo "verify gate failed: expected requiredDesktopHeads non-empty fail-close marker from verifier." >&2
+  rm -f "$desktop_tuple_coverage_log"
+  exit 1
+fi
+rm -f "$desktop_tuple_coverage_log"
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+coverage = payload.get("desktopTupleCoverage") or {}
+coverage["promotedPlatformHeads"] = ["windows:avalonia"]
+payload["desktopTupleCoverage"] = coverage
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+desktop_tuple_coverage_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
+  echo "verify gate failed: verifier should reject non-object desktopTupleCoverage.promotedPlatformHeads." >&2
+  rm -f "$desktop_tuple_coverage_log"
+  exit 1
+fi
+if ! rg -F "desktopTupleCoverage.promotedPlatformHeads must be an object" "$desktop_tuple_coverage_log" >/dev/null; then
+  echo "verify gate failed: expected promotedPlatformHeads object-shape fail-close marker from verifier." >&2
+  rm -f "$desktop_tuple_coverage_log"
+  exit 1
+fi
+rm -f "$desktop_tuple_coverage_log"
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+coverage = payload.get("desktopTupleCoverage") or {}
+coverage["missingRequiredHeads"] = "blazor-desktop"
+payload["desktopTupleCoverage"] = coverage
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+desktop_tuple_coverage_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
+  echo "verify gate failed: verifier should reject non-list desktopTupleCoverage.missingRequiredHeads." >&2
+  rm -f "$desktop_tuple_coverage_log"
+  exit 1
+fi
+if ! rg -F "desktopTupleCoverage.missingRequiredHeads must be a string list" "$desktop_tuple_coverage_log" >/dev/null; then
+  echo "verify gate failed: expected missingRequiredHeads string-list fail-close marker from verifier." >&2
+  rm -f "$desktop_tuple_coverage_log"
+  exit 1
+fi
+rm -f "$desktop_tuple_coverage_log"
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
 rm -f /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: verifier should reject promoted desktop installers when startup-smoke tuple receipts are missing." >&2
