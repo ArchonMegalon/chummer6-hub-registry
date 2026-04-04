@@ -587,6 +587,62 @@ def normalized_receipt_artifact_digest(value: object) -> str:
     return token
 
 
+def startup_smoke_artifact_file_name_from_path(raw_path: object) -> str:
+    raw = str(raw_path or "").strip()
+    if not raw:
+        return ""
+    tokens = [token for token in re.split(r"[\\/]+", raw) if token]
+    if not tokens:
+        return ""
+    return normalized_token(tokens[-1])
+
+
+def normalized_receipt_artifact_id(receipt: dict[str, Any]) -> str:
+    return normalized_token(
+        receipt.get("artifactId")
+        or receipt.get("artifact_id")
+        or receipt.get("artifact")
+    )
+
+
+def normalized_receipt_artifact_file_name(receipt: dict[str, Any]) -> str:
+    explicit_file_name = normalized_token(
+        receipt.get("artifactFileName")
+        or receipt.get("artifact_file_name")
+        or receipt.get("fileName")
+        or receipt.get("file_name")
+    )
+    if explicit_file_name:
+        return explicit_file_name
+    return startup_smoke_artifact_file_name_from_path(
+        receipt.get("artifactPath")
+        or receipt.get("artifact_path")
+    )
+
+
+def verify_startup_smoke_receipt_artifact_identity(
+    receipt: dict[str, Any],
+    *,
+    expected_artifact_id: str,
+    expected_file_name: str,
+    source: str,
+) -> None:
+    receipt_artifact_id = normalized_receipt_artifact_id(receipt)
+    receipt_file_name = normalized_receipt_artifact_file_name(receipt)
+    if not receipt_artifact_id and not receipt_file_name:
+        raise SystemExit(
+            f"{source} startup-smoke receipt artifact identity is missing (artifactId/artifactPath)"
+        )
+    if expected_artifact_id and receipt_artifact_id and receipt_artifact_id != expected_artifact_id:
+        raise SystemExit(
+            f"{source} startup-smoke receipt artifactId mismatch"
+        )
+    if expected_file_name and receipt_file_name and receipt_file_name != expected_file_name:
+        raise SystemExit(
+            f"{source} startup-smoke receipt artifact file name mismatch"
+        )
+
+
 def expected_arch_from_rid(rid: str) -> str:
     normalized_rid = normalized_token(rid)
     if "-" not in normalized_rid:
@@ -1322,6 +1378,36 @@ def promoted_desktop_installer_tuple_sha_map(payload: dict) -> dict[tuple[str, s
     return expected_sha_by_tuple
 
 
+def promoted_desktop_installer_tuple_identity_map(payload: dict) -> dict[tuple[str, str, str], tuple[str, str]]:
+    expected_identity_by_tuple: dict[tuple[str, str, str], tuple[str, str]] = {}
+    for item in iter_manifest_download_entries(payload):
+        if not isinstance(item, dict):
+            continue
+        head, platform, rid, kind = parse_manifest_tuple_fields(item)
+        if platform not in REQUIRED_DESKTOP_PLATFORMS:
+            continue
+        if not is_desktop_install_media(platform, kind):
+            continue
+        if not head or not rid:
+            continue
+        file_name = normalized_token(normalize_file_name(item))
+        if not file_name:
+            raise SystemExit(
+                "release channel desktop installer tuple is missing fileName/download URL basename metadata required for startup-smoke artifact identity verification"
+            )
+        artifact_id = normalized_token(item.get("artifactId") or item.get("id") or file_name)
+        record = (head, platform, rid)
+        expected = (artifact_id, file_name)
+        existing = expected_identity_by_tuple.get(record)
+        if existing and existing != expected:
+            raise SystemExit(
+                "release channel desktop installer tuple has conflicting artifact identity metadata "
+                f"for startup-smoke verification: {head}:{platform}:{rid}"
+            )
+        expected_identity_by_tuple[record] = expected
+    return expected_identity_by_tuple
+
+
 def parse_startup_smoke_receipt_timestamp(receipt: dict[str, Any]) -> datetime | None:
     for key in ("completedAtUtc", "recordedAtUtc", "startedAtUtc", "generated_at", "generatedAt"):
         parsed = parse_iso_timestamp(receipt.get(key))
@@ -1335,6 +1421,7 @@ def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) 
     if not promoted_tuples:
         return
     expected_sha_by_tuple = promoted_desktop_installer_tuple_sha_map(payload)
+    expected_identity_by_tuple = promoted_desktop_installer_tuple_identity_map(payload)
 
     startup_smoke_dir = root / "startup-smoke"
     if not startup_smoke_dir.is_dir():
@@ -1438,6 +1525,15 @@ def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) 
             raise SystemExit(
                 f"{source} startup-smoke receipt artifactDigest does not match release-channel artifact sha256 for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
+        expected_artifact_identity = expected_identity_by_tuple.get((head, platform, rid), ("", ""))
+        verify_startup_smoke_receipt_artifact_identity(
+            receipt,
+            expected_artifact_id=expected_artifact_identity[0],
+            expected_file_name=expected_artifact_identity[1],
+            source=(
+                f"{source} startup-smoke receipt for promoted desktop installer tuple {head}:{platform}:{rid}"
+            ),
+        )
         if channel_id:
             receipt_channel_id = normalized_token(receipt.get("channelId"))
             receipt_channel_alias = normalized_token(receipt.get("channel"))

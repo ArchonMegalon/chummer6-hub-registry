@@ -89,3 +89,51 @@ def test_verify_startup_smoke_receipt_host_class_accepts_host_alias_field() -> N
         platform="macos",
         source="release-channel.json",
     )
+
+
+def test_verify_startup_smoke_receipt_artifact_identity_rejects_missing_identity() -> None:
+    with pytest.raises(SystemExit, match="artifact identity is missing"):
+        MODULE.verify_startup_smoke_receipt_artifact_identity(
+            {
+                "platform": "windows",
+            },
+            expected_artifact_id="avalonia-win-x64-installer",
+            expected_file_name="chummer-avalonia-win-x64-installer.exe",
+            source="release-channel.json",
+        )
+
+
+def test_verify_startup_smoke_receipt_artifact_identity_rejects_artifact_id_mismatch() -> None:
+    with pytest.raises(SystemExit, match="artifactId mismatch"):
+        MODULE.verify_startup_smoke_receipt_artifact_identity(
+            {
+                "artifactId": "tampered-id",
+                "artifactPath": r"C:\\downloads\\chummer-avalonia-win-x64-installer.exe",
+            },
+            expected_artifact_id="avalonia-win-x64-installer",
+            expected_file_name="chummer-avalonia-win-x64-installer.exe",
+            source="release-channel.json",
+        )
+
+
+def test_verify_startup_smoke_receipt_artifact_identity_rejects_file_name_mismatch() -> None:
+    with pytest.raises(SystemExit, match="artifact file name mismatch"):
+        MODULE.verify_startup_smoke_receipt_artifact_identity(
+            {
+                "artifactPath": "/tmp/chummer-avalonia-win-x64-installer-mismatch.exe",
+            },
+            expected_artifact_id="avalonia-win-x64-installer",
+            expected_file_name="chummer-avalonia-win-x64-installer.exe",
+            source="release-channel.json",
+        )
+
+
+def test_verify_startup_smoke_receipt_artifact_identity_accepts_matching_artifact_path() -> None:
+    MODULE.verify_startup_smoke_receipt_artifact_identity(
+        {
+            "artifactPath": "/tmp/chummer-avalonia-win-x64-installer.exe",
+        },
+        expected_artifact_id="avalonia-win-x64-installer",
+        expected_file_name="chummer-avalonia-win-x64-installer.exe",
+        source="release-channel.json",
+    )

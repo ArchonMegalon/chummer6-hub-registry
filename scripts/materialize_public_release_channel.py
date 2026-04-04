@@ -151,6 +151,39 @@ def startup_smoke_host_class_matches_platform(loaded: dict[str, Any], *, platfor
     return platform_token in host_class
 
 
+def startup_smoke_artifact_file_name_from_path(raw_path: Any) -> str:
+    raw = str(raw_path or "").strip()
+    if not raw:
+        return ""
+    tokens = [token for token in re.split(r"[\\/]+", raw) if token]
+    if not tokens:
+        return ""
+    return normalize_token(tokens[-1])
+
+
+def startup_smoke_receipt_artifact_id(loaded: dict[str, Any]) -> str:
+    return normalize_token(
+        loaded.get("artifactId")
+        or loaded.get("artifact_id")
+        or loaded.get("artifact")
+    )
+
+
+def startup_smoke_receipt_artifact_file_name(loaded: dict[str, Any]) -> str:
+    explicit_file_name = normalize_token(
+        loaded.get("artifactFileName")
+        or loaded.get("artifact_file_name")
+        or loaded.get("fileName")
+        or loaded.get("file_name")
+    )
+    if explicit_file_name:
+        return explicit_file_name
+    return startup_smoke_artifact_file_name_from_path(
+        loaded.get("artifactPath")
+        or loaded.get("artifact_path")
+    )
+
+
 def normalize_release_proof_route(raw_route: Any, *, field_name: str, source: str) -> str:
     if not isinstance(raw_route, str):
         raise ValueError(f"{field_name} must be a string in {source}")
@@ -507,11 +540,15 @@ def load_startup_smoke_receipts(
         arch = str(loaded.get("arch") or "").strip().lower()
         artifact_digest = str(loaded.get("artifactDigest") or "").strip().lower()
         channel_id = normalize_token(loaded.get("channelId") or loaded.get("channel"))
+        artifact_id = startup_smoke_receipt_artifact_id(loaded)
+        artifact_file_name = startup_smoke_receipt_artifact_file_name(loaded)
         if not head or not platform or not arch:
             continue
         if not startup_smoke_host_class_matches_platform(loaded, platform=platform):
             continue
         if expected_channel and channel_id != expected_channel:
+            continue
+        if not artifact_id and not artifact_file_name:
             continue
         receipts.append(
             {
@@ -520,6 +557,8 @@ def load_startup_smoke_receipts(
                 "arch": arch,
                 "artifactDigest": artifact_digest,
                 "channelId": channel_id,
+                "artifactId": artifact_id,
+                "artifactFileName": artifact_file_name,
             }
         )
     return receipts
@@ -545,6 +584,8 @@ def filter_unproven_installers(
             continue
         arch = str(artifact.get("arch") or "").strip().lower()
         head = str(artifact.get("head") or "").strip()
+        expected_artifact_id = normalize_token(artifact.get("artifactId") or artifact.get("id"))
+        expected_file_name = normalize_token(artifact.get("fileName"))
         expected_digest = str(artifact.get("sha256") or "").strip().lower()
         if expected_digest:
             expected_digest = f"sha256:{expected_digest}"
@@ -553,6 +594,10 @@ def filter_unproven_installers(
             receipt
             for receipt in startup_smoke_receipts
             if receipt["head"] == head and receipt["platform"] == platform and receipt["arch"] == arch
+            and (
+                (expected_artifact_id and receipt.get("artifactId") == expected_artifact_id)
+                or (expected_file_name and receipt.get("artifactFileName") == expected_file_name)
+            )
         ]
         if not matching_receipts:
             continue
