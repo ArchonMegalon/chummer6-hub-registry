@@ -124,6 +124,21 @@ ALLOWED_LOCALIZATION_GATE_KEYS = (
     "localeSummary",
     "locale_summary",
 )
+ALLOWED_LOCALIZATION_LOCALE_SUMMARY_ROW_KEYS = (
+    "locale",
+    "untranslatedKeyCount",
+    "untranslated_key_count",
+    "overrideCount",
+    "override_count",
+    "minimumOverrideCount",
+    "minimum_override_count",
+    "missingReleaseSeedKeys",
+    "missing_release_seed_keys",
+    "legacyXmlPresent",
+    "legacy_xml_present",
+    "legacyDataXmlPresent",
+    "legacy_data_xml_present",
+)
 DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
 DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS = 604800
@@ -1701,6 +1716,14 @@ def verify_release_truth(payload: dict, source: str) -> None:
         if not isinstance(item, dict):
             raise SystemExit(
                 f"releaseProof.uiLocalizationReleaseGate.localeSummary[{index}] must be an object in {source}"
+            )
+        unexpected_locale_summary_row_keys = sorted(
+            str(key) for key in item.keys() if str(key) not in ALLOWED_LOCALIZATION_LOCALE_SUMMARY_ROW_KEYS
+        )
+        if unexpected_locale_summary_row_keys:
+            raise SystemExit(
+                "releaseProof.uiLocalizationReleaseGate.localeSummary rows have unexpected keys "
+                f"({', '.join(unexpected_locale_summary_row_keys)}) in {source}"
             )
         locale = normalized_token(item.get("locale"))
         if not locale:
