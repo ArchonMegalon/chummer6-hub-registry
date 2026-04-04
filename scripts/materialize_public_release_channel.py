@@ -1332,6 +1332,18 @@ def required_desktop_heads(raw: Any) -> list[str]:
     return dedupe_preserve_order([item for item in values if item])
 
 
+def verify_required_desktop_heads(required_heads: list[str], *, source: str) -> None:
+    if not required_heads:
+        raise ValueError(f"{source} must include at least one desktop head")
+    if len(set(required_heads)) != len(required_heads):
+        raise ValueError(f"{source} must not contain duplicate desktop heads")
+    canonical = list(DEFAULT_REQUIRED_DESKTOP_HEADS)
+    if required_heads != canonical:
+        raise ValueError(
+            f"{source} must be exactly canonical desktop heads {canonical} (actual={required_heads})"
+        )
+
+
 def is_desktop_install_media(platform: Any, kind: Any) -> bool:
     platform_token = normalized_token(platform)
     kind_token = normalized_token(kind)
@@ -1860,6 +1872,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     required_heads = required_desktop_heads(args.required_desktop_heads)
     if not required_heads:
         required_heads = list(DEFAULT_REQUIRED_DESKTOP_HEADS)
+    verify_required_desktop_heads(required_heads, source="required_desktop_heads")
     tuple_coverage = desktop_tuple_coverage(
         artifacts,
         required_heads=required_heads,

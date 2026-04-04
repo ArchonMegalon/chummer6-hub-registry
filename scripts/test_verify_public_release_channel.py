@@ -14,12 +14,25 @@ MODULE_SPEC.loader.exec_module(MODULE)
 
 
 def test_verify_required_desktop_heads_rejects_missing_blazor_desktop() -> None:
-    with pytest.raises(SystemExit, match="requiredDesktopHeads must include canonical heads"):
+    with pytest.raises(SystemExit, match="requiredDesktopHeads must be exactly canonical heads"):
         MODULE.verify_required_desktop_heads(["avalonia"], "release-channel.json")
 
 
 def test_verify_required_desktop_heads_accepts_canonical_head_set() -> None:
     MODULE.verify_required_desktop_heads(["avalonia", "blazor-desktop"], "release-channel.json")
+
+
+def test_verify_required_desktop_heads_rejects_unexpected_extra_head() -> None:
+    with pytest.raises(SystemExit, match="requiredDesktopHeads must be exactly canonical heads"):
+        MODULE.verify_required_desktop_heads(
+            ["avalonia", "blazor-desktop", "web-preview"],
+            "release-channel.json",
+        )
+
+
+def test_verify_required_desktop_heads_rejects_order_drift() -> None:
+    with pytest.raises(SystemExit, match="requiredDesktopHeads must be exactly canonical heads"):
+        MODULE.verify_required_desktop_heads(["blazor-desktop", "avalonia"], "release-channel.json")
 
 
 def test_verify_desktop_tuple_coverage_complete_flag_rejects_mismatch() -> None:

@@ -120,3 +120,27 @@ def test_desktop_tuple_coverage_emits_explicit_complete_flag() -> None:
     )
     assert coverage["complete"] is False
     assert "missingRequiredPlatformHeadRidTuples" in coverage
+
+
+def test_verify_required_desktop_heads_rejects_noncanonical_head_set() -> None:
+    try:
+        MODULE.verify_required_desktop_heads(
+            ["avalonia", "blazor-desktop", "web-preview"],
+            source="required_desktop_heads",
+        )
+    except ValueError as exc:
+        assert "must be exactly canonical desktop heads" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for noncanonical required desktop heads")
+
+
+def test_verify_required_desktop_heads_rejects_order_drift() -> None:
+    try:
+        MODULE.verify_required_desktop_heads(
+            ["blazor-desktop", "avalonia"],
+            source="required_desktop_heads",
+        )
+    except ValueError as exc:
+        assert "must be exactly canonical desktop heads" in str(exc)
+    else:
+        raise AssertionError("expected ValueError for noncanonical required desktop head ordering")

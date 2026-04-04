@@ -203,13 +203,26 @@ def expected_external_proof_installer_extension(platform: str) -> str:
 def verify_required_desktop_heads(required_heads: list[str], source: str) -> None:
     if not required_heads:
         raise SystemExit(f"{source} desktopTupleCoverage.requiredDesktopHeads must include at least one head")
+    if len(set(required_heads)) != len(required_heads):
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.requiredDesktopHeads must not contain duplicate head ids"
+        )
     missing_required_heads = sorted(
         head for head in REQUIRED_DESKTOP_HEADS if head not in set(required_heads)
     )
-    if missing_required_heads:
+    unexpected_heads = sorted(head for head in required_heads if head not in set(REQUIRED_DESKTOP_HEADS))
+    if missing_required_heads or unexpected_heads or tuple(required_heads) != REQUIRED_DESKTOP_HEADS:
+        details: list[str] = []
+        if missing_required_heads:
+            details.append(f"missing: {', '.join(missing_required_heads)}")
+        if unexpected_heads:
+            details.append(f"unexpected: {', '.join(unexpected_heads)}")
+        if tuple(required_heads) != REQUIRED_DESKTOP_HEADS and not missing_required_heads and not unexpected_heads:
+            details.append("canonical order drift")
         raise SystemExit(
-            f"{source} desktopTupleCoverage.requiredDesktopHeads must include canonical heads "
-            f"{list(REQUIRED_DESKTOP_HEADS)} (missing: {', '.join(missing_required_heads)})"
+            f"{source} desktopTupleCoverage.requiredDesktopHeads must be exactly canonical heads "
+            f"{list(REQUIRED_DESKTOP_HEADS)}"
+            + (f" ({'; '.join(details)})" if details else "")
         )
 
 

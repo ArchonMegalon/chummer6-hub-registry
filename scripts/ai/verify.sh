@@ -1998,6 +1998,58 @@ from pathlib import Path
 path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
 payload = json.loads(path.read_text(encoding="utf-8"))
 coverage = payload.get("desktopTupleCoverage") or {}
+coverage["requiredDesktopHeads"] = ["avalonia", "blazor-desktop", "web-preview"]
+payload["desktopTupleCoverage"] = coverage
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+desktop_tuple_coverage_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
+  echo "verify gate failed: verifier should reject non-canonical extra desktopTupleCoverage.requiredDesktopHeads entries." >&2
+  rm -f "$desktop_tuple_coverage_log"
+  exit 1
+fi
+if ! rg -F "desktopTupleCoverage.requiredDesktopHeads must be exactly canonical heads" "$desktop_tuple_coverage_log" >/dev/null; then
+  echo "verify gate failed: expected requiredDesktopHeads canonical-set fail-close marker from verifier." >&2
+  rm -f "$desktop_tuple_coverage_log"
+  exit 1
+fi
+rm -f "$desktop_tuple_coverage_log"
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+coverage = payload.get("desktopTupleCoverage") or {}
+coverage["requiredDesktopHeads"] = ["blazor-desktop", "avalonia"]
+payload["desktopTupleCoverage"] = coverage
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+desktop_tuple_coverage_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
+  echo "verify gate failed: verifier should reject desktopTupleCoverage.requiredDesktopHeads order drift." >&2
+  rm -f "$desktop_tuple_coverage_log"
+  exit 1
+fi
+if ! rg -F "desktopTupleCoverage.requiredDesktopHeads must be exactly canonical heads" "$desktop_tuple_coverage_log" >/dev/null; then
+  echo "verify gate failed: expected requiredDesktopHeads canonical-order fail-close marker from verifier." >&2
+  rm -f "$desktop_tuple_coverage_log"
+  exit 1
+fi
+rm -f "$desktop_tuple_coverage_log"
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+coverage = payload.get("desktopTupleCoverage") or {}
 coverage["promotedPlatformHeads"] = ["windows:avalonia"]
 payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
