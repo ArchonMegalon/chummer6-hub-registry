@@ -534,20 +534,32 @@ def normalize_ui_localization_release_gate_payload(
             if normalized_token(item)
         ]
     )
-    blocking_findings_count = len(
-        [
-            item
-            for item in (loaded.get("blocking_findings") or loaded.get("blockingFindings") or [])
-            if isinstance(item, (str, dict))
-        ]
+    blocking_findings = [
+        item
+        for item in (loaded.get("blocking_findings") or loaded.get("blockingFindings") or [])
+        if isinstance(item, (str, dict))
+    ]
+    blocking_findings_count = len(blocking_findings)
+    explicit_blocking_findings_count = normalize_positive_int(
+        first_present(loaded, "blocking_findings_count", "blockingFindingsCount")
     )
-    translation_backlog_findings_count = len(
-        [
-            item
-            for item in (loaded.get("translation_backlog_findings") or loaded.get("translationBacklogFindings") or [])
-            if isinstance(item, (str, dict))
-        ]
+    if explicit_blocking_findings_count is not None:
+        blocking_findings_count = max(blocking_findings_count, explicit_blocking_findings_count)
+
+    translation_backlog_findings = [
+        item
+        for item in (loaded.get("translation_backlog_findings") or loaded.get("translationBacklogFindings") or [])
+        if isinstance(item, (str, dict))
+    ]
+    translation_backlog_findings_count = len(translation_backlog_findings)
+    explicit_translation_backlog_findings_count = normalize_positive_int(
+        first_present(loaded, "translation_backlog_findings_count", "translationBacklogFindingsCount")
     )
+    if explicit_translation_backlog_findings_count is not None:
+        translation_backlog_findings_count = max(
+            translation_backlog_findings_count,
+            explicit_translation_backlog_findings_count,
+        )
     locale_summary_rows: list[dict[str, Any]] = []
     for item in (loaded.get("locale_summary") or loaded.get("localeSummary") or []):
         if not isinstance(item, dict):
