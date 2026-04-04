@@ -1336,9 +1336,10 @@ def verify_release_truth(payload: dict, source: str) -> None:
             "releaseProof.uiLocalizationReleaseGate.shippingLocales has duplicate locale ids "
             f"({', '.join(duplicate_shipping_locales)}) in {source}"
         )
-    if sorted(shipping_locales) != sorted(REQUIRED_LOCALIZATION_SHIPPING_LOCALES):
+    if tuple(shipping_locales) != REQUIRED_LOCALIZATION_SHIPPING_LOCALES:
         raise SystemExit(
-            f"releaseProof.uiLocalizationReleaseGate.shippingLocales must equal {list(REQUIRED_LOCALIZATION_SHIPPING_LOCALES)} in {source}"
+            "releaseProof.uiLocalizationReleaseGate.shippingLocales must preserve canonical locale ordering "
+            f"(actual={shipping_locales}, expected={list(REQUIRED_LOCALIZATION_SHIPPING_LOCALES)}) in {source}"
         )
     acceptance_gates_raw = resolve_alias_value(
         ui_localization_release_gate,

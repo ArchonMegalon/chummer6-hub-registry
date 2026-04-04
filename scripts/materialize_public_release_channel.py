@@ -69,6 +69,7 @@ REQUIRED_LOCALIZATION_ACCEPTANCE_GATES = (
     "locale_smoke_support",
     "non_english_generated_artifact_smoke",
 )
+REQUIRED_LOCALIZATION_SHIPPING_LOCALES = ("en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn")
 DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
 UTC = dt.timezone.utc
 
@@ -860,6 +861,11 @@ def normalize_ui_localization_release_gate_payload(
         field_name="shipping_locales",
         source=source,
     )
+    if tuple(shipping_locales) != REQUIRED_LOCALIZATION_SHIPPING_LOCALES:
+        raise ValueError(
+            "shipping_locales must preserve canonical locale ordering "
+            f"(actual={shipping_locales}, expected={list(REQUIRED_LOCALIZATION_SHIPPING_LOCALES)}) in {source}"
+        )
     acceptance_gates = normalize_required_token_list(
         resolve_alias_value(
             loaded,
