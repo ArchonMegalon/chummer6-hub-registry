@@ -82,6 +82,7 @@ REQUIRED_RELEASE_PROOF_ROUTES = (
     "/account/support",
     "/contact",
 )
+DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
 DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS = 604800
 DEFAULT_RELEASE_PROOF_MAX_FUTURE_SKEW_SECONDS = 300
@@ -293,6 +294,35 @@ def normalize_release_proof_base_url(raw_base_url: object, *, field_path: str, s
     if base_url != canonical_base_url:
         raise SystemExit(f"{field_path} must use canonical origin form with no trailing slash in {source}")
     return canonical_base_url
+
+
+def parse_allowed_release_proof_base_urls(raw_value: object, *, source: str) -> tuple[str, ...]:
+    if raw_value in (None, ""):
+        return DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS
+    if isinstance(raw_value, (list, tuple, set)):
+        raw_values = [str(item or "").strip() for item in raw_value]
+    else:
+        raw_values = [item.strip() for item in str(raw_value).split(",")]
+    allowed: list[str] = []
+    seen: set[str] = set()
+    for index, raw_url in enumerate(raw_values):
+        if not raw_url:
+            continue
+        canonical_url = normalize_release_proof_base_url(
+            raw_url,
+            field_path=f"allowedReleaseProofBaseUrls[{index}]",
+            source=source,
+        )
+        if canonical_url in seen:
+            continue
+        seen.add(canonical_url)
+        allowed.append(canonical_url)
+    if not allowed:
+        raise SystemExit(
+            "allowed release proof base URL set must contain at least one canonical origin "
+            f"in {source}"
+        )
+    return tuple(allowed)
 
 
 def parse_startup_smoke_max_age_seconds(raw_value: object) -> int:
@@ -1023,11 +1053,21 @@ def verify_release_truth(payload: dict, source: str) -> None:
             "releaseProof.generatedAt is stale in "
             f"{source} ({release_proof_age_seconds}s old; max {release_proof_max_age_seconds}s)"
         )
-    normalize_release_proof_base_url(
+    allowed_release_proof_base_urls = parse_allowed_release_proof_base_urls(
+        os.environ.get("CHUMMER_VERIFY_ALLOWED_RELEASE_PROOF_BASE_URLS")
+        or os.environ.get("CHUMMER_ALLOWED_RELEASE_PROOF_BASE_URLS"),
+        source=source,
+    )
+    proof_base_url = normalize_release_proof_base_url(
         first_present(proof, "baseUrl", "base_url"),
         field_path="releaseProof.baseUrl",
         source=source,
     )
+    if proof_base_url not in allowed_release_proof_base_urls:
+        raise SystemExit(
+            "releaseProof.baseUrl must match an allowed canonical release origin "
+            f"({', '.join(allowed_release_proof_base_urls)}) in {source}"
+        )
     journeys_passed = first_present(proof, "journeysPassed", "journeys_passed")
     if not isinstance(journeys_passed, list):
         raise SystemExit(f"releaseProof.journeysPassed must be a list in {source}")

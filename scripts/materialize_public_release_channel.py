@@ -5,6 +5,7 @@ import argparse
 import datetime as dt
 import hashlib
 import json
+import os
 import re
 import urllib.parse
 from pathlib import Path
@@ -57,6 +58,7 @@ REQUIRED_RELEASE_PROOF_ROUTES = (
     "/account/support",
     "/contact",
 )
+DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
 UTC = dt.timezone.utc
 
 
@@ -119,6 +121,35 @@ def normalize_release_proof_base_url(raw_base_url: Any, *, field_name: str, sour
     if base_url != canonical_base_url:
         raise ValueError(f"{field_name} must use canonical origin form with no trailing slash in {source}")
     return canonical_base_url
+
+
+def parse_allowed_release_proof_base_urls(raw_value: Any, *, source: str) -> tuple[str, ...]:
+    if raw_value in (None, ""):
+        return DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS
+    if isinstance(raw_value, (list, tuple, set)):
+        raw_values = [str(item or "").strip() for item in raw_value]
+    else:
+        raw_values = [item.strip() for item in str(raw_value).split(",")]
+    allowed: list[str] = []
+    seen: set[str] = set()
+    for index, raw_url in enumerate(raw_values):
+        if not raw_url:
+            continue
+        canonical_url = normalize_release_proof_base_url(
+            raw_url,
+            field_name=f"allowed_release_proof_base_urls[{index}]",
+            source=source,
+        )
+        if canonical_url in seen:
+            continue
+        seen.add(canonical_url)
+        allowed.append(canonical_url)
+    if not allowed:
+        raise ValueError(
+            "allowed release proof base URL set must contain at least one canonical origin "
+            f"in {source}"
+        )
+    return tuple(allowed)
 
 
 def parse_args() -> argparse.Namespace:
@@ -583,11 +614,21 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
             f"({', '.join(unexpected_routes)}) in {source}"
         )
     generated_at = str(loaded.get("generated_at") or loaded.get("generatedAt") or "").strip() or None
+    allowed_release_proof_base_urls = parse_allowed_release_proof_base_urls(
+        os.environ.get("CHUMMER_MATERIALIZE_ALLOWED_RELEASE_PROOF_BASE_URLS")
+        or os.environ.get("CHUMMER_ALLOWED_RELEASE_PROOF_BASE_URLS"),
+        source=source,
+    )
     base_url = normalize_release_proof_base_url(
         loaded.get("base_url") or loaded.get("baseUrl"),
         field_name="base_url",
         source=source,
     )
+    if base_url not in allowed_release_proof_base_urls:
+        raise ValueError(
+            "base_url must match an allowed canonical release origin "
+            f"({', '.join(allowed_release_proof_base_urls)}) in {source}"
+        )
     ui_localization_release_gate = normalize_ui_localization_release_gate_payload(
         loaded.get("uiLocalizationReleaseGate") or loaded.get("ui_localization_release_gate"),
         source=f"{source} uiLocalizationReleaseGate",
