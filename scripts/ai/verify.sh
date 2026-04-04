@@ -455,6 +455,33 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/proof.unexpected-journeys.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
+cp /tmp/chummer-hub-registry-release-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.noncanonical-journey-order.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/proof.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["journeys_passed"] = [
+  "build_explain_publish",
+  "install_claim_restore_continue",
+  "campaign_session_recover_recap",
+  "report_cluster_release_notify"
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null; then
+  echo "verify gate failed: materializer should reject release proof with non-canonical journeys_passed ordering." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/proof.noncanonical-journey-order.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
 cp /tmp/chummer-hub-registry-release-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.uppercase-journey.backup.json
 python3 - <<'PY'
 import json
@@ -578,6 +605,35 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/proof.unexpected-route.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
+cp /tmp/chummer-hub-registry-release-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.noncanonical-route-order.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/proof.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["proof_routes"] = [
+  "/home/access",
+  "/downloads/install/avalonia-linux-x64-installer",
+  "/home/work",
+  "/account/work",
+  "/account/support",
+  "/contact"
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null; then
+  echo "verify gate failed: materializer should reject release proof with non-canonical proof_routes ordering." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/proof.noncanonical-route-order.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
 cp /tmp/chummer-hub-registry-release-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.query-fragment.backup.json
 python3 - <<'PY'
 import json
@@ -889,11 +945,53 @@ from pathlib import Path
 
 path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
 payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"]["journeysPassed"] = [
+    "build_explain_publish",
+    "install_claim_restore_continue",
+    "campaign_session_recover_recap",
+    "report_cluster_release_notify"
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject non-canonical journey ordering in releaseProof.journeysPassed." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["baseUrl"] = "https://example.com"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: verifier should reject releaseProof.baseUrl when it is outside allowed canonical release origins." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"]["proofRoutes"] = [
+  "/home/access",
+  "/downloads/install/avalonia-linux-x64-installer",
+  "/home/work",
+  "/account/work",
+  "/account/support",
+  "/contact"
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject non-canonical route ordering in releaseProof.proofRoutes." >&2
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json

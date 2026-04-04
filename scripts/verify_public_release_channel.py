@@ -1187,6 +1187,12 @@ def verify_release_truth(payload: dict, source: str) -> None:
             "releaseProof.journeysPassed declares unexpected baseline journey ids "
             f"({', '.join(unexpected_journeys)}) in {source}"
         )
+    required_journey_order = list(REQUIRED_RELEASE_PROOF_JOURNEYS)
+    if normalized_journeys != required_journey_order:
+        raise SystemExit(
+            "releaseProof.journeysPassed must preserve canonical baseline journey ordering "
+            f"(actual={normalized_journeys}, expected={required_journey_order}) in {source}"
+        )
 
     proof_routes = resolve_alias_value(
         proof,
@@ -1234,6 +1240,12 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(
             "releaseProof.proofRoutes declares unexpected flagship routes "
             f"({', '.join(unexpected_proof_routes)}) in {source}"
+        )
+    required_route_order = list(REQUIRED_RELEASE_PROOF_ROUTES)
+    if normalized_proof_routes != required_route_order:
+        raise SystemExit(
+            "releaseProof.proofRoutes must preserve canonical flagship route ordering "
+            f"(actual={normalized_proof_routes}, expected={required_route_order}) in {source}"
         )
 
     ui_localization_release_gate = proof.get("uiLocalizationReleaseGate")

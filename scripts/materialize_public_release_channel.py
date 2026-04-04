@@ -597,6 +597,12 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
             "journeys_passed declares unexpected baseline golden journey ids "
             f"({', '.join(unexpected_journeys)}) in {source}"
         )
+    required_journey_order = list(REQUIRED_RELEASE_PROOF_JOURNEYS)
+    if journeys != required_journey_order:
+        raise ValueError(
+            "journeys_passed must preserve canonical baseline journey ordering "
+            f"(actual={journeys}, expected={required_journey_order}) in {source}"
+        )
     raw_routes = (
         resolve_alias_value(
             loaded,
@@ -645,6 +651,12 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
         raise ValueError(
             "proof_routes declares unexpected flagship routes "
             f"({', '.join(unexpected_routes)}) in {source}"
+        )
+    required_route_order = list(REQUIRED_RELEASE_PROOF_ROUTES)
+    if routes != required_route_order:
+        raise ValueError(
+            "proof_routes must preserve canonical flagship route ordering "
+            f"(actual={routes}, expected={required_route_order}) in {source}"
         )
     generated_at = (
         str(
