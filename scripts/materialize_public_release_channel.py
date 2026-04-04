@@ -1033,7 +1033,8 @@ def normalize_ui_localization_release_gate_payload(
             translation_backlog_findings_count,
             explicit_translation_backlog_findings_count,
         )
-    locale_summary_rows: list[dict[str, Any]] = []
+    locale_summary_by_locale: dict[str, dict[str, Any]] = {}
+    locale_summary_order: list[str] = []
     for item in (
         resolve_alias_value(
             loaded,
@@ -1049,73 +1050,101 @@ def normalize_ui_localization_release_gate_payload(
         locale = normalized_token(item.get("locale"))
         if not locale:
             continue
-        locale_summary_rows.append(
-            {
-                "locale": locale,
-                "untranslatedKeyCount": normalize_positive_int(
-                    resolve_alias_value(
-                        item,
-                        primary_key="untranslated_key_count",
-                        secondary_key="untranslatedKeyCount",
-                        field_name=f"locale_summary[{locale}].untranslated_key_count",
-                        source=source,
-                    )
-                ),
-                "overrideCount": normalize_positive_int(
-                    resolve_alias_value(
-                        item,
-                        primary_key="override_count",
-                        secondary_key="overrideCount",
-                        field_name=f"locale_summary[{locale}].override_count",
-                        source=source,
-                    )
-                ),
-                "minimumOverrideCount": normalize_positive_int(
-                    resolve_alias_value(
-                        item,
-                        primary_key="minimum_override_count",
-                        secondary_key="minimumOverrideCount",
-                        field_name=f"locale_summary[{locale}].minimum_override_count",
-                        source=source,
-                    )
-                ),
-                "missingReleaseSeedKeys": dedupe_preserve_order(
-                    [
-                        str(entry).strip()
-                        for entry in (
-                            resolve_alias_value(
-                                item,
-                                primary_key="missing_release_seed_keys",
-                                secondary_key="missingReleaseSeedKeys",
-                                field_name=f"locale_summary[{locale}].missing_release_seed_keys",
-                                source=source,
-                            )
-                            or []
+        if locale in locale_summary_by_locale:
+            raise ValueError(
+                "locale_summary must not contain duplicate locale ids after normalization "
+                f"('{locale}') in {source}"
+            )
+        locale_summary_order.append(locale)
+        locale_summary_by_locale[locale] = {
+            "locale": locale,
+            "untranslatedKeyCount": normalize_positive_int(
+                resolve_alias_value(
+                    item,
+                    primary_key="untranslated_key_count",
+                    secondary_key="untranslatedKeyCount",
+                    field_name=f"locale_summary[{locale}].untranslated_key_count",
+                    source=source,
+                )
+            ),
+            "overrideCount": normalize_positive_int(
+                resolve_alias_value(
+                    item,
+                    primary_key="override_count",
+                    secondary_key="overrideCount",
+                    field_name=f"locale_summary[{locale}].override_count",
+                    source=source,
+                )
+            ),
+            "minimumOverrideCount": normalize_positive_int(
+                resolve_alias_value(
+                    item,
+                    primary_key="minimum_override_count",
+                    secondary_key="minimumOverrideCount",
+                    field_name=f"locale_summary[{locale}].minimum_override_count",
+                    source=source,
+                )
+            ),
+            "missingReleaseSeedKeys": dedupe_preserve_order(
+                [
+                    str(entry).strip()
+                    for entry in (
+                        resolve_alias_value(
+                            item,
+                            primary_key="missing_release_seed_keys",
+                            secondary_key="missingReleaseSeedKeys",
+                            field_name=f"locale_summary[{locale}].missing_release_seed_keys",
+                            source=source,
                         )
-                        if str(entry).strip()
-                    ]
-                ),
-                "legacyXmlPresent": bool(
-                    resolve_alias_value(
-                        item,
-                        primary_key="legacy_xml_present",
-                        secondary_key="legacyXmlPresent",
-                        field_name=f"locale_summary[{locale}].legacy_xml_present",
-                        source=source,
+                        or []
                     )
-                ),
-                "legacyDataXmlPresent": bool(
-                    resolve_alias_value(
-                        item,
-                        primary_key="legacy_data_xml_present",
-                        secondary_key="legacyDataXmlPresent",
-                        field_name=f"locale_summary[{locale}].legacy_data_xml_present",
-                        source=source,
-                    )
-                ),
-            }
+                    if str(entry).strip()
+                ]
+            ),
+            "legacyXmlPresent": bool(
+                resolve_alias_value(
+                    item,
+                    primary_key="legacy_xml_present",
+                    secondary_key="legacyXmlPresent",
+                    field_name=f"locale_summary[{locale}].legacy_xml_present",
+                    source=source,
+                )
+            ),
+            "legacyDataXmlPresent": bool(
+                resolve_alias_value(
+                    item,
+                    primary_key="legacy_data_xml_present",
+                    secondary_key="legacyDataXmlPresent",
+                    field_name=f"locale_summary[{locale}].legacy_data_xml_present",
+                    source=source,
+                )
+            ),
+        }
+    unexpected_locale_summary_locales = sorted(
+        locale for locale in locale_summary_by_locale if locale not in REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+    )
+    if unexpected_locale_summary_locales:
+        raise ValueError(
+            "locale_summary has unexpected locale ids outside canonical shipping locales "
+            f"({', '.join(unexpected_locale_summary_locales)}) in {source}"
         )
-    locale_summary_rows.sort(key=lambda row: row.get("locale") or "")
+    missing_locale_summary_locales = [
+        locale for locale in REQUIRED_LOCALIZATION_SHIPPING_LOCALES if locale not in locale_summary_by_locale
+    ]
+    if missing_locale_summary_locales:
+        raise ValueError(
+            "locale_summary must include every canonical shipping locale "
+            f"({', '.join(missing_locale_summary_locales)}) in {source}"
+        )
+    if tuple(locale_summary_order) != REQUIRED_LOCALIZATION_SHIPPING_LOCALES:
+        raise ValueError(
+            "locale_summary must preserve canonical locale ordering "
+            f"(actual={locale_summary_order}, expected={list(REQUIRED_LOCALIZATION_SHIPPING_LOCALES)}) in {source}"
+        )
+    locale_summary_rows = [
+        locale_summary_by_locale[locale]
+        for locale in REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+    ]
     return {
         "status": status,
         "generatedAt": generated_at,

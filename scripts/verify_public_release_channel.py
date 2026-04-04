@@ -1618,6 +1618,7 @@ def verify_release_truth(payload: dict, source: str) -> None:
             f"releaseProof.uiLocalizationReleaseGate.localeSummary must be a list in {source}"
         )
     locale_rows: dict[str, dict[str, Any]] = {}
+    locale_summary_order: list[str] = []
     for index, item in enumerate(locale_summary):
         if not isinstance(item, dict):
             raise SystemExit(
@@ -1633,6 +1634,7 @@ def verify_release_truth(payload: dict, source: str) -> None:
                 f"releaseProof.uiLocalizationReleaseGate.localeSummary has duplicate locale '{locale}' in {source}"
             )
         locale_rows[locale] = item
+        locale_summary_order.append(locale)
 
     unexpected_locale_rows = sorted(
         locale for locale in locale_rows if locale not in shipping_locales
@@ -1649,6 +1651,14 @@ def verify_release_truth(payload: dict, source: str) -> None:
             raise SystemExit(
                 f"releaseProof.uiLocalizationReleaseGate.localeSummary is missing locale '{locale}' in {source}"
             )
+    if tuple(locale_summary_order) != REQUIRED_LOCALIZATION_SHIPPING_LOCALES:
+        raise SystemExit(
+            "releaseProof.uiLocalizationReleaseGate.localeSummary must preserve canonical locale ordering "
+            f"(actual={locale_summary_order}, expected={list(REQUIRED_LOCALIZATION_SHIPPING_LOCALES)}) in {source}"
+        )
+
+    for locale in REQUIRED_LOCALIZATION_SHIPPING_LOCALES:
+        row = locale_rows[locale]
         untranslated = parse_positive_int(
             resolve_alias_value(
                 row,

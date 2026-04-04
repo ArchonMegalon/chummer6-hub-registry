@@ -1590,6 +1590,31 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.locale-ordering.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
+cp /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.locale-summary-ordering.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+rows = payload.get("locale_summary") or []
+if len(rows) < 2:
+    raise SystemExit("verify gate failed: expected multiple locale_summary rows in localization fixture.")
+payload["locale_summary"] = [rows[1], rows[0], *rows[2:]]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null; then
+  echo "verify gate failed: materializer should reject localization proof with non-canonical locale_summary ordering." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.locale-summary-ordering.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
@@ -1644,6 +1669,24 @@ path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: verifier should reject localization proof missing non_english_generated_artifact_smoke acceptance coverage." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+rows = payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"]
+if len(rows) < 2:
+    raise SystemExit("verify gate failed: expected multiple localeSummary rows in localization fixture.")
+payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = [rows[1], rows[0], *rows[2:]]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject localization proof with non-canonical localeSummary ordering." >&2
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
@@ -2123,6 +2166,14 @@ assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["defaultKeyCount"]
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["explicitFallbackRuntime"] == "pass"
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["signoffSmokeRunnerStatus"] == "pass"
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["shippingLocales"] == [
+    "en-us",
+    "de-de",
+    "fr-fr",
+    "ja-jp",
+    "pt-br",
+    "zh-cn",
+]
+assert [row["locale"] for row in canonical["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"]] == [
     "en-us",
     "de-de",
     "fr-fr",

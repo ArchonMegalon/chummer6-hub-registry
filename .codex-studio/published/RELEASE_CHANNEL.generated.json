@@ -42,19 +42,19 @@
       ],
       "localeSummary": [
         {
-          "locale": "de-de",
+          "locale": "en-us",
           "untranslatedKeyCount": 0,
           "overrideCount": 383,
-          "minimumOverrideCount": 40,
+          "minimumOverrideCount": 383,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
           "legacyDataXmlPresent": true
         },
         {
-          "locale": "en-us",
+          "locale": "de-de",
           "untranslatedKeyCount": 0,
           "overrideCount": 383,
-          "minimumOverrideCount": 383,
+          "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
           "legacyDataXmlPresent": true
