@@ -1537,6 +1537,7 @@ def desktop_tuple_coverage_is_complete(coverage: dict[str, Any] | None) -> bool:
             "missingRequiredPlatforms",
             "missingRequiredHeads",
             "missingRequiredPlatformHeadPairs",
+            "missingRequiredPlatformHeadRidTuples",
         )
     )
 
@@ -1547,6 +1548,11 @@ def desktop_tuple_coverage_gap_summary(coverage: dict[str, Any] | None) -> str:
     missing_platforms = [str(item).strip() for item in coverage.get("missingRequiredPlatforms") or [] if str(item).strip()]
     missing_heads = [str(item).strip() for item in coverage.get("missingRequiredHeads") or [] if str(item).strip()]
     missing_pairs = [str(item).strip() for item in coverage.get("missingRequiredPlatformHeadPairs") or [] if str(item).strip()]
+    missing_tuples = [
+        str(item).strip()
+        for item in coverage.get("missingRequiredPlatformHeadRidTuples") or []
+        if str(item).strip()
+    ]
     details: list[str] = []
     if missing_platforms:
         details.append("platforms: " + ", ".join(missing_platforms))
@@ -1554,6 +1560,8 @@ def desktop_tuple_coverage_gap_summary(coverage: dict[str, Any] | None) -> str:
         details.append("heads: " + ", ".join(missing_heads))
     if missing_pairs:
         details.append("pairs: " + ", ".join(missing_pairs))
+    if missing_tuples:
+        details.append("tuples: " + ", ".join(missing_tuples))
     if not details:
         return "required desktop tuple coverage is complete"
     return "required desktop tuple coverage is incomplete (" + "; ".join(details) + ")"
