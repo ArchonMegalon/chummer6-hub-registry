@@ -139,6 +139,27 @@ ALLOWED_LOCALIZATION_LOCALE_SUMMARY_ROW_KEYS = (
     "legacyDataXmlPresent",
     "legacy_data_xml_present",
 )
+ALLOWED_DESKTOP_TUPLE_COVERAGE_KEYS = (
+    "requiredDesktopPlatforms",
+    "requiredDesktopHeads",
+    "promotedInstallerTuples",
+    "promotedPlatformHeads",
+    "requiredDesktopPlatformHeadRidTuples",
+    "promotedPlatformHeadRidTuples",
+    "missingRequiredPlatforms",
+    "missingRequiredHeads",
+    "missingRequiredPlatformHeadPairs",
+    "missingRequiredPlatformHeadRidTuples",
+)
+ALLOWED_DESKTOP_TUPLE_ROW_KEYS = (
+    "tupleId",
+    "head",
+    "platform",
+    "rid",
+    "arch",
+    "kind",
+    "artifactId",
+)
 DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
 DEFAULT_STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS = 300
@@ -546,6 +567,14 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
     coverage = payload.get("desktopTupleCoverage")
     if not isinstance(coverage, dict):
         raise SystemExit(f"{source} is missing desktopTupleCoverage")
+    unexpected_coverage_keys = sorted(
+        str(key) for key in coverage.keys() if str(key) not in ALLOWED_DESKTOP_TUPLE_COVERAGE_KEYS
+    )
+    if unexpected_coverage_keys:
+        raise SystemExit(
+            "desktopTupleCoverage has unexpected keys "
+            f"({', '.join(unexpected_coverage_keys)}) in {source}"
+        )
 
     required_platforms = coverage.get("requiredDesktopPlatforms")
     required_heads = coverage.get("requiredDesktopHeads")
@@ -638,6 +667,14 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
     for item in promoted_tuples:
         if not isinstance(item, dict):
             raise SystemExit(f"{source} desktopTupleCoverage.promotedInstallerTuples must contain only objects")
+        unexpected_tuple_row_keys = sorted(
+            str(key) for key in item.keys() if str(key) not in ALLOWED_DESKTOP_TUPLE_ROW_KEYS
+        )
+        if unexpected_tuple_row_keys:
+            raise SystemExit(
+                "desktopTupleCoverage.promotedInstallerTuples rows have unexpected keys "
+                f"({', '.join(unexpected_tuple_row_keys)}) in {source}"
+            )
         head = normalized_token(item.get("head"))
         platform = normalized_platform_token(item.get("platform"))
         rid = normalized_token(item.get("rid"))
