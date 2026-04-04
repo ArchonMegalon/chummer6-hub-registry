@@ -244,6 +244,8 @@ def normalize_release_proof_route(raw_route: object, *, field_path: str, source:
     route = raw_route.strip()
     if not route:
         raise SystemExit(f"{field_path} must not be blank in {source}")
+    if route != raw_route:
+        raise SystemExit(f"{field_path} must not include leading/trailing whitespace in {source}")
     if not route.startswith("/"):
         raise SystemExit(f"{field_path} must be a slash-led route path in {source}")
     if any(character.isspace() for character in route):
@@ -255,6 +257,8 @@ def normalize_release_proof_route(raw_route: object, *, field_path: str, source:
     segments = route.split("/")
     if any(segment in {".", ".."} for segment in segments):
         raise SystemExit(f"{field_path} must not include dot-segment traversal in {source}")
+    if route != route.lower():
+        raise SystemExit(f"{field_path} must use canonical lowercase route casing in {source}")
     canonical_route = route.lower()
     if canonical_route != "/":
         canonical_route = canonical_route.rstrip("/")
@@ -338,9 +342,14 @@ def parse_required_token_list(value: object, *, field_path: str, source: str) ->
     for index, item in enumerate(value):
         if not isinstance(item, str):
             raise SystemExit(f"{field_path}[{index}] must be a string in {source}")
-        token = normalized_token(item)
+        if item != item.strip():
+            raise SystemExit(f"{field_path}[{index}] must not include leading/trailing whitespace in {source}")
+        token = item.strip()
         if not token:
             raise SystemExit(f"{field_path}[{index}] must not be blank in {source}")
+        if token != token.lower():
+            raise SystemExit(f"{field_path}[{index}] must use canonical lowercase token casing in {source}")
+        token = token.lower()
         tokens.append(token)
     return tokens
 
@@ -995,9 +1004,18 @@ def verify_release_truth(payload: dict, source: str) -> None:
     for index, raw_journey in enumerate(journeys_passed):
         if not isinstance(raw_journey, str):
             raise SystemExit(f"releaseProof.journeysPassed[{index}] must be a string in {source}")
-        token = normalized_token(raw_journey)
+        if raw_journey != raw_journey.strip():
+            raise SystemExit(
+                f"releaseProof.journeysPassed[{index}] must not include leading/trailing whitespace in {source}"
+            )
+        token = raw_journey.strip()
         if not token:
             raise SystemExit(f"releaseProof.journeysPassed[{index}] must not be blank in {source}")
+        if token != token.lower():
+            raise SystemExit(
+                f"releaseProof.journeysPassed[{index}] must use canonical lowercase token casing in {source}"
+            )
+        token = token.lower()
         if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", token):
             raise SystemExit(
                 f"releaseProof.journeysPassed[{index}] must be a canonical journey id token in {source}"

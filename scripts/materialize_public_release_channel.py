@@ -69,6 +69,8 @@ def normalize_release_proof_route(raw_route: Any, *, field_name: str, source: st
     route = raw_route.strip()
     if not route:
         raise ValueError(f"{field_name} must not be blank in {source}")
+    if route != raw_route:
+        raise ValueError(f"{field_name} must not include leading/trailing whitespace in {source}")
     if not route.startswith("/"):
         raise ValueError(f"{field_name} must be a slash-led route path in {source}")
     if any(character.isspace() for character in route):
@@ -80,6 +82,8 @@ def normalize_release_proof_route(raw_route: Any, *, field_name: str, source: st
     segments = route.split("/")
     if any(segment in {".", ".."} for segment in segments):
         raise ValueError(f"{field_name} must not include dot-segment traversal in {source}")
+    if route != route.lower():
+        raise ValueError(f"{field_name} must use canonical lowercase route casing in {source}")
     canonical_route = route.lower()
     if canonical_route != "/":
         canonical_route = canonical_route.rstrip("/")
@@ -604,9 +608,14 @@ def normalize_required_token_list(
     for index, item in enumerate(raw_values):
         if not isinstance(item, str):
             raise ValueError(f"{field_name}[{index}] must be a string in {source}")
-        token = normalized_token(item)
+        if item != item.strip():
+            raise ValueError(f"{field_name}[{index}] must not include leading/trailing whitespace in {source}")
+        token = item.strip()
         if not token:
             raise ValueError(f"{field_name}[{index}] must not be blank in {source}")
+        if token != token.lower():
+            raise ValueError(f"{field_name}[{index}] must use canonical lowercase token casing in {source}")
+        token = token.lower()
         if token in seen:
             raise ValueError(f"{field_name} must not contain duplicate ids ('{token}') in {source}")
         seen.add(token)
