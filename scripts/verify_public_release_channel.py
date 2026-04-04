@@ -45,6 +45,14 @@ DEFAULT_HTTP_HEADERS = {
 }
 REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
 REQUIRED_LOCALIZATION_SHIPPING_LOCALES = ("en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn")
+REQUIRED_LOCALIZATION_ACCEPTANCE_GATES = (
+    "missing_key_fail_fast",
+    "locale_smoke_first_launch",
+    "locale_smoke_settings",
+    "locale_smoke_explain",
+    "locale_smoke_updater",
+    "locale_smoke_support",
+)
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
 REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT = "pre_ui_event_loop"
 PLATFORM_ALIASES = {
@@ -859,6 +867,13 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(
             f"releaseProof.uiLocalizationReleaseGate.defaultKeyCount must be a positive integer in {source}"
         )
+    explicit_fallback_runtime = normalized_token(
+        first_present(ui_localization_release_gate, "explicitFallbackRuntime", "explicit_fallback_runtime")
+    )
+    if explicit_fallback_runtime not in {"pass", "passed", "ready"}:
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.explicitFallbackRuntime must be pass/passed/ready in {source}"
+        )
 
     shipping_locales = normalized_string_list(
         ui_localization_release_gate.get("shippingLocales")
@@ -867,6 +882,36 @@ def verify_release_truth(payload: dict, source: str) -> None:
     if sorted(shipping_locales) != sorted(REQUIRED_LOCALIZATION_SHIPPING_LOCALES):
         raise SystemExit(
             f"releaseProof.uiLocalizationReleaseGate.shippingLocales must equal {list(REQUIRED_LOCALIZATION_SHIPPING_LOCALES)} in {source}"
+        )
+    acceptance_gates = normalized_string_list(
+        first_present(ui_localization_release_gate, "acceptanceGates", "acceptance_gates")
+    )
+    for gate in REQUIRED_LOCALIZATION_ACCEPTANCE_GATES:
+        if gate not in acceptance_gates:
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.acceptanceGates must include '{gate}' in {source}"
+            )
+    blocking_findings_count = parse_positive_int(
+        first_present(ui_localization_release_gate, "blockingFindingsCount", "blocking_findings_count")
+    )
+    if blocking_findings_count is None:
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.blockingFindingsCount must be an integer in {source}"
+        )
+    if blocking_findings_count != 0:
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.blockingFindingsCount must equal 0 in {source}"
+        )
+    translation_backlog_findings_count = parse_positive_int(
+        first_present(ui_localization_release_gate, "translationBacklogFindingsCount", "translation_backlog_findings_count")
+    )
+    if translation_backlog_findings_count is None:
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.translationBacklogFindingsCount must be an integer in {source}"
+        )
+    if translation_backlog_findings_count != 0:
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.translationBacklogFindingsCount must equal 0 in {source}"
         )
 
     locale_summary = ui_localization_release_gate.get("localeSummary") or ui_localization_release_gate.get("locale_summary")
@@ -905,6 +950,45 @@ def verify_release_truth(payload: dict, source: str) -> None:
         if untranslated != 0:
             raise SystemExit(
                 f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' must have untranslatedKeyCount=0 in {source}"
+            )
+        override_count = parse_positive_int(
+            first_present(row, "overrideCount", "override_count")
+        )
+        if override_count is None:
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' must include overrideCount in {source}"
+            )
+        if override_count < default_key_count:
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' must have overrideCount >= defaultKeyCount in {source}"
+            )
+        minimum_override_count = parse_positive_int(
+            first_present(row, "minimumOverrideCount", "minimum_override_count")
+        )
+        if minimum_override_count is None:
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' must include minimumOverrideCount in {source}"
+            )
+        if override_count < minimum_override_count:
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' overrideCount must be >= minimumOverrideCount in {source}"
+            )
+        missing_release_seed_keys = first_present(row, "missingReleaseSeedKeys", "missing_release_seed_keys")
+        if not isinstance(missing_release_seed_keys, list):
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' must include missingReleaseSeedKeys as a list in {source}"
+            )
+        if any(str(item).strip() for item in missing_release_seed_keys):
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' must have no missingReleaseSeedKeys in {source}"
+            )
+        if first_present(row, "legacyXmlPresent", "legacy_xml_present") is not True:
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' must set legacyXmlPresent=true in {source}"
+            )
+        if first_present(row, "legacyDataXmlPresent", "legacy_data_xml_present") is not True:
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' must set legacyDataXmlPresent=true in {source}"
             )
     runtime_bundle_heads = payload.get("runtimeBundleHeads")
     if runtime_bundle_heads is not None and not isinstance(runtime_bundle_heads, list):

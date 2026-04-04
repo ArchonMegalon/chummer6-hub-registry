@@ -463,8 +463,12 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
             "status": "missing",
             "generatedAt": None,
             "defaultKeyCount": None,
+            "explicitFallbackRuntime": "missing",
             "shippingLocales": [],
             "localeSummary": [],
+            "acceptanceGates": [],
+            "blockingFindingsCount": 0,
+            "translationBacklogFindingsCount": 0,
         },
     }
 
@@ -513,11 +517,35 @@ def normalize_ui_localization_release_gate_payload(
     status = str(loaded.get("status") or "").strip().lower() or "missing"
     generated_at = str(loaded.get("generated_at") or loaded.get("generatedAt") or "").strip() or None
     default_key_count = normalize_positive_int(first_present(loaded, "default_key_count", "defaultKeyCount"))
+    explicit_fallback_runtime = str(
+        first_present(loaded, "explicit_fallback_runtime", "explicitFallbackRuntime") or ""
+    ).strip().lower() or "missing"
     shipping_locales = dedupe_preserve_order(
         [
             normalized_token(item)
             for item in (loaded.get("shipping_locales") or loaded.get("shippingLocales") or [])
             if normalized_token(item)
+        ]
+    )
+    acceptance_gates = dedupe_preserve_order(
+        [
+            normalized_token(item)
+            for item in (loaded.get("acceptance_gates") or loaded.get("acceptanceGates") or [])
+            if normalized_token(item)
+        ]
+    )
+    blocking_findings_count = len(
+        [
+            item
+            for item in (loaded.get("blocking_findings") or loaded.get("blockingFindings") or [])
+            if isinstance(item, (str, dict))
+        ]
+    )
+    translation_backlog_findings_count = len(
+        [
+            item
+            for item in (loaded.get("translation_backlog_findings") or loaded.get("translationBacklogFindings") or [])
+            if isinstance(item, (str, dict))
         ]
     )
     locale_summary_rows: list[dict[str, Any]] = []
@@ -534,6 +562,23 @@ def normalize_ui_localization_release_gate_payload(
                     first_present(item, "untranslated_key_count", "untranslatedKeyCount")
                 ),
                 "overrideCount": normalize_positive_int(first_present(item, "override_count", "overrideCount")),
+                "minimumOverrideCount": normalize_positive_int(
+                    first_present(item, "minimum_override_count", "minimumOverrideCount")
+                ),
+                "missingReleaseSeedKeys": dedupe_preserve_order(
+                    [
+                        str(entry).strip()
+                        for entry in (
+                            first_present(item, "missing_release_seed_keys", "missingReleaseSeedKeys")
+                            or []
+                        )
+                        if str(entry).strip()
+                    ]
+                ),
+                "legacyXmlPresent": bool(first_present(item, "legacy_xml_present", "legacyXmlPresent")),
+                "legacyDataXmlPresent": bool(
+                    first_present(item, "legacy_data_xml_present", "legacyDataXmlPresent")
+                ),
             }
         )
     locale_summary_rows.sort(key=lambda row: row.get("locale") or "")
@@ -541,8 +586,12 @@ def normalize_ui_localization_release_gate_payload(
         "status": status,
         "generatedAt": generated_at,
         "defaultKeyCount": default_key_count,
+        "explicitFallbackRuntime": explicit_fallback_runtime,
         "shippingLocales": shipping_locales,
         "localeSummary": locale_summary_rows,
+        "acceptanceGates": acceptance_gates,
+        "blockingFindingsCount": blocking_findings_count,
+        "translationBacklogFindingsCount": translation_backlog_findings_count,
     }
 
 
@@ -927,8 +976,12 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "status": "missing",
         "generatedAt": None,
         "defaultKeyCount": None,
+        "explicitFallbackRuntime": "missing",
         "shippingLocales": [],
         "localeSummary": [],
+        "acceptanceGates": [],
+        "blockingFindingsCount": 0,
+        "translationBacklogFindingsCount": 0,
     }
     runtime_bundle_heads = apply_runtime_bundle_compatibility(
         load_runtime_bundle_heads(args.runtime_bundles),

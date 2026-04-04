@@ -203,6 +203,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
   "status": "pass",
   "generated_at": "2026-04-03T22:59:41Z",
   "default_key_count": 383,
+  "explicit_fallback_runtime": "pass",
   "shipping_locales": [
     "en-us",
     "de-de",
@@ -211,12 +212,22 @@ cat >/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
     "pt-br",
     "zh-cn"
   ],
+  "acceptance_gates": [
+    "missing_key_fail_fast",
+    "locale_smoke_first_launch",
+    "locale_smoke_settings",
+    "locale_smoke_explain",
+    "locale_smoke_updater",
+    "locale_smoke_support"
+  ],
+  "blocking_findings": [],
+  "translation_backlog_findings": [],
   "locale_summary": [
-    { "locale": "de-de", "untranslated_key_count": 0, "override_count": 383 },
-    { "locale": "fr-fr", "untranslated_key_count": 0, "override_count": 383 },
-    { "locale": "ja-jp", "untranslated_key_count": 0, "override_count": 383 },
-    { "locale": "pt-br", "untranslated_key_count": 0, "override_count": 383 },
-    { "locale": "zh-cn", "untranslated_key_count": 0, "override_count": 383 }
+    { "locale": "de-de", "untranslated_key_count": 0, "override_count": 383, "minimum_override_count": 40, "missing_release_seed_keys": [], "legacy_xml_present": true, "legacy_data_xml_present": true },
+    { "locale": "fr-fr", "untranslated_key_count": 0, "override_count": 383, "minimum_override_count": 40, "missing_release_seed_keys": [], "legacy_xml_present": true, "legacy_data_xml_present": true },
+    { "locale": "ja-jp", "untranslated_key_count": 0, "override_count": 383, "minimum_override_count": 40, "missing_release_seed_keys": [], "legacy_xml_present": true, "legacy_data_xml_present": true },
+    { "locale": "pt-br", "untranslated_key_count": 0, "override_count": 383, "minimum_override_count": 40, "missing_release_seed_keys": [], "legacy_xml_present": true, "legacy_data_xml_present": true },
+    { "locale": "zh-cn", "untranslated_key_count": 0, "override_count": 383, "minimum_override_count": 40, "missing_release_seed_keys": [], "legacy_xml_present": true, "legacy_data_xml_present": true }
   ]
 }
 JSON
@@ -349,6 +360,21 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_re
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"]["uiLocalizationReleaseGate"]["explicitFallbackRuntime"] = "missing"
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject release channel payloads missing passing explicit fallback runtime proof." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py --require-complete-desktop-coverage /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: strict verifier should reject incomplete required desktop tuple coverage." >&2
   exit 1
@@ -410,9 +436,28 @@ assert canonical["supportabilityState"] == "review_required"
 assert canonical["releaseProof"]["status"] == "passed"
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["status"] == "pass"
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["defaultKeyCount"] == 383
+assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["explicitFallbackRuntime"] == "pass"
 assert sorted(canonical["releaseProof"]["uiLocalizationReleaseGate"]["shippingLocales"]) == sorted(
     ["en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn"]
 )
+assert all(
+    locale.get("minimumOverrideCount") == 40
+    and locale.get("overrideCount") == 383
+    and locale.get("missingReleaseSeedKeys") == []
+    and locale.get("legacyXmlPresent") is True
+    and locale.get("legacyDataXmlPresent") is True
+    for locale in canonical["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"]
+)
+assert sorted(canonical["releaseProof"]["uiLocalizationReleaseGate"]["acceptanceGates"]) == sorted([
+    "missing_key_fail_fast",
+    "locale_smoke_first_launch",
+    "locale_smoke_settings",
+    "locale_smoke_explain",
+    "locale_smoke_updater",
+    "locale_smoke_support",
+])
+assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["blockingFindingsCount"] == 0
+assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["translationBacklogFindingsCount"] == 0
 assert "required desktop tuple coverage is incomplete" in canonical["supportabilitySummary"]
 assert "required desktop tuple coverage is incomplete" in canonical["knownIssueSummary"]
 coverage = canonical.get("desktopTupleCoverage") or {}

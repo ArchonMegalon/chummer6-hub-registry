@@ -188,7 +188,7 @@ Use `CHUMMER_VERIFY_STARTUP_SMOKE_MAX_AGE_SECONDS` (or shared `CHUMMER_DESKTOP_S
 Each promoted artifact row must carry explicit `channel` metadata that matches top-level `channelId` so channel/head/platform/arch truth stays aligned in one object graph.
 `desktopTupleCoverage` is required and must be internally consistent with published artifacts, so missing required heads/platforms are explicitly visible in release truth instead of implied by silent omissions.
 `promotedInstallerTuples` rows are also verifier-bound object truth (`tupleId`, `head`, `platform`, `rid`, `arch`, `kind`, `artifactId`) and must match canonical artifact metadata exactly.
-`releaseProof.uiLocalizationReleaseGate` is required and verifier-bound: it must be passing, timestamped, include all shipping locales (`en-us`, `de-de`, `fr-fr`, `ja-jp`, `pt-br`, `zh-cn`), and show zero `untranslatedKeyCount` for each non-default shipping locale.
+`releaseProof.uiLocalizationReleaseGate` is required and verifier-bound: it must be passing, timestamped, include all shipping locales (`en-us`, `de-de`, `fr-fr`, `ja-jp`, `pt-br`, `zh-cn`), and show source-quality non-English proof (`explicitFallbackRuntime=pass`, required localization acceptance-gate coverage, zero blocking/backlog findings, zero `untranslatedKeyCount`, and no missing release-seed keys per non-default locale with legacy locale-bridge presence).
 
 ## Operational rule
 
