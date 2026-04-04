@@ -228,6 +228,152 @@ assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == sor
     "blazor-desktop:osx-arm64:macos",
 ])
 PY
+cp /tmp/chummer-hub-registry-startup-smoke-filter-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.json
+cp /tmp/chummer-hub-registry-startup-smoke-filter-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-shape-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null
+release_proof_shape_log="/tmp/chummer-hub-registry-release-proof-shape.log"
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.shape.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"] = "invalid"
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject non-object releaseProof payloads." >&2
+  exit 1
+fi
+if ! rg -F "releaseProof must be an object" "$release_proof_shape_log" >/dev/null; then
+  echo "verify gate failed: expected non-object releaseProof fail-close marker from verifier." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.shape.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.shape.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"]["journeysPassed"] = "install_claim_restore_continue"
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject non-list releaseProof.journeysPassed." >&2
+  exit 1
+fi
+if ! rg -F "releaseProof.journeysPassed must be a list" "$release_proof_shape_log" >/dev/null; then
+  echo "verify gate failed: expected non-list releaseProof.journeysPassed fail-close marker from verifier." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.shape.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.shape.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"]["journeysPassed"] = []
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject empty releaseProof.journeysPassed." >&2
+  exit 1
+fi
+if ! rg -F "releaseProof.journeysPassed must include at least one journey" "$release_proof_shape_log" >/dev/null; then
+  echo "verify gate failed: expected empty releaseProof.journeysPassed fail-close marker from verifier." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.shape.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.shape.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"]["proofRoutes"] = "not-a-list"
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject non-list releaseProof.proofRoutes." >&2
+  exit 1
+fi
+if ! rg -F "releaseProof.proofRoutes must be a list" "$release_proof_shape_log" >/dev/null; then
+  echo "verify gate failed: expected non-list releaseProof.proofRoutes fail-close marker from verifier." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.shape.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.shape.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"]["proofRoutes"] = []
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject empty releaseProof.proofRoutes." >&2
+  exit 1
+fi
+if ! rg -F "releaseProof.proofRoutes must include at least one route" "$release_proof_shape_log" >/dev/null; then
+  echo "verify gate failed: expected empty releaseProof.proofRoutes fail-close marker from verifier." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.shape.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.shape.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+gate = payload["releaseProof"]["uiLocalizationReleaseGate"]
+gate["generatedAt"] = "not-a-timestamp"
+gate.pop("generated_at", None)
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject non-ISO releaseProof.uiLocalizationReleaseGate.generatedAt." >&2
+  exit 1
+fi
+if ! rg -F "releaseProof.uiLocalizationReleaseGate.generatedAt must be an ISO timestamp" "$release_proof_shape_log" >/dev/null; then
+  echo "verify gate failed: expected non-ISO releaseProof.uiLocalizationReleaseGate.generatedAt fail-close marker from verifier." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.shape.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+
+startup_smoke_shape_log="/tmp/chummer-hub-registry-startup-smoke-shape.log"
+startup_smoke_receipt_path="/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json"
+cp "$startup_smoke_receipt_path" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.backup.json
+printf '{"status":"pass",' >"$startup_smoke_receipt_path"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject malformed startup-smoke receipt JSON." >&2
+  exit 1
+fi
+if ! rg -F "startup-smoke receipt is not valid JSON" "$startup_smoke_shape_log" >/dev/null; then
+  echo "verify gate failed: expected malformed startup-smoke receipt JSON fail-close marker from verifier." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.backup.json "$startup_smoke_receipt_path"
 cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json <<'JSON'
 {
   "status": "pass",
@@ -1956,6 +2102,58 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 {
   "status": "pass",
   "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "blazor-desktop",
+  "channelId": "preview",
+  "platform": "windows",
+  "rid": "win-x64",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
+}
+JSON
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+startup_smoke_shape_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject startup-smoke receipt head mismatch." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+if ! rg -F "startup-smoke receipt head mismatch for promoted desktop installer tuple avalonia:windows:win-x64" "$startup_smoke_shape_log" >/dev/null; then
+  echo "verify gate failed: expected startup-smoke head-mismatch fail-close marker from verifier." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+rm -f "$startup_smoke_shape_log"
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "avalonia",
+  "channelId": "preview",
+  "platform": "linux",
+  "rid": "win-x64",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
+}
+JSON
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+startup_smoke_shape_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject startup-smoke receipt platform mismatch." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+if ! rg -F "startup-smoke receipt platform mismatch for promoted desktop installer tuple avalonia:windows:win-x64" "$startup_smoke_shape_log" >/dev/null; then
+  echo "verify gate failed: expected startup-smoke platform-mismatch fail-close marker from verifier." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+rm -f "$startup_smoke_shape_log"
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
   "headId": "avalonia",
   "channelId": "preview",
   "rid": "win-x64",
@@ -2048,6 +2246,149 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_re
 fi
 if ! rg -F "startup-smoke receipt timestamp is missing/invalid for promoted desktop installer tuple avalonia:windows:win-x64" "$startup_smoke_shape_log" >/dev/null; then
   echo "verify gate failed: expected startup-smoke missing-timestamp fail-close marker from verifier." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+rm -f "$startup_smoke_shape_log"
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "avalonia",
+  "channelId": "preview",
+  "platform": "windows",
+  "rid": "win-x64",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
+  "recordedAtUtc": "STARTUP_SMOKE_STALE_RECORDED_AT"
+}
+JSON
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_STALE_RECORDED_AT/${startup_smoke_stale_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+startup_smoke_shape_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject stale startup-smoke receipts." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+if ! rg -F "startup-smoke receipt is stale for promoted desktop installer tuple avalonia:windows:win-x64" "$startup_smoke_shape_log" >/dev/null; then
+  echo "verify gate failed: expected startup-smoke stale-age fail-close marker from verifier." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+rm -f "$startup_smoke_shape_log"
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "failed",
+  "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "avalonia",
+  "channelId": "preview",
+  "platform": "windows",
+  "rid": "win-x64",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
+}
+JSON
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+startup_smoke_shape_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject non-passing startup-smoke receipt status." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+if ! rg -F "startup-smoke receipt status is not passing for promoted desktop installer tuple avalonia:windows:win-x64" "$startup_smoke_shape_log" >/dev/null; then
+  echo "verify gate failed: expected startup-smoke non-passing-status fail-close marker from verifier." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+rm -f "$startup_smoke_shape_log"
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "avalonia",
+  "channelId": "preview",
+  "platform": "windows",
+  "rid": "win-arm64",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
+}
+JSON
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+startup_smoke_shape_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject startup-smoke receipt rid mismatch." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+if ! rg -F "startup-smoke receipt rid mismatch for promoted desktop installer tuple avalonia:windows:win-x64" "$startup_smoke_shape_log" >/dev/null; then
+  echo "verify gate failed: expected startup-smoke rid-mismatch fail-close marker from verifier." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+rm -f "$startup_smoke_shape_log"
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "avalonia",
+  "channelId": "preview",
+  "platform": "windows",
+  "arch": "arm64",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
+}
+JSON
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+startup_smoke_shape_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject startup-smoke receipt arch mismatch when rid is absent." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+if ! rg -F "startup-smoke receipt arch mismatch for promoted desktop installer tuple avalonia:windows:win-x64" "$startup_smoke_shape_log" >/dev/null; then
+  echo "verify gate failed: expected startup-smoke arch-mismatch fail-close marker from verifier." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+rm -f "$startup_smoke_shape_log"
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "avalonia",
+  "channelId": "preview",
+  "platform": "windows",
+  "rid": "win-x64",
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
+}
+JSON
+sed -i "s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+startup_smoke_shape_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject startup-smoke receipts missing artifactDigest metadata." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+if ! rg -F "startup-smoke receipt artifactDigest is missing for promoted desktop installer tuple avalonia:windows:win-x64" "$startup_smoke_shape_log" >/dev/null; then
+  echo "verify gate failed: expected startup-smoke missing-artifactDigest fail-close marker from verifier." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+rm -f "$startup_smoke_shape_log"
+printf '[]\n' >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+startup_smoke_shape_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject startup-smoke receipts that are not JSON objects." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+if ! rg -F "startup-smoke receipt is not an object: /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json" "$startup_smoke_shape_log" >/dev/null; then
+  echo "verify gate failed: expected startup-smoke non-object fail-close marker from verifier." >&2
   rm -f "$startup_smoke_shape_log"
   exit 1
 fi
