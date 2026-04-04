@@ -57,6 +57,7 @@ REQUIRED_LOCALIZATION_ACCEPTANCE_GATES = (
     "non_english_generated_artifact_smoke",
 )
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
+DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS = 604800
 REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT = "pre_ui_event_loop"
 PLATFORM_ALIASES = {
     "osx": "macos",
@@ -212,6 +213,13 @@ def parse_startup_smoke_max_age_seconds(raw_value: object) -> int:
     parsed = parse_positive_int(raw_value)
     if parsed is None or parsed <= 0:
         return DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS
+    return parsed
+
+
+def parse_localization_gate_max_age_seconds(raw_value: object) -> int:
+    parsed = parse_positive_int(raw_value)
+    if parsed is None or parsed <= 0:
+        return DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS
     return parsed
 
 
@@ -860,8 +868,21 @@ def verify_release_truth(payload: dict, source: str) -> None:
         )
 
     gate_generated_at = ui_localization_release_gate.get("generatedAt") or ui_localization_release_gate.get("generated_at")
-    if parse_iso_timestamp(gate_generated_at) is None:
+    gate_generated_at_timestamp = parse_iso_timestamp(gate_generated_at)
+    if gate_generated_at_timestamp is None:
         raise SystemExit(f"releaseProof.uiLocalizationReleaseGate.generatedAt must be an ISO timestamp in {source}")
+    localization_gate_max_age_seconds = parse_localization_gate_max_age_seconds(
+        os.environ.get("CHUMMER_VERIFY_LOCALIZATION_GATE_MAX_AGE_SECONDS")
+        or os.environ.get("CHUMMER_UI_LOCALIZATION_GATE_MAX_AGE_SECONDS")
+    )
+    localization_gate_age_seconds = int((datetime.now(timezone.utc) - gate_generated_at_timestamp).total_seconds())
+    if localization_gate_age_seconds < 0:
+        localization_gate_age_seconds = 0
+    if localization_gate_age_seconds > localization_gate_max_age_seconds:
+        raise SystemExit(
+            "releaseProof.uiLocalizationReleaseGate.generatedAt is stale in "
+            f"{source} ({localization_gate_age_seconds}s old; max {localization_gate_max_age_seconds}s)"
+        )
 
     default_key_count = parse_positive_int(
         first_present(ui_localization_release_gate, "defaultKeyCount", "default_key_count")
