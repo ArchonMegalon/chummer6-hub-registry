@@ -468,6 +468,7 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
             "shippingLocales": [],
             "localeSummary": [],
             "acceptanceGates": [],
+            "domainCoverage": {},
             "blockingFindingsCount": 0,
             "translationBacklogFindingsCount": 0,
         },
@@ -543,6 +544,28 @@ def normalize_ui_localization_release_gate_payload(
             if normalized_token(item)
         ]
     )
+    raw_domain_coverage = first_present(loaded, "domain_coverage", "domainCoverage")
+    domain_coverage: dict[str, str] = {}
+    if isinstance(raw_domain_coverage, dict):
+        for raw_domain, raw_status in raw_domain_coverage.items():
+            domain_id = normalized_token(raw_domain)
+            if not domain_id:
+                continue
+            status_token = normalized_token(raw_status)
+            if not status_token:
+                continue
+            domain_coverage[domain_id] = status_token
+    elif isinstance(raw_domain_coverage, list):
+        for item in raw_domain_coverage:
+            if not isinstance(item, dict):
+                continue
+            domain_id = normalized_token(first_present(item, "domain", "domainId", "id"))
+            if not domain_id:
+                continue
+            status_token = normalized_token(item.get("status"))
+            if not status_token:
+                continue
+            domain_coverage[domain_id] = status_token
     blocking_findings = [
         item
         for item in (loaded.get("blocking_findings") or loaded.get("blockingFindings") or [])
@@ -612,6 +635,7 @@ def normalize_ui_localization_release_gate_payload(
         "shippingLocales": shipping_locales,
         "localeSummary": locale_summary_rows,
         "acceptanceGates": acceptance_gates,
+        "domainCoverage": {domain_id: domain_coverage[domain_id] for domain_id in sorted(domain_coverage)},
         "blockingFindings": blocking_findings,
         "blockingFindingsCount": blocking_findings_count,
         "translationBacklogFindings": translation_backlog_findings,
@@ -1005,6 +1029,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "shippingLocales": [],
         "localeSummary": [],
         "acceptanceGates": [],
+        "domainCoverage": {},
         "blockingFindingsCount": 0,
         "translationBacklogFindingsCount": 0,
     }

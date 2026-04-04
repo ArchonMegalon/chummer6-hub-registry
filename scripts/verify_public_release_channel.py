@@ -56,6 +56,13 @@ REQUIRED_LOCALIZATION_ACCEPTANCE_GATES = (
     "locale_smoke_support",
     "non_english_generated_artifact_smoke",
 )
+REQUIRED_LOCALIZATION_DOMAINS = (
+    "app_chrome",
+    "install_update_support",
+    "explain_receipts",
+    "data_rules_names",
+    "generated_artifacts",
+)
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
 DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS = 604800
 DEFAULT_LOCALIZATION_GATE_MAX_FUTURE_SKEW_SECONDS = 300
@@ -983,6 +990,58 @@ def verify_release_truth(payload: dict, source: str) -> None:
             "releaseProof.uiLocalizationReleaseGate.acceptanceGates has unexpected gate ids "
             f"({', '.join(unexpected_acceptance_gates)}) in {source}"
         )
+    domain_coverage_raw = first_present(
+        ui_localization_release_gate,
+        "domainCoverage",
+        "domain_coverage",
+    )
+    if not isinstance(domain_coverage_raw, dict):
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.domainCoverage must be an object in {source}"
+        )
+    domain_coverage: dict[str, str] = {}
+    for raw_domain, raw_status in domain_coverage_raw.items():
+        domain = normalized_token(raw_domain)
+        status_token = normalized_token(raw_status)
+        if not domain:
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.domainCoverage contains a blank domain id in {source}"
+            )
+        if not status_token:
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.domainCoverage['{domain}'] must be a status token in {source}"
+            )
+        if domain in domain_coverage:
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.domainCoverage has duplicate domain id '{domain}' in {source}"
+            )
+        domain_coverage[domain] = status_token
+    missing_domains = sorted(
+        domain
+        for domain in REQUIRED_LOCALIZATION_DOMAINS
+        if domain not in domain_coverage
+    )
+    if missing_domains:
+        raise SystemExit(
+            "releaseProof.uiLocalizationReleaseGate.domainCoverage is missing required domain ids "
+            f"({', '.join(missing_domains)}) in {source}"
+        )
+    unexpected_domains = sorted(
+        domain
+        for domain in domain_coverage
+        if domain not in REQUIRED_LOCALIZATION_DOMAINS
+    )
+    if unexpected_domains:
+        raise SystemExit(
+            "releaseProof.uiLocalizationReleaseGate.domainCoverage has unexpected domain ids "
+            f"({', '.join(unexpected_domains)}) in {source}"
+        )
+    for domain in REQUIRED_LOCALIZATION_DOMAINS:
+        if domain_coverage.get(domain) not in {"pass", "passed", "ready"}:
+            raise SystemExit(
+                "releaseProof.uiLocalizationReleaseGate.domainCoverage must be passing for domain "
+                f"'{domain}' in {source}"
+            )
     blocking_findings_count = parse_positive_int(
         first_present(ui_localization_release_gate, "blockingFindingsCount", "blocking_findings_count")
     )
