@@ -80,6 +80,8 @@ def normalize_release_proof_route(raw_route: Any, *, field_name: str, source: st
         raise ValueError(f"{field_name} must not include whitespace in {source}")
     if "?" in route or "#" in route:
         raise ValueError(f"{field_name} must not include query or fragment segments in {source}")
+    if "%" in route or "\\" in route:
+        raise ValueError(f"{field_name} must not include percent-encoded or escaped path characters in {source}")
     if "//" in route:
         raise ValueError(f"{field_name} must not include empty path segments in {source}")
     segments = route.split("/")
