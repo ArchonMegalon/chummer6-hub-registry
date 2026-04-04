@@ -55,6 +55,28 @@ def normalize_token(value: Any) -> str:
     return str(value or "").strip().lower()
 
 
+def normalize_release_proof_route(raw_route: Any, *, field_name: str, source: str) -> str:
+    if not isinstance(raw_route, str):
+        raise ValueError(f"{field_name} must be a string in {source}")
+    route = raw_route.strip()
+    if not route:
+        raise ValueError(f"{field_name} must not be blank in {source}")
+    if not route.startswith("/"):
+        raise ValueError(f"{field_name} must be a slash-led route path in {source}")
+    if any(character.isspace() for character in route):
+        raise ValueError(f"{field_name} must not include whitespace in {source}")
+    if "?" in route or "#" in route:
+        raise ValueError(f"{field_name} must not include query or fragment segments in {source}")
+    if "//" in route:
+        raise ValueError(f"{field_name} must not include empty path segments in {source}")
+    canonical_route = route.lower()
+    if canonical_route != "/":
+        canonical_route = canonical_route.rstrip("/")
+        if not canonical_route:
+            canonical_route = "/"
+    return canonical_route
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Materialize registry-owned public release channel projections.")
     parser.add_argument("--manifest", type=Path, help="Optional input compatibility manifest (`releases.json`) or canonical artifact payload.")
@@ -472,18 +494,18 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
     routes: list[str] = []
     seen_routes: set[str] = set()
     for index, raw_route in enumerate(raw_routes):
-        if not isinstance(raw_route, str):
-            raise ValueError(f"proof_routes[{index}] must be a string in {source}")
-        route = raw_route.strip()
-        if not route:
-            raise ValueError(f"proof_routes[{index}] must not be blank in {source}")
-        if not route.startswith("/"):
-            raise ValueError(f"proof_routes[{index}] must be a slash-led route path in {source}")
-        normalized_route = route.lower()
+        normalized_route = normalize_release_proof_route(
+            raw_route,
+            field_name=f"proof_routes[{index}]",
+            source=source,
+        )
         if normalized_route in seen_routes:
-            raise ValueError(f"proof_routes must not contain duplicate routes ('{route}') in {source}")
+            raise ValueError(
+                "proof_routes must not contain duplicate routes after normalization "
+                f"('{normalized_route}') in {source}"
+            )
         seen_routes.add(normalized_route)
-        routes.append(route)
+        routes.append(normalized_route)
     if not routes:
         raise ValueError(f"proof_routes must include at least one route in {source}")
     generated_at = str(loaded.get("generated_at") or loaded.get("generatedAt") or "").strip() or None

@@ -230,6 +230,28 @@ def parse_iso_timestamp(value: object) -> datetime | None:
     return parsed.astimezone(timezone.utc)
 
 
+def normalize_release_proof_route(raw_route: object, *, field_path: str, source: str) -> str:
+    if not isinstance(raw_route, str):
+        raise SystemExit(f"{field_path} must be a string in {source}")
+    route = raw_route.strip()
+    if not route:
+        raise SystemExit(f"{field_path} must not be blank in {source}")
+    if not route.startswith("/"):
+        raise SystemExit(f"{field_path} must be a slash-led route path in {source}")
+    if any(character.isspace() for character in route):
+        raise SystemExit(f"{field_path} must not include whitespace in {source}")
+    if "?" in route or "#" in route:
+        raise SystemExit(f"{field_path} must not include query or fragment segments in {source}")
+    if "//" in route:
+        raise SystemExit(f"{field_path} must not include empty path segments in {source}")
+    canonical_route = route.lower()
+    if canonical_route != "/":
+        canonical_route = canonical_route.rstrip("/")
+        if not canonical_route:
+            canonical_route = "/"
+    return canonical_route
+
+
 def parse_startup_smoke_max_age_seconds(raw_value: object) -> int:
     parsed = parse_positive_int(raw_value)
     if parsed is None or parsed <= 0:
@@ -994,23 +1016,18 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(f"releaseProof.proofRoutes must include at least one route in {source}")
     normalized_proof_routes: list[str] = []
     for index, raw_route in enumerate(proof_routes):
-        if not isinstance(raw_route, str):
-            raise SystemExit(f"releaseProof.proofRoutes[{index}] must be a string in {source}")
-        route = raw_route.strip()
-        if not route:
-            raise SystemExit(f"releaseProof.proofRoutes[{index}] must not be blank in {source}")
-        if not route.startswith("/"):
-            raise SystemExit(
-                f"releaseProof.proofRoutes[{index}] must be a slash-led route path in {source}"
-            )
-        normalized_route = normalized_token(route)
+        normalized_route = normalize_release_proof_route(
+            raw_route,
+            field_path=f"releaseProof.proofRoutes[{index}]",
+            source=source,
+        )
         normalized_proof_routes.append(normalized_route)
     duplicate_proof_routes = sorted(
         {route for route in normalized_proof_routes if normalized_proof_routes.count(route) > 1}
     )
     if duplicate_proof_routes:
         raise SystemExit(
-            "releaseProof.proofRoutes must not contain duplicate routes "
+            "releaseProof.proofRoutes must not contain duplicate routes after normalization "
             f"({', '.join(duplicate_proof_routes)}) in {source}"
         )
 
