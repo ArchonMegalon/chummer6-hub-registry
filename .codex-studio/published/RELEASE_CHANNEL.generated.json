@@ -17,14 +17,7 @@
   "fixAvailabilitySummary": "Do not send fixed notices until required desktop tuple coverage is complete for the promoted shelf.",
   "releaseProof": {
     "status": "passed",
-    "generatedAt": "2026-03-29T09:48:56Z",
-    "baseUrl": "https://chummer.run",
-    "journeysPassed": [
-      "install_claim_restore_continue",
-      "build_explain_publish",
-      "campaign_session_recover_recap",
-      "report_cluster_release_notify"
-    ],
+    "generatedAt": "2026-04-04T09:28:32Z",
     "proofRoutes": [
       "/downloads/install/avalonia-linux-x64-installer",
       "/home/access",
@@ -169,7 +162,15 @@
       "blockingFindingsCount": 0,
       "translationBacklogFindings": [],
       "translationBacklogFindingsCount": 0
-    }
+    },
+    "generated_at": "2026-04-04T09:28:32Z",
+    "journeysPassed": [
+      "install_claim_restore_continue",
+      "build_explain_publish",
+      "campaign_session_recover_recap",
+      "report_cluster_release_notify"
+    ],
+    "baseUrl": "https://chummer.run"
   },
   "artifacts": [
     {

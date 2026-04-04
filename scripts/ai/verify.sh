@@ -33,6 +33,17 @@ if [ -z "${CHUMMER_PRESENTATION_ROOT:-}" ] || [ ! -d "$CHUMMER_PRESENTATION_ROOT
   exit 1
 fi
 
+# Fail closed if the checked-in published release-channel receipt drifts from verifier truth.
+published_release_channel_path="/docker/chummercomplete/chummer-hub-registry/.codex-studio/published/RELEASE_CHANNEL.generated.json"
+if [ ! -f "$published_release_channel_path" ]; then
+  echo "verify gate failed: expected published release-channel receipt is missing at $published_release_channel_path." >&2
+  exit 1
+fi
+if ! python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py "$published_release_channel_path" >/dev/null; then
+  echo "verify gate failed: published release-channel receipt must pass verify_public_release_channel.py." >&2
+  exit 1
+fi
+
 # Default verify must fail when consumer repos still source-own registry contracts.
 export CHUMMER_ENFORCE_CONSUMER_OWNERSHIP="${CHUMMER_ENFORCE_CONSUMER_OWNERSHIP:-1}"
 
