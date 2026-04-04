@@ -69,6 +69,9 @@ def normalize_release_proof_route(raw_route: Any, *, field_name: str, source: st
         raise ValueError(f"{field_name} must not include query or fragment segments in {source}")
     if "//" in route:
         raise ValueError(f"{field_name} must not include empty path segments in {source}")
+    segments = route.split("/")
+    if any(segment in {".", ".."} for segment in segments):
+        raise ValueError(f"{field_name} must not include dot-segment traversal in {source}")
     canonical_route = route.lower()
     if canonical_route != "/":
         canonical_route = canonical_route.rstrip("/")

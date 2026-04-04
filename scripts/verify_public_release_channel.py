@@ -244,6 +244,9 @@ def normalize_release_proof_route(raw_route: object, *, field_path: str, source:
         raise SystemExit(f"{field_path} must not include query or fragment segments in {source}")
     if "//" in route:
         raise SystemExit(f"{field_path} must not include empty path segments in {source}")
+    segments = route.split("/")
+    if any(segment in {".", ".."} for segment in segments):
+        raise SystemExit(f"{field_path} must not include dot-segment traversal in {source}")
     canonical_route = route.lower()
     if canonical_route != "/":
         canonical_route = canonical_route.rstrip("/")
