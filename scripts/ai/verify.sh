@@ -1796,6 +1796,23 @@ from pathlib import Path
 
 path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
 payload = json.loads(path.read_text(encoding="utf-8"))
+gate = payload["releaseProof"]["uiLocalizationReleaseGate"]
+gate["blockingFindings"] = []
+gate["blocking_findings"] = [{"id": "unexpected"}]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.blockingFindings and releaseProof.uiLocalizationReleaseGate.blocking_findings." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["bonus_noncanonical_release_proof_key"] = "unexpected"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -2683,6 +2700,84 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
 fi
 if ! rg -F "signoff_smoke_runner alias values drift between signoff_smoke_runner and signoffSmokeRunner" "$materializer_alias_drift_log" >/dev/null; then
   echo "verify gate failed: expected signoff_smoke_runner alias-drift fail-close marker from materializer." >&2
+  rm -f "$materializer_alias_drift_log"
+  exit 1
+fi
+rm -f "$materializer_alias_drift_log"
+mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null
+cp /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["blocking_findings"] = []
+payload["blockingFindings"] = [{"id": "unexpected"}]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+materializer_alias_drift_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >"$materializer_alias_drift_log" 2>&1; then
+  echo "verify gate failed: materializer should reject conflicting alias values between blocking_findings and blockingFindings in localization proof." >&2
+  rm -f "$materializer_alias_drift_log"
+  exit 1
+fi
+if ! rg -F "blocking_findings alias values drift between blocking_findings and blockingFindings" "$materializer_alias_drift_log" >/dev/null; then
+  echo "verify gate failed: expected blocking_findings alias-drift fail-close marker from materializer." >&2
+  rm -f "$materializer_alias_drift_log"
+  exit 1
+fi
+rm -f "$materializer_alias_drift_log"
+mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null
+cp /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["blocking_findings_count"] = 0
+payload["blockingFindingsCount"] = 1
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+materializer_alias_drift_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >"$materializer_alias_drift_log" 2>&1; then
+  echo "verify gate failed: materializer should reject conflicting alias values between blocking_findings_count and blockingFindingsCount in localization proof." >&2
+  rm -f "$materializer_alias_drift_log"
+  exit 1
+fi
+if ! rg -F "blocking_findings_count alias values drift between blocking_findings_count and blockingFindingsCount" "$materializer_alias_drift_log" >/dev/null; then
+  echo "verify gate failed: expected blocking_findings_count alias-drift fail-close marker from materializer." >&2
   rm -f "$materializer_alias_drift_log"
   exit 1
 fi
