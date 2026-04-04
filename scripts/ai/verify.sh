@@ -233,6 +233,50 @@ cat >/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
     "data_rules_names": "pass",
     "generated_artifacts": "pass"
   },
+  "locale_domain_coverage": {
+    "en-us": {
+      "app_chrome": "pass",
+      "install_update_support": "pass",
+      "explain_receipts": "pass",
+      "data_rules_names": "pass",
+      "generated_artifacts": "pass"
+    },
+    "de-de": {
+      "app_chrome": "pass",
+      "install_update_support": "pass",
+      "explain_receipts": "pass",
+      "data_rules_names": "pass",
+      "generated_artifacts": "pass"
+    },
+    "fr-fr": {
+      "app_chrome": "pass",
+      "install_update_support": "pass",
+      "explain_receipts": "pass",
+      "data_rules_names": "pass",
+      "generated_artifacts": "pass"
+    },
+    "ja-jp": {
+      "app_chrome": "pass",
+      "install_update_support": "pass",
+      "explain_receipts": "pass",
+      "data_rules_names": "pass",
+      "generated_artifacts": "pass"
+    },
+    "pt-br": {
+      "app_chrome": "pass",
+      "install_update_support": "pass",
+      "explain_receipts": "pass",
+      "data_rules_names": "pass",
+      "generated_artifacts": "pass"
+    },
+    "zh-cn": {
+      "app_chrome": "pass",
+      "install_update_support": "pass",
+      "explain_receipts": "pass",
+      "data_rules_names": "pass",
+      "generated_artifacts": "pass"
+    }
+  },
   "blocking_findings": [],
   "translation_backlog_findings": [],
   "locale_summary": [
@@ -629,6 +673,63 @@ from pathlib import Path
 
 path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
 payload = json.loads(path.read_text(encoding="utf-8"))
+locale_domains = payload["releaseProof"]["uiLocalizationReleaseGate"]["localeDomainCoverage"]
+locale_domains.pop("de-de", None)
+payload["releaseProof"]["uiLocalizationReleaseGate"]["localeDomainCoverage"] = locale_domains
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject localization proof missing localeDomainCoverage rows for shipping locales." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+locale_domains = payload["releaseProof"]["uiLocalizationReleaseGate"]["localeDomainCoverage"]
+locale_domains["de-de"]["install_update_support"] = "missing"
+payload["releaseProof"]["uiLocalizationReleaseGate"]["localeDomainCoverage"] = locale_domains
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject non-passing localeDomainCoverage status rows." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+locale_domains = payload["releaseProof"]["uiLocalizationReleaseGate"]["localeDomainCoverage"]
+locale_domains["es-es"] = {
+    "app_chrome": "pass",
+    "install_update_support": "pass",
+    "explain_receipts": "pass",
+    "data_rules_names": "pass",
+    "generated_artifacts": "pass",
+}
+payload["releaseProof"]["uiLocalizationReleaseGate"]["localeDomainCoverage"] = locale_domains
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject localization proof with unexpected localeDomainCoverage locale keys." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
 rows = payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"]
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = [
     row for row in rows if row.get("locale") != "en-us"
@@ -777,6 +878,19 @@ assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["domainCoverage"] 
     "generated_artifacts": "pass",
     "install_update_support": "pass",
 }
+assert sorted(canonical["releaseProof"]["uiLocalizationReleaseGate"]["localeDomainCoverage"].keys()) == sorted(
+    ["en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn"]
+)
+assert all(
+    domain_states == {
+        "app_chrome": "pass",
+        "data_rules_names": "pass",
+        "explain_receipts": "pass",
+        "generated_artifacts": "pass",
+        "install_update_support": "pass",
+    }
+    for domain_states in canonical["releaseProof"]["uiLocalizationReleaseGate"]["localeDomainCoverage"].values()
+)
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["blockingFindings"] == []
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["blockingFindingsCount"] == 0
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["translationBacklogFindings"] == []

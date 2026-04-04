@@ -1042,6 +1042,82 @@ def verify_release_truth(payload: dict, source: str) -> None:
                 "releaseProof.uiLocalizationReleaseGate.domainCoverage must be passing for domain "
                 f"'{domain}' in {source}"
             )
+    locale_domain_coverage_raw = first_present(
+        ui_localization_release_gate,
+        "localeDomainCoverage",
+        "locale_domain_coverage",
+    )
+    if not isinstance(locale_domain_coverage_raw, dict):
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.localeDomainCoverage must be an object in {source}"
+        )
+    locale_domain_coverage: dict[str, dict[str, str]] = {}
+    for raw_locale, raw_domains in locale_domain_coverage_raw.items():
+        locale = normalized_token(raw_locale)
+        if not locale:
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.localeDomainCoverage contains a blank locale id in {source}"
+            )
+        if not isinstance(raw_domains, dict):
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.localeDomainCoverage['{locale}'] must be an object in {source}"
+            )
+        normalized_domains: dict[str, str] = {}
+        for raw_domain, raw_status in raw_domains.items():
+            domain = normalized_token(raw_domain)
+            status_token = normalized_token(raw_status)
+            if not domain:
+                raise SystemExit(
+                    "releaseProof.uiLocalizationReleaseGate.localeDomainCoverage has a blank domain id "
+                    f"under locale '{locale}' in {source}"
+                )
+            if not status_token:
+                raise SystemExit(
+                    "releaseProof.uiLocalizationReleaseGate.localeDomainCoverage has a blank status "
+                    f"for locale '{locale}' domain '{domain}' in {source}"
+                )
+            normalized_domains[domain] = status_token
+        locale_domain_coverage[locale] = normalized_domains
+    missing_locale_domain_locales = sorted(
+        locale for locale in REQUIRED_LOCALIZATION_SHIPPING_LOCALES if locale not in locale_domain_coverage
+    )
+    if missing_locale_domain_locales:
+        raise SystemExit(
+            "releaseProof.uiLocalizationReleaseGate.localeDomainCoverage is missing shipping locales "
+            f"({', '.join(missing_locale_domain_locales)}) in {source}"
+        )
+    unexpected_locale_domain_locales = sorted(
+        locale for locale in locale_domain_coverage if locale not in REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+    )
+    if unexpected_locale_domain_locales:
+        raise SystemExit(
+            "releaseProof.uiLocalizationReleaseGate.localeDomainCoverage has unexpected locale keys "
+            f"({', '.join(unexpected_locale_domain_locales)}) in {source}"
+        )
+    for locale in REQUIRED_LOCALIZATION_SHIPPING_LOCALES:
+        domains = locale_domain_coverage.get(locale) or {}
+        missing_domains = sorted(
+            domain for domain in REQUIRED_LOCALIZATION_DOMAINS if domain not in domains
+        )
+        if missing_domains:
+            raise SystemExit(
+                "releaseProof.uiLocalizationReleaseGate.localeDomainCoverage locale "
+                f"'{locale}' is missing required domain ids ({', '.join(missing_domains)}) in {source}"
+            )
+        unexpected_domains = sorted(
+            domain for domain in domains if domain not in REQUIRED_LOCALIZATION_DOMAINS
+        )
+        if unexpected_domains:
+            raise SystemExit(
+                "releaseProof.uiLocalizationReleaseGate.localeDomainCoverage locale "
+                f"'{locale}' has unexpected domain ids ({', '.join(unexpected_domains)}) in {source}"
+            )
+        for domain in REQUIRED_LOCALIZATION_DOMAINS:
+            if domains.get(domain) not in {"pass", "passed", "ready"}:
+                raise SystemExit(
+                    "releaseProof.uiLocalizationReleaseGate.localeDomainCoverage must be passing for locale "
+                    f"'{locale}' domain '{domain}' in {source}"
+                )
     blocking_findings_count = parse_positive_int(
         first_present(ui_localization_release_gate, "blockingFindingsCount", "blocking_findings_count")
     )

@@ -469,6 +469,7 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
             "localeSummary": [],
             "acceptanceGates": [],
             "domainCoverage": {},
+            "localeDomainCoverage": {},
             "blockingFindingsCount": 0,
             "translationBacklogFindingsCount": 0,
         },
@@ -566,6 +567,39 @@ def normalize_ui_localization_release_gate_payload(
             if not status_token:
                 continue
             domain_coverage[domain_id] = status_token
+    raw_locale_domain_coverage = first_present(loaded, "locale_domain_coverage", "localeDomainCoverage")
+    locale_domain_coverage: dict[str, dict[str, str]] = {}
+    if isinstance(raw_locale_domain_coverage, dict):
+        for raw_locale, raw_domains in raw_locale_domain_coverage.items():
+            locale = normalized_token(raw_locale)
+            if not locale or not isinstance(raw_domains, dict):
+                continue
+            normalized_domains: dict[str, str] = {}
+            for raw_domain, raw_status in raw_domains.items():
+                domain_id = normalized_token(raw_domain)
+                status_token = normalized_token(raw_status)
+                if not domain_id or not status_token:
+                    continue
+                normalized_domains[domain_id] = status_token
+            locale_domain_coverage[locale] = normalized_domains
+    elif isinstance(raw_locale_domain_coverage, list):
+        for item in raw_locale_domain_coverage:
+            if not isinstance(item, dict):
+                continue
+            locale = normalized_token(item.get("locale"))
+            if not locale:
+                continue
+            raw_domains = first_present(item, "domains", "domainCoverage", "domain_coverage")
+            if not isinstance(raw_domains, dict):
+                continue
+            normalized_domains: dict[str, str] = {}
+            for raw_domain, raw_status in raw_domains.items():
+                domain_id = normalized_token(raw_domain)
+                status_token = normalized_token(raw_status)
+                if not domain_id or not status_token:
+                    continue
+                normalized_domains[domain_id] = status_token
+            locale_domain_coverage[locale] = normalized_domains
     blocking_findings = [
         item
         for item in (loaded.get("blocking_findings") or loaded.get("blockingFindings") or [])
@@ -636,6 +670,10 @@ def normalize_ui_localization_release_gate_payload(
         "localeSummary": locale_summary_rows,
         "acceptanceGates": acceptance_gates,
         "domainCoverage": {domain_id: domain_coverage[domain_id] for domain_id in sorted(domain_coverage)},
+        "localeDomainCoverage": {
+            locale: {domain_id: domains[domain_id] for domain_id in sorted(domains)}
+            for locale, domains in sorted(locale_domain_coverage.items())
+        },
         "blockingFindings": blocking_findings,
         "blockingFindingsCount": blocking_findings_count,
         "translationBacklogFindings": translation_backlog_findings,
@@ -1030,6 +1068,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "localeSummary": [],
         "acceptanceGates": [],
         "domainCoverage": {},
+        "localeDomainCoverage": {},
         "blockingFindingsCount": 0,
         "translationBacklogFindingsCount": 0,
     }
