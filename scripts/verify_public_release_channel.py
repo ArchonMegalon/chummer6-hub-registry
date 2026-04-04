@@ -947,8 +947,6 @@ def verify_release_truth(payload: dict, source: str) -> None:
         locale_rows[locale] = item
 
     for locale in REQUIRED_LOCALIZATION_SHIPPING_LOCALES:
-        if locale == "en-us":
-            continue
         row = locale_rows.get(locale)
         if row is None:
             raise SystemExit(
@@ -976,6 +974,8 @@ def verify_release_truth(payload: dict, source: str) -> None:
             raise SystemExit(
                 f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' must have overrideCount >= defaultKeyCount in {source}"
             )
+        if locale == "en-us":
+            continue
         minimum_override_count = parse_positive_int(
             first_present(row, "minimumOverrideCount", "minimum_override_count")
         )

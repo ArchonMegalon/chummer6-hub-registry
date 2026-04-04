@@ -229,6 +229,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
   "blocking_findings": [],
   "translation_backlog_findings": [],
   "locale_summary": [
+    { "locale": "en-us", "untranslated_key_count": 0, "override_count": 383, "minimum_override_count": 40, "missing_release_seed_keys": [], "legacy_xml_present": true, "legacy_data_xml_present": true },
     { "locale": "de-de", "untranslated_key_count": 0, "override_count": 383, "minimum_override_count": 40, "missing_release_seed_keys": [], "legacy_xml_present": true, "legacy_data_xml_present": true },
     { "locale": "fr-fr", "untranslated_key_count": 0, "override_count": 383, "minimum_override_count": 40, "missing_release_seed_keys": [], "legacy_xml_present": true, "legacy_data_xml_present": true },
     { "locale": "ja-jp", "untranslated_key_count": 0, "override_count": 383, "minimum_override_count": 40, "missing_release_seed_keys": [], "legacy_xml_present": true, "legacy_data_xml_present": true },
@@ -443,6 +444,24 @@ path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: verifier should reject localization proof missing non_english_generated_artifact_smoke acceptance coverage." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+rows = payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"]
+payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = [
+    row for row in rows if row.get("locale") != "en-us"
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject localization proof missing localeSummary coverage for shipping locale en-us." >&2
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
