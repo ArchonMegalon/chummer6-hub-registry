@@ -772,6 +772,64 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/proof.disallowed-base-url.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
+cp /tmp/chummer-hub-registry-release-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.base-url-alias-drift.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/proof.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["baseUrl"] = "https://chummer.run"
+payload["base_url"] = "http://127.0.0.1:8091"
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+materializer_alias_drift_log=/tmp/chummer-hub-registry-release-fixture/materializer-alias-drift.log
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null 2>"$materializer_alias_drift_log"; then
+  echo "verify gate failed: materializer should reject conflicting alias values between releaseProof.baseUrl and releaseProof.base_url." >&2
+  exit 1
+fi
+if ! rg -F "base_url alias values drift between baseUrl and base_url" "$materializer_alias_drift_log" >/dev/null; then
+  echo "verify gate failed: materializer baseUrl alias drift mutation did not emit expected fail-close marker." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/proof.base-url-alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
+cp /tmp/chummer-hub-registry-release-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.ui-localization-gate-alias-drift.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/proof.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["uiLocalizationReleaseGate"] = payload.get("ui_localization_release_gate") or {
+    "status": "pass"
+}
+payload["ui_localization_release_gate"] = dict(payload["uiLocalizationReleaseGate"])
+payload["ui_localization_release_gate"]["status"] = "failed"
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null 2>"$materializer_alias_drift_log"; then
+  echo "verify gate failed: materializer should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate and releaseProof.ui_localization_release_gate." >&2
+  exit 1
+fi
+if ! rg -F "uiLocalizationReleaseGate alias values drift between uiLocalizationReleaseGate and ui_localization_release_gate" "$materializer_alias_drift_log" >/dev/null; then
+  echo "verify gate failed: materializer localization-gate alias drift mutation did not emit expected fail-close marker." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/proof.ui-localization-gate-alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
 cp /tmp/chummer-hub-registry-release-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.unexpected-release-proof-key.backup.json
 python3 - <<'PY'
 import json
