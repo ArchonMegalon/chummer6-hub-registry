@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-04T04:17:46Z",
-  "generatedAt": "2026-04-04T04:17:46Z",
+  "generated_at": "2026-04-04T12:27:07Z",
+  "generatedAt": "2026-04-04T12:27:07Z",
   "schemaVersion": 1,
   "product": "chummer6",
   "channelId": "docker",
@@ -18,6 +18,13 @@
   "releaseProof": {
     "status": "passed",
     "generatedAt": "2026-04-04T09:28:32Z",
+    "baseUrl": "https://chummer.run",
+    "journeysPassed": [
+      "install_claim_restore_continue",
+      "build_explain_publish",
+      "campaign_session_recover_recap",
+      "report_cluster_release_notify"
+    ],
     "proofRoutes": [
       "/downloads/install/avalonia-linux-x64-installer",
       "/home/access",
@@ -162,15 +169,7 @@
       "blockingFindingsCount": 0,
       "translationBacklogFindings": [],
       "translationBacklogFindingsCount": 0
-    },
-    "generated_at": "2026-04-04T09:28:32Z",
-    "journeysPassed": [
-      "install_claim_restore_continue",
-      "build_explain_publish",
-      "campaign_session_recover_recap",
-      "report_cluster_release_notify"
-    ],
-    "baseUrl": "https://chummer.run"
+    }
   },
   "artifacts": [
     {
@@ -189,10 +188,12 @@
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
       "installAccessClass": "open_public",
-      "channel": "docker",
       "channelId": "docker",
+      "channel": "docker",
       "version": "local-docker",
-      "releaseVersion": "local-docker"
+      "releaseVersion": "local-docker",
+      "generated_at": "2026-04-04T12:27:07Z",
+      "generatedAt": "2026-04-04T12:27:07Z"
     },
     {
       "artifactId": "blazor-desktop-linux-x64-installer",
@@ -210,10 +211,12 @@
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
       "installAccessClass": "open_public",
-      "channel": "docker",
       "channelId": "docker",
+      "channel": "docker",
       "version": "local-docker",
-      "releaseVersion": "local-docker"
+      "releaseVersion": "local-docker",
+      "generated_at": "2026-04-04T12:27:07Z",
+      "generatedAt": "2026-04-04T12:27:07Z"
     }
   ],
   "desktopTupleCoverage": {

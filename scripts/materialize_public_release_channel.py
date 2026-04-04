@@ -1555,12 +1555,15 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         from datetime import datetime, timezone
 
         published_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    generated_at = dt.datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     for artifact in artifacts:
         if isinstance(artifact, dict):
             artifact["channelId"] = channel
             artifact["channel"] = channel
             artifact["version"] = version
             artifact["releaseVersion"] = version
+            artifact["generated_at"] = generated_at
+            artifact["generatedAt"] = generated_at
     status = str(loaded.get("status") or ("published" if artifacts else "unpublished")).strip()
     message = loaded.get("message")
     release_proof = load_release_proof(args.proof) or normalize_release_proof_payload(
@@ -1654,7 +1657,6 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             desktop_coverage_complete=desktop_coverage_complete,
         )
     )
-    generated_at = dt.datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     return {
         "generated_at": generated_at,
         "generatedAt": generated_at,
