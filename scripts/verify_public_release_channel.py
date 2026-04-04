@@ -68,6 +68,12 @@ REQUIRED_LOCALIZATION_DOMAINS = (
     "data_rules_names",
     "generated_artifacts",
 )
+REQUIRED_RELEASE_PROOF_JOURNEYS = (
+    "install_claim_restore_continue",
+    "build_explain_publish",
+    "campaign_session_recover_recap",
+    "report_cluster_release_notify",
+)
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
 DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS = 604800
 DEFAULT_RELEASE_PROOF_MAX_FUTURE_SKEW_SECONDS = 300
@@ -972,6 +978,16 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(
             "releaseProof.journeysPassed must not contain duplicate journey ids "
             f"({', '.join(duplicate_journeys)}) in {source}"
+        )
+    missing_required_journeys = sorted(
+        journey
+        for journey in REQUIRED_RELEASE_PROOF_JOURNEYS
+        if journey not in normalized_journeys
+    )
+    if missing_required_journeys:
+        raise SystemExit(
+            "releaseProof.journeysPassed is missing required baseline journey ids "
+            f"({', '.join(missing_required_journeys)}) in {source}"
         )
 
     proof_routes = first_present(proof, "proofRoutes", "proof_routes")
