@@ -267,6 +267,34 @@ def normalize_release_proof_route(raw_route: object, *, field_path: str, source:
     return canonical_route
 
 
+def normalize_release_proof_base_url(raw_base_url: object, *, field_path: str, source: str) -> str:
+    if not isinstance(raw_base_url, str):
+        raise SystemExit(f"{field_path} must be a string in {source}")
+    base_url = raw_base_url.strip()
+    if not base_url:
+        raise SystemExit(f"{field_path} must not be blank in {source}")
+    if base_url != raw_base_url:
+        raise SystemExit(f"{field_path} must not include leading/trailing whitespace in {source}")
+    parsed = urllib.parse.urlsplit(base_url)
+    scheme = parsed.scheme.lower()
+    if scheme not in {"http", "https"}:
+        raise SystemExit(f"{field_path} must use http/https scheme in {source}")
+    if parsed.query or parsed.fragment:
+        raise SystemExit(f"{field_path} must not include query or fragment segments in {source}")
+    if parsed.path not in {"", "/"}:
+        raise SystemExit(f"{field_path} must be origin-only with no path segments in {source}")
+    if not parsed.netloc:
+        raise SystemExit(f"{field_path} must include authority host in {source}")
+    if parsed.username or parsed.password:
+        raise SystemExit(f"{field_path} must not include userinfo credentials in {source}")
+    if parsed.netloc != parsed.netloc.lower():
+        raise SystemExit(f"{field_path} must use canonical lowercase authority casing in {source}")
+    canonical_base_url = f"{scheme}://{parsed.netloc.lower()}"
+    if base_url != canonical_base_url:
+        raise SystemExit(f"{field_path} must use canonical origin form with no trailing slash in {source}")
+    return canonical_base_url
+
+
 def parse_startup_smoke_max_age_seconds(raw_value: object) -> int:
     parsed = parse_positive_int(raw_value)
     if parsed is None or parsed <= 0:
@@ -995,6 +1023,11 @@ def verify_release_truth(payload: dict, source: str) -> None:
             "releaseProof.generatedAt is stale in "
             f"{source} ({release_proof_age_seconds}s old; max {release_proof_max_age_seconds}s)"
         )
+    normalize_release_proof_base_url(
+        first_present(proof, "baseUrl", "base_url"),
+        field_path="releaseProof.baseUrl",
+        source=source,
+    )
     journeys_passed = first_present(proof, "journeysPassed", "journeys_passed")
     if not isinstance(journeys_passed, list):
         raise SystemExit(f"releaseProof.journeysPassed must be a list in {source}")

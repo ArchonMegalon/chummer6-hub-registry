@@ -6,6 +6,7 @@ import datetime as dt
 import hashlib
 import json
 import re
+import urllib.parse
 from pathlib import Path
 from typing import Any
 
@@ -90,6 +91,34 @@ def normalize_release_proof_route(raw_route: Any, *, field_name: str, source: st
         if not canonical_route:
             canonical_route = "/"
     return canonical_route
+
+
+def normalize_release_proof_base_url(raw_base_url: Any, *, field_name: str, source: str) -> str:
+    if not isinstance(raw_base_url, str):
+        raise ValueError(f"{field_name} must be a string in {source}")
+    base_url = raw_base_url.strip()
+    if not base_url:
+        raise ValueError(f"{field_name} must not be blank in {source}")
+    if base_url != raw_base_url:
+        raise ValueError(f"{field_name} must not include leading/trailing whitespace in {source}")
+    parsed = urllib.parse.urlsplit(base_url)
+    scheme = parsed.scheme.lower()
+    if scheme not in {"http", "https"}:
+        raise ValueError(f"{field_name} must use http/https scheme in {source}")
+    if parsed.query or parsed.fragment:
+        raise ValueError(f"{field_name} must not include query or fragment segments in {source}")
+    if parsed.path not in {"", "/"}:
+        raise ValueError(f"{field_name} must be origin-only with no path segments in {source}")
+    if not parsed.netloc:
+        raise ValueError(f"{field_name} must include authority host in {source}")
+    if parsed.username or parsed.password:
+        raise ValueError(f"{field_name} must not include userinfo credentials in {source}")
+    if parsed.netloc != parsed.netloc.lower():
+        raise ValueError(f"{field_name} must use canonical lowercase authority casing in {source}")
+    canonical_base_url = f"{scheme}://{parsed.netloc.lower()}"
+    if base_url != canonical_base_url:
+        raise ValueError(f"{field_name} must use canonical origin form with no trailing slash in {source}")
+    return canonical_base_url
 
 
 def parse_args() -> argparse.Namespace:
@@ -554,7 +583,11 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
             f"({', '.join(unexpected_routes)}) in {source}"
         )
     generated_at = str(loaded.get("generated_at") or loaded.get("generatedAt") or "").strip() or None
-    base_url = str(loaded.get("base_url") or loaded.get("baseUrl") or "").strip() or None
+    base_url = normalize_release_proof_base_url(
+        loaded.get("base_url") or loaded.get("baseUrl"),
+        field_name="base_url",
+        source=source,
+    )
     ui_localization_release_gate = normalize_ui_localization_release_gate_payload(
         loaded.get("uiLocalizationReleaseGate") or loaded.get("ui_localization_release_gate"),
         source=f"{source} uiLocalizationReleaseGate",

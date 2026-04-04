@@ -652,6 +652,28 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/proof.missing-required-routes.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
+cp /tmp/chummer-hub-registry-release-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.noncanonical-base-url.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/proof.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["base_url"] = "https://Chummer.run/"
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null; then
+  echo "verify gate failed: materializer should reject non-canonical release proof base_url origin casing/trailing slash." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/proof.noncanonical-base-url.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -798,6 +820,36 @@ path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: verifier should reject non-passing releaseProof.status values." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"]["baseUrl"] = "https://Chummer.run/"
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject non-canonical releaseProof.baseUrl origin casing/trailing slash." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"].pop("baseUrl", None)
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject missing releaseProof.baseUrl origin." >&2
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
