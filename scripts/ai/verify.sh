@@ -800,6 +800,84 @@ if ! rg -F "base_url alias values drift between baseUrl and base_url" "$material
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/proof.base-url-alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
+cp /tmp/chummer-hub-registry-release-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.journeys-alias-drift.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/proof.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["journeysPassed"] = [
+  "install_claim_restore_continue",
+  "build_explain_publish",
+  "campaign_session_recover_recap",
+  "report_cluster_release_notify"
+]
+payload["journeys_passed"] = [
+  "build_explain_publish",
+  "install_claim_restore_continue",
+  "campaign_session_recover_recap",
+  "report_cluster_release_notify"
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null 2>"$materializer_alias_drift_log"; then
+  echo "verify gate failed: materializer should reject conflicting alias values between releaseProof.journeysPassed and releaseProof.journeys_passed." >&2
+  exit 1
+fi
+if ! rg -F "journeys_passed alias values drift between journeysPassed and journeys_passed" "$materializer_alias_drift_log" >/dev/null; then
+  echo "verify gate failed: materializer journeys alias drift mutation did not emit expected fail-close marker." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/proof.journeys-alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
+cp /tmp/chummer-hub-registry-release-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.proof-routes-alias-drift.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/proof.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["proofRoutes"] = [
+  "/downloads/install/avalonia-linux-x64-installer",
+  "/home/access",
+  "/home/work",
+  "/account/work",
+  "/account/support",
+  "/contact"
+]
+payload["proof_routes"] = [
+  "/home/access",
+  "/downloads/install/avalonia-linux-x64-installer",
+  "/home/work",
+  "/account/work",
+  "/account/support",
+  "/contact"
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null 2>"$materializer_alias_drift_log"; then
+  echo "verify gate failed: materializer should reject conflicting alias values between releaseProof.proofRoutes and releaseProof.proof_routes." >&2
+  exit 1
+fi
+if ! rg -F "proof_routes alias values drift between proofRoutes and proof_routes" "$materializer_alias_drift_log" >/dev/null; then
+  echo "verify gate failed: materializer proof-routes alias drift mutation did not emit expected fail-close marker." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/proof.proof-routes-alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
 cp /tmp/chummer-hub-registry-release-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.ui-localization-gate-alias-drift.backup.json
 python3 - <<'PY'
 import json
