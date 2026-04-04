@@ -1248,7 +1248,13 @@ def verify_release_truth(payload: dict, source: str) -> None:
             f"(actual={normalized_proof_routes}, expected={required_route_order}) in {source}"
         )
 
-    ui_localization_release_gate = proof.get("uiLocalizationReleaseGate")
+    ui_localization_release_gate = resolve_alias_value(
+        proof,
+        primary_key="uiLocalizationReleaseGate",
+        secondary_key="ui_localization_release_gate",
+        field_path="releaseProof.uiLocalizationReleaseGate",
+        source=source,
+    )
     if not isinstance(ui_localization_release_gate, dict):
         raise SystemExit(f"releaseProof.uiLocalizationReleaseGate is required in {source}")
 

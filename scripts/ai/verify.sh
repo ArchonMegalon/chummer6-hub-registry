@@ -1089,6 +1089,23 @@ from pathlib import Path
 path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
 payload = json.loads(path.read_text(encoding="utf-8"))
 gate = payload["releaseProof"]["uiLocalizationReleaseGate"]
+payload["releaseProof"]["ui_localization_release_gate"] = dict(gate)
+payload["releaseProof"]["ui_localization_release_gate"]["status"] = "failed"
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate and releaseProof.ui_localization_release_gate." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+gate = payload["releaseProof"]["uiLocalizationReleaseGate"]
 gate["generatedAt"] = "2026-04-03T22:59:41Z"
 gate["generated_at"] = "2026-04-02T22:59:41Z"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
