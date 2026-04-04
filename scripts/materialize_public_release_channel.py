@@ -70,6 +70,50 @@ REQUIRED_LOCALIZATION_ACCEPTANCE_GATES = (
     "non_english_generated_artifact_smoke",
 )
 REQUIRED_LOCALIZATION_SHIPPING_LOCALES = ("en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn")
+ALLOWED_RELEASE_PROOF_KEYS = (
+    "status",
+    "generatedAt",
+    "generated_at",
+    "baseUrl",
+    "base_url",
+    "journeysPassed",
+    "journeys_passed",
+    "proofRoutes",
+    "proof_routes",
+    "uiLocalizationReleaseGate",
+    "ui_localization_release_gate",
+)
+ALLOWED_LOCALIZATION_GATE_KEYS = (
+    "status",
+    "generatedAt",
+    "generated_at",
+    "defaultKeyCount",
+    "default_key_count",
+    "explicitFallbackRuntime",
+    "explicit_fallback_runtime",
+    "signoffSmokeRunner",
+    "signoff_smoke_runner",
+    "signoffSmokeRunnerStatus",
+    "signoff_smoke_runner_status",
+    "shippingLocales",
+    "shipping_locales",
+    "acceptanceGates",
+    "acceptance_gates",
+    "domainCoverage",
+    "domain_coverage",
+    "localeDomainCoverage",
+    "locale_domain_coverage",
+    "blockingFindings",
+    "blocking_findings",
+    "blockingFindingsCount",
+    "blocking_findings_count",
+    "translationBacklogFindings",
+    "translation_backlog_findings",
+    "translationBacklogFindingsCount",
+    "translation_backlog_findings_count",
+    "localeSummary",
+    "locale_summary",
+)
 ALLOWED_LOCALIZATION_LOCALE_SUMMARY_ROW_KEYS = (
     "locale",
     "untranslated_key_count",
@@ -575,6 +619,16 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
         return None
     if not isinstance(loaded, dict):
         raise ValueError(f"release proof payload must be a JSON object: {source}")
+    unexpected_release_proof_keys = sorted(
+        str(key)
+        for key in loaded.keys()
+        if str(key) not in ALLOWED_RELEASE_PROOF_KEYS
+    )
+    if unexpected_release_proof_keys:
+        raise ValueError(
+            "releaseProof has unexpected keys "
+            f"({', '.join(unexpected_release_proof_keys)}) in {source}"
+        )
     status = str(loaded.get("status") or "").strip().lower() or "missing"
     if status not in {"pass", "passed", "ready"}:
         raise ValueError(
@@ -822,6 +876,16 @@ def normalize_ui_localization_release_gate_payload(
         return None
     if not isinstance(loaded, dict):
         raise ValueError(f"ui localization release gate payload must be a JSON object: {source}")
+    unexpected_localization_gate_keys = sorted(
+        str(key)
+        for key in loaded.keys()
+        if str(key) not in ALLOWED_LOCALIZATION_GATE_KEYS
+    )
+    if unexpected_localization_gate_keys:
+        raise ValueError(
+            "uiLocalizationReleaseGate has unexpected keys "
+            f"({', '.join(unexpected_localization_gate_keys)}) in {source}"
+        )
 
     status = str(loaded.get("status") or "").strip().lower() or "missing"
     generated_at = (
