@@ -936,14 +936,48 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(
             f"releaseProof.uiLocalizationReleaseGate.shippingLocales must equal {list(REQUIRED_LOCALIZATION_SHIPPING_LOCALES)} in {source}"
         )
-    acceptance_gates = normalized_string_list(
-        first_present(ui_localization_release_gate, "acceptanceGates", "acceptance_gates")
+    acceptance_gates_raw = first_present(
+        ui_localization_release_gate,
+        "acceptanceGates",
+        "acceptance_gates",
     )
-    for gate in REQUIRED_LOCALIZATION_ACCEPTANCE_GATES:
-        if gate not in acceptance_gates:
-            raise SystemExit(
-                f"releaseProof.uiLocalizationReleaseGate.acceptanceGates must include '{gate}' in {source}"
-            )
+    if not isinstance(acceptance_gates_raw, list):
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.acceptanceGates must be a list in {source}"
+        )
+    acceptance_gates = normalized_string_list(acceptance_gates_raw)
+    duplicate_acceptance_gates = sorted(
+        {
+            gate
+            for gate in acceptance_gates
+            if acceptance_gates.count(gate) > 1
+        }
+    )
+    if duplicate_acceptance_gates:
+        raise SystemExit(
+            "releaseProof.uiLocalizationReleaseGate.acceptanceGates has duplicate gate ids "
+            f"({', '.join(duplicate_acceptance_gates)}) in {source}"
+        )
+    missing_acceptance_gates = sorted(
+        gate
+        for gate in REQUIRED_LOCALIZATION_ACCEPTANCE_GATES
+        if gate not in acceptance_gates
+    )
+    if missing_acceptance_gates:
+        raise SystemExit(
+            "releaseProof.uiLocalizationReleaseGate.acceptanceGates is missing required gate ids "
+            f"({', '.join(missing_acceptance_gates)}) in {source}"
+        )
+    unexpected_acceptance_gates = sorted(
+        gate
+        for gate in acceptance_gates
+        if gate not in REQUIRED_LOCALIZATION_ACCEPTANCE_GATES
+    )
+    if unexpected_acceptance_gates:
+        raise SystemExit(
+            "releaseProof.uiLocalizationReleaseGate.acceptanceGates has unexpected gate ids "
+            f"({', '.join(unexpected_acceptance_gates)}) in {source}"
+        )
     blocking_findings_count = parse_positive_int(
         first_present(ui_localization_release_gate, "blockingFindingsCount", "blocking_findings_count")
     )
