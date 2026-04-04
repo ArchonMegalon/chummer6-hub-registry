@@ -499,6 +499,16 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
             "journeys_passed is missing required baseline golden journey ids "
             f"({', '.join(missing_required_journeys)}) in {source}"
         )
+    unexpected_journeys = sorted(
+        journey
+        for journey in journeys
+        if journey not in REQUIRED_RELEASE_PROOF_JOURNEYS
+    )
+    if unexpected_journeys:
+        raise ValueError(
+            "journeys_passed declares unexpected baseline golden journey ids "
+            f"({', '.join(unexpected_journeys)}) in {source}"
+        )
     raw_routes = loaded.get("proof_routes") or loaded.get("proofRoutes") or []
     if not isinstance(raw_routes, list):
         raise ValueError(f"proof_routes must be a list in {source}")
@@ -528,6 +538,16 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
         raise ValueError(
             "proof_routes is missing required flagship routes "
             f"({', '.join(missing_required_routes)}) in {source}"
+        )
+    unexpected_routes = sorted(
+        route
+        for route in routes
+        if route not in REQUIRED_RELEASE_PROOF_ROUTES
+    )
+    if unexpected_routes:
+        raise ValueError(
+            "proof_routes declares unexpected flagship routes "
+            f"({', '.join(unexpected_routes)}) in {source}"
         )
     generated_at = str(loaded.get("generated_at") or loaded.get("generatedAt") or "").strip() or None
     base_url = str(loaded.get("base_url") or loaded.get("baseUrl") or "").strip() or None

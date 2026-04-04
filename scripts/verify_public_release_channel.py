@@ -1019,6 +1019,16 @@ def verify_release_truth(payload: dict, source: str) -> None:
             "releaseProof.journeysPassed is missing required baseline journey ids "
             f"({', '.join(missing_required_journeys)}) in {source}"
         )
+    unexpected_journeys = sorted(
+        journey
+        for journey in normalized_journeys
+        if journey not in REQUIRED_RELEASE_PROOF_JOURNEYS
+    )
+    if unexpected_journeys:
+        raise SystemExit(
+            "releaseProof.journeysPassed declares unexpected baseline journey ids "
+            f"({', '.join(unexpected_journeys)}) in {source}"
+        )
 
     proof_routes = first_present(proof, "proofRoutes", "proof_routes")
     if not isinstance(proof_routes, list):
@@ -1050,6 +1060,16 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(
             "releaseProof.proofRoutes is missing required flagship routes "
             f"({', '.join(missing_required_proof_routes)}) in {source}"
+        )
+    unexpected_proof_routes = sorted(
+        route
+        for route in normalized_proof_routes
+        if route not in REQUIRED_RELEASE_PROOF_ROUTES
+    )
+    if unexpected_proof_routes:
+        raise SystemExit(
+            "releaseProof.proofRoutes declares unexpected flagship routes "
+            f"({', '.join(unexpected_proof_routes)}) in {source}"
         )
 
     ui_localization_release_gate = proof.get("uiLocalizationReleaseGate")
