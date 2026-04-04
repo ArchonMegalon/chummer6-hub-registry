@@ -860,6 +860,11 @@ def verify_release_truth(payload: dict, source: str) -> None:
     status = proof.get("status")
     if status in (None, "") or not isinstance(status, str):
         raise SystemExit(f"releaseProof.status is required in {source}")
+    normalized_status = normalized_token(status)
+    if normalized_status not in {"pass", "passed", "ready"}:
+        raise SystemExit(
+            f"releaseProof.status must be pass/passed/ready in {source}"
+        )
     for field in ("journeysPassed", "proofRoutes"):
         value = proof.get(field)
         if value is not None and not isinstance(value, list):
