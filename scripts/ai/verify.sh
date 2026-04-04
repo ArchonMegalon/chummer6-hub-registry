@@ -95,10 +95,74 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startu
 }
 JSON
 sed -i "s/STARTUP_FILTER_LINUX_DIGEST/${startup_filter_linux_digest}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json
+cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/proof.json <<'JSON'
+{
+  "status": "passed",
+  "generated_at": "2026-03-28T16:00:00Z",
+  "base_url": "http://127.0.0.1:8091",
+  "journeys_passed": [
+    "install_claim_restore_continue",
+    "build_explain_publish",
+    "campaign_session_recover_recap",
+    "report_cluster_release_notify"
+  ],
+  "proof_routes": [
+    "/downloads/install/avalonia-linux-x64-installer"
+  ]
+}
+JSON
+cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/ui-localization-release-gate.json <<'JSON'
+{
+  "status": "pass",
+  "generated_at": "2026-04-03T22:59:41Z",
+  "default_key_count": 383,
+  "explicit_fallback_runtime": "pass",
+  "signoff_smoke_runner": { "status": "pass" },
+  "shipping_locales": ["en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn"],
+  "acceptance_gates": [
+    "pseudo_localization",
+    "missing_key_fail_fast",
+    "top_surface_overflow_checks",
+    "locale_smoke_first_launch",
+    "locale_smoke_settings",
+    "locale_smoke_explain",
+    "locale_smoke_updater",
+    "locale_smoke_support",
+    "non_english_generated_artifact_smoke"
+  ],
+  "domain_coverage": {
+    "app_chrome": "pass",
+    "install_update_support": "pass",
+    "explain_receipts": "pass",
+    "data_rules_names": "pass",
+    "generated_artifacts": "pass"
+  },
+  "locale_domain_coverage": {
+    "en-us": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"},
+    "de-de": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"},
+    "fr-fr": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"},
+    "ja-jp": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"},
+    "pt-br": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"},
+    "zh-cn": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"}
+  },
+  "blocking_findings": [],
+  "translation_backlog_findings": [],
+  "locale_summary": [
+    {"locale":"en-us","untranslated_key_count":0,"override_count":383,"minimum_override_count":40,"missing_release_seed_keys":[],"legacy_xml_present":true,"legacy_data_xml_present":true},
+    {"locale":"de-de","untranslated_key_count":0,"override_count":383,"minimum_override_count":40,"missing_release_seed_keys":[],"legacy_xml_present":true,"legacy_data_xml_present":true},
+    {"locale":"fr-fr","untranslated_key_count":0,"override_count":383,"minimum_override_count":40,"missing_release_seed_keys":[],"legacy_xml_present":true,"legacy_data_xml_present":true},
+    {"locale":"ja-jp","untranslated_key_count":0,"override_count":383,"minimum_override_count":40,"missing_release_seed_keys":[],"legacy_xml_present":true,"legacy_data_xml_present":true},
+    {"locale":"pt-br","untranslated_key_count":0,"override_count":383,"minimum_override_count":40,"missing_release_seed_keys":[],"legacy_xml_present":true,"legacy_data_xml_present":true},
+    {"locale":"zh-cn","untranslated_key_count":0,"override_count":383,"minimum_override_count":40,"missing_release_seed_keys":[],"legacy_xml_present":true,"legacy_data_xml_present":true}
+  ]
+}
+JSON
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
   --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
   --startup-smoke-max-age-seconds 86400 \
+  --proof /tmp/chummer-hub-registry-startup-smoke-filter-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-startup-smoke-filter-fixture/ui-localization-release-gate.json \
   --channel preview \
   --version 0.0.0-smoke-startup-filter \
   --output /tmp/chummer-hub-registry-startup-smoke-filter-fixture/RELEASE_CHANNEL.generated.json >/dev/null
@@ -158,6 +222,8 @@ python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_
   --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
   --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
   --startup-smoke-max-age-seconds 86400 \
+  --proof /tmp/chummer-hub-registry-startup-smoke-filter-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-startup-smoke-filter-fixture/ui-localization-release-gate.json \
   --channel preview \
   --version 0.0.0-smoke-startup-filter-channel-mismatch \
   --output /tmp/chummer-hub-registry-startup-smoke-filter-fixture/RELEASE_CHANNEL.generated.json >/dev/null
@@ -185,6 +251,8 @@ python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_
   --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
   --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
   --startup-smoke-max-age-seconds 86400 \
+  --proof /tmp/chummer-hub-registry-startup-smoke-filter-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-startup-smoke-filter-fixture/ui-localization-release-gate.json \
   --channel preview \
   --version 0.0.0-smoke-startup-filter-stale \
   --output /tmp/chummer-hub-registry-startup-smoke-filter-fixture/RELEASE_CHANNEL.generated.json >/dev/null
@@ -329,6 +397,26 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/proof.incomplete-journeys.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null; then
+  echo "verify gate failed: materializer should reject release channel projection when releaseProof is missing." >&2
+  exit 1
+fi
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null; then
+  echo "verify gate failed: materializer should reject release channel projection when uiLocalizationReleaseGate is missing." >&2
+  exit 1
+fi
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \

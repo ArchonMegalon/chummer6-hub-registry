@@ -479,21 +479,7 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
         "baseUrl": base_url,
         "journeysPassed": journeys,
         "proofRoutes": routes,
-        "uiLocalizationReleaseGate": ui_localization_release_gate
-        or {
-            "status": "missing",
-            "generatedAt": None,
-            "defaultKeyCount": None,
-            "explicitFallbackRuntime": "missing",
-            "signoffSmokeRunnerStatus": "missing",
-            "shippingLocales": [],
-            "localeSummary": [],
-            "acceptanceGates": [],
-            "domainCoverage": {},
-            "localeDomainCoverage": {},
-            "blockingFindingsCount": 0,
-            "translationBacklogFindingsCount": 0,
-        },
+        "uiLocalizationReleaseGate": ui_localization_release_gate,
     }
 
 
@@ -1146,21 +1132,16 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         source="embedded manifest releaseProof uiLocalizationReleaseGate",
     )
     if not isinstance(release_proof, dict):
-        release_proof = {"status": "missing", "generatedAt": None, "baseUrl": None, "journeysPassed": [], "proofRoutes": []}
-    release_proof["uiLocalizationReleaseGate"] = ui_localization_release_gate or {
-        "status": "missing",
-        "generatedAt": None,
-        "defaultKeyCount": None,
-        "explicitFallbackRuntime": "missing",
-        "signoffSmokeRunnerStatus": "missing",
-        "shippingLocales": [],
-        "localeSummary": [],
-        "acceptanceGates": [],
-        "domainCoverage": {},
-        "localeDomainCoverage": {},
-        "blockingFindingsCount": 0,
-        "translationBacklogFindingsCount": 0,
-    }
+        raise ValueError(
+            "releaseProof is required for release-channel materialization "
+            "(set --proof or embed releaseProof in the source payload)"
+        )
+    if not isinstance(ui_localization_release_gate, dict):
+        raise ValueError(
+            "releaseProof.uiLocalizationReleaseGate is required for release-channel materialization "
+            "(set --ui-localization-release-gate or embed releaseProof.uiLocalizationReleaseGate in source proof)"
+        )
+    release_proof["uiLocalizationReleaseGate"] = ui_localization_release_gate
     runtime_bundle_heads = apply_runtime_bundle_compatibility(
         load_runtime_bundle_heads(args.runtime_bundles),
         status=status,
