@@ -1529,6 +1529,38 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
+cp /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.ordering.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["acceptance_gates"] = [
+    "missing_key_fail_fast",
+    "pseudo_localization",
+    "top_surface_overflow_checks",
+    "locale_smoke_first_launch",
+    "locale_smoke_settings",
+    "locale_smoke_explain",
+    "locale_smoke_updater",
+    "locale_smoke_support",
+    "non_english_generated_artifact_smoke",
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null; then
+  echo "verify gate failed: materializer should reject localization proof with non-canonical acceptance_gates ordering." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.ordering.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
@@ -1602,6 +1634,31 @@ path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: verifier should reject localization proof with duplicate acceptance gate ids." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"]["uiLocalizationReleaseGate"]["acceptanceGates"] = [
+    "missing_key_fail_fast",
+    "pseudo_localization",
+    "top_surface_overflow_checks",
+    "locale_smoke_first_launch",
+    "locale_smoke_settings",
+    "locale_smoke_explain",
+    "locale_smoke_updater",
+    "locale_smoke_support",
+    "non_english_generated_artifact_smoke",
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject localization proof with non-canonical acceptance gate ordering." >&2
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
@@ -2025,7 +2082,7 @@ assert all(
     and locale.get("legacyDataXmlPresent") is True
     for locale in canonical["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"]
 )
-assert sorted(canonical["releaseProof"]["uiLocalizationReleaseGate"]["acceptanceGates"]) == sorted([
+assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["acceptanceGates"] == [
     "pseudo_localization",
     "missing_key_fail_fast",
     "top_surface_overflow_checks",
@@ -2035,7 +2092,7 @@ assert sorted(canonical["releaseProof"]["uiLocalizationReleaseGate"]["acceptance
     "locale_smoke_updater",
     "locale_smoke_support",
     "non_english_generated_artifact_smoke",
-])
+]
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["domainCoverage"] == {
     "app_chrome": "pass",
     "data_rules_names": "pass",

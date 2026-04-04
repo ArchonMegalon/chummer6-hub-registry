@@ -58,6 +58,17 @@ REQUIRED_RELEASE_PROOF_ROUTES = (
     "/account/support",
     "/contact",
 )
+REQUIRED_LOCALIZATION_ACCEPTANCE_GATES = (
+    "pseudo_localization",
+    "missing_key_fail_fast",
+    "top_surface_overflow_checks",
+    "locale_smoke_first_launch",
+    "locale_smoke_settings",
+    "locale_smoke_explain",
+    "locale_smoke_updater",
+    "locale_smoke_support",
+    "non_english_generated_artifact_smoke",
+)
 DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
 UTC = dt.timezone.utc
 
@@ -860,6 +871,11 @@ def normalize_ui_localization_release_gate_payload(
         field_name="acceptance_gates",
         source=source,
     )
+    if tuple(acceptance_gates) != REQUIRED_LOCALIZATION_ACCEPTANCE_GATES:
+        raise ValueError(
+            "acceptance_gates must preserve canonical gate ordering "
+            f"(actual={acceptance_gates}, expected={list(REQUIRED_LOCALIZATION_ACCEPTANCE_GATES)}) in {source}"
+        )
     raw_domain_coverage = resolve_alias_value(
         loaded,
         primary_key="domain_coverage",

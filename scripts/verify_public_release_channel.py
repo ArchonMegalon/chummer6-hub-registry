@@ -1384,6 +1384,11 @@ def verify_release_truth(payload: dict, source: str) -> None:
             "releaseProof.uiLocalizationReleaseGate.acceptanceGates has unexpected gate ids "
             f"({', '.join(unexpected_acceptance_gates)}) in {source}"
         )
+    if tuple(acceptance_gates) != REQUIRED_LOCALIZATION_ACCEPTANCE_GATES:
+        raise SystemExit(
+            "releaseProof.uiLocalizationReleaseGate.acceptanceGates must preserve canonical gate ordering "
+            f"(actual={acceptance_gates}, expected={list(REQUIRED_LOCALIZATION_ACCEPTANCE_GATES)}) in {source}"
+        )
     domain_coverage_raw = resolve_alias_value(
         ui_localization_release_gate,
         primary_key="domainCoverage",
