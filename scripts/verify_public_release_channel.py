@@ -950,10 +950,48 @@ def verify_release_truth(payload: dict, source: str) -> None:
             "releaseProof.generatedAt is stale in "
             f"{source} ({release_proof_age_seconds}s old; max {release_proof_max_age_seconds}s)"
         )
-    for field in ("journeysPassed", "proofRoutes"):
-        value = proof.get(field)
-        if value is not None and not isinstance(value, list):
-            raise SystemExit(f"releaseProof.{field} must be a list in {source}")
+    journeys_passed = first_present(proof, "journeysPassed", "journeys_passed")
+    if not isinstance(journeys_passed, list):
+        raise SystemExit(f"releaseProof.journeysPassed must be a list in {source}")
+    if not journeys_passed:
+        raise SystemExit(f"releaseProof.journeysPassed must include at least one journey in {source}")
+    normalized_journeys: list[str] = []
+    for index, raw_journey in enumerate(journeys_passed):
+        if not isinstance(raw_journey, str):
+            raise SystemExit(f"releaseProof.journeysPassed[{index}] must be a string in {source}")
+        token = normalized_token(raw_journey)
+        if not token:
+            raise SystemExit(f"releaseProof.journeysPassed[{index}] must not be blank in {source}")
+        normalized_journeys.append(token)
+    duplicate_journeys = sorted({journey for journey in normalized_journeys if normalized_journeys.count(journey) > 1})
+    if duplicate_journeys:
+        raise SystemExit(
+            "releaseProof.journeysPassed must not contain duplicate journey ids "
+            f"({', '.join(duplicate_journeys)}) in {source}"
+        )
+
+    proof_routes = first_present(proof, "proofRoutes", "proof_routes")
+    if not isinstance(proof_routes, list):
+        raise SystemExit(f"releaseProof.proofRoutes must be a list in {source}")
+    if not proof_routes:
+        raise SystemExit(f"releaseProof.proofRoutes must include at least one route in {source}")
+    normalized_proof_routes: list[str] = []
+    for index, raw_route in enumerate(proof_routes):
+        if not isinstance(raw_route, str):
+            raise SystemExit(f"releaseProof.proofRoutes[{index}] must be a string in {source}")
+        route = raw_route.strip()
+        if not route:
+            raise SystemExit(f"releaseProof.proofRoutes[{index}] must not be blank in {source}")
+        normalized_route = normalized_token(route)
+        normalized_proof_routes.append(normalized_route)
+    duplicate_proof_routes = sorted(
+        {route for route in normalized_proof_routes if normalized_proof_routes.count(route) > 1}
+    )
+    if duplicate_proof_routes:
+        raise SystemExit(
+            "releaseProof.proofRoutes must not contain duplicate routes "
+            f"({', '.join(duplicate_proof_routes)}) in {source}"
+        )
 
     ui_localization_release_gate = proof.get("uiLocalizationReleaseGate")
     if not isinstance(ui_localization_release_gate, dict):
