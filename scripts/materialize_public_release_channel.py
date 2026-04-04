@@ -1327,6 +1327,15 @@ def is_desktop_install_media(platform: Any, kind: Any) -> bool:
     return kind_token == "installer"
 
 
+def expected_installer_extension_for_platform(platform: str) -> str:
+    platform_token = normalized_token(platform)
+    if platform_token == "windows":
+        return "exe"
+    if platform_token == "macos":
+        return "dmg"
+    return "deb"
+
+
 def desktop_tuple_coverage(
     artifacts: list[dict[str, Any]],
     required_heads: list[str],
@@ -1426,6 +1435,13 @@ def desktop_tuple_coverage(
                     "promoted_installer_artifact",
                     "startup_smoke_receipt",
                 ],
+                "expectedArtifactId": f"{head}-{rid}-installer",
+                "expectedInstallerFileName": (
+                    f"chummer-{head}-{rid}-installer."
+                    f"{expected_installer_extension_for_platform(platform)}"
+                ),
+                "expectedPublicInstallRoute": f"/downloads/install/{head}-{rid}-installer",
+                "expectedStartupSmokeReceiptPath": f"startup-smoke/startup-smoke-{head}-{rid}.receipt.json",
             }
         )
     return {

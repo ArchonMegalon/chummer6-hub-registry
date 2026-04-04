@@ -232,6 +232,10 @@ external_requests = coverage.get("externalProofRequests") or []
 assert sorted(item.get("tupleId") for item in external_requests) == sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or [])
 assert all(item.get("requiredHost") == item.get("platform") for item in external_requests)
 assert all(sorted(item.get("requiredProofs") or []) == ["promoted_installer_artifact", "startup_smoke_receipt"] for item in external_requests)
+assert all(str(item.get("expectedArtifactId") or "").strip() for item in external_requests)
+assert all(str(item.get("expectedInstallerFileName") or "").strip().startswith("chummer-") for item in external_requests)
+assert all(str(item.get("expectedPublicInstallRoute") or "").strip().startswith("/downloads/install/") for item in external_requests)
+assert all(str(item.get("expectedStartupSmokeReceiptPath") or "").strip().startswith("startup-smoke/") for item in external_requests)
 PY
 cp /tmp/chummer-hub-registry-startup-smoke-filter-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.json
 cp /tmp/chummer-hub-registry-startup-smoke-filter-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json

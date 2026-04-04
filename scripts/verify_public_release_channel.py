@@ -168,6 +168,10 @@ ALLOWED_EXTERNAL_PROOF_REQUEST_KEYS = (
     "rid",
     "requiredHost",
     "requiredProofs",
+    "expectedArtifactId",
+    "expectedInstallerFileName",
+    "expectedPublicInstallRoute",
+    "expectedStartupSmokeReceiptPath",
 )
 DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
@@ -904,6 +908,38 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
                 "promoted_installer_artifact",
                 "startup_smoke_receipt",
             ],
+            "expectedArtifactId": (
+                tuple_id.split(":", 2)[0]
+                + "-"
+                + tuple_id.split(":", 2)[1]
+                + "-installer"
+            ),
+            "expectedInstallerFileName": (
+                "chummer-"
+                + tuple_id.split(":", 2)[0]
+                + "-"
+                + tuple_id.split(":", 2)[1]
+                + "-installer."
+                + (
+                    "exe"
+                    if tuple_id.split(":", 2)[2] == "windows"
+                    else ("dmg" if tuple_id.split(":", 2)[2] == "macos" else "deb")
+                )
+            ),
+            "expectedPublicInstallRoute": (
+                "/downloads/install/"
+                + tuple_id.split(":", 2)[0]
+                + "-"
+                + tuple_id.split(":", 2)[1]
+                + "-installer"
+            ),
+            "expectedStartupSmokeReceiptPath": (
+                "startup-smoke/startup-smoke-"
+                + tuple_id.split(":", 2)[0]
+                + "-"
+                + tuple_id.split(":", 2)[1]
+                + ".receipt.json"
+            ),
         }
         for tuple_id in expected_missing_platform_head_rid_tuples
         if len(tuple_id.split(":", 2)) == 3
@@ -939,6 +975,10 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
                 "platform": platform,
                 "requiredHost": required_host,
                 "requiredProofs": required_proofs,
+                "expectedArtifactId": str(item.get("expectedArtifactId") or "").strip(),
+                "expectedInstallerFileName": str(item.get("expectedInstallerFileName") or "").strip(),
+                "expectedPublicInstallRoute": str(item.get("expectedPublicInstallRoute") or "").strip(),
+                "expectedStartupSmokeReceiptPath": str(item.get("expectedStartupSmokeReceiptPath") or "").strip(),
             }
         )
     normalized_external_proof_requests.sort(
