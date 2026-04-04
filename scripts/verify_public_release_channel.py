@@ -965,6 +965,10 @@ def verify_release_truth(payload: dict, source: str) -> None:
             raise SystemExit(
                 f"releaseProof.uiLocalizationReleaseGate.localeSummary[{index}].locale is required in {source}"
             )
+        if locale in locale_rows:
+            raise SystemExit(
+                f"releaseProof.uiLocalizationReleaseGate.localeSummary has duplicate locale '{locale}' in {source}"
+            )
         locale_rows[locale] = item
 
     for locale in REQUIRED_LOCALIZATION_SHIPPING_LOCALES:

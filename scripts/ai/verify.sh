@@ -480,6 +480,26 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_re
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+rows = payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"]
+duplicate = next((row for row in rows if row.get("locale") == "de-de"), None)
+if duplicate is None:
+    raise SystemExit("verify gate failed: expected de-de locale row in localization fixture.")
+rows.append(dict(duplicate))
+payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = rows
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject duplicate localeSummary locale rows." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py --require-complete-desktop-coverage /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: strict verifier should reject incomplete required desktop tuple coverage." >&2
   exit 1
