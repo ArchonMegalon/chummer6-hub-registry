@@ -58,6 +58,7 @@ REQUIRED_LOCALIZATION_ACCEPTANCE_GATES = (
 )
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
 DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS = 604800
+DEFAULT_LOCALIZATION_GATE_MAX_FUTURE_SKEW_SECONDS = 300
 REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT = "pre_ui_event_loop"
 PLATFORM_ALIASES = {
     "osx": "macos",
@@ -220,6 +221,13 @@ def parse_localization_gate_max_age_seconds(raw_value: object) -> int:
     parsed = parse_positive_int(raw_value)
     if parsed is None or parsed <= 0:
         return DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS
+    return parsed
+
+
+def parse_localization_gate_max_future_skew_seconds(raw_value: object) -> int:
+    parsed = parse_positive_int(raw_value)
+    if parsed is None:
+        return DEFAULT_LOCALIZATION_GATE_MAX_FUTURE_SKEW_SECONDS
     return parsed
 
 
@@ -875,8 +883,18 @@ def verify_release_truth(payload: dict, source: str) -> None:
         os.environ.get("CHUMMER_VERIFY_LOCALIZATION_GATE_MAX_AGE_SECONDS")
         or os.environ.get("CHUMMER_UI_LOCALIZATION_GATE_MAX_AGE_SECONDS")
     )
+    localization_gate_max_future_skew_seconds = parse_localization_gate_max_future_skew_seconds(
+        os.environ.get("CHUMMER_VERIFY_LOCALIZATION_GATE_MAX_FUTURE_SKEW_SECONDS")
+        or os.environ.get("CHUMMER_UI_LOCALIZATION_GATE_MAX_FUTURE_SKEW_SECONDS")
+    )
     localization_gate_age_seconds = int((datetime.now(timezone.utc) - gate_generated_at_timestamp).total_seconds())
     if localization_gate_age_seconds < 0:
+        localization_gate_future_skew_seconds = abs(localization_gate_age_seconds)
+        if localization_gate_future_skew_seconds > localization_gate_max_future_skew_seconds:
+            raise SystemExit(
+                "releaseProof.uiLocalizationReleaseGate.generatedAt is in the future in "
+                f"{source} ({localization_gate_future_skew_seconds}s ahead; max {localization_gate_max_future_skew_seconds}s)"
+            )
         localization_gate_age_seconds = 0
     if localization_gate_age_seconds > localization_gate_max_age_seconds:
         raise SystemExit(
@@ -970,6 +988,15 @@ def verify_release_truth(payload: dict, source: str) -> None:
                 f"releaseProof.uiLocalizationReleaseGate.localeSummary has duplicate locale '{locale}' in {source}"
             )
         locale_rows[locale] = item
+
+    unexpected_locale_rows = sorted(
+        locale for locale in locale_rows if locale not in shipping_locales
+    )
+    if unexpected_locale_rows:
+        raise SystemExit(
+            "releaseProof.uiLocalizationReleaseGate.localeSummary has unexpected locale rows "
+            f"({', '.join(unexpected_locale_rows)}) in {source}"
+        )
 
     for locale in REQUIRED_LOCALIZATION_SHIPPING_LOCALES:
         row = locale_rows.get(locale)
