@@ -1612,13 +1612,13 @@ rows = payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"]
 target = next((row for row in rows if row.get("locale") == "de-de"), None)
 if target is None:
     raise SystemExit("verify gate failed: expected de-de localeSummary row in localization fixture.")
-target["minimumOverrideCount"] = 40
-target["minimum_override_count"] = 39
+target["untranslatedKeyCount"] = 0
+target["untranslated_key_count"] = 1
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
-  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.localeSummary[*].minimumOverrideCount and releaseProof.uiLocalizationReleaseGate.localeSummary[*].minimum_override_count." >&2
+  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.localeSummary[*].untranslatedKeyCount and releaseProof.uiLocalizationReleaseGate.localeSummary[*].untranslated_key_count." >&2
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
