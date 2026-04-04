@@ -170,7 +170,7 @@ ReleaseChannelHeadProjection releaseChannel = new(
         GeneratedAtUtc: DateTimeOffset.UnixEpoch,
         BaseUrl: "http://127.0.0.1:8091",
         JourneysPassed: ["install_claim_restore_continue", "build_explain_publish", "campaign_session_recover_recap", "report_cluster_release_notify"],
-        ProofRoutes: ["/downloads/install/avalonia-win-x64-installer", "/home/access", "/home/work", "/account/work", "/account/support", "/contact"]));
+        ProofRoutes: ["/downloads/install/avalonia-linux-x64-installer", "/home/access", "/home/work", "/account/work", "/account/support", "/contact"]));
 
 HubPublicationResult<RuntimeBundleHeadProjection> implemented = HubPublicationResult<RuntimeBundleHeadProjection>.Implemented(head);
 Assert(implemented.IsImplemented, "Implemented result wrappers must report IsImplemented.");
@@ -193,8 +193,15 @@ ReleaseProofProjection releaseProof = releaseChannel.ReleaseProof
 IReadOnlyList<string> journeysPassed = releaseProof.JourneysPassed ?? Array.Empty<string>();
 IReadOnlyList<string> proofRoutes = releaseProof.ProofRoutes ?? Array.Empty<string>();
 Assert(journeysPassed.Count == 4, "Release channel projections must retain the full proven journey set.");
-Assert(proofRoutes.Any(route => string.Equals(route, "/account/work", StringComparison.Ordinal)),
-    "Release channel projections must retain bounded offline follow-through routes.");
+Assert(
+    proofRoutes.Count == 6
+    && proofRoutes.Contains("/downloads/install/avalonia-linux-x64-installer", StringComparer.Ordinal)
+    && proofRoutes.Contains("/home/access", StringComparer.Ordinal)
+    && proofRoutes.Contains("/home/work", StringComparer.Ordinal)
+    && proofRoutes.Contains("/account/work", StringComparer.Ordinal)
+    && proofRoutes.Contains("/account/support", StringComparer.Ordinal)
+    && proofRoutes.Contains("/contact", StringComparer.Ordinal),
+    "Release channel projections must retain canonical flagship proof routes.");
 Assert(string.Equals(releaseProof.Status, ReleaseProofStatuses.Passed, StringComparison.Ordinal),
     "Release channel projections must retain release-proof posture.");
 
