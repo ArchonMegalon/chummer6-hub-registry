@@ -600,6 +600,30 @@ def normalized_string_list(value: object) -> list[str]:
     return [normalized_token(item) for item in value if normalized_token(item)]
 
 
+def normalized_receipt_host_class(receipt: dict[str, Any]) -> str:
+    return normalized_token(
+        receipt.get("hostClass")
+        or receipt.get("host_class")
+        or receipt.get("host")
+    )
+
+
+def verify_startup_smoke_receipt_host_class(
+    receipt: dict[str, Any],
+    *,
+    platform: str,
+    source: str,
+) -> None:
+    host_class = normalized_receipt_host_class(receipt)
+    platform_token = normalized_platform_token(platform)
+    if not host_class:
+        raise SystemExit(f"{source} startup-smoke receipt hostClass is missing")
+    if platform_token and platform_token not in host_class:
+        raise SystemExit(
+            f"{source} startup-smoke receipt hostClass does not satisfy required host token '{platform_token}'"
+        )
+
+
 def parse_required_token_list(value: object, *, field_path: str, source: str) -> list[str]:
     if not isinstance(value, list):
         raise SystemExit(f"{field_path} must be a list in {source}")
@@ -1376,6 +1400,13 @@ def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) 
             raise SystemExit(
                 f"{source} startup-smoke receipt platform mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
+        verify_startup_smoke_receipt_host_class(
+            receipt,
+            platform=platform,
+            source=(
+                f"{source} startup-smoke receipt for promoted desktop installer tuple {head}:{platform}:{rid}"
+            ),
+        )
         receipt_rid = normalized_token(receipt.get("rid"))
         expected_arch = expected_arch_from_rid(rid)
         receipt_arch = normalized_token(receipt.get("arch"))

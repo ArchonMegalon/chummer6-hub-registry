@@ -55,3 +55,37 @@ def test_verify_desktop_tuple_coverage_complete_flag_accepts_match() -> None:
         missing_platform_head_rid_tuples=[],
         source="release-channel.json",
     )
+
+
+def test_verify_startup_smoke_receipt_host_class_rejects_missing_host_class() -> None:
+    with pytest.raises(SystemExit, match="hostClass is missing"):
+        MODULE.verify_startup_smoke_receipt_host_class(
+            {
+                "platform": "windows",
+            },
+            platform="windows",
+            source="release-channel.json",
+        )
+
+
+def test_verify_startup_smoke_receipt_host_class_rejects_platform_mismatch() -> None:
+    with pytest.raises(SystemExit, match="does not satisfy required host token 'windows'"):
+        MODULE.verify_startup_smoke_receipt_host_class(
+            {
+                "platform": "windows",
+                "hostClass": "local-linux-x64",
+            },
+            platform="windows",
+            source="release-channel.json",
+        )
+
+
+def test_verify_startup_smoke_receipt_host_class_accepts_host_alias_field() -> None:
+    MODULE.verify_startup_smoke_receipt_host_class(
+        {
+            "platform": "macos",
+            "host_class": "macos-host",
+        },
+        platform="macos",
+        source="release-channel.json",
+    )

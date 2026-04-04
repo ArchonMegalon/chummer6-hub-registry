@@ -57,6 +57,7 @@ def test_load_startup_smoke_receipts_rejects_future_dated_receipts_beyond_skew()
                     "headId": "avalonia",
                     "platform": "macos",
                     "arch": "arm64",
+                    "hostClass": "macos-host",
                     "channelId": "preview",
                     "artifactDigest": "sha256:abc123",
                 }
@@ -87,6 +88,76 @@ def test_load_startup_smoke_receipts_accepts_future_dated_receipts_within_skew()
                     "headId": "avalonia",
                     "platform": "macos",
                     "arch": "arm64",
+                    "hostClass": "macos-host",
+                    "channelId": "preview",
+                    "artifactDigest": "sha256:abc123",
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipts = MODULE.load_startup_smoke_receipts(
+            root,
+            max_age_seconds=86400,
+            max_future_skew_seconds=60,
+            expected_channel="preview",
+            now=now,
+        )
+    assert receipts == [
+        {
+            "head": "avalonia",
+            "platform": "macos",
+            "arch": "arm64",
+            "artifactDigest": "sha256:abc123",
+            "channelId": "preview",
+        }
+    ]
+
+
+def test_load_startup_smoke_receipts_rejects_missing_host_class_for_platform() -> None:
+    now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        receipt_path = root / "startup-smoke-avalonia-osx-arm64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": "2026-04-04T21:59:45Z",
+                    "headId": "avalonia",
+                    "platform": "macos",
+                    "arch": "arm64",
+                    "channelId": "preview",
+                    "artifactDigest": "sha256:abc123",
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipts = MODULE.load_startup_smoke_receipts(
+            root,
+            max_age_seconds=86400,
+            max_future_skew_seconds=60,
+            expected_channel="preview",
+            now=now,
+        )
+    assert receipts == []
+
+
+def test_load_startup_smoke_receipts_accepts_host_class_alias_when_platform_matches() -> None:
+    now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        receipt_path = root / "startup-smoke-avalonia-osx-arm64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": "2026-04-04T21:59:45Z",
+                    "headId": "avalonia",
+                    "platform": "macos",
+                    "arch": "arm64",
+                    "host_class": "macos-host",
                     "channelId": "preview",
                     "artifactDigest": "sha256:abc123",
                 }

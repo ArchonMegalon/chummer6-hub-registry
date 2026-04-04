@@ -139,6 +139,18 @@ def normalize_token(value: Any) -> str:
     return str(value or "").strip().lower()
 
 
+def startup_smoke_host_class_matches_platform(loaded: dict[str, Any], *, platform: str) -> bool:
+    host_class = normalize_token(
+        loaded.get("hostClass")
+        or loaded.get("host_class")
+        or loaded.get("host")
+    )
+    platform_token = normalize_token(platform)
+    if not host_class or not platform_token:
+        return False
+    return platform_token in host_class
+
+
 def normalize_release_proof_route(raw_route: Any, *, field_name: str, source: str) -> str:
     if not isinstance(raw_route, str):
         raise ValueError(f"{field_name} must be a string in {source}")
@@ -496,6 +508,8 @@ def load_startup_smoke_receipts(
         artifact_digest = str(loaded.get("artifactDigest") or "").strip().lower()
         channel_id = normalize_token(loaded.get("channelId") or loaded.get("channel"))
         if not head or not platform or not arch:
+            continue
+        if not startup_smoke_host_class_matches_platform(loaded, platform=platform):
             continue
         if expected_channel and channel_id != expected_channel:
             continue
