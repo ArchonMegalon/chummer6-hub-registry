@@ -1608,6 +1608,48 @@ from pathlib import Path
 
 path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
 payload = json.loads(path.read_text(encoding="utf-8"))
+rows = payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"]
+target = next((row for row in rows if row.get("locale") == "de-de"), None)
+if target is None:
+    raise SystemExit("verify gate failed: expected de-de localeSummary row in localization fixture.")
+target["minimumOverrideCount"] = 40
+target["minimum_override_count"] = 39
+payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = rows
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.localeSummary[*].minimumOverrideCount and releaseProof.uiLocalizationReleaseGate.localeSummary[*].minimum_override_count." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+rows = payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"]
+target = next((row for row in rows if row.get("locale") == "de-de"), None)
+if target is None:
+    raise SystemExit("verify gate failed: expected de-de localeSummary row in localization fixture.")
+target["legacyDataXmlPresent"] = True
+target["legacy_data_xml_present"] = False
+payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = rows
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.localeSummary[*].legacyDataXmlPresent and releaseProof.uiLocalizationReleaseGate.localeSummary[*].legacy_data_xml_present." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
 gate = payload["releaseProof"]["uiLocalizationReleaseGate"]
 gate["localeSummary"] = gate.get("localeSummary", [])
 gate["locale_summary"] = []
@@ -2514,6 +2556,94 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
 fi
 if ! rg -F "locale_summary[de-de].legacy_xml_present alias values drift between legacy_xml_present and legacyXmlPresent" "$materializer_alias_drift_log" >/dev/null; then
   echo "verify gate failed: expected locale_summary legacy_xml_present alias-drift fail-close marker from materializer." >&2
+  rm -f "$materializer_alias_drift_log"
+  exit 1
+fi
+rm -f "$materializer_alias_drift_log"
+mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null
+cp /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+rows = payload.get("locale_summary") or []
+target = next((row for row in rows if row.get("locale") == "de-de"), None)
+if target is None:
+    raise SystemExit("verify gate failed: expected de-de locale_summary row in localization fixture.")
+target["minimum_override_count"] = 40
+target["minimumOverrideCount"] = 39
+payload["locale_summary"] = rows
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+materializer_alias_drift_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >"$materializer_alias_drift_log" 2>&1; then
+  echo "verify gate failed: materializer should reject conflicting alias values between locale_summary[*].minimum_override_count and locale_summary[*].minimumOverrideCount in localization proof." >&2
+  rm -f "$materializer_alias_drift_log"
+  exit 1
+fi
+if ! rg -F "locale_summary[de-de].minimum_override_count alias values drift between minimum_override_count and minimumOverrideCount" "$materializer_alias_drift_log" >/dev/null; then
+  echo "verify gate failed: expected locale_summary minimum_override_count alias-drift fail-close marker from materializer." >&2
+  rm -f "$materializer_alias_drift_log"
+  exit 1
+fi
+rm -f "$materializer_alias_drift_log"
+mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null
+cp /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+rows = payload.get("locale_summary") or []
+target = next((row for row in rows if row.get("locale") == "de-de"), None)
+if target is None:
+    raise SystemExit("verify gate failed: expected de-de locale_summary row in localization fixture.")
+target["legacy_data_xml_present"] = True
+target["legacyDataXmlPresent"] = False
+payload["locale_summary"] = rows
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+materializer_alias_drift_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >"$materializer_alias_drift_log" 2>&1; then
+  echo "verify gate failed: materializer should reject conflicting alias values between locale_summary[*].legacy_data_xml_present and locale_summary[*].legacyDataXmlPresent in localization proof." >&2
+  rm -f "$materializer_alias_drift_log"
+  exit 1
+fi
+if ! rg -F "locale_summary[de-de].legacy_data_xml_present alias values drift between legacy_data_xml_present and legacyDataXmlPresent" "$materializer_alias_drift_log" >/dev/null; then
+  echo "verify gate failed: expected locale_summary legacy_data_xml_present alias-drift fail-close marker from materializer." >&2
   rm -f "$materializer_alias_drift_log"
   exit 1
 fi
