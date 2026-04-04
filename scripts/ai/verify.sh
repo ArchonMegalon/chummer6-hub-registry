@@ -909,6 +909,65 @@ python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_
   --version 0.0.0-smoke \
   --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
   --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null
+cp /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.list-duplicates.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["domain_coverage"] = [
+    {"domain": "app_chrome", "status": "pass"},
+    {"domain": " app_chrome ", "status": "pass"},
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null; then
+  echo "verify gate failed: materializer should reject list-form domain_coverage rows with duplicate normalized ids." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.list-duplicates.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
+cp /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.list-duplicates.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+domains = payload["locale_domain_coverage"]["de-de"]
+payload["locale_domain_coverage"] = [
+    {"locale": "de-de", "domains": domains},
+    {"locale": " de-de ", "domains": domains},
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null; then
+  echo "verify gate failed: materializer should reject list-form locale_domain_coverage rows with duplicate normalized locale ids." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.list-duplicates.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py --require-complete-desktop-coverage /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: strict verifier should reject incomplete required desktop tuple coverage." >&2
   exit 1

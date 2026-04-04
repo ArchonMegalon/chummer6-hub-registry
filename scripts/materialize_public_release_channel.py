@@ -591,6 +591,10 @@ def normalize_ui_localization_release_gate_payload(
             status_token = normalized_token(item.get("status"))
             if not status_token:
                 continue
+            if domain_id in domain_coverage:
+                raise ValueError(
+                    f"domain_coverage must not contain duplicate ids after normalization ('{domain_id}') in {source}"
+                )
             domain_coverage[domain_id] = status_token
     raw_locale_domain_coverage = first_present(loaded, "locale_domain_coverage", "localeDomainCoverage")
     locale_domain_coverage: dict[str, dict[str, str]] = {}
@@ -624,6 +628,11 @@ def normalize_ui_localization_release_gate_payload(
             locale = normalized_token(item.get("locale"))
             if not locale:
                 continue
+            if locale in locale_domain_coverage:
+                raise ValueError(
+                    "locale_domain_coverage must not contain duplicate locale ids after normalization "
+                    f"('{locale}') in {source}"
+                )
             raw_domains = first_present(item, "domains", "domainCoverage", "domain_coverage")
             if not isinstance(raw_domains, dict):
                 continue
@@ -633,6 +642,11 @@ def normalize_ui_localization_release_gate_payload(
                 status_token = normalized_token(raw_status)
                 if not domain_id or not status_token:
                     continue
+                if domain_id in normalized_domains:
+                    raise ValueError(
+                        "locale_domain_coverage locale entries must not contain duplicate domain ids "
+                        f"after normalization ('{domain_id}') in {source}"
+                    )
                 normalized_domains[domain_id] = status_token
             locale_domain_coverage[locale] = normalized_domains
     blocking_findings = [
