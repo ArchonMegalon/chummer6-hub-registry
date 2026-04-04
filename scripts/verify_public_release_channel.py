@@ -982,6 +982,10 @@ def verify_release_truth(payload: dict, source: str) -> None:
         route = raw_route.strip()
         if not route:
             raise SystemExit(f"releaseProof.proofRoutes[{index}] must not be blank in {source}")
+        if not route.startswith("/"):
+            raise SystemExit(
+                f"releaseProof.proofRoutes[{index}] must be a slash-led route path in {source}"
+            )
         normalized_route = normalized_token(route)
         normalized_proof_routes.append(normalized_route)
     duplicate_proof_routes = sorted(
