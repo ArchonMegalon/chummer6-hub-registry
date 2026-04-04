@@ -2186,6 +2186,33 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "status": "pass",
   "readyCheckpoint": "pre_ui_event_loop",
   "headId": "avalonia",
+  "head": "blazor-desktop",
+  "channelId": "preview",
+  "platform": "windows",
+  "rid": "win-x64",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
+}
+JSON
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+startup_smoke_shape_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject startup-smoke receipt headId/head alias drift." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+if ! rg -F "startup-smoke receipt headId/head alias mismatch for promoted desktop installer tuple avalonia:windows:win-x64" "$startup_smoke_shape_log" >/dev/null; then
+  echo "verify gate failed: expected startup-smoke head alias-drift fail-close marker from verifier." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+rm -f "$startup_smoke_shape_log"
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "avalonia",
   "channelId": "preview",
   "platform": "linux",
   "rid": "win-x64",
@@ -2278,6 +2305,33 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_re
 fi
 if ! rg -F "startup-smoke receipt channelId is missing for promoted desktop installer tuple avalonia:windows:win-x64" "$startup_smoke_shape_log" >/dev/null; then
   echo "verify gate failed: expected startup-smoke missing-channelId fail-close marker from verifier." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+rm -f "$startup_smoke_shape_log"
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "avalonia",
+  "channelId": "preview",
+  "channel": "stable",
+  "platform": "windows",
+  "rid": "win-x64",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
+}
+JSON
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+startup_smoke_shape_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject startup-smoke receipt channelId/channel alias drift." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+if ! rg -F "startup-smoke receipt channelId/channel alias mismatch for promoted desktop installer tuple avalonia:windows:win-x64" "$startup_smoke_shape_log" >/dev/null; then
+  echo "verify gate failed: expected startup-smoke channel alias-drift fail-close marker from verifier." >&2
   rm -f "$startup_smoke_shape_log"
   exit 1
 fi
@@ -2433,6 +2487,33 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_re
 fi
 if ! rg -F "startup-smoke receipt rid mismatch for promoted desktop installer tuple avalonia:windows:win-x64" "$startup_smoke_shape_log" >/dev/null; then
   echo "verify gate failed: expected startup-smoke rid-mismatch fail-close marker from verifier." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+rm -f "$startup_smoke_shape_log"
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "avalonia",
+  "channelId": "preview",
+  "platform": "windows",
+  "rid": "win-x64",
+  "arch": "arm64",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
+}
+JSON
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+startup_smoke_shape_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject startup-smoke receipt arch mismatch when rid is present." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+if ! rg -F "startup-smoke receipt arch mismatch for promoted desktop installer tuple avalonia:windows:win-x64" "$startup_smoke_shape_log" >/dev/null; then
+  echo "verify gate failed: expected startup-smoke arch-mismatch fail-close marker from verifier when rid is present." >&2
   rm -f "$startup_smoke_shape_log"
   exit 1
 fi

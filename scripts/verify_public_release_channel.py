@@ -1017,7 +1017,13 @@ def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) 
                 f"{source} startup-smoke receipt readyCheckpoint is not {REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT} "
                 f"for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
-        receipt_head = normalized_token(receipt.get("headId") or receipt.get("head"))
+        receipt_head_id = normalized_token(receipt.get("headId"))
+        receipt_head_alias = normalized_token(receipt.get("head"))
+        if receipt_head_id and receipt_head_alias and receipt_head_id != receipt_head_alias:
+            raise SystemExit(
+                f"{source} startup-smoke receipt headId/head alias mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
+            )
+        receipt_head = receipt_head_id or receipt_head_alias
         if not receipt_head:
             raise SystemExit(
                 f"{source} startup-smoke receipt head is missing for promoted desktop installer tuple {head}:{platform}:{rid}"
@@ -1037,13 +1043,17 @@ def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) 
             )
         receipt_rid = normalized_token(receipt.get("rid"))
         expected_arch = expected_arch_from_rid(rid)
+        receipt_arch = normalized_token(receipt.get("arch"))
         if receipt_rid:
             if receipt_rid != rid:
                 raise SystemExit(
                     f"{source} startup-smoke receipt rid mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
                 )
+            if receipt_arch and expected_arch and receipt_arch != expected_arch:
+                raise SystemExit(
+                    f"{source} startup-smoke receipt arch mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
+                )
         else:
-            receipt_arch = normalized_token(receipt.get("arch"))
             if not receipt_arch:
                 raise SystemExit(
                     f"{source} startup-smoke receipt rid/arch metadata is missing for promoted desktop installer tuple {head}:{platform}:{rid}"
@@ -1063,7 +1073,13 @@ def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) 
                 f"{source} startup-smoke receipt artifactDigest does not match release-channel artifact sha256 for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
         if channel_id:
-            receipt_channel = normalized_token(receipt.get("channelId") or receipt.get("channel"))
+            receipt_channel_id = normalized_token(receipt.get("channelId"))
+            receipt_channel_alias = normalized_token(receipt.get("channel"))
+            if receipt_channel_id and receipt_channel_alias and receipt_channel_id != receipt_channel_alias:
+                raise SystemExit(
+                    f"{source} startup-smoke receipt channelId/channel alias mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
+                )
+            receipt_channel = receipt_channel_id or receipt_channel_alias
             if not receipt_channel:
                 raise SystemExit(
                     f"{source} startup-smoke receipt channelId is missing for promoted desktop installer tuple {head}:{platform}:{rid}"
