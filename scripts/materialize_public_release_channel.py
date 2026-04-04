@@ -70,6 +70,21 @@ REQUIRED_LOCALIZATION_ACCEPTANCE_GATES = (
     "non_english_generated_artifact_smoke",
 )
 REQUIRED_LOCALIZATION_SHIPPING_LOCALES = ("en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn")
+ALLOWED_LOCALIZATION_LOCALE_SUMMARY_ROW_KEYS = (
+    "locale",
+    "untranslated_key_count",
+    "untranslatedKeyCount",
+    "override_count",
+    "overrideCount",
+    "minimum_override_count",
+    "minimumOverrideCount",
+    "missing_release_seed_keys",
+    "missingReleaseSeedKeys",
+    "legacy_xml_present",
+    "legacyXmlPresent",
+    "legacy_data_xml_present",
+    "legacyDataXmlPresent",
+)
 DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
 UTC = dt.timezone.utc
 
@@ -1059,6 +1074,16 @@ def normalize_ui_localization_release_gate_payload(
     ):
         if not isinstance(item, dict):
             continue
+        unexpected_locale_summary_row_keys = sorted(
+            str(key)
+            for key in item.keys()
+            if str(key) not in ALLOWED_LOCALIZATION_LOCALE_SUMMARY_ROW_KEYS
+        )
+        if unexpected_locale_summary_row_keys:
+            raise ValueError(
+                "locale_summary rows have unexpected keys "
+                f"({', '.join(unexpected_locale_summary_row_keys)}) in {source}"
+            )
         locale = normalized_token(item.get("locale"))
         if not locale:
             continue
