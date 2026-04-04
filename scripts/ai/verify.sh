@@ -204,6 +204,9 @@ cat >/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
   "generated_at": "2026-04-03T22:59:41Z",
   "default_key_count": 383,
   "explicit_fallback_runtime": "pass",
+  "signoff_smoke_runner": {
+    "status": "pass"
+  },
   "shipping_locales": [
     "en-us",
     "de-de",
@@ -379,6 +382,21 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_re
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"]["uiLocalizationReleaseGate"]["signoffSmokeRunnerStatus"] = "missing"
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject release channel payloads missing passing localization signoff smoke runner status." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
 python3 - <<'PY'
 import json
 from pathlib import Path
@@ -490,6 +508,7 @@ assert canonical["releaseProof"]["status"] == "passed"
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["status"] == "pass"
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["defaultKeyCount"] == 383
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["explicitFallbackRuntime"] == "pass"
+assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["signoffSmokeRunnerStatus"] == "pass"
 assert sorted(canonical["releaseProof"]["uiLocalizationReleaseGate"]["shippingLocales"]) == sorted(
     ["en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn"]
 )

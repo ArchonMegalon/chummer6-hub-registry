@@ -877,6 +877,17 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(
             f"releaseProof.uiLocalizationReleaseGate.explicitFallbackRuntime must be pass/passed/ready in {source}"
         )
+    signoff_smoke_runner_status = normalized_token(
+        first_present(
+            ui_localization_release_gate,
+            "signoffSmokeRunnerStatus",
+            "signoff_smoke_runner_status",
+        )
+    )
+    if signoff_smoke_runner_status not in {"pass", "passed", "ready"}:
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.signoffSmokeRunnerStatus must be pass/passed/ready in {source}"
+        )
 
     shipping_locales = normalized_string_list(
         ui_localization_release_gate.get("shippingLocales")

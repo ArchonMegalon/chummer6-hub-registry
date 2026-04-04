@@ -464,6 +464,7 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
             "generatedAt": None,
             "defaultKeyCount": None,
             "explicitFallbackRuntime": "missing",
+            "signoffSmokeRunnerStatus": "missing",
             "shippingLocales": [],
             "localeSummary": [],
             "acceptanceGates": [],
@@ -520,6 +521,14 @@ def normalize_ui_localization_release_gate_payload(
     explicit_fallback_runtime = str(
         first_present(loaded, "explicit_fallback_runtime", "explicitFallbackRuntime") or ""
     ).strip().lower() or "missing"
+    signoff_smoke_runner_status = "missing"
+    signoff_smoke_runner = first_present(loaded, "signoff_smoke_runner", "signoffSmokeRunner")
+    if isinstance(signoff_smoke_runner, dict):
+        signoff_smoke_runner_status = str(signoff_smoke_runner.get("status") or "").strip().lower() or "missing"
+    else:
+        signoff_smoke_runner_status = str(
+            first_present(loaded, "signoff_smoke_runner_status", "signoffSmokeRunnerStatus") or ""
+        ).strip().lower() or "missing"
     shipping_locales = dedupe_preserve_order(
         [
             normalized_token(item)
@@ -599,6 +608,7 @@ def normalize_ui_localization_release_gate_payload(
         "generatedAt": generated_at,
         "defaultKeyCount": default_key_count,
         "explicitFallbackRuntime": explicit_fallback_runtime,
+        "signoffSmokeRunnerStatus": signoff_smoke_runner_status,
         "shippingLocales": shipping_locales,
         "localeSummary": locale_summary_rows,
         "acceptanceGates": acceptance_gates,
@@ -989,6 +999,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "generatedAt": None,
         "defaultKeyCount": None,
         "explicitFallbackRuntime": "missing",
+        "signoffSmokeRunnerStatus": "missing",
         "shippingLocales": [],
         "localeSummary": [],
         "acceptanceGates": [],
