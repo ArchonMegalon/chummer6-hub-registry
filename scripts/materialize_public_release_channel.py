@@ -798,29 +798,75 @@ def normalize_ui_localization_release_gate_payload(
         ).strip()
         or None
     )
-    default_key_count = normalize_positive_int(first_present(loaded, "default_key_count", "defaultKeyCount"))
+    default_key_count = normalize_positive_int(
+        resolve_alias_value(
+            loaded,
+            primary_key="default_key_count",
+            secondary_key="defaultKeyCount",
+            field_name="default_key_count",
+            source=source,
+        )
+    )
     explicit_fallback_runtime = str(
-        first_present(loaded, "explicit_fallback_runtime", "explicitFallbackRuntime") or ""
+        resolve_alias_value(
+            loaded,
+            primary_key="explicit_fallback_runtime",
+            secondary_key="explicitFallbackRuntime",
+            field_name="explicit_fallback_runtime",
+            source=source,
+        )
+        or ""
     ).strip().lower() or "missing"
     signoff_smoke_runner_status = "missing"
-    signoff_smoke_runner = first_present(loaded, "signoff_smoke_runner", "signoffSmokeRunner")
+    signoff_smoke_runner = resolve_alias_value(
+        loaded,
+        primary_key="signoff_smoke_runner",
+        secondary_key="signoffSmokeRunner",
+        field_name="signoff_smoke_runner",
+        source=source,
+    )
     if isinstance(signoff_smoke_runner, dict):
         signoff_smoke_runner_status = str(signoff_smoke_runner.get("status") or "").strip().lower() or "missing"
     else:
         signoff_smoke_runner_status = str(
-            first_present(loaded, "signoff_smoke_runner_status", "signoffSmokeRunnerStatus") or ""
+            resolve_alias_value(
+                loaded,
+                primary_key="signoff_smoke_runner_status",
+                secondary_key="signoffSmokeRunnerStatus",
+                field_name="signoff_smoke_runner_status",
+                source=source,
+            )
+            or ""
         ).strip().lower() or "missing"
     shipping_locales = normalize_required_token_list(
-        first_present(loaded, "shipping_locales", "shippingLocales"),
+        resolve_alias_value(
+            loaded,
+            primary_key="shipping_locales",
+            secondary_key="shippingLocales",
+            field_name="shipping_locales",
+            source=source,
+        ),
         field_name="shipping_locales",
         source=source,
     )
     acceptance_gates = normalize_required_token_list(
-        first_present(loaded, "acceptance_gates", "acceptanceGates"),
+        resolve_alias_value(
+            loaded,
+            primary_key="acceptance_gates",
+            secondary_key="acceptanceGates",
+            field_name="acceptance_gates",
+            source=source,
+        ),
         field_name="acceptance_gates",
         source=source,
     )
-    raw_domain_coverage = first_present(loaded, "domain_coverage", "domainCoverage")
+    raw_domain_coverage = resolve_alias_value(
+        loaded,
+        primary_key="domain_coverage",
+        secondary_key="domainCoverage",
+        field_name="domain_coverage",
+        source=source,
+    )
     domain_coverage: dict[str, str] = {}
     if isinstance(raw_domain_coverage, dict):
         for raw_domain, raw_status in raw_domain_coverage.items():
@@ -850,7 +896,13 @@ def normalize_ui_localization_release_gate_payload(
                     f"domain_coverage must not contain duplicate ids after normalization ('{domain_id}') in {source}"
                 )
             domain_coverage[domain_id] = status_token
-    raw_locale_domain_coverage = first_present(loaded, "locale_domain_coverage", "localeDomainCoverage")
+    raw_locale_domain_coverage = resolve_alias_value(
+        loaded,
+        primary_key="locale_domain_coverage",
+        secondary_key="localeDomainCoverage",
+        field_name="locale_domain_coverage",
+        source=source,
+    )
     locale_domain_coverage: dict[str, dict[str, str]] = {}
     if isinstance(raw_locale_domain_coverage, dict):
         for raw_locale, raw_domains in raw_locale_domain_coverage.items():
@@ -905,24 +957,54 @@ def normalize_ui_localization_release_gate_payload(
             locale_domain_coverage[locale] = normalized_domains
     blocking_findings = [
         item
-        for item in (loaded.get("blocking_findings") or loaded.get("blockingFindings") or [])
+        for item in (
+            resolve_alias_value(
+                loaded,
+                primary_key="blocking_findings",
+                secondary_key="blockingFindings",
+                field_name="blocking_findings",
+                source=source,
+            )
+            or []
+        )
         if isinstance(item, (str, dict))
     ]
     blocking_findings_count = len(blocking_findings)
     explicit_blocking_findings_count = normalize_positive_int(
-        first_present(loaded, "blocking_findings_count", "blockingFindingsCount")
+        resolve_alias_value(
+            loaded,
+            primary_key="blocking_findings_count",
+            secondary_key="blockingFindingsCount",
+            field_name="blocking_findings_count",
+            source=source,
+        )
     )
     if explicit_blocking_findings_count is not None:
         blocking_findings_count = max(blocking_findings_count, explicit_blocking_findings_count)
 
     translation_backlog_findings = [
         item
-        for item in (loaded.get("translation_backlog_findings") or loaded.get("translationBacklogFindings") or [])
+        for item in (
+            resolve_alias_value(
+                loaded,
+                primary_key="translation_backlog_findings",
+                secondary_key="translationBacklogFindings",
+                field_name="translation_backlog_findings",
+                source=source,
+            )
+            or []
+        )
         if isinstance(item, (str, dict))
     ]
     translation_backlog_findings_count = len(translation_backlog_findings)
     explicit_translation_backlog_findings_count = normalize_positive_int(
-        first_present(loaded, "translation_backlog_findings_count", "translationBacklogFindingsCount")
+        resolve_alias_value(
+            loaded,
+            primary_key="translation_backlog_findings_count",
+            secondary_key="translationBacklogFindingsCount",
+            field_name="translation_backlog_findings_count",
+            source=source,
+        )
     )
     if explicit_translation_backlog_findings_count is not None:
         translation_backlog_findings_count = max(
@@ -930,7 +1012,16 @@ def normalize_ui_localization_release_gate_payload(
             explicit_translation_backlog_findings_count,
         )
     locale_summary_rows: list[dict[str, Any]] = []
-    for item in (loaded.get("locale_summary") or loaded.get("localeSummary") or []):
+    for item in (
+        resolve_alias_value(
+            loaded,
+            primary_key="locale_summary",
+            secondary_key="localeSummary",
+            field_name="locale_summary",
+            source=source,
+        )
+        or []
+    ):
         if not isinstance(item, dict):
             continue
         locale = normalized_token(item.get("locale"))
@@ -940,25 +1031,65 @@ def normalize_ui_localization_release_gate_payload(
             {
                 "locale": locale,
                 "untranslatedKeyCount": normalize_positive_int(
-                    first_present(item, "untranslated_key_count", "untranslatedKeyCount")
+                    resolve_alias_value(
+                        item,
+                        primary_key="untranslated_key_count",
+                        secondary_key="untranslatedKeyCount",
+                        field_name=f"locale_summary[{locale}].untranslated_key_count",
+                        source=source,
+                    )
                 ),
-                "overrideCount": normalize_positive_int(first_present(item, "override_count", "overrideCount")),
+                "overrideCount": normalize_positive_int(
+                    resolve_alias_value(
+                        item,
+                        primary_key="override_count",
+                        secondary_key="overrideCount",
+                        field_name=f"locale_summary[{locale}].override_count",
+                        source=source,
+                    )
+                ),
                 "minimumOverrideCount": normalize_positive_int(
-                    first_present(item, "minimum_override_count", "minimumOverrideCount")
+                    resolve_alias_value(
+                        item,
+                        primary_key="minimum_override_count",
+                        secondary_key="minimumOverrideCount",
+                        field_name=f"locale_summary[{locale}].minimum_override_count",
+                        source=source,
+                    )
                 ),
                 "missingReleaseSeedKeys": dedupe_preserve_order(
                     [
                         str(entry).strip()
                         for entry in (
-                            first_present(item, "missing_release_seed_keys", "missingReleaseSeedKeys")
+                            resolve_alias_value(
+                                item,
+                                primary_key="missing_release_seed_keys",
+                                secondary_key="missingReleaseSeedKeys",
+                                field_name=f"locale_summary[{locale}].missing_release_seed_keys",
+                                source=source,
+                            )
                             or []
                         )
                         if str(entry).strip()
                     ]
                 ),
-                "legacyXmlPresent": bool(first_present(item, "legacy_xml_present", "legacyXmlPresent")),
+                "legacyXmlPresent": bool(
+                    resolve_alias_value(
+                        item,
+                        primary_key="legacy_xml_present",
+                        secondary_key="legacyXmlPresent",
+                        field_name=f"locale_summary[{locale}].legacy_xml_present",
+                        source=source,
+                    )
+                ),
                 "legacyDataXmlPresent": bool(
-                    first_present(item, "legacy_data_xml_present", "legacyDataXmlPresent")
+                    resolve_alias_value(
+                        item,
+                        primary_key="legacy_data_xml_present",
+                        secondary_key="legacyDataXmlPresent",
+                        field_name=f"locale_summary[{locale}].legacy_data_xml_present",
+                        source=source,
+                    )
                 ),
             }
         )

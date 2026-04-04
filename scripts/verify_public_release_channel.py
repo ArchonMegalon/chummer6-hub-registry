@@ -1280,24 +1280,38 @@ def verify_release_truth(payload: dict, source: str) -> None:
         )
 
     default_key_count = parse_positive_int(
-        first_present(ui_localization_release_gate, "defaultKeyCount", "default_key_count")
+        resolve_alias_value(
+            ui_localization_release_gate,
+            primary_key="defaultKeyCount",
+            secondary_key="default_key_count",
+            field_path="releaseProof.uiLocalizationReleaseGate.defaultKeyCount",
+            source=source,
+        )
     )
     if default_key_count is None or default_key_count <= 0:
         raise SystemExit(
             f"releaseProof.uiLocalizationReleaseGate.defaultKeyCount must be a positive integer in {source}"
         )
     explicit_fallback_runtime = normalized_token(
-        first_present(ui_localization_release_gate, "explicitFallbackRuntime", "explicit_fallback_runtime")
+        resolve_alias_value(
+            ui_localization_release_gate,
+            primary_key="explicitFallbackRuntime",
+            secondary_key="explicit_fallback_runtime",
+            field_path="releaseProof.uiLocalizationReleaseGate.explicitFallbackRuntime",
+            source=source,
+        )
     )
     if explicit_fallback_runtime not in {"pass", "passed", "ready"}:
         raise SystemExit(
             f"releaseProof.uiLocalizationReleaseGate.explicitFallbackRuntime must be pass/passed/ready in {source}"
         )
     signoff_smoke_runner_status = normalized_token(
-        first_present(
+        resolve_alias_value(
             ui_localization_release_gate,
-            "signoffSmokeRunnerStatus",
-            "signoff_smoke_runner_status",
+            primary_key="signoffSmokeRunnerStatus",
+            secondary_key="signoff_smoke_runner_status",
+            field_path="releaseProof.uiLocalizationReleaseGate.signoffSmokeRunnerStatus",
+            source=source,
         )
     )
     if signoff_smoke_runner_status not in {"pass", "passed", "ready"}:
@@ -1306,7 +1320,13 @@ def verify_release_truth(payload: dict, source: str) -> None:
         )
 
     shipping_locales = parse_required_token_list(
-        first_present(ui_localization_release_gate, "shippingLocales", "shipping_locales"),
+        resolve_alias_value(
+            ui_localization_release_gate,
+            primary_key="shippingLocales",
+            secondary_key="shipping_locales",
+            field_path="releaseProof.uiLocalizationReleaseGate.shippingLocales",
+            source=source,
+        ),
         field_path="releaseProof.uiLocalizationReleaseGate.shippingLocales",
         source=source,
     )
@@ -1320,10 +1340,12 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(
             f"releaseProof.uiLocalizationReleaseGate.shippingLocales must equal {list(REQUIRED_LOCALIZATION_SHIPPING_LOCALES)} in {source}"
         )
-    acceptance_gates_raw = first_present(
+    acceptance_gates_raw = resolve_alias_value(
         ui_localization_release_gate,
-        "acceptanceGates",
-        "acceptance_gates",
+        primary_key="acceptanceGates",
+        secondary_key="acceptance_gates",
+        field_path="releaseProof.uiLocalizationReleaseGate.acceptanceGates",
+        source=source,
     )
     acceptance_gates = parse_required_token_list(
         acceptance_gates_raw,
@@ -1362,10 +1384,12 @@ def verify_release_truth(payload: dict, source: str) -> None:
             "releaseProof.uiLocalizationReleaseGate.acceptanceGates has unexpected gate ids "
             f"({', '.join(unexpected_acceptance_gates)}) in {source}"
         )
-    domain_coverage_raw = first_present(
+    domain_coverage_raw = resolve_alias_value(
         ui_localization_release_gate,
-        "domainCoverage",
-        "domain_coverage",
+        primary_key="domainCoverage",
+        secondary_key="domain_coverage",
+        field_path="releaseProof.uiLocalizationReleaseGate.domainCoverage",
+        source=source,
     )
     if not isinstance(domain_coverage_raw, dict):
         raise SystemExit(
@@ -1414,10 +1438,12 @@ def verify_release_truth(payload: dict, source: str) -> None:
                 "releaseProof.uiLocalizationReleaseGate.domainCoverage must be passing for domain "
                 f"'{domain}' in {source}"
             )
-    locale_domain_coverage_raw = first_present(
+    locale_domain_coverage_raw = resolve_alias_value(
         ui_localization_release_gate,
-        "localeDomainCoverage",
-        "locale_domain_coverage",
+        primary_key="localeDomainCoverage",
+        secondary_key="locale_domain_coverage",
+        field_path="releaseProof.uiLocalizationReleaseGate.localeDomainCoverage",
+        source=source,
     )
     if not isinstance(locale_domain_coverage_raw, dict):
         raise SystemExit(
@@ -1501,7 +1527,13 @@ def verify_release_truth(payload: dict, source: str) -> None:
                     f"'{locale}' domain '{domain}' in {source}"
                 )
     blocking_findings_count = parse_positive_int(
-        first_present(ui_localization_release_gate, "blockingFindingsCount", "blocking_findings_count")
+        resolve_alias_value(
+            ui_localization_release_gate,
+            primary_key="blockingFindingsCount",
+            secondary_key="blocking_findings_count",
+            field_path="releaseProof.uiLocalizationReleaseGate.blockingFindingsCount",
+            source=source,
+        )
     )
     if blocking_findings_count is None:
         raise SystemExit(
@@ -1511,7 +1543,13 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(
             f"releaseProof.uiLocalizationReleaseGate.blockingFindingsCount must equal 0 in {source}"
         )
-    blocking_findings = first_present(ui_localization_release_gate, "blockingFindings", "blocking_findings")
+    blocking_findings = resolve_alias_value(
+        ui_localization_release_gate,
+        primary_key="blockingFindings",
+        secondary_key="blocking_findings",
+        field_path="releaseProof.uiLocalizationReleaseGate.blockingFindings",
+        source=source,
+    )
     if blocking_findings is None:
         raise SystemExit(
             f"releaseProof.uiLocalizationReleaseGate.blockingFindings must be a list in {source}"
@@ -1525,7 +1563,13 @@ def verify_release_truth(payload: dict, source: str) -> None:
             f"releaseProof.uiLocalizationReleaseGate.blockingFindings length must match blockingFindingsCount in {source}"
         )
     translation_backlog_findings_count = parse_positive_int(
-        first_present(ui_localization_release_gate, "translationBacklogFindingsCount", "translation_backlog_findings_count")
+        resolve_alias_value(
+            ui_localization_release_gate,
+            primary_key="translationBacklogFindingsCount",
+            secondary_key="translation_backlog_findings_count",
+            field_path="releaseProof.uiLocalizationReleaseGate.translationBacklogFindingsCount",
+            source=source,
+        )
     )
     if translation_backlog_findings_count is None:
         raise SystemExit(
@@ -1535,10 +1579,12 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(
             f"releaseProof.uiLocalizationReleaseGate.translationBacklogFindingsCount must equal 0 in {source}"
         )
-    translation_backlog_findings = first_present(
+    translation_backlog_findings = resolve_alias_value(
         ui_localization_release_gate,
-        "translationBacklogFindings",
-        "translation_backlog_findings",
+        primary_key="translationBacklogFindings",
+        secondary_key="translation_backlog_findings",
+        field_path="releaseProof.uiLocalizationReleaseGate.translationBacklogFindings",
+        source=source,
     )
     if translation_backlog_findings is None:
         raise SystemExit(
@@ -1554,7 +1600,13 @@ def verify_release_truth(payload: dict, source: str) -> None:
             f"translationBacklogFindingsCount in {source}"
         )
 
-    locale_summary = ui_localization_release_gate.get("localeSummary") or ui_localization_release_gate.get("locale_summary")
+    locale_summary = resolve_alias_value(
+        ui_localization_release_gate,
+        primary_key="localeSummary",
+        secondary_key="locale_summary",
+        field_path="releaseProof.uiLocalizationReleaseGate.localeSummary",
+        source=source,
+    )
     if not isinstance(locale_summary, list):
         raise SystemExit(
             f"releaseProof.uiLocalizationReleaseGate.localeSummary must be a list in {source}"
@@ -1592,7 +1644,16 @@ def verify_release_truth(payload: dict, source: str) -> None:
                 f"releaseProof.uiLocalizationReleaseGate.localeSummary is missing locale '{locale}' in {source}"
             )
         untranslated = parse_positive_int(
-            first_present(row, "untranslatedKeyCount", "untranslated_key_count")
+            resolve_alias_value(
+                row,
+                primary_key="untranslatedKeyCount",
+                secondary_key="untranslated_key_count",
+                field_path=(
+                    "releaseProof.uiLocalizationReleaseGate.localeSummary."
+                    f"{locale}.untranslatedKeyCount"
+                ),
+                source=source,
+            )
         )
         if untranslated is None:
             raise SystemExit(
@@ -1603,7 +1664,16 @@ def verify_release_truth(payload: dict, source: str) -> None:
                 f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' must have untranslatedKeyCount=0 in {source}"
             )
         override_count = parse_positive_int(
-            first_present(row, "overrideCount", "override_count")
+            resolve_alias_value(
+                row,
+                primary_key="overrideCount",
+                secondary_key="override_count",
+                field_path=(
+                    "releaseProof.uiLocalizationReleaseGate.localeSummary."
+                    f"{locale}.overrideCount"
+                ),
+                source=source,
+            )
         )
         if override_count is None:
             raise SystemExit(
@@ -1616,7 +1686,16 @@ def verify_release_truth(payload: dict, source: str) -> None:
         if locale == "en-us":
             continue
         minimum_override_count = parse_positive_int(
-            first_present(row, "minimumOverrideCount", "minimum_override_count")
+            resolve_alias_value(
+                row,
+                primary_key="minimumOverrideCount",
+                secondary_key="minimum_override_count",
+                field_path=(
+                    "releaseProof.uiLocalizationReleaseGate.localeSummary."
+                    f"{locale}.minimumOverrideCount"
+                ),
+                source=source,
+            )
         )
         if minimum_override_count is None:
             raise SystemExit(
@@ -1626,7 +1705,16 @@ def verify_release_truth(payload: dict, source: str) -> None:
             raise SystemExit(
                 f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' overrideCount must be >= minimumOverrideCount in {source}"
             )
-        missing_release_seed_keys = first_present(row, "missingReleaseSeedKeys", "missing_release_seed_keys")
+        missing_release_seed_keys = resolve_alias_value(
+            row,
+            primary_key="missingReleaseSeedKeys",
+            secondary_key="missing_release_seed_keys",
+            field_path=(
+                "releaseProof.uiLocalizationReleaseGate.localeSummary."
+                f"{locale}.missingReleaseSeedKeys"
+            ),
+            source=source,
+        )
         if not isinstance(missing_release_seed_keys, list):
             raise SystemExit(
                 f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' must include missingReleaseSeedKeys as a list in {source}"
@@ -1635,11 +1723,29 @@ def verify_release_truth(payload: dict, source: str) -> None:
             raise SystemExit(
                 f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' must have no missingReleaseSeedKeys in {source}"
             )
-        if first_present(row, "legacyXmlPresent", "legacy_xml_present") is not True:
+        if resolve_alias_value(
+            row,
+            primary_key="legacyXmlPresent",
+            secondary_key="legacy_xml_present",
+            field_path=(
+                "releaseProof.uiLocalizationReleaseGate.localeSummary."
+                f"{locale}.legacyXmlPresent"
+            ),
+            source=source,
+        ) is not True:
             raise SystemExit(
                 f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' must set legacyXmlPresent=true in {source}"
             )
-        if first_present(row, "legacyDataXmlPresent", "legacy_data_xml_present") is not True:
+        if resolve_alias_value(
+            row,
+            primary_key="legacyDataXmlPresent",
+            secondary_key="legacy_data_xml_present",
+            field_path=(
+                "releaseProof.uiLocalizationReleaseGate.localeSummary."
+                f"{locale}.legacyDataXmlPresent"
+            ),
+            source=source,
+        ) is not True:
             raise SystemExit(
                 f"releaseProof.uiLocalizationReleaseGate.localeSummary locale '{locale}' must set legacyDataXmlPresent=true in {source}"
             )
