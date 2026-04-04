@@ -69,6 +69,8 @@ REQUIRED_LOCALIZATION_DOMAINS = (
     "generated_artifacts",
 )
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
+DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS = 604800
+DEFAULT_RELEASE_PROOF_MAX_FUTURE_SKEW_SECONDS = 300
 DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS = 604800
 DEFAULT_LOCALIZATION_GATE_MAX_FUTURE_SKEW_SECONDS = 300
 REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT = "pre_ui_event_loop"
@@ -240,6 +242,20 @@ def parse_localization_gate_max_future_skew_seconds(raw_value: object) -> int:
     parsed = parse_positive_int(raw_value)
     if parsed is None:
         return DEFAULT_LOCALIZATION_GATE_MAX_FUTURE_SKEW_SECONDS
+    return parsed
+
+
+def parse_release_proof_max_age_seconds(raw_value: object) -> int:
+    parsed = parse_positive_int(raw_value)
+    if parsed is None or parsed <= 0:
+        return DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS
+    return parsed
+
+
+def parse_release_proof_max_future_skew_seconds(raw_value: object) -> int:
+    parsed = parse_positive_int(raw_value)
+    if parsed is None:
+        return DEFAULT_RELEASE_PROOF_MAX_FUTURE_SKEW_SECONDS
     return parsed
 
 
@@ -907,6 +923,32 @@ def verify_release_truth(payload: dict, source: str) -> None:
     if normalized_status not in {"pass", "passed", "ready"}:
         raise SystemExit(
             f"releaseProof.status must be pass/passed/ready in {source}"
+        )
+    proof_generated_at = proof.get("generatedAt") or proof.get("generated_at")
+    proof_generated_at_timestamp = parse_iso_timestamp(proof_generated_at)
+    if proof_generated_at_timestamp is None:
+        raise SystemExit(f"releaseProof.generatedAt must be an ISO timestamp in {source}")
+    release_proof_max_age_seconds = parse_release_proof_max_age_seconds(
+        os.environ.get("CHUMMER_VERIFY_RELEASE_PROOF_MAX_AGE_SECONDS")
+        or os.environ.get("CHUMMER_RELEASE_PROOF_MAX_AGE_SECONDS")
+    )
+    release_proof_max_future_skew_seconds = parse_release_proof_max_future_skew_seconds(
+        os.environ.get("CHUMMER_VERIFY_RELEASE_PROOF_MAX_FUTURE_SKEW_SECONDS")
+        or os.environ.get("CHUMMER_RELEASE_PROOF_MAX_FUTURE_SKEW_SECONDS")
+    )
+    release_proof_age_seconds = int((datetime.now(timezone.utc) - proof_generated_at_timestamp).total_seconds())
+    if release_proof_age_seconds < 0:
+        release_proof_future_skew_seconds = abs(release_proof_age_seconds)
+        if release_proof_future_skew_seconds > release_proof_max_future_skew_seconds:
+            raise SystemExit(
+                "releaseProof.generatedAt is in the future in "
+                f"{source} ({release_proof_future_skew_seconds}s ahead; max {release_proof_max_future_skew_seconds}s)"
+            )
+        release_proof_age_seconds = 0
+    if release_proof_age_seconds > release_proof_max_age_seconds:
+        raise SystemExit(
+            "releaseProof.generatedAt is stale in "
+            f"{source} ({release_proof_age_seconds}s old; max {release_proof_max_age_seconds}s)"
         )
     for field in ("journeysPassed", "proofRoutes"):
         value = proof.get(field)
