@@ -955,6 +955,19 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(
             f"releaseProof.uiLocalizationReleaseGate.blockingFindingsCount must equal 0 in {source}"
         )
+    blocking_findings = first_present(ui_localization_release_gate, "blockingFindings", "blocking_findings")
+    if blocking_findings is None:
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.blockingFindings must be a list in {source}"
+        )
+    if not isinstance(blocking_findings, list):
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.blockingFindings must be a list in {source}"
+        )
+    if len(blocking_findings) != blocking_findings_count:
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.blockingFindings length must match blockingFindingsCount in {source}"
+        )
     translation_backlog_findings_count = parse_positive_int(
         first_present(ui_localization_release_gate, "translationBacklogFindingsCount", "translation_backlog_findings_count")
     )
@@ -965,6 +978,24 @@ def verify_release_truth(payload: dict, source: str) -> None:
     if translation_backlog_findings_count != 0:
         raise SystemExit(
             f"releaseProof.uiLocalizationReleaseGate.translationBacklogFindingsCount must equal 0 in {source}"
+        )
+    translation_backlog_findings = first_present(
+        ui_localization_release_gate,
+        "translationBacklogFindings",
+        "translation_backlog_findings",
+    )
+    if translation_backlog_findings is None:
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.translationBacklogFindings must be a list in {source}"
+        )
+    if not isinstance(translation_backlog_findings, list):
+        raise SystemExit(
+            f"releaseProof.uiLocalizationReleaseGate.translationBacklogFindings must be a list in {source}"
+        )
+    if len(translation_backlog_findings) != translation_backlog_findings_count:
+        raise SystemExit(
+            "releaseProof.uiLocalizationReleaseGate.translationBacklogFindings length must match "
+            f"translationBacklogFindingsCount in {source}"
         )
 
     locale_summary = ui_localization_release_gate.get("localeSummary") or ui_localization_release_gate.get("locale_summary")

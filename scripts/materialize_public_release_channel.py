@@ -612,7 +612,9 @@ def normalize_ui_localization_release_gate_payload(
         "shippingLocales": shipping_locales,
         "localeSummary": locale_summary_rows,
         "acceptanceGates": acceptance_gates,
+        "blockingFindings": blocking_findings,
         "blockingFindingsCount": blocking_findings_count,
+        "translationBacklogFindings": translation_backlog_findings,
         "translationBacklogFindingsCount": translation_backlog_findings_count,
     }
 

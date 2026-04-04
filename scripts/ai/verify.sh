@@ -428,6 +428,24 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_re
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"]["uiLocalizationReleaseGate"]["blockingFindingsCount"] = 0
+payload["releaseProof"]["uiLocalizationReleaseGate"]["blockingFindings"] = [
+    {"id": "loc-finding-1", "severity": "warning"}
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject localization proof when blockingFindings length drifts from blockingFindingsCount." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
 python3 - <<'PY'
 import json
 from pathlib import Path
@@ -625,7 +643,9 @@ assert sorted(canonical["releaseProof"]["uiLocalizationReleaseGate"]["acceptance
     "locale_smoke_support",
     "non_english_generated_artifact_smoke",
 ])
+assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["blockingFindings"] == []
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["blockingFindingsCount"] == 0
+assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["translationBacklogFindings"] == []
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["translationBacklogFindingsCount"] == 0
 assert "required desktop tuple coverage is incomplete" in canonical["supportabilitySummary"]
 assert "required desktop tuple coverage is incomplete" in canonical["knownIssueSummary"]
