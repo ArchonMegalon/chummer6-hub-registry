@@ -1633,6 +1633,48 @@ rows = payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"]
 target = next((row for row in rows if row.get("locale") == "de-de"), None)
 if target is None:
     raise SystemExit("verify gate failed: expected de-de localeSummary row in localization fixture.")
+target["overrideCount"] = 383
+target["override_count"] = 382
+payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = rows
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.localeSummary[*].overrideCount and releaseProof.uiLocalizationReleaseGate.localeSummary[*].override_count." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+rows = payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"]
+target = next((row for row in rows if row.get("locale") == "de-de"), None)
+if target is None:
+    raise SystemExit("verify gate failed: expected de-de localeSummary row in localization fixture.")
+target["minimumOverrideCount"] = 40
+target["minimum_override_count"] = 39
+payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = rows
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.localeSummary[*].minimumOverrideCount and releaseProof.uiLocalizationReleaseGate.localeSummary[*].minimum_override_count." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+rows = payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"]
+target = next((row for row in rows if row.get("locale") == "de-de"), None)
+if target is None:
+    raise SystemExit("verify gate failed: expected de-de localeSummary row in localization fixture.")
 target["legacyDataXmlPresent"] = True
 target["legacy_data_xml_present"] = False
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = rows
@@ -2537,6 +2579,78 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
 fi
 if ! rg -F "locale_summary[de-de].missing_release_seed_keys alias values drift between missing_release_seed_keys and missingReleaseSeedKeys" "$materializer_alias_drift_log" >/dev/null; then
   echo "verify gate failed: expected locale_summary missing_release_seed_keys alias-drift fail-close marker from materializer." >&2
+  rm -f "$materializer_alias_drift_log"
+  exit 1
+fi
+rm -f "$materializer_alias_drift_log"
+mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
+cp /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+rows = payload.get("locale_summary") or []
+target = next((row for row in rows if row.get("locale") == "de-de"), None)
+if target is None:
+    raise SystemExit("verify gate failed: expected de-de locale_summary row in localization fixture.")
+target["untranslated_key_count"] = 0
+target["untranslatedKeyCount"] = 1
+payload["locale_summary"] = rows
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+materializer_alias_drift_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >"$materializer_alias_drift_log" 2>&1; then
+  echo "verify gate failed: materializer should reject conflicting alias values between locale_summary[*].untranslated_key_count and locale_summary[*].untranslatedKeyCount in localization proof." >&2
+  rm -f "$materializer_alias_drift_log"
+  exit 1
+fi
+if ! rg -F "locale_summary[de-de].untranslated_key_count alias values drift between untranslated_key_count and untranslatedKeyCount" "$materializer_alias_drift_log" >/dev/null; then
+  echo "verify gate failed: expected locale_summary untranslated_key_count alias-drift fail-close marker from materializer." >&2
+  rm -f "$materializer_alias_drift_log"
+  exit 1
+fi
+rm -f "$materializer_alias_drift_log"
+mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
+cp /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+rows = payload.get("locale_summary") or []
+target = next((row for row in rows if row.get("locale") == "de-de"), None)
+if target is None:
+    raise SystemExit("verify gate failed: expected de-de locale_summary row in localization fixture.")
+target["override_count"] = 383
+target["overrideCount"] = 382
+payload["locale_summary"] = rows
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+materializer_alias_drift_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >"$materializer_alias_drift_log" 2>&1; then
+  echo "verify gate failed: materializer should reject conflicting alias values between locale_summary[*].override_count and locale_summary[*].overrideCount in localization proof." >&2
+  rm -f "$materializer_alias_drift_log"
+  exit 1
+fi
+if ! rg -F "locale_summary[de-de].override_count alias values drift between override_count and overrideCount" "$materializer_alias_drift_log" >/dev/null; then
+  echo "verify gate failed: expected locale_summary override_count alias-drift fail-close marker from materializer." >&2
   rm -f "$materializer_alias_drift_log"
   exit 1
 fi
