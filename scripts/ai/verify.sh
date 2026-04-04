@@ -1404,6 +1404,67 @@ from pathlib import Path
 path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
 payload = json.loads(path.read_text(encoding="utf-8"))
 coverage = payload.get("desktopTupleCoverage") or {}
+rows = coverage.get("promotedInstallerTuples") or []
+if not rows:
+    raise SystemExit("verify gate failed: expected promotedInstallerTuples rows in release fixture.")
+rows[0].pop("tupleId", None)
+coverage["promotedInstallerTuples"] = rows
+payload["desktopTupleCoverage"] = coverage
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+desktop_tuple_coverage_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
+  echo "verify gate failed: verifier should reject promotedInstallerTuples rows missing tupleId." >&2
+  rm -f "$desktop_tuple_coverage_log"
+  exit 1
+fi
+if ! rg -F "desktopTupleCoverage.promotedInstallerTuples entries must include tupleId" "$desktop_tuple_coverage_log" >/dev/null; then
+  echo "verify gate failed: expected promotedInstallerTuples tupleId fail-close marker from verifier." >&2
+  rm -f "$desktop_tuple_coverage_log"
+  exit 1
+fi
+rm -f "$desktop_tuple_coverage_log"
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+coverage = payload.get("desktopTupleCoverage") or {}
+rows = coverage.get("promotedInstallerTuples") or []
+if len(rows) < 1:
+    raise SystemExit("verify gate failed: expected promotedInstallerTuples rows in release fixture.")
+duplicate = dict(rows[0])
+rows.append(duplicate)
+coverage["promotedInstallerTuples"] = rows
+payload["desktopTupleCoverage"] = coverage
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+desktop_tuple_coverage_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
+  echo "verify gate failed: verifier should reject duplicate promotedInstallerTuples tupleId values." >&2
+  rm -f "$desktop_tuple_coverage_log"
+  exit 1
+fi
+if ! rg -F "desktopTupleCoverage.promotedInstallerTuples must not contain duplicate tupleId values" "$desktop_tuple_coverage_log" >/dev/null; then
+  echo "verify gate failed: expected promotedInstallerTuples duplicate tupleId fail-close marker from verifier." >&2
+  rm -f "$desktop_tuple_coverage_log"
+  exit 1
+fi
+rm -f "$desktop_tuple_coverage_log"
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+coverage = payload.get("desktopTupleCoverage") or {}
 coverage["requiredDesktopHeads"] = []
 payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
