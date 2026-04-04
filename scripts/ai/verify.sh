@@ -884,6 +884,93 @@ from pathlib import Path
 
 path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
 payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"]["generatedAt"] = "2026-03-28T16:00:00Z"
+payload["releaseProof"]["generated_at"] = "2026-03-27T16:00:00Z"
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.generatedAt and releaseProof.generated_at." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"]["journeysPassed"] = [
+  "install_claim_restore_continue",
+  "build_explain_publish",
+  "campaign_session_recover_recap",
+  "report_cluster_release_notify"
+]
+payload["releaseProof"]["journeys_passed"] = [
+  "install_claim_restore_continue",
+  "build_explain_publish",
+  "campaign_session_recover_recap"
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.journeysPassed and releaseProof.journeys_passed." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"]["proofRoutes"] = [
+  "/downloads/install/avalonia-linux-x64-installer",
+  "/home/access",
+  "/home/work",
+  "/account/work",
+  "/account/support",
+  "/contact"
+]
+payload["releaseProof"]["proof_routes"] = [
+  "/downloads/install/avalonia-linux-x64-installer",
+  "/home/access",
+  "/home/work",
+  "/account/work",
+  "/account/support"
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.proofRoutes and releaseProof.proof_routes." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+gate = payload["releaseProof"]["uiLocalizationReleaseGate"]
+gate["generatedAt"] = "2026-04-03T22:59:41Z"
+gate["generated_at"] = "2026-04-02T22:59:41Z"
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.generatedAt and releaseProof.uiLocalizationReleaseGate.generated_at." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["baseUrl"] = "https://Chummer.run/"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY

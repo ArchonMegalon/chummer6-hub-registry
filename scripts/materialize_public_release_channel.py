@@ -554,7 +554,14 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
             f"release proof status must be pass/passed/ready in {source}"
         )
     journeys = normalize_required_token_list(
-        loaded.get("journeys_passed") or loaded.get("journeysPassed") or [],
+        resolve_alias_value(
+            loaded,
+            primary_key="journeysPassed",
+            secondary_key="journeys_passed",
+            field_name="journeys_passed",
+            source=source,
+        )
+        or [],
         field_name="journeys_passed",
         source=source,
     )
@@ -578,7 +585,16 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
             "journeys_passed declares unexpected baseline golden journey ids "
             f"({', '.join(unexpected_journeys)}) in {source}"
         )
-    raw_routes = loaded.get("proof_routes") or loaded.get("proofRoutes") or []
+    raw_routes = (
+        resolve_alias_value(
+            loaded,
+            primary_key="proofRoutes",
+            secondary_key="proof_routes",
+            field_name="proof_routes",
+            source=source,
+        )
+        or []
+    )
     if not isinstance(raw_routes, list):
         raise ValueError(f"proof_routes must be a list in {source}")
     routes: list[str] = []
@@ -618,14 +634,32 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
             "proof_routes declares unexpected flagship routes "
             f"({', '.join(unexpected_routes)}) in {source}"
         )
-    generated_at = str(loaded.get("generated_at") or loaded.get("generatedAt") or "").strip() or None
+    generated_at = (
+        str(
+            resolve_alias_value(
+                loaded,
+                primary_key="generatedAt",
+                secondary_key="generated_at",
+                field_name="generated_at",
+                source=source,
+            )
+            or ""
+        ).strip()
+        or None
+    )
     allowed_release_proof_base_urls = parse_allowed_release_proof_base_urls(
         os.environ.get("CHUMMER_MATERIALIZE_ALLOWED_RELEASE_PROOF_BASE_URLS")
         or os.environ.get("CHUMMER_ALLOWED_RELEASE_PROOF_BASE_URLS"),
         source=source,
     )
     base_url = normalize_release_proof_base_url(
-        loaded.get("base_url") or loaded.get("baseUrl"),
+        resolve_alias_value(
+            loaded,
+            primary_key="baseUrl",
+            secondary_key="base_url",
+            field_name="base_url",
+            source=source,
+        ),
         field_name="base_url",
         source=source,
     )
@@ -635,7 +669,13 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
             f"({', '.join(allowed_release_proof_base_urls)}) in {source}"
         )
     ui_localization_release_gate = normalize_ui_localization_release_gate_payload(
-        loaded.get("uiLocalizationReleaseGate") or loaded.get("ui_localization_release_gate"),
+        resolve_alias_value(
+            loaded,
+            primary_key="uiLocalizationReleaseGate",
+            secondary_key="ui_localization_release_gate",
+            field_name="uiLocalizationReleaseGate",
+            source=source,
+        ),
         source=f"{source} uiLocalizationReleaseGate",
     )
     return {
@@ -709,6 +749,31 @@ def first_present(mapping: dict[str, Any], *keys: str) -> Any:
     return None
 
 
+def resolve_alias_value(
+    mapping: dict[str, Any],
+    *,
+    primary_key: str,
+    secondary_key: str,
+    field_name: str,
+    source: str,
+) -> Any:
+    has_primary = primary_key in mapping
+    has_secondary = secondary_key in mapping
+    if has_primary and has_secondary:
+        primary_value = mapping.get(primary_key)
+        secondary_value = mapping.get(secondary_key)
+        if primary_value != secondary_value:
+            raise ValueError(
+                f"{field_name} alias values drift between {primary_key} and {secondary_key} in {source}"
+            )
+        return primary_value
+    if has_primary:
+        return mapping.get(primary_key)
+    if has_secondary:
+        return mapping.get(secondary_key)
+    return None
+
+
 def normalize_ui_localization_release_gate_payload(
     loaded: Any,
     *,
@@ -720,7 +785,19 @@ def normalize_ui_localization_release_gate_payload(
         raise ValueError(f"ui localization release gate payload must be a JSON object: {source}")
 
     status = str(loaded.get("status") or "").strip().lower() or "missing"
-    generated_at = str(loaded.get("generated_at") or loaded.get("generatedAt") or "").strip() or None
+    generated_at = (
+        str(
+            resolve_alias_value(
+                loaded,
+                primary_key="generatedAt",
+                secondary_key="generated_at",
+                field_name="generated_at",
+                source=source,
+            )
+            or ""
+        ).strip()
+        or None
+    )
     default_key_count = normalize_positive_int(first_present(loaded, "default_key_count", "defaultKeyCount"))
     explicit_fallback_runtime = str(
         first_present(loaded, "explicit_fallback_runtime", "explicitFallbackRuntime") or ""

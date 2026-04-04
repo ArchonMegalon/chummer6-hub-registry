@@ -1076,7 +1076,13 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(
             f"releaseProof.status must be pass/passed/ready in {source}"
         )
-    proof_generated_at = proof.get("generatedAt") or proof.get("generated_at")
+    proof_generated_at = resolve_alias_value(
+        proof,
+        primary_key="generatedAt",
+        secondary_key="generated_at",
+        field_path="releaseProof.generatedAt",
+        source=source,
+    )
     proof_generated_at_timestamp = parse_iso_timestamp(proof_generated_at)
     if proof_generated_at_timestamp is None:
         raise SystemExit(f"releaseProof.generatedAt must be an ISO timestamp in {source}")
@@ -1123,7 +1129,13 @@ def verify_release_truth(payload: dict, source: str) -> None:
             "releaseProof.baseUrl must match an allowed canonical release origin "
             f"({', '.join(allowed_release_proof_base_urls)}) in {source}"
         )
-    journeys_passed = first_present(proof, "journeysPassed", "journeys_passed")
+    journeys_passed = resolve_alias_value(
+        proof,
+        primary_key="journeysPassed",
+        secondary_key="journeys_passed",
+        field_path="releaseProof.journeysPassed",
+        source=source,
+    )
     if not isinstance(journeys_passed, list):
         raise SystemExit(f"releaseProof.journeysPassed must be a list in {source}")
     if not journeys_passed:
@@ -1176,7 +1188,13 @@ def verify_release_truth(payload: dict, source: str) -> None:
             f"({', '.join(unexpected_journeys)}) in {source}"
         )
 
-    proof_routes = first_present(proof, "proofRoutes", "proof_routes")
+    proof_routes = resolve_alias_value(
+        proof,
+        primary_key="proofRoutes",
+        secondary_key="proof_routes",
+        field_path="releaseProof.proofRoutes",
+        source=source,
+    )
     if not isinstance(proof_routes, list):
         raise SystemExit(f"releaseProof.proofRoutes must be a list in {source}")
     if not proof_routes:
@@ -1228,7 +1246,13 @@ def verify_release_truth(payload: dict, source: str) -> None:
             f"releaseProof.uiLocalizationReleaseGate.status must be pass/passed/ready in {source}"
         )
 
-    gate_generated_at = ui_localization_release_gate.get("generatedAt") or ui_localization_release_gate.get("generated_at")
+    gate_generated_at = resolve_alias_value(
+        ui_localization_release_gate,
+        primary_key="generatedAt",
+        secondary_key="generated_at",
+        field_path="releaseProof.uiLocalizationReleaseGate.generatedAt",
+        source=source,
+    )
     gate_generated_at_timestamp = parse_iso_timestamp(gate_generated_at)
     if gate_generated_at_timestamp is None:
         raise SystemExit(f"releaseProof.uiLocalizationReleaseGate.generatedAt must be an ISO timestamp in {source}")
