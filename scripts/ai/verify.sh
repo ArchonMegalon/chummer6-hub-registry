@@ -213,12 +213,15 @@ cat >/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
     "zh-cn"
   ],
   "acceptance_gates": [
+    "pseudo_localization",
     "missing_key_fail_fast",
+    "top_surface_overflow_checks",
     "locale_smoke_first_launch",
     "locale_smoke_settings",
     "locale_smoke_explain",
     "locale_smoke_updater",
-    "locale_smoke_support"
+    "locale_smoke_support",
+    "non_english_generated_artifact_smoke"
   ],
   "blocking_findings": [],
   "translation_backlog_findings": [],
@@ -375,6 +378,24 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_re
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+gates = payload["releaseProof"]["uiLocalizationReleaseGate"]["acceptanceGates"]
+payload["releaseProof"]["uiLocalizationReleaseGate"]["acceptanceGates"] = [
+    gate for gate in gates if gate != "non_english_generated_artifact_smoke"
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject localization proof missing non_english_generated_artifact_smoke acceptance coverage." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py --require-complete-desktop-coverage /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: strict verifier should reject incomplete required desktop tuple coverage." >&2
   exit 1
@@ -449,12 +470,15 @@ assert all(
     for locale in canonical["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"]
 )
 assert sorted(canonical["releaseProof"]["uiLocalizationReleaseGate"]["acceptanceGates"]) == sorted([
+    "pseudo_localization",
     "missing_key_fail_fast",
+    "top_surface_overflow_checks",
     "locale_smoke_first_launch",
     "locale_smoke_settings",
     "locale_smoke_explain",
     "locale_smoke_updater",
     "locale_smoke_support",
+    "non_english_generated_artifact_smoke",
 ])
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["blockingFindingsCount"] == 0
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["translationBacklogFindingsCount"] == 0

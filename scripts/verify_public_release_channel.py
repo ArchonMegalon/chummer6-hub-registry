@@ -46,12 +46,15 @@ DEFAULT_HTTP_HEADERS = {
 REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
 REQUIRED_LOCALIZATION_SHIPPING_LOCALES = ("en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn")
 REQUIRED_LOCALIZATION_ACCEPTANCE_GATES = (
+    "pseudo_localization",
     "missing_key_fail_fast",
+    "top_surface_overflow_checks",
     "locale_smoke_first_launch",
     "locale_smoke_settings",
     "locale_smoke_explain",
     "locale_smoke_updater",
     "locale_smoke_support",
+    "non_english_generated_artifact_smoke",
 )
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
 REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT = "pre_ui_event_loop"
