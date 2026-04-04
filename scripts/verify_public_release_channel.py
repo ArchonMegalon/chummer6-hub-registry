@@ -82,6 +82,48 @@ REQUIRED_RELEASE_PROOF_ROUTES = (
     "/account/support",
     "/contact",
 )
+ALLOWED_RELEASE_PROOF_KEYS = (
+    "status",
+    "generatedAt",
+    "generated_at",
+    "baseUrl",
+    "base_url",
+    "journeysPassed",
+    "journeys_passed",
+    "proofRoutes",
+    "proof_routes",
+    "uiLocalizationReleaseGate",
+    "ui_localization_release_gate",
+)
+ALLOWED_LOCALIZATION_GATE_KEYS = (
+    "status",
+    "generatedAt",
+    "generated_at",
+    "defaultKeyCount",
+    "default_key_count",
+    "explicitFallbackRuntime",
+    "explicit_fallback_runtime",
+    "signoffSmokeRunnerStatus",
+    "signoff_smoke_runner_status",
+    "shippingLocales",
+    "shipping_locales",
+    "acceptanceGates",
+    "acceptance_gates",
+    "domainCoverage",
+    "domain_coverage",
+    "localeDomainCoverage",
+    "locale_domain_coverage",
+    "blockingFindingsCount",
+    "blocking_findings_count",
+    "blockingFindings",
+    "blocking_findings",
+    "translationBacklogFindingsCount",
+    "translation_backlog_findings_count",
+    "translationBacklogFindings",
+    "translation_backlog_findings",
+    "localeSummary",
+    "locale_summary",
+)
 DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
 DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS = 604800
@@ -1068,6 +1110,14 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(f"releaseProof is required in {source}")
     if not isinstance(proof, dict):
         raise SystemExit(f"releaseProof must be an object in {source}")
+    unexpected_release_proof_keys = sorted(
+        str(key) for key in proof.keys() if str(key) not in ALLOWED_RELEASE_PROOF_KEYS
+    )
+    if unexpected_release_proof_keys:
+        raise SystemExit(
+            "releaseProof has unexpected keys "
+            f"({', '.join(unexpected_release_proof_keys)}) in {source}"
+        )
     status = proof.get("status")
     if status in (None, "") or not isinstance(status, str):
         raise SystemExit(f"releaseProof.status is required in {source}")
@@ -1257,6 +1307,16 @@ def verify_release_truth(payload: dict, source: str) -> None:
     )
     if not isinstance(ui_localization_release_gate, dict):
         raise SystemExit(f"releaseProof.uiLocalizationReleaseGate is required in {source}")
+    unexpected_localization_gate_keys = sorted(
+        str(key)
+        for key in ui_localization_release_gate.keys()
+        if str(key) not in ALLOWED_LOCALIZATION_GATE_KEYS
+    )
+    if unexpected_localization_gate_keys:
+        raise SystemExit(
+            "releaseProof.uiLocalizationReleaseGate has unexpected keys "
+            f"({', '.join(unexpected_localization_gate_keys)}) in {source}"
+        )
 
     gate_status = normalized_token(ui_localization_release_gate.get("status"))
     if gate_status not in {"pass", "passed", "ready"}:
