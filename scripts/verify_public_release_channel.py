@@ -74,6 +74,14 @@ REQUIRED_RELEASE_PROOF_JOURNEYS = (
     "campaign_session_recover_recap",
     "report_cluster_release_notify",
 )
+REQUIRED_RELEASE_PROOF_ROUTES = (
+    "/downloads/install/avalonia-linux-x64-installer",
+    "/home/access",
+    "/home/work",
+    "/account/work",
+    "/account/support",
+    "/contact",
+)
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
 DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS = 604800
 DEFAULT_RELEASE_PROOF_MAX_FUTURE_SKEW_SECONDS = 300
@@ -1032,6 +1040,16 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(
             "releaseProof.proofRoutes must not contain duplicate routes after normalization "
             f"({', '.join(duplicate_proof_routes)}) in {source}"
+        )
+    missing_required_proof_routes = sorted(
+        route
+        for route in REQUIRED_RELEASE_PROOF_ROUTES
+        if route not in normalized_proof_routes
+    )
+    if missing_required_proof_routes:
+        raise SystemExit(
+            "releaseProof.proofRoutes is missing required flagship routes "
+            f"({', '.join(missing_required_proof_routes)}) in {source}"
         )
 
     ui_localization_release_gate = proof.get("uiLocalizationReleaseGate")

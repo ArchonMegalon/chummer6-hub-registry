@@ -48,6 +48,14 @@ REQUIRED_RELEASE_PROOF_JOURNEYS = (
     "campaign_session_recover_recap",
     "report_cluster_release_notify",
 )
+REQUIRED_RELEASE_PROOF_ROUTES = (
+    "/downloads/install/avalonia-linux-x64-installer",
+    "/home/access",
+    "/home/work",
+    "/account/work",
+    "/account/support",
+    "/contact",
+)
 UTC = dt.timezone.utc
 
 
@@ -511,6 +519,16 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
         routes.append(normalized_route)
     if not routes:
         raise ValueError(f"proof_routes must include at least one route in {source}")
+    missing_required_routes = sorted(
+        route
+        for route in REQUIRED_RELEASE_PROOF_ROUTES
+        if route not in routes
+    )
+    if missing_required_routes:
+        raise ValueError(
+            "proof_routes is missing required flagship routes "
+            f"({', '.join(missing_required_routes)}) in {source}"
+        )
     generated_at = str(loaded.get("generated_at") or loaded.get("generatedAt") or "").strip() or None
     base_url = str(loaded.get("base_url") or loaded.get("baseUrl") or "").strip() or None
     ui_localization_release_gate = normalize_ui_localization_release_gate_payload(
