@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-04T00:36:34Z",
-  "generatedAt": "2026-04-04T00:36:34Z",
+  "generated_at": "2026-04-04T02:50:32Z",
+  "generatedAt": "2026-04-04T02:50:32Z",
   "version": "local-docker",
   "channel": "docker",
   "publishedAt": "2026-04-03T23:38:36Z",
@@ -72,6 +72,8 @@
       "status": "pass",
       "generatedAt": "2026-04-03T22:59:41Z",
       "defaultKeyCount": 383,
+      "explicitFallbackRuntime": "missing",
+      "signoffSmokeRunnerStatus": "missing",
       "shippingLocales": [
         "en-us",
         "de-de",
@@ -84,29 +86,56 @@
         {
           "locale": "de-de",
           "untranslatedKeyCount": 0,
-          "overrideCount": 383
+          "overrideCount": 383,
+          "minimumOverrideCount": null,
+          "missingReleaseSeedKeys": [],
+          "legacyXmlPresent": false,
+          "legacyDataXmlPresent": false
         },
         {
           "locale": "fr-fr",
           "untranslatedKeyCount": 0,
-          "overrideCount": 383
+          "overrideCount": 383,
+          "minimumOverrideCount": null,
+          "missingReleaseSeedKeys": [],
+          "legacyXmlPresent": false,
+          "legacyDataXmlPresent": false
         },
         {
           "locale": "ja-jp",
           "untranslatedKeyCount": 0,
-          "overrideCount": 383
+          "overrideCount": 383,
+          "minimumOverrideCount": null,
+          "missingReleaseSeedKeys": [],
+          "legacyXmlPresent": false,
+          "legacyDataXmlPresent": false
         },
         {
           "locale": "pt-br",
           "untranslatedKeyCount": 0,
-          "overrideCount": 383
+          "overrideCount": 383,
+          "minimumOverrideCount": null,
+          "missingReleaseSeedKeys": [],
+          "legacyXmlPresent": false,
+          "legacyDataXmlPresent": false
         },
         {
           "locale": "zh-cn",
           "untranslatedKeyCount": 0,
-          "overrideCount": 383
+          "overrideCount": 383,
+          "minimumOverrideCount": null,
+          "missingReleaseSeedKeys": [],
+          "legacyXmlPresent": false,
+          "legacyDataXmlPresent": false
         }
-      ]
+      ],
+      "acceptanceGates": [],
+      "domainCoverage": {},
+      "localeDomainCoverage": {},
+      "blockingFindings": [],
+      "blockingFindingsCount": 0,
+      "translationBacklogFindings": [],
+      "translationBacklogFindingsCount": 0
     }
   },
   "desktopTupleCoverage": {
@@ -149,7 +178,11 @@
     },
     "requiredDesktopPlatformHeadRidTuples": [
       "avalonia:linux-x64:linux",
-      "blazor-desktop:linux-x64:linux"
+      "avalonia:osx-arm64:macos",
+      "avalonia:win-x64:windows",
+      "blazor-desktop:linux-x64:linux",
+      "blazor-desktop:osx-arm64:macos",
+      "blazor-desktop:win-x64:windows"
     ],
     "promotedPlatformHeadRidTuples": [
       "avalonia:linux-x64:linux",
@@ -166,6 +199,11 @@
       "avalonia:macos",
       "blazor-desktop:macos"
     ],
-    "missingRequiredPlatformHeadRidTuples": []
+    "missingRequiredPlatformHeadRidTuples": [
+      "avalonia:osx-arm64:macos",
+      "avalonia:win-x64:windows",
+      "blazor-desktop:osx-arm64:macos",
+      "blazor-desktop:win-x64:windows"
+    ]
   }
 }

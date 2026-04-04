@@ -44,6 +44,11 @@ DEFAULT_HTTP_HEADERS = {
     "Pragma": "no-cache",
 }
 REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
+DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS = {
+    "linux": ("linux-x64",),
+    "windows": ("win-x64",),
+    "macos": ("osx-arm64",),
+}
 REQUIRED_LOCALIZATION_SHIPPING_LOCALES = ("en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn")
 REQUIRED_LOCALIZATION_ACCEPTANCE_GATES = (
     "pseudo_localization",
@@ -508,15 +513,32 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
             if row.get("head") and row.get("rid") and row.get("platform")
         }
     )
+    expected_promoted_rids_by_platform: dict[str, set[str]] = {platform: set() for platform in REQUIRED_DESKTOP_PLATFORMS}
+    for tuple_id in expected_promoted_platform_head_rid_tuples:
+        head_token, rid_token, platform_token = tuple_id.split(":", 2)
+        if head_token and rid_token and platform_token in expected_promoted_rids_by_platform:
+            expected_promoted_rids_by_platform[platform_token].add(rid_token)
+    expected_required_platform_head_rid_tuples = sorted(
+        {
+            f"{head}:{rid}:{platform}"
+            for platform in REQUIRED_DESKTOP_PLATFORMS
+            for head in normalized_required_heads
+            for rid in (
+                list(DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS.get(platform, ()))
+                or sorted(expected_promoted_rids_by_platform.get(platform, set()))
+            )
+            if head and rid
+        }
+    )
     normalized_required_platform_head_rid_tuples = sorted(normalized_string_list(required_platform_head_rid_tuples))
     normalized_promoted_platform_head_rid_tuples = sorted(normalized_string_list(promoted_platform_head_rid_tuples))
     if normalized_promoted_platform_head_rid_tuples != expected_promoted_platform_head_rid_tuples:
         raise SystemExit(
             f"{source} desktopTupleCoverage.promotedPlatformHeadRidTuples does not match promoted tuple coverage"
         )
-    if normalized_required_platform_head_rid_tuples != expected_promoted_platform_head_rid_tuples:
+    if normalized_required_platform_head_rid_tuples != expected_required_platform_head_rid_tuples:
         raise SystemExit(
-            f"{source} desktopTupleCoverage.requiredDesktopPlatformHeadRidTuples does not match promoted tuple coverage"
+            f"{source} desktopTupleCoverage.requiredDesktopPlatformHeadRidTuples does not match required tuple coverage"
         )
     expected_missing_platform_head_rid_tuples = sorted(
         tuple_id

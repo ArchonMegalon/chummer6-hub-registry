@@ -37,6 +37,11 @@ STARTUP_SMOKE_MAX_AGE_SECONDS = 24 * 3600
 STARTUP_SMOKE_REQUIRED_READY_CHECKPOINT = "pre_ui_event_loop"
 DEFAULT_REQUIRED_DESKTOP_HEADS = ("avalonia", "blazor-desktop")
 DEFAULT_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
+DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS = {
+    "linux": ("linux-x64",),
+    "windows": ("win-x64",),
+    "macos": ("osx-arm64",),
+}
 UTC = dt.timezone.utc
 
 
@@ -828,7 +833,26 @@ def desktop_tuple_coverage(
         for head in required_heads
         if f"{head}:{platform}" not in promoted_pairs
     ]
-    required_platform_head_rid_tuples = sorted(promoted_platform_head_rid_tuples)
+    promoted_rids_by_platform: dict[str, set[str]] = {platform: set() for platform in required_platforms}
+    for tuple_id in promoted_platform_head_rid_tuples:
+        parts = tuple_id.split(":", 2)
+        if len(parts) != 3:
+            continue
+        _, rid, platform = parts
+        if platform in promoted_rids_by_platform and rid:
+            promoted_rids_by_platform[platform].add(rid)
+    required_platform_head_rid_tuples = sorted(
+        {
+            f"{head}:{rid}:{platform}"
+            for platform in required_platforms
+            for head in required_heads
+            for rid in (
+                list(DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS.get(platform, ()))
+                or sorted(promoted_rids_by_platform.get(platform, set()))
+            )
+            if head and rid
+        }
+    )
     missing_required_platform_head_rid_tuples = sorted(
         tuple_id
         for tuple_id in required_platform_head_rid_tuples
