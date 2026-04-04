@@ -1336,6 +1336,59 @@ def expected_installer_extension_for_platform(platform: str) -> str:
     return "deb"
 
 
+def expected_startup_smoke_launch_target(head: str, platform: str) -> str:
+    head_token = normalized_token(head)
+    platform_token = normalized_token(platform)
+    if head_token == "blazor-desktop":
+        return "Chummer.Blazor.Desktop.exe" if platform_token == "windows" else "Chummer.Blazor.Desktop"
+    return "Chummer.Avalonia.exe" if platform_token == "windows" else "Chummer.Avalonia"
+
+
+def external_proof_request_receipt_contract(head: str, rid: str, platform: str, required_host: str) -> dict[str, Any]:
+    host_token = normalized_token(required_host) or normalized_token(platform) or "required"
+    return {
+        "statusAnyOf": ["pass", "passed", "ready"],
+        "readyCheckpoint": STARTUP_SMOKE_REQUIRED_READY_CHECKPOINT,
+        "headId": normalized_token(head),
+        "platform": normalized_token(platform),
+        "rid": normalized_token(rid),
+        "hostClassContains": host_token,
+    }
+
+
+def external_proof_request_capture_commands(
+    *,
+    head: str,
+    rid: str,
+    platform: str,
+    installer_file_name: str,
+    required_host: str,
+) -> list[str]:
+    head_token = normalized_token(head)
+    rid_token = normalized_token(rid)
+    platform_token = normalized_token(platform)
+    installer_name = str(installer_file_name or "").strip()
+    if not head_token or not rid_token or not platform_token or not installer_name:
+        return []
+    required_host_token = normalized_token(required_host) or platform_token
+    repo_root = "/docker/chummercomplete/chummer6-ui"
+    run_smoke = (
+        f"cd {repo_root} && "
+        f"CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS={required_host_token}-host "
+        "./scripts/run-desktop-startup-smoke.sh "
+        f"{repo_root}/Docker/Downloads/files/{installer_name} "
+        f"{head_token} "
+        f"{rid_token} "
+        f"{expected_startup_smoke_launch_target(head_token, platform_token)} "
+        f"{repo_root}/Docker/Downloads/startup-smoke"
+    )
+    refresh_manifest = (
+        f"cd {repo_root} && "
+        "./scripts/generate-releases-manifest.sh"
+    )
+    return [run_smoke, refresh_manifest]
+
+
 def desktop_tuple_coverage(
     artifacts: list[dict[str, Any]],
     required_heads: list[str],
@@ -1424,6 +1477,10 @@ def desktop_tuple_coverage(
         head, rid, platform = parts
         if not head or not rid or not platform:
             continue
+        expected_installer_file_name = (
+            f"chummer-{head}-{rid}-installer."
+            f"{expected_installer_extension_for_platform(platform)}"
+        )
         external_proof_requests.append(
             {
                 "tupleId": tuple_id,
@@ -1436,12 +1493,22 @@ def desktop_tuple_coverage(
                     "startup_smoke_receipt",
                 ],
                 "expectedArtifactId": f"{head}-{rid}-installer",
-                "expectedInstallerFileName": (
-                    f"chummer-{head}-{rid}-installer."
-                    f"{expected_installer_extension_for_platform(platform)}"
-                ),
+                "expectedInstallerFileName": expected_installer_file_name,
                 "expectedPublicInstallRoute": f"/downloads/install/{head}-{rid}-installer",
                 "expectedStartupSmokeReceiptPath": f"startup-smoke/startup-smoke-{head}-{rid}.receipt.json",
+                "startupSmokeReceiptContract": external_proof_request_receipt_contract(
+                    head=head,
+                    rid=rid,
+                    platform=platform,
+                    required_host=platform,
+                ),
+                "proofCaptureCommands": external_proof_request_capture_commands(
+                    head=head,
+                    rid=rid,
+                    platform=platform,
+                    installer_file_name=expected_installer_file_name,
+                    required_host=platform,
+                ),
             }
         )
     return {

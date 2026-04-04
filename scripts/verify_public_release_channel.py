@@ -172,6 +172,8 @@ ALLOWED_EXTERNAL_PROOF_REQUEST_KEYS = (
     "expectedInstallerFileName",
     "expectedPublicInstallRoute",
     "expectedStartupSmokeReceiptPath",
+    "startupSmokeReceiptContract",
+    "proofCaptureCommands",
 )
 DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
@@ -184,6 +186,68 @@ REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT = "pre_ui_event_loop"
 PLATFORM_ALIASES = {
     "osx": "macos",
 }
+
+
+def expected_external_proof_installer_extension(platform: str) -> str:
+    platform_token = normalized_platform_token(platform)
+    if platform_token == "windows":
+        return "exe"
+    if platform_token == "macos":
+        return "dmg"
+    return "deb"
+
+
+def expected_external_proof_launch_target(head: str, platform: str) -> str:
+    head_token = normalized_token(head)
+    platform_token = normalized_platform_token(platform)
+    if head_token == "blazor-desktop":
+        return "Chummer.Blazor.Desktop.exe" if platform_token == "windows" else "Chummer.Blazor.Desktop"
+    return "Chummer.Avalonia.exe" if platform_token == "windows" else "Chummer.Avalonia"
+
+
+def expected_external_proof_receipt_contract(head: str, rid: str, platform: str, required_host: str) -> dict[str, Any]:
+    host_token = normalized_platform_token(required_host) or normalized_platform_token(platform) or "required"
+    return {
+        "statusAnyOf": ["pass", "passed", "ready"],
+        "readyCheckpoint": REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT,
+        "headId": normalized_token(head),
+        "platform": normalized_platform_token(platform),
+        "rid": normalized_token(rid),
+        "hostClassContains": host_token,
+    }
+
+
+def expected_external_proof_capture_commands(
+    *,
+    head: str,
+    rid: str,
+    platform: str,
+    installer_file_name: str,
+    required_host: str,
+) -> list[str]:
+    head_token = normalized_token(head)
+    rid_token = normalized_token(rid)
+    platform_token = normalized_platform_token(platform)
+    installer_name = str(installer_file_name or "").strip()
+    if not head_token or not rid_token or not platform_token or not installer_name:
+        return []
+    required_host_token = normalized_platform_token(required_host) or platform_token
+    repo_root = "/docker/chummercomplete/chummer6-ui"
+    run_smoke = (
+        f"cd {repo_root} && "
+        f"CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS={required_host_token}-host "
+        "./scripts/run-desktop-startup-smoke.sh "
+        f"{repo_root}/Docker/Downloads/files/{installer_name} "
+        f"{head_token} "
+        f"{rid_token} "
+        f"{expected_external_proof_launch_target(head_token, platform_token)} "
+        f"{repo_root}/Docker/Downloads/startup-smoke"
+    )
+    refresh_manifest = (
+        f"cd {repo_root} && "
+        "./scripts/generate-releases-manifest.sh"
+    )
+    return [run_smoke, refresh_manifest]
 
 
 def open_json_url_via_urllib(raw_target: str) -> dict:
@@ -897,53 +961,52 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         raise SystemExit(
             f"{source} desktopTupleCoverage.missingRequiredPlatformHeadRidTuples does not match promoted tuple coverage"
         )
-    expected_external_proof_requests = [
-        {
-            "tupleId": tuple_id,
-            "head": tuple_id.split(":", 2)[0],
-            "rid": tuple_id.split(":", 2)[1],
-            "platform": tuple_id.split(":", 2)[2],
-            "requiredHost": tuple_id.split(":", 2)[2],
-            "requiredProofs": [
-                "promoted_installer_artifact",
-                "startup_smoke_receipt",
-            ],
-            "expectedArtifactId": (
-                tuple_id.split(":", 2)[0]
-                + "-"
-                + tuple_id.split(":", 2)[1]
-                + "-installer"
-            ),
-            "expectedInstallerFileName": (
-                "chummer-"
-                + tuple_id.split(":", 2)[0]
-                + "-"
-                + tuple_id.split(":", 2)[1]
-                + "-installer."
-                + (
-                    "exe"
-                    if tuple_id.split(":", 2)[2] == "windows"
-                    else ("dmg" if tuple_id.split(":", 2)[2] == "macos" else "deb")
-                )
-            ),
-            "expectedPublicInstallRoute": (
-                "/downloads/install/"
-                + tuple_id.split(":", 2)[0]
-                + "-"
-                + tuple_id.split(":", 2)[1]
-                + "-installer"
-            ),
-            "expectedStartupSmokeReceiptPath": (
-                "startup-smoke/startup-smoke-"
-                + tuple_id.split(":", 2)[0]
-                + "-"
-                + tuple_id.split(":", 2)[1]
-                + ".receipt.json"
-            ),
-        }
-        for tuple_id in expected_missing_platform_head_rid_tuples
-        if len(tuple_id.split(":", 2)) == 3
-    ]
+    expected_external_proof_requests = []
+    for tuple_id in expected_missing_platform_head_rid_tuples:
+        parts = tuple_id.split(":", 2)
+        if len(parts) != 3:
+            continue
+        head, rid, platform = parts
+        if not head or not rid or not platform:
+            continue
+        expected_installer_file_name = (
+            "chummer-"
+            + head
+            + "-"
+            + rid
+            + "-installer."
+            + expected_external_proof_installer_extension(platform)
+        )
+        expected_external_proof_requests.append(
+            {
+                "tupleId": tuple_id,
+                "head": head,
+                "rid": rid,
+                "platform": platform,
+                "requiredHost": platform,
+                "requiredProofs": [
+                    "promoted_installer_artifact",
+                    "startup_smoke_receipt",
+                ],
+                "expectedArtifactId": head + "-" + rid + "-installer",
+                "expectedInstallerFileName": expected_installer_file_name,
+                "expectedPublicInstallRoute": "/downloads/install/" + head + "-" + rid + "-installer",
+                "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-" + head + "-" + rid + ".receipt.json",
+                "startupSmokeReceiptContract": expected_external_proof_receipt_contract(
+                    head=head,
+                    rid=rid,
+                    platform=platform,
+                    required_host=platform,
+                ),
+                "proofCaptureCommands": expected_external_proof_capture_commands(
+                    head=head,
+                    rid=rid,
+                    platform=platform,
+                    installer_file_name=expected_installer_file_name,
+                    required_host=platform,
+                ),
+            }
+        )
     normalized_external_proof_requests: list[dict[str, Any]] = []
     for index, item in enumerate(external_proof_requests):
         if not isinstance(item, dict):
@@ -967,6 +1030,19 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
                 f"{source} desktopTupleCoverage.externalProofRequests[{index}].requiredProofs must be a string list"
             )
         required_proofs = sorted(normalized_token(token) for token in required_proofs_raw if normalized_token(token))
+        receipt_contract_raw = item.get("startupSmokeReceiptContract")
+        if not isinstance(receipt_contract_raw, dict):
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.externalProofRequests[{index}].startupSmokeReceiptContract must be an object"
+            )
+        proof_capture_commands_raw = item.get("proofCaptureCommands")
+        if not isinstance(proof_capture_commands_raw, list) or not all(
+            isinstance(token, str) for token in proof_capture_commands_raw
+        ):
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.externalProofRequests[{index}].proofCaptureCommands must be a string list"
+            )
+        proof_capture_commands = [str(token).strip() for token in proof_capture_commands_raw if str(token).strip()]
         normalized_external_proof_requests.append(
             {
                 "tupleId": tuple_id,
@@ -979,6 +1055,19 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
                 "expectedInstallerFileName": str(item.get("expectedInstallerFileName") or "").strip(),
                 "expectedPublicInstallRoute": str(item.get("expectedPublicInstallRoute") or "").strip(),
                 "expectedStartupSmokeReceiptPath": str(item.get("expectedStartupSmokeReceiptPath") or "").strip(),
+                "startupSmokeReceiptContract": {
+                    "statusAnyOf": sorted(
+                        normalized_token(token)
+                        for token in (receipt_contract_raw.get("statusAnyOf") or [])
+                        if normalized_token(token)
+                    ),
+                    "readyCheckpoint": normalized_token(receipt_contract_raw.get("readyCheckpoint")),
+                    "headId": normalized_token(receipt_contract_raw.get("headId")),
+                    "platform": normalized_platform_token(receipt_contract_raw.get("platform")),
+                    "rid": normalized_token(receipt_contract_raw.get("rid")),
+                    "hostClassContains": normalized_platform_token(receipt_contract_raw.get("hostClassContains")),
+                },
+                "proofCaptureCommands": proof_capture_commands,
             }
         )
     normalized_external_proof_requests.sort(
