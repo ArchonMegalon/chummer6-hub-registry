@@ -192,16 +192,16 @@ ReleaseProofProjection releaseProof = releaseChannel.ReleaseProof
     ?? throw new InvalidOperationException("Release channel projections must retain release-proof payloads.");
 IReadOnlyList<string> journeysPassed = releaseProof.JourneysPassed ?? Array.Empty<string>();
 IReadOnlyList<string> proofRoutes = releaseProof.ProofRoutes ?? Array.Empty<string>();
-Assert(journeysPassed.Count == 4, "Release channel projections must retain the full proven journey set.");
 Assert(
-    proofRoutes.Count == 6
-    && proofRoutes.Contains("/downloads/install/avalonia-linux-x64-installer", StringComparer.Ordinal)
-    && proofRoutes.Contains("/home/access", StringComparer.Ordinal)
-    && proofRoutes.Contains("/home/work", StringComparer.Ordinal)
-    && proofRoutes.Contains("/account/work", StringComparer.Ordinal)
-    && proofRoutes.Contains("/account/support", StringComparer.Ordinal)
-    && proofRoutes.Contains("/contact", StringComparer.Ordinal),
-    "Release channel projections must retain canonical flagship proof routes.");
+    journeysPassed.SequenceEqual(
+        ["install_claim_restore_continue", "build_explain_publish", "campaign_session_recover_recap", "report_cluster_release_notify"],
+        StringComparer.Ordinal),
+    "Release channel projections must retain canonical baseline journey ordering.");
+Assert(
+    proofRoutes.SequenceEqual(
+        ["/downloads/install/avalonia-linux-x64-installer", "/home/access", "/home/work", "/account/work", "/account/support", "/contact"],
+        StringComparer.Ordinal),
+    "Release channel projections must retain canonical flagship proof route ordering.");
 Assert(string.Equals(releaseProof.Status, ReleaseProofStatuses.Passed, StringComparison.Ordinal),
     "Release channel projections must retain release-proof posture.");
 
