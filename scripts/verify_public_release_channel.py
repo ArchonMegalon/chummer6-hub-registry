@@ -1083,6 +1083,11 @@ def verify_release_truth(payload: dict, source: str) -> None:
             raise SystemExit(
                 f"releaseProof.uiLocalizationReleaseGate.localeDomainCoverage['{locale}'] must be an object in {source}"
             )
+        if locale in locale_domain_coverage:
+            raise SystemExit(
+                "releaseProof.uiLocalizationReleaseGate.localeDomainCoverage has duplicate locale id "
+                f"'{locale}' after normalization in {source}"
+            )
         normalized_domains: dict[str, str] = {}
         for raw_domain, raw_status in raw_domains.items():
             domain = normalized_token(raw_domain)
@@ -1096,6 +1101,11 @@ def verify_release_truth(payload: dict, source: str) -> None:
                 raise SystemExit(
                     "releaseProof.uiLocalizationReleaseGate.localeDomainCoverage has a blank status "
                     f"for locale '{locale}' domain '{domain}' in {source}"
+                )
+            if domain in normalized_domains:
+                raise SystemExit(
+                    "releaseProof.uiLocalizationReleaseGate.localeDomainCoverage locale "
+                    f"'{locale}' has duplicate domain id '{domain}' after normalization in {source}"
                 )
             normalized_domains[domain] = status_token
         locale_domain_coverage[locale] = normalized_domains
