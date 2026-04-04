@@ -447,6 +447,10 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
     if not isinstance(loaded, dict):
         raise ValueError(f"release proof payload must be a JSON object: {source}")
     status = str(loaded.get("status") or "").strip().lower() or "missing"
+    if status not in {"pass", "passed", "ready"}:
+        raise ValueError(
+            f"release proof status must be pass/passed/ready in {source}"
+        )
     journeys = normalize_required_token_list(
         loaded.get("journeys_passed") or loaded.get("journeysPassed") or [],
         field_name="journeys_passed",
@@ -462,11 +466,26 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
             "journeys_passed is missing required baseline golden journey ids "
             f"({', '.join(missing_required_journeys)}) in {source}"
         )
-    routes = [
-        str(item).strip()
-        for item in loaded.get("proof_routes") or loaded.get("proofRoutes") or []
-        if str(item).strip()
-    ]
+    raw_routes = loaded.get("proof_routes") or loaded.get("proofRoutes") or []
+    if not isinstance(raw_routes, list):
+        raise ValueError(f"proof_routes must be a list in {source}")
+    routes: list[str] = []
+    seen_routes: set[str] = set()
+    for index, raw_route in enumerate(raw_routes):
+        if not isinstance(raw_route, str):
+            raise ValueError(f"proof_routes[{index}] must be a string in {source}")
+        route = raw_route.strip()
+        if not route:
+            raise ValueError(f"proof_routes[{index}] must not be blank in {source}")
+        if not route.startswith("/"):
+            raise ValueError(f"proof_routes[{index}] must be a slash-led route path in {source}")
+        normalized_route = route.lower()
+        if normalized_route in seen_routes:
+            raise ValueError(f"proof_routes must not contain duplicate routes ('{route}') in {source}")
+        seen_routes.add(normalized_route)
+        routes.append(route)
+    if not routes:
+        raise ValueError(f"proof_routes must include at least one route in {source}")
     generated_at = str(loaded.get("generated_at") or loaded.get("generatedAt") or "").strip() or None
     base_url = str(loaded.get("base_url") or loaded.get("baseUrl") or "").strip() or None
     ui_localization_release_gate = normalize_ui_localization_release_gate_payload(
