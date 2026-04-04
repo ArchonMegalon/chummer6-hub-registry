@@ -920,6 +920,18 @@ def normalize_ui_localization_release_gate_payload(
         )
         or ""
     ).strip().lower() or "missing"
+    explicit_signoff_smoke_runner_status: str | None = None
+    if "signoff_smoke_runner_status" in loaded or "signoffSmokeRunnerStatus" in loaded:
+        explicit_signoff_smoke_runner_status = str(
+            resolve_alias_value(
+                loaded,
+                primary_key="signoff_smoke_runner_status",
+                secondary_key="signoffSmokeRunnerStatus",
+                field_name="signoff_smoke_runner_status",
+                source=source,
+            )
+            or ""
+        ).strip().lower() or "missing"
     signoff_smoke_runner_status = "missing"
     signoff_smoke_runner = resolve_alias_value(
         loaded,
@@ -930,17 +942,16 @@ def normalize_ui_localization_release_gate_payload(
     )
     if isinstance(signoff_smoke_runner, dict):
         signoff_smoke_runner_status = str(signoff_smoke_runner.get("status") or "").strip().lower() or "missing"
-    else:
-        signoff_smoke_runner_status = str(
-            resolve_alias_value(
-                loaded,
-                primary_key="signoff_smoke_runner_status",
-                secondary_key="signoffSmokeRunnerStatus",
-                field_name="signoff_smoke_runner_status",
-                source=source,
+        if (
+            explicit_signoff_smoke_runner_status is not None
+            and explicit_signoff_smoke_runner_status != signoff_smoke_runner_status
+        ):
+            raise ValueError(
+                "signoff_smoke_runner status values drift between signoff_smoke_runner.status "
+                f"and signoff_smoke_runner_status in {source}"
             )
-            or ""
-        ).strip().lower() or "missing"
+    else:
+        signoff_smoke_runner_status = explicit_signoff_smoke_runner_status or "missing"
     shipping_locales = normalize_required_token_list(
         resolve_alias_value(
             loaded,
