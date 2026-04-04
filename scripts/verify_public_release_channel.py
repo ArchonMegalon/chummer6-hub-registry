@@ -44,6 +44,7 @@ DEFAULT_HTTP_HEADERS = {
     "Pragma": "no-cache",
 }
 REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
+REQUIRED_DESKTOP_HEADS = ("avalonia", "blazor-desktop")
 DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS = {
     "linux": ("linux-x64",),
     "windows": ("win-x64",),
@@ -196,6 +197,19 @@ def expected_external_proof_installer_extension(platform: str) -> str:
     if platform_token == "macos":
         return "dmg"
     return "deb"
+
+
+def verify_required_desktop_heads(required_heads: list[str], source: str) -> None:
+    if not required_heads:
+        raise SystemExit(f"{source} desktopTupleCoverage.requiredDesktopHeads must include at least one head")
+    missing_required_heads = sorted(
+        head for head in REQUIRED_DESKTOP_HEADS if head not in set(required_heads)
+    )
+    if missing_required_heads:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.requiredDesktopHeads must include canonical heads "
+            f"{list(REQUIRED_DESKTOP_HEADS)} (missing: {', '.join(missing_required_heads)})"
+        )
 
 
 def expected_external_proof_launch_target(head: str, platform: str) -> str:
@@ -789,8 +803,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         raise SystemExit(
             f"{source} desktopTupleCoverage.requiredDesktopPlatforms must be exactly {list(REQUIRED_DESKTOP_PLATFORMS)}"
         )
-    if not normalized_required_heads:
-        raise SystemExit(f"{source} desktopTupleCoverage.requiredDesktopHeads must include at least one head")
+    verify_required_desktop_heads(normalized_required_heads, source)
     normalized_channel_id = expected_channel_id(payload)
     if not normalized_channel_id:
         raise SystemExit(f"{source} is missing top-level channelId/channel for desktop tuple coverage verification")
