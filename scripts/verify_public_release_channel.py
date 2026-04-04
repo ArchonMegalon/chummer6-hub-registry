@@ -916,10 +916,7 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(f"supportabilityState must be a string in {source}")
     proof = payload.get("releaseProof")
     if proof is None:
-        runtime_bundle_heads = payload.get("runtimeBundleHeads")
-        if runtime_bundle_heads is not None and not isinstance(runtime_bundle_heads, list):
-            raise SystemExit(f"runtimeBundleHeads must be a list in {source}")
-        return
+        raise SystemExit(f"releaseProof is required in {source}")
     if not isinstance(proof, dict):
         raise SystemExit(f"releaseProof must be an object in {source}")
     status = proof.get("status")
