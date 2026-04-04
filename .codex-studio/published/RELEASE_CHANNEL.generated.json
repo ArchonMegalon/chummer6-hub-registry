@@ -1,11 +1,13 @@
 {
-  "generated_at": "2026-04-04T12:27:07Z",
-  "generatedAt": "2026-04-04T12:27:07Z",
+  "generated_at": "2026-04-04T18:19:38Z",
+  "generatedAt": "2026-04-04T18:19:38Z",
   "schemaVersion": 1,
   "product": "chummer6",
+  "contract_name": "Chummer.Hub.Registry.Contracts",
+  "contractName": "Chummer.Hub.Registry.Contracts",
   "channelId": "docker",
   "version": "local-docker",
-  "publishedAt": "2026-04-04T04:17:46Z",
+  "publishedAt": "2026-04-04T17:55:17Z",
   "status": "published",
   "artifactSource": "ui_desktop_bundle",
   "message": null,
@@ -17,7 +19,7 @@
   "fixAvailabilitySummary": "Do not send fixed notices until required desktop tuple coverage is complete for the promoted shelf.",
   "releaseProof": {
     "status": "passed",
-    "generatedAt": "2026-04-04T09:28:32Z",
+    "generatedAt": "2026-04-04T17:47:23Z",
     "baseUrl": "https://chummer.run",
     "journeysPassed": [
       "install_claim_restore_continue",
@@ -35,7 +37,7 @@
     ],
     "uiLocalizationReleaseGate": {
       "status": "pass",
-      "generatedAt": "2026-04-04T04:08:30Z",
+      "generatedAt": "2026-04-04T16:40:43Z",
       "defaultKeyCount": 383,
       "explicitFallbackRuntime": "pass",
       "signoffSmokeRunnerStatus": "pass",
@@ -192,8 +194,8 @@
       "channel": "docker",
       "version": "local-docker",
       "releaseVersion": "local-docker",
-      "generated_at": "2026-04-04T12:27:07Z",
-      "generatedAt": "2026-04-04T12:27:07Z"
+      "generated_at": "2026-04-04T18:19:38Z",
+      "generatedAt": "2026-04-04T18:19:38Z"
     },
     {
       "artifactId": "blazor-desktop-linux-x64-installer",
@@ -215,8 +217,8 @@
       "channel": "docker",
       "version": "local-docker",
       "releaseVersion": "local-docker",
-      "generated_at": "2026-04-04T12:27:07Z",
-      "generatedAt": "2026-04-04T12:27:07Z"
+      "generated_at": "2026-04-04T18:19:38Z",
+      "generatedAt": "2026-04-04T18:19:38Z"
     }
   ],
   "desktopTupleCoverage": {
@@ -285,9 +287,53 @@
       "avalonia:win-x64:windows",
       "blazor-desktop:osx-arm64:macos",
       "blazor-desktop:win-x64:windows"
+    ],
+    "externalProofRequests": [
+      {
+        "tupleId": "avalonia:osx-arm64:macos",
+        "head": "avalonia",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "requiredHost": "macos",
+        "requiredProofs": [
+          "promoted_installer_artifact",
+          "startup_smoke_receipt"
+        ]
+      },
+      {
+        "tupleId": "avalonia:win-x64:windows",
+        "head": "avalonia",
+        "platform": "windows",
+        "rid": "win-x64",
+        "requiredHost": "windows",
+        "requiredProofs": [
+          "promoted_installer_artifact",
+          "startup_smoke_receipt"
+        ]
+      },
+      {
+        "tupleId": "blazor-desktop:osx-arm64:macos",
+        "head": "blazor-desktop",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "requiredHost": "macos",
+        "requiredProofs": [
+          "promoted_installer_artifact",
+          "startup_smoke_receipt"
+        ]
+      },
+      {
+        "tupleId": "blazor-desktop:win-x64:windows",
+        "head": "blazor-desktop",
+        "platform": "windows",
+        "rid": "win-x64",
+        "requiredHost": "windows",
+        "requiredProofs": [
+          "promoted_installer_artifact",
+          "startup_smoke_receipt"
+        ]
+      }
     ]
   },
-  "runtimeBundleHeads": [],
-  "contract_name": "Chummer.Hub.Registry.Contracts",
-  "contractName": "Chummer.Hub.Registry.Contracts"
+  "runtimeBundleHeads": []
 }

@@ -1,16 +1,16 @@
 {
-  "generated_at": "2026-04-04T02:50:32Z",
-  "generatedAt": "2026-04-04T02:50:32Z",
+  "generated_at": "2026-04-04T18:19:38Z",
+  "generatedAt": "2026-04-04T18:19:38Z",
   "version": "local-docker",
   "channel": "docker",
-  "publishedAt": "2026-04-03T23:38:36Z",
+  "publishedAt": "2026-04-04T17:55:17Z",
   "downloads": [
     {
       "id": "avalonia-linux-x64-installer",
       "platform": "Avalonia Desktop Linux X64 Installer",
       "url": "/downloads/files/chummer-avalonia-linux-x64-installer.deb",
-      "sha256": "db286c2cde05206a2826817d91abfd331ed0fca1d11df550c368e510d43d8808",
-      "sizeBytes": 31791888,
+      "sha256": "4544ef844262d3381bc424105c4d67e95fa6f3c2541c1c79b00d0b4666a6198c",
+      "sizeBytes": 31796460,
       "format": "deb",
       "flavor": "installer",
       "kind": "installer",
@@ -24,8 +24,8 @@
       "id": "blazor-desktop-linux-x64-installer",
       "platform": "Blazor Desktop Linux X64 Installer",
       "url": "/downloads/files/chummer-blazor-desktop-linux-x64-installer.deb",
-      "sha256": "e045312eab4982b801edcba6edef0ae0d32065fe9c29e1d502b70d83b33fc37e",
-      "sizeBytes": 34181284,
+      "sha256": "fba47bb24a11f45dcd37c9d70b036346355d24802a434bf9eac2e6f3767c11f3",
+      "sizeBytes": 34182932,
       "format": "deb",
       "flavor": "installer",
       "kind": "installer",
@@ -47,33 +47,28 @@
   "fixAvailabilitySummary": "Do not send fixed notices until required desktop tuple coverage is complete for the promoted shelf.",
   "releaseProof": {
     "status": "passed",
-    "generatedAt": "2026-03-28T14:39:05Z",
-    "baseUrl": "http://127.0.0.1:8091",
+    "generatedAt": "2026-04-04T17:47:23Z",
+    "baseUrl": "https://chummer.run",
     "journeysPassed": [
-      "public_bridge_boot",
-      "desktop_downloads_projection",
-      "portal_route_probe"
+      "install_claim_restore_continue",
+      "build_explain_publish",
+      "campaign_session_recover_recap",
+      "report_cluster_release_notify"
     ],
     "proofRoutes": [
-      "/",
-      "/blazor/",
-      "/hub/",
-      "/avalonia/",
-      "/downloads/",
-      "/downloads/releases.json",
-      "/session/",
-      "/coach/",
-      "/contact",
-      "/what-is-chummer",
-      "/artifacts",
-      "/faq"
+      "/downloads/install/avalonia-linux-x64-installer",
+      "/home/access",
+      "/home/work",
+      "/account/work",
+      "/account/support",
+      "/contact"
     ],
     "uiLocalizationReleaseGate": {
       "status": "pass",
-      "generatedAt": "2026-04-03T22:59:41Z",
+      "generatedAt": "2026-04-04T16:40:43Z",
       "defaultKeyCount": 383,
-      "explicitFallbackRuntime": "missing",
-      "signoffSmokeRunnerStatus": "missing",
+      "explicitFallbackRuntime": "pass",
+      "signoffSmokeRunnerStatus": "pass",
       "shippingLocales": [
         "en-us",
         "de-de",
@@ -84,54 +79,122 @@
       ],
       "localeSummary": [
         {
+          "locale": "en-us",
+          "untranslatedKeyCount": 0,
+          "overrideCount": 383,
+          "minimumOverrideCount": 383,
+          "missingReleaseSeedKeys": [],
+          "legacyXmlPresent": true,
+          "legacyDataXmlPresent": true
+        },
+        {
           "locale": "de-de",
           "untranslatedKeyCount": 0,
           "overrideCount": 383,
-          "minimumOverrideCount": null,
+          "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
-          "legacyXmlPresent": false,
-          "legacyDataXmlPresent": false
+          "legacyXmlPresent": true,
+          "legacyDataXmlPresent": true
         },
         {
           "locale": "fr-fr",
           "untranslatedKeyCount": 0,
           "overrideCount": 383,
-          "minimumOverrideCount": null,
+          "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
-          "legacyXmlPresent": false,
-          "legacyDataXmlPresent": false
+          "legacyXmlPresent": true,
+          "legacyDataXmlPresent": true
         },
         {
           "locale": "ja-jp",
           "untranslatedKeyCount": 0,
           "overrideCount": 383,
-          "minimumOverrideCount": null,
+          "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
-          "legacyXmlPresent": false,
-          "legacyDataXmlPresent": false
+          "legacyXmlPresent": true,
+          "legacyDataXmlPresent": true
         },
         {
           "locale": "pt-br",
           "untranslatedKeyCount": 0,
           "overrideCount": 383,
-          "minimumOverrideCount": null,
+          "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
-          "legacyXmlPresent": false,
-          "legacyDataXmlPresent": false
+          "legacyXmlPresent": true,
+          "legacyDataXmlPresent": true
         },
         {
           "locale": "zh-cn",
           "untranslatedKeyCount": 0,
           "overrideCount": 383,
-          "minimumOverrideCount": null,
+          "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
-          "legacyXmlPresent": false,
-          "legacyDataXmlPresent": false
+          "legacyXmlPresent": true,
+          "legacyDataXmlPresent": true
         }
       ],
-      "acceptanceGates": [],
-      "domainCoverage": {},
-      "localeDomainCoverage": {},
+      "acceptanceGates": [
+        "pseudo_localization",
+        "missing_key_fail_fast",
+        "top_surface_overflow_checks",
+        "locale_smoke_first_launch",
+        "locale_smoke_settings",
+        "locale_smoke_explain",
+        "locale_smoke_updater",
+        "locale_smoke_support",
+        "non_english_generated_artifact_smoke"
+      ],
+      "domainCoverage": {
+        "app_chrome": "pass",
+        "data_rules_names": "pass",
+        "explain_receipts": "pass",
+        "generated_artifacts": "pass",
+        "install_update_support": "pass"
+      },
+      "localeDomainCoverage": {
+        "de-de": {
+          "app_chrome": "pass",
+          "data_rules_names": "pass",
+          "explain_receipts": "pass",
+          "generated_artifacts": "pass",
+          "install_update_support": "pass"
+        },
+        "en-us": {
+          "app_chrome": "pass",
+          "data_rules_names": "pass",
+          "explain_receipts": "pass",
+          "generated_artifacts": "pass",
+          "install_update_support": "pass"
+        },
+        "fr-fr": {
+          "app_chrome": "pass",
+          "data_rules_names": "pass",
+          "explain_receipts": "pass",
+          "generated_artifacts": "pass",
+          "install_update_support": "pass"
+        },
+        "ja-jp": {
+          "app_chrome": "pass",
+          "data_rules_names": "pass",
+          "explain_receipts": "pass",
+          "generated_artifacts": "pass",
+          "install_update_support": "pass"
+        },
+        "pt-br": {
+          "app_chrome": "pass",
+          "data_rules_names": "pass",
+          "explain_receipts": "pass",
+          "generated_artifacts": "pass",
+          "install_update_support": "pass"
+        },
+        "zh-cn": {
+          "app_chrome": "pass",
+          "data_rules_names": "pass",
+          "explain_receipts": "pass",
+          "generated_artifacts": "pass",
+          "install_update_support": "pass"
+        }
+      },
       "blockingFindings": [],
       "blockingFindingsCount": 0,
       "translationBacklogFindings": [],
@@ -204,8 +267,52 @@
       "avalonia:win-x64:windows",
       "blazor-desktop:osx-arm64:macos",
       "blazor-desktop:win-x64:windows"
+    ],
+    "externalProofRequests": [
+      {
+        "tupleId": "avalonia:osx-arm64:macos",
+        "head": "avalonia",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "requiredHost": "macos",
+        "requiredProofs": [
+          "promoted_installer_artifact",
+          "startup_smoke_receipt"
+        ]
+      },
+      {
+        "tupleId": "avalonia:win-x64:windows",
+        "head": "avalonia",
+        "platform": "windows",
+        "rid": "win-x64",
+        "requiredHost": "windows",
+        "requiredProofs": [
+          "promoted_installer_artifact",
+          "startup_smoke_receipt"
+        ]
+      },
+      {
+        "tupleId": "blazor-desktop:osx-arm64:macos",
+        "head": "blazor-desktop",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "requiredHost": "macos",
+        "requiredProofs": [
+          "promoted_installer_artifact",
+          "startup_smoke_receipt"
+        ]
+      },
+      {
+        "tupleId": "blazor-desktop:win-x64:windows",
+        "head": "blazor-desktop",
+        "platform": "windows",
+        "rid": "win-x64",
+        "requiredHost": "windows",
+        "requiredProofs": [
+          "promoted_installer_artifact",
+          "startup_smoke_receipt"
+        ]
+      }
     ]
-  },
-  "contract_name": "Chummer.Hub.Registry.Contracts",
-  "contractName": "Chummer.Hub.Registry.Contracts"
+  }
 }

@@ -150,6 +150,7 @@ ALLOWED_DESKTOP_TUPLE_COVERAGE_KEYS = (
     "missingRequiredHeads",
     "missingRequiredPlatformHeadPairs",
     "missingRequiredPlatformHeadRidTuples",
+    "externalProofRequests",
 )
 ALLOWED_DESKTOP_TUPLE_ROW_KEYS = (
     "tupleId",
@@ -159,6 +160,14 @@ ALLOWED_DESKTOP_TUPLE_ROW_KEYS = (
     "arch",
     "kind",
     "artifactId",
+)
+ALLOWED_EXTERNAL_PROOF_REQUEST_KEYS = (
+    "tupleId",
+    "head",
+    "platform",
+    "rid",
+    "requiredHost",
+    "requiredProofs",
 )
 DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
@@ -665,6 +674,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
     missing_heads = coverage.get("missingRequiredHeads")
     missing_pairs = coverage.get("missingRequiredPlatformHeadPairs")
     missing_platform_head_rid_tuples = coverage.get("missingRequiredPlatformHeadRidTuples")
+    external_proof_requests = coverage.get("externalProofRequests")
 
     for key, value in (
         ("requiredDesktopPlatforms", required_platforms),
@@ -677,6 +687,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         ("missingRequiredHeads", missing_heads),
         ("missingRequiredPlatformHeadPairs", missing_pairs),
         ("missingRequiredPlatformHeadRidTuples", missing_platform_head_rid_tuples),
+        ("externalProofRequests", external_proof_requests),
     ):
         if value is None:
             raise SystemExit(f"{source} desktopTupleCoverage is missing {key}")
@@ -700,6 +711,8 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         raise SystemExit(f"{source} desktopTupleCoverage.missingRequiredPlatformHeadPairs must be a string list")
     if not isinstance(missing_platform_head_rid_tuples, list) or not all(isinstance(item, str) for item in missing_platform_head_rid_tuples):
         raise SystemExit(f"{source} desktopTupleCoverage.missingRequiredPlatformHeadRidTuples must be a string list")
+    if not isinstance(external_proof_requests, list):
+        raise SystemExit(f"{source} desktopTupleCoverage.externalProofRequests must be a list")
 
     normalized_required_platforms = [normalized_token(item) for item in required_platforms if normalized_token(item)]
     normalized_required_heads = [normalized_token(item) for item in required_heads if normalized_token(item)]
@@ -879,6 +892,64 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
     if normalized_missing_platform_head_rid_tuples != expected_missing_platform_head_rid_tuples:
         raise SystemExit(
             f"{source} desktopTupleCoverage.missingRequiredPlatformHeadRidTuples does not match promoted tuple coverage"
+        )
+    expected_external_proof_requests = [
+        {
+            "tupleId": tuple_id,
+            "head": tuple_id.split(":", 2)[0],
+            "rid": tuple_id.split(":", 2)[1],
+            "platform": tuple_id.split(":", 2)[2],
+            "requiredHost": tuple_id.split(":", 2)[2],
+            "requiredProofs": [
+                "promoted_installer_artifact",
+                "startup_smoke_receipt",
+            ],
+        }
+        for tuple_id in expected_missing_platform_head_rid_tuples
+        if len(tuple_id.split(":", 2)) == 3
+    ]
+    normalized_external_proof_requests: list[dict[str, Any]] = []
+    for index, item in enumerate(external_proof_requests):
+        if not isinstance(item, dict):
+            raise SystemExit(f"{source} desktopTupleCoverage.externalProofRequests[{index}] must be an object")
+        unexpected_request_keys = sorted(
+            str(key) for key in item.keys() if str(key) not in ALLOWED_EXTERNAL_PROOF_REQUEST_KEYS
+        )
+        if unexpected_request_keys:
+            raise SystemExit(
+                "desktopTupleCoverage.externalProofRequests rows have unexpected keys "
+                f"({', '.join(unexpected_request_keys)}) in {source}"
+            )
+        tuple_id = normalized_token(item.get("tupleId"))
+        head = normalized_token(item.get("head"))
+        rid = normalized_token(item.get("rid"))
+        platform = normalized_platform_token(item.get("platform"))
+        required_host = normalized_platform_token(item.get("requiredHost"))
+        required_proofs_raw = item.get("requiredProofs")
+        if not isinstance(required_proofs_raw, list) or not all(isinstance(token, str) for token in required_proofs_raw):
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.externalProofRequests[{index}].requiredProofs must be a string list"
+            )
+        required_proofs = sorted(normalized_token(token) for token in required_proofs_raw if normalized_token(token))
+        normalized_external_proof_requests.append(
+            {
+                "tupleId": tuple_id,
+                "head": head,
+                "rid": rid,
+                "platform": platform,
+                "requiredHost": required_host,
+                "requiredProofs": required_proofs,
+            }
+        )
+    normalized_external_proof_requests.sort(
+        key=lambda row: (row["platform"], row["head"], row["rid"], row["tupleId"])
+    )
+    expected_external_proof_requests.sort(
+        key=lambda row: (row["platform"], row["head"], row["rid"], row["tupleId"])
+    )
+    if normalized_external_proof_requests != expected_external_proof_requests:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.externalProofRequests does not match missing desktop tuple coverage"
         )
     return {
         "required_platforms": list(REQUIRED_DESKTOP_PLATFORMS),

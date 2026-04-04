@@ -228,6 +228,10 @@ assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == sor
     "blazor-desktop:win-x64:windows",
     "blazor-desktop:osx-arm64:macos",
 ])
+external_requests = coverage.get("externalProofRequests") or []
+assert sorted(item.get("tupleId") for item in external_requests) == sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or [])
+assert all(item.get("requiredHost") == item.get("platform") for item in external_requests)
+assert all(sorted(item.get("requiredProofs") or []) == ["promoted_installer_artifact", "startup_smoke_receipt"] for item in external_requests)
 PY
 cp /tmp/chummer-hub-registry-startup-smoke-filter-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.json
 cp /tmp/chummer-hub-registry-startup-smoke-filter-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
@@ -4998,6 +5002,10 @@ assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == sor
     "blazor-desktop:win-x64:windows",
     "blazor-desktop:osx-arm64:macos",
 ])
+external_requests = coverage.get("externalProofRequests") or []
+assert sorted(item.get("tupleId") for item in external_requests) == sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or [])
+assert all(item.get("requiredHost") == item.get("platform") for item in external_requests)
+assert all(sorted(item.get("requiredProofs") or []) == ["promoted_installer_artifact", "startup_smoke_receipt"] for item in external_requests)
 
 downloads = {item["id"]: item for item in compat["downloads"]}
 assert downloads["avalonia-win-x64-portable"]["kind"] == "portable"

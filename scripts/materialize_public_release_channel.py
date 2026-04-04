@@ -1407,6 +1407,27 @@ def desktop_tuple_coverage(
         for tuple_id in required_platform_head_rid_tuples
         if tuple_id not in promoted_platform_head_rid_tuples
     )
+    external_proof_requests: list[dict[str, Any]] = []
+    for tuple_id in missing_required_platform_head_rid_tuples:
+        parts = tuple_id.split(":", 2)
+        if len(parts) != 3:
+            continue
+        head, rid, platform = parts
+        if not head or not rid or not platform:
+            continue
+        external_proof_requests.append(
+            {
+                "tupleId": tuple_id,
+                "head": head,
+                "platform": platform,
+                "rid": rid,
+                "requiredHost": platform,
+                "requiredProofs": [
+                    "promoted_installer_artifact",
+                    "startup_smoke_receipt",
+                ],
+            }
+        )
     return {
         "requiredDesktopPlatforms": list(required_platforms),
         "requiredDesktopHeads": list(required_heads),
@@ -1418,6 +1439,7 @@ def desktop_tuple_coverage(
         "missingRequiredHeads": missing_required_heads,
         "missingRequiredPlatformHeadPairs": missing_required_platform_head_pairs,
         "missingRequiredPlatformHeadRidTuples": missing_required_platform_head_rid_tuples,
+        "externalProofRequests": external_proof_requests,
     }
 
 
