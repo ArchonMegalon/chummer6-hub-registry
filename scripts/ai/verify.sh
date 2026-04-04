@@ -1353,6 +1353,135 @@ from pathlib import Path
 
 path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
 payload = json.loads(path.read_text(encoding="utf-8"))
+gate = payload["releaseProof"]["uiLocalizationReleaseGate"]
+gate["shippingLocales"] = ["en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn"]
+gate["shipping_locales"] = ["en-us", "de-de", "fr-fr", "ja-jp", "pt-br"]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.shippingLocales and releaseProof.uiLocalizationReleaseGate.shipping_locales." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+gate = payload["releaseProof"]["uiLocalizationReleaseGate"]
+gate["acceptanceGates"] = [
+  "pseudo_localization",
+  "missing_key_fail_fast",
+  "top_surface_overflow_checks",
+  "locale_smoke_first_launch",
+  "locale_smoke_settings",
+  "locale_smoke_explain",
+  "locale_smoke_updater",
+  "locale_smoke_support",
+  "non_english_generated_artifact_smoke"
+]
+gate["acceptance_gates"] = [
+  "pseudo_localization",
+  "missing_key_fail_fast",
+  "top_surface_overflow_checks",
+  "locale_smoke_first_launch",
+  "locale_smoke_settings",
+  "locale_smoke_explain",
+  "locale_smoke_updater",
+  "locale_smoke_support"
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.acceptanceGates and releaseProof.uiLocalizationReleaseGate.acceptance_gates." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+gate = payload["releaseProof"]["uiLocalizationReleaseGate"]
+gate["domainCoverage"] = {
+  "app_chrome": "pass",
+  "install_update_support": "pass",
+  "explain_receipts": "pass",
+  "data_rules_names": "pass",
+  "generated_artifacts": "pass"
+}
+gate["domain_coverage"] = {
+  "app_chrome": "pass",
+  "install_update_support": "pass",
+  "explain_receipts": "missing",
+  "data_rules_names": "pass",
+  "generated_artifacts": "pass"
+}
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.domainCoverage and releaseProof.uiLocalizationReleaseGate.domain_coverage." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+gate = payload["releaseProof"]["uiLocalizationReleaseGate"]
+gate["localeDomainCoverage"] = {
+    "en-us": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"},
+    "de-de": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"},
+    "fr-fr": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"},
+    "ja-jp": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"},
+    "pt-br": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"},
+    "zh-cn": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"}
+}
+gate["locale_domain_coverage"] = {
+    "en-us": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"},
+    "de-de": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"},
+    "fr-fr": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"},
+    "ja-jp": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"},
+    "pt-br": {"app_chrome":"pass","install_update_support":"pass","explain_receipts":"pass","data_rules_names":"pass","generated_artifacts":"pass"}
+}
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.localeDomainCoverage and releaseProof.uiLocalizationReleaseGate.locale_domain_coverage." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+gate = payload["releaseProof"]["uiLocalizationReleaseGate"]
+gate["translationBacklogFindings"] = []
+gate["translation_backlog_findings"] = [{"id": "unexpected"}]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
+  echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.translationBacklogFindings and releaseProof.uiLocalizationReleaseGate.translation_backlog_findings." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["bonus_noncanonical_release_proof_key"] = "unexpected"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
