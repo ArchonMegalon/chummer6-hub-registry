@@ -6,6 +6,10 @@ export NUGET_PACKAGES="${NUGET_PACKAGES:-/tmp/nuget-packages}"
 export CHUMMER_ALLOWED_RELEASE_PROOF_BASE_URLS="${CHUMMER_ALLOWED_RELEASE_PROOF_BASE_URLS:-https://chummer.run,http://127.0.0.1:8091}"
 
 mkdir -p "$DOTNET_CLI_HOME" "$NUGET_PACKAGES"
+startup_smoke_fresh_recorded_at="$(date -u -d '3 minutes ago' +%Y-%m-%dT%H:%M:%SZ)"
+startup_smoke_stale_recorded_at="$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)"
+release_proof_fresh_generated_at="$(date -u -d '2 minutes ago' +%Y-%m-%dT%H:%M:%SZ)"
+ui_localization_fresh_generated_at="$(date -u -d '90 seconds ago' +%Y-%m-%dT%H:%M:%SZ)"
 
 default_run_services_root=/docker/chummercomplete/chummer.run-services
 default_presentation_root=/docker/chummercomplete/chummer6-ui
@@ -82,10 +86,10 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "platform": "windows",
   "rid": "win-x64",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
-  "recordedAtUtc": "2026-04-03T16:00:00Z"
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
 JSON
-sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 rm -rf /tmp/chummer-hub-registry-startup-smoke-filter-fixture
 mkdir -p /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files
 mkdir -p /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke
@@ -102,15 +106,15 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startu
   "platform": "linux",
   "arch": "x64",
   "artifactDigest": "sha256:STARTUP_FILTER_LINUX_DIGEST",
-  "recordedAtUtc": "2026-04-03T16:00:00Z",
-  "completedAtUtc": "2026-04-03T16:00:00Z"
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT",
+  "completedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
 JSON
-sed -i "s/STARTUP_FILTER_LINUX_DIGEST/${startup_filter_linux_digest}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json
+sed -i "s/STARTUP_FILTER_LINUX_DIGEST/${startup_filter_linux_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json
 cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/proof.json <<'JSON'
 {
   "status": "passed",
-  "generated_at": "2026-03-28T16:00:00Z",
+  "generated_at": "RELEASE_PROOF_FRESH_GENERATED_AT",
   "base_url": "http://127.0.0.1:8091",
   "journeys_passed": [
     "install_claim_restore_continue",
@@ -128,10 +132,11 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/proof.json <<'JSON'
   ]
 }
 JSON
+sed -i "s/RELEASE_PROOF_FRESH_GENERATED_AT/${release_proof_fresh_generated_at}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/proof.json
 cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/ui-localization-release-gate.json <<'JSON'
 {
   "status": "pass",
-  "generated_at": "2026-04-03T22:59:41Z",
+  "generated_at": "UI_LOCALIZATION_FRESH_GENERATED_AT",
   "default_key_count": 383,
   "explicit_fallback_runtime": "pass",
   "signoff_smoke_runner": { "status": "pass" },
@@ -174,6 +179,7 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/ui-localization-rele
   ]
 }
 JSON
+sed -i "s/UI_LOCALIZATION_FRESH_GENERATED_AT/${ui_localization_fresh_generated_at}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/ui-localization-release-gate.json
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
   --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
@@ -231,10 +237,10 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startu
   "platform": "linux",
   "arch": "x64",
   "artifactDigest": "sha256:STARTUP_FILTER_LINUX_DIGEST",
-  "recordedAtUtc": "2026-04-03T16:00:00Z"
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
 JSON
-sed -i "s/STARTUP_FILTER_LINUX_DIGEST/${startup_filter_linux_digest}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json
+sed -i "s/STARTUP_FILTER_LINUX_DIGEST/${startup_filter_linux_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
   --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
@@ -260,10 +266,10 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startu
   "platform": "linux",
   "arch": "x64",
   "artifactDigest": "sha256:STARTUP_FILTER_LINUX_DIGEST",
-  "recordedAtUtc": "2026-03-01T00:00:00Z"
+  "recordedAtUtc": "STARTUP_SMOKE_STALE_RECORDED_AT"
 }
 JSON
-sed -i "s/STARTUP_FILTER_LINUX_DIGEST/${startup_filter_linux_digest}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json
+sed -i "s/STARTUP_FILTER_LINUX_DIGEST/${startup_filter_linux_digest}/g; s/STARTUP_SMOKE_STALE_RECORDED_AT/${startup_smoke_stale_recorded_at}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
   --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
@@ -283,7 +289,7 @@ PY
 cat >/tmp/chummer-hub-registry-release-fixture/proof.json <<'JSON'
 {
   "status": "passed",
-  "generated_at": "2026-03-28T16:00:00Z",
+  "generated_at": "RELEASE_PROOF_FRESH_GENERATED_AT",
   "base_url": "http://127.0.0.1:8091",
   "journeys_passed": [
     "install_claim_restore_continue",
@@ -301,10 +307,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/proof.json <<'JSON'
   ]
 }
 JSON
+sed -i "s/RELEASE_PROOF_FRESH_GENERATED_AT/${release_proof_fresh_generated_at}/g" /tmp/chummer-hub-registry-release-fixture/proof.json
 cat >/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json <<'JSON'
 {
   "status": "pass",
-  "generated_at": "2026-04-03T22:59:41Z",
+  "generated_at": "UI_LOCALIZATION_FRESH_GENERATED_AT",
   "default_key_count": 383,
   "explicit_fallback_runtime": "pass",
   "signoff_smoke_runner": {
@@ -392,6 +399,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
   ]
 }
 JSON
+sed -i "s/UI_LOCALIZATION_FRESH_GENERATED_AT/${ui_localization_fresh_generated_at}/g" /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
 cp /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.backup.json
 cp /tmp/chummer-hub-registry-release-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.incomplete-journeys.backup.json
 python3 - <<'PY'
@@ -791,10 +799,10 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "platform": "windows",
   "rid": "win-x64",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
-  "recordedAtUtc": "2026-04-03T16:00:00Z"
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
 JSON
-sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
 {
   "status": "pass",
@@ -804,10 +812,10 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "platform": "windows",
   "rid": "win-x64",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
-  "recordedAtUtc": "2026-04-03T16:00:00Z"
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
 JSON
-sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: verifier should reject startup-smoke receipts whose channelId does not match the release channel." >&2
   exit 1
@@ -821,10 +829,10 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "platform": "windows",
   "rid": "win-x64",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
-  "recordedAtUtc": "2026-04-03T16:00:00Z"
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
 JSON
-sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: verifier should reject startup-smoke receipts that are not at pre_ui_event_loop." >&2
   exit 1
@@ -838,9 +846,10 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "platform": "windows",
   "rid": "win-x64",
   "artifactDigest": "sha256:deadbeef",
-  "recordedAtUtc": "2026-04-03T16:00:00Z"
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
 JSON
+sed -i "s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: verifier should reject startup-smoke receipts whose artifactDigest does not match release artifact bytes." >&2
   exit 1
@@ -854,10 +863,10 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "platform": "windows",
   "rid": "win-x64",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
-  "recordedAtUtc": "2026-04-03T16:00:00Z"
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
 JSON
-sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
 python3 - <<'PY'
 import json
