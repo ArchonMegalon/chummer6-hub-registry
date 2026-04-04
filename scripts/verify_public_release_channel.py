@@ -271,6 +271,20 @@ def normalized_string_list(value: object) -> list[str]:
     return [normalized_token(item) for item in value if normalized_token(item)]
 
 
+def parse_required_token_list(value: object, *, field_path: str, source: str) -> list[str]:
+    if not isinstance(value, list):
+        raise SystemExit(f"{field_path} must be a list in {source}")
+    tokens: list[str] = []
+    for index, item in enumerate(value):
+        if not isinstance(item, str):
+            raise SystemExit(f"{field_path}[{index}] must be a string in {source}")
+        token = normalized_token(item)
+        if not token:
+            raise SystemExit(f"{field_path}[{index}] must not be blank in {source}")
+        tokens.append(token)
+    return tokens
+
+
 def first_present(mapping: dict[str, Any], *keys: str) -> Any:
     for key in keys:
         if key in mapping:
@@ -940,10 +954,17 @@ def verify_release_truth(payload: dict, source: str) -> None:
             f"releaseProof.uiLocalizationReleaseGate.signoffSmokeRunnerStatus must be pass/passed/ready in {source}"
         )
 
-    shipping_locales = normalized_string_list(
-        ui_localization_release_gate.get("shippingLocales")
-        or ui_localization_release_gate.get("shipping_locales")
+    shipping_locales = parse_required_token_list(
+        first_present(ui_localization_release_gate, "shippingLocales", "shipping_locales"),
+        field_path="releaseProof.uiLocalizationReleaseGate.shippingLocales",
+        source=source,
     )
+    duplicate_shipping_locales = sorted({locale for locale in shipping_locales if shipping_locales.count(locale) > 1})
+    if duplicate_shipping_locales:
+        raise SystemExit(
+            "releaseProof.uiLocalizationReleaseGate.shippingLocales has duplicate locale ids "
+            f"({', '.join(duplicate_shipping_locales)}) in {source}"
+        )
     if sorted(shipping_locales) != sorted(REQUIRED_LOCALIZATION_SHIPPING_LOCALES):
         raise SystemExit(
             f"releaseProof.uiLocalizationReleaseGate.shippingLocales must equal {list(REQUIRED_LOCALIZATION_SHIPPING_LOCALES)} in {source}"
@@ -953,11 +974,11 @@ def verify_release_truth(payload: dict, source: str) -> None:
         "acceptanceGates",
         "acceptance_gates",
     )
-    if not isinstance(acceptance_gates_raw, list):
-        raise SystemExit(
-            f"releaseProof.uiLocalizationReleaseGate.acceptanceGates must be a list in {source}"
-        )
-    acceptance_gates = normalized_string_list(acceptance_gates_raw)
+    acceptance_gates = parse_required_token_list(
+        acceptance_gates_raw,
+        field_path="releaseProof.uiLocalizationReleaseGate.acceptanceGates",
+        source=source,
+    )
     duplicate_acceptance_gates = sorted(
         {
             gate
