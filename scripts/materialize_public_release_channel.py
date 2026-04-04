@@ -500,6 +500,31 @@ def normalize_positive_int(value: Any) -> int | None:
     return int(raw, 10)
 
 
+def normalize_required_token_list(
+    raw_values: Any,
+    *,
+    field_name: str,
+    source: str,
+) -> list[str]:
+    if raw_values in (None, ""):
+        return []
+    if not isinstance(raw_values, list):
+        raise ValueError(f"{field_name} must be a list in {source}")
+    normalized: list[str] = []
+    seen: set[str] = set()
+    for index, item in enumerate(raw_values):
+        if not isinstance(item, str):
+            raise ValueError(f"{field_name}[{index}] must be a string in {source}")
+        token = normalized_token(item)
+        if not token:
+            raise ValueError(f"{field_name}[{index}] must not be blank in {source}")
+        if token in seen:
+            raise ValueError(f"{field_name} must not contain duplicate ids ('{token}') in {source}")
+        seen.add(token)
+        normalized.append(token)
+    return normalized
+
+
 def first_present(mapping: dict[str, Any], *keys: str) -> Any:
     for key in keys:
         if key in mapping:
@@ -531,19 +556,15 @@ def normalize_ui_localization_release_gate_payload(
         signoff_smoke_runner_status = str(
             first_present(loaded, "signoff_smoke_runner_status", "signoffSmokeRunnerStatus") or ""
         ).strip().lower() or "missing"
-    shipping_locales = dedupe_preserve_order(
-        [
-            normalized_token(item)
-            for item in (loaded.get("shipping_locales") or loaded.get("shippingLocales") or [])
-            if normalized_token(item)
-        ]
+    shipping_locales = normalize_required_token_list(
+        first_present(loaded, "shipping_locales", "shippingLocales"),
+        field_name="shipping_locales",
+        source=source,
     )
-    acceptance_gates = dedupe_preserve_order(
-        [
-            normalized_token(item)
-            for item in (loaded.get("acceptance_gates") or loaded.get("acceptanceGates") or [])
-            if normalized_token(item)
-        ]
+    acceptance_gates = normalize_required_token_list(
+        first_present(loaded, "acceptance_gates", "acceptanceGates"),
+        field_name="acceptance_gates",
+        source=source,
     )
     raw_domain_coverage = first_present(loaded, "domain_coverage", "domainCoverage")
     domain_coverage: dict[str, str] = {}
