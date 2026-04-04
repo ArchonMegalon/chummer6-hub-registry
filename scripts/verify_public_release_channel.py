@@ -141,6 +141,7 @@ ALLOWED_LOCALIZATION_LOCALE_SUMMARY_ROW_KEYS = (
 )
 DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
 DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS = 86400
+DEFAULT_STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS = 300
 DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS = 604800
 DEFAULT_RELEASE_PROOF_MAX_FUTURE_SKEW_SECONDS = 300
 DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS = 604800
@@ -388,6 +389,13 @@ def parse_startup_smoke_max_age_seconds(raw_value: object) -> int:
     parsed = parse_positive_int(raw_value)
     if parsed is None or parsed <= 0:
         return DEFAULT_STARTUP_SMOKE_MAX_AGE_SECONDS
+    return parsed
+
+
+def parse_startup_smoke_max_future_skew_seconds(raw_value: object) -> int:
+    parsed = parse_positive_int(raw_value)
+    if parsed is None:
+        return DEFAULT_STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS
     return parsed
 
 
@@ -942,6 +950,10 @@ def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) 
         os.environ.get("CHUMMER_VERIFY_STARTUP_SMOKE_MAX_AGE_SECONDS")
         or os.environ.get("CHUMMER_DESKTOP_STARTUP_SMOKE_MAX_AGE_SECONDS")
     )
+    max_future_skew_seconds = parse_startup_smoke_max_future_skew_seconds(
+        os.environ.get("CHUMMER_VERIFY_STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS")
+        or os.environ.get("CHUMMER_DESKTOP_STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS")
+    )
     channel_id = expected_channel_id(payload)
     now = datetime.now(timezone.utc)
     for head, platform, rid in promoted_tuples:
@@ -1031,6 +1043,12 @@ def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) 
             )
         age_seconds = int((now - receipt_timestamp).total_seconds())
         if age_seconds < 0:
+            future_skew_seconds = abs(age_seconds)
+            if future_skew_seconds > max_future_skew_seconds:
+                raise SystemExit(
+                    f"{source} startup-smoke receipt timestamp is in the future for promoted desktop installer tuple "
+                    f"{head}:{platform}:{rid} ({future_skew_seconds}s ahead; max {max_future_skew_seconds}s)"
+                )
             age_seconds = 0
         if age_seconds > max_age_seconds:
             raise SystemExit(

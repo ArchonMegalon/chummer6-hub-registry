@@ -8,6 +8,7 @@ export CHUMMER_ALLOWED_RELEASE_PROOF_BASE_URLS="${CHUMMER_ALLOWED_RELEASE_PROOF_
 mkdir -p "$DOTNET_CLI_HOME" "$NUGET_PACKAGES"
 startup_smoke_fresh_recorded_at="$(date -u -d '3 minutes ago' +%Y-%m-%dT%H:%M:%SZ)"
 startup_smoke_stale_recorded_at="$(date -u -d '30 days ago' +%Y-%m-%dT%H:%M:%SZ)"
+startup_smoke_future_recorded_at="$(date -u -d '30 days' +%Y-%m-%dT%H:%M:%SZ)"
 release_proof_fresh_generated_at="$(date -u -d '2 minutes ago' +%Y-%m-%dT%H:%M:%SZ)"
 ui_localization_fresh_generated_at="$(date -u -d '90 seconds ago' +%Y-%m-%dT%H:%M:%SZ)"
 
@@ -2230,6 +2231,32 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "status": "pass",
   "readyCheckpoint": "pre_ui_event_loop",
   "headId": "avalonia",
+  "channelId": "stable",
+  "platform": "windows",
+  "rid": "win-x64",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
+}
+JSON
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+startup_smoke_shape_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject startup-smoke receipt channelId mismatch." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+if ! rg -F "startup-smoke receipt channelId mismatch for promoted desktop installer tuple avalonia:windows:win-x64" "$startup_smoke_shape_log" >/dev/null; then
+  echo "verify gate failed: expected startup-smoke channelId-mismatch fail-close marker from verifier." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+rm -f "$startup_smoke_shape_log"
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "avalonia",
   "channelId": "preview",
   "platform": "windows",
   "rid": "win-x64",
@@ -2272,6 +2299,32 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_re
 fi
 if ! rg -F "startup-smoke receipt is stale for promoted desktop installer tuple avalonia:windows:win-x64" "$startup_smoke_shape_log" >/dev/null; then
   echo "verify gate failed: expected startup-smoke stale-age fail-close marker from verifier." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+rm -f "$startup_smoke_shape_log"
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "avalonia",
+  "channelId": "preview",
+  "platform": "windows",
+  "rid": "win-x64",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
+  "recordedAtUtc": "STARTUP_SMOKE_FUTURE_RECORDED_AT"
+}
+JSON
+sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FUTURE_RECORDED_AT/${startup_smoke_future_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+startup_smoke_shape_log="$(mktemp)"
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+  /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject startup-smoke receipts with timestamps too far in the future." >&2
+  rm -f "$startup_smoke_shape_log"
+  exit 1
+fi
+if ! rg -F "startup-smoke receipt timestamp is in the future for promoted desktop installer tuple avalonia:windows:win-x64" "$startup_smoke_shape_log" >/dev/null; then
+  echo "verify gate failed: expected startup-smoke future-skew fail-close marker from verifier." >&2
   rm -f "$startup_smoke_shape_log"
   exit 1
 fi
