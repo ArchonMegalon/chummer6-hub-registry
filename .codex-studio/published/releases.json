@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-04T20:06:45Z",
-  "generatedAt": "2026-04-04T20:06:45Z",
+  "generated_at": "2026-04-04T20:22:27Z",
+  "generatedAt": "2026-04-04T20:22:27Z",
   "version": "local-docker",
   "channel": "docker",
   "publishedAt": "2026-04-04T17:55:17Z",
@@ -271,6 +271,7 @@
     "externalProofRequests": [
       {
         "tupleId": "avalonia:osx-arm64:macos",
+        "channelId": "docker",
         "head": "avalonia",
         "platform": "macos",
         "rid": "osx-arm64",
@@ -302,6 +303,7 @@
       },
       {
         "tupleId": "avalonia:win-x64:windows",
+        "channelId": "docker",
         "head": "avalonia",
         "platform": "windows",
         "rid": "win-x64",
@@ -333,6 +335,7 @@
       },
       {
         "tupleId": "blazor-desktop:osx-arm64:macos",
+        "channelId": "docker",
         "head": "blazor-desktop",
         "platform": "macos",
         "rid": "osx-arm64",
@@ -364,6 +367,7 @@
       },
       {
         "tupleId": "blazor-desktop:win-x64:windows",
+        "channelId": "docker",
         "head": "blazor-desktop",
         "platform": "windows",
         "rid": "win-x64",

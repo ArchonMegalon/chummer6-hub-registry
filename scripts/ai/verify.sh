@@ -230,6 +230,7 @@ assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == sor
 ])
 external_requests = coverage.get("externalProofRequests") or []
 assert sorted(item.get("tupleId") for item in external_requests) == sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or [])
+assert all(str(item.get("channelId") or "").strip() == str(canonical.get("channelId") or "").strip() for item in external_requests)
 assert all(item.get("requiredHost") == item.get("platform") for item in external_requests)
 assert all(sorted(item.get("requiredProofs") or []) == ["promoted_installer_artifact", "startup_smoke_receipt"] for item in external_requests)
 assert all(str(item.get("expectedArtifactId") or "").strip() for item in external_requests)
@@ -5008,6 +5009,7 @@ assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == sor
 ])
 external_requests = coverage.get("externalProofRequests") or []
 assert sorted(item.get("tupleId") for item in external_requests) == sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or [])
+assert all(str(item.get("channelId") or "").strip() == str(canonical.get("channelId") or "").strip() for item in external_requests)
 assert all(item.get("requiredHost") == item.get("platform") for item in external_requests)
 assert all(sorted(item.get("requiredProofs") or []) == ["promoted_installer_artifact", "startup_smoke_receipt"] for item in external_requests)
 

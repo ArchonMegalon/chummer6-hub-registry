@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-04T20:06:45Z",
-  "generatedAt": "2026-04-04T20:06:45Z",
+  "generated_at": "2026-04-04T20:22:27Z",
+  "generatedAt": "2026-04-04T20:22:27Z",
   "schemaVersion": 1,
   "product": "chummer6",
   "contract_name": "Chummer.Hub.Registry.Contracts",
@@ -194,8 +194,8 @@
       "version": "local-docker",
       "releaseVersion": "local-docker",
       "installAccessClass": "open_public",
-      "generated_at": "2026-04-04T20:06:45Z",
-      "generatedAt": "2026-04-04T20:06:45Z"
+      "generated_at": "2026-04-04T20:22:27Z",
+      "generatedAt": "2026-04-04T20:22:27Z"
     },
     {
       "artifactId": "blazor-desktop-linux-x64-installer",
@@ -217,8 +217,8 @@
       "version": "local-docker",
       "releaseVersion": "local-docker",
       "installAccessClass": "open_public",
-      "generated_at": "2026-04-04T20:06:45Z",
-      "generatedAt": "2026-04-04T20:06:45Z"
+      "generated_at": "2026-04-04T20:22:27Z",
+      "generatedAt": "2026-04-04T20:22:27Z"
     }
   ],
   "desktopTupleCoverage": {
@@ -291,6 +291,7 @@
     "externalProofRequests": [
       {
         "tupleId": "avalonia:osx-arm64:macos",
+        "channelId": "docker",
         "head": "avalonia",
         "platform": "macos",
         "rid": "osx-arm64",
@@ -322,6 +323,7 @@
       },
       {
         "tupleId": "avalonia:win-x64:windows",
+        "channelId": "docker",
         "head": "avalonia",
         "platform": "windows",
         "rid": "win-x64",
@@ -353,6 +355,7 @@
       },
       {
         "tupleId": "blazor-desktop:osx-arm64:macos",
+        "channelId": "docker",
         "head": "blazor-desktop",
         "platform": "macos",
         "rid": "osx-arm64",
@@ -384,6 +387,7 @@
       },
       {
         "tupleId": "blazor-desktop:win-x64:windows",
+        "channelId": "docker",
         "head": "blazor-desktop",
         "platform": "windows",
         "rid": "win-x64",

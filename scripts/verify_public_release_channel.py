@@ -163,6 +163,7 @@ ALLOWED_DESKTOP_TUPLE_ROW_KEYS = (
 )
 ALLOWED_EXTERNAL_PROOF_REQUEST_KEYS = (
     "tupleId",
+    "channelId",
     "head",
     "platform",
     "rid",
@@ -790,6 +791,9 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         )
     if not normalized_required_heads:
         raise SystemExit(f"{source} desktopTupleCoverage.requiredDesktopHeads must include at least one head")
+    normalized_channel_id = expected_channel_id(payload)
+    if not normalized_channel_id:
+        raise SystemExit(f"{source} is missing top-level channelId/channel for desktop tuple coverage verification")
 
     expected_promoted_tuples: list[str] = []
     expected_promoted_tuple_rows: list[dict[str, str]] = []
@@ -980,6 +984,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         expected_external_proof_requests.append(
             {
                 "tupleId": tuple_id,
+                "channelId": normalized_channel_id,
                 "head": head,
                 "rid": rid,
                 "platform": platform,
@@ -1020,6 +1025,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
                 f"({', '.join(unexpected_request_keys)}) in {source}"
             )
         tuple_id = normalized_token(item.get("tupleId"))
+        channel_id = normalized_token(item.get("channelId"))
         head = normalized_token(item.get("head"))
         rid = normalized_token(item.get("rid"))
         platform = normalized_platform_token(item.get("platform"))
@@ -1046,6 +1052,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         normalized_external_proof_requests.append(
             {
                 "tupleId": tuple_id,
+                "channelId": channel_id,
                 "head": head,
                 "rid": rid,
                 "platform": platform,

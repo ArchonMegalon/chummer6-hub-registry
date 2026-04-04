@@ -1393,6 +1393,7 @@ def desktop_tuple_coverage(
     artifacts: list[dict[str, Any]],
     required_heads: list[str],
     required_platforms: list[str],
+    channel_id: str,
 ) -> dict[str, Any]:
     promoted_tuples: list[dict[str, Any]] = []
     promoted_head_tokens: set[str] = set()
@@ -1484,6 +1485,7 @@ def desktop_tuple_coverage(
         external_proof_requests.append(
             {
                 "tupleId": tuple_id,
+                "channelId": channel_id,
                 "head": head,
                 "platform": platform,
                 "rid": rid,
@@ -1833,6 +1835,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         artifacts,
         required_heads=required_heads,
         required_platforms=list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS),
+        channel_id=channel,
     )
     desktop_coverage_complete = desktop_tuple_coverage_is_complete(tuple_coverage)
     rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip() or derive_rollout_state(
