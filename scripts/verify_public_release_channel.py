@@ -1657,7 +1657,16 @@ def verify_release_truth(payload: dict, source: str) -> None:
 
 
 def verify_generated_timestamp(payload: dict, source: str) -> None:
-    generated_raw = str(payload.get("generated_at") or payload.get("generatedAt") or "").strip()
+    generated_raw = str(
+        resolve_alias_value(
+            payload,
+            primary_key="generatedAt",
+            secondary_key="generated_at",
+            field_path="generatedAt",
+            source=source,
+        )
+        or ""
+    ).strip()
     if not generated_raw:
         raise SystemExit(f"{source} is missing generated_at/generatedAt")
     if parse_iso_timestamp(generated_raw) is None:
