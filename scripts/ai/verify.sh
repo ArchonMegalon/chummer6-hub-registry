@@ -303,6 +303,32 @@ cat >/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
 }
 JSON
 cp /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.backup.json
+cp /tmp/chummer-hub-registry-release-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.incomplete-journeys.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/proof.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["journeys_passed"] = [
+  "install_claim_restore_continue",
+  "build_explain_publish",
+  "campaign_session_recover_recap"
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null; then
+  echo "verify gate failed: materializer should reject release proof with incomplete baseline golden journey coverage." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/proof.incomplete-journeys.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \

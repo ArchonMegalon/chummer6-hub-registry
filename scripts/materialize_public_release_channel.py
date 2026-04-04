@@ -42,6 +42,12 @@ DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS = {
     "windows": ("win-x64",),
     "macos": ("osx-arm64",),
 }
+REQUIRED_RELEASE_PROOF_JOURNEYS = (
+    "install_claim_restore_continue",
+    "build_explain_publish",
+    "campaign_session_recover_recap",
+    "report_cluster_release_notify",
+)
 UTC = dt.timezone.utc
 
 
@@ -441,11 +447,21 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
     if not isinstance(loaded, dict):
         raise ValueError(f"release proof payload must be a JSON object: {source}")
     status = str(loaded.get("status") or "").strip().lower() or "missing"
-    journeys = [
-        str(item).strip()
-        for item in loaded.get("journeys_passed") or loaded.get("journeysPassed") or []
-        if str(item).strip()
-    ]
+    journeys = normalize_required_token_list(
+        loaded.get("journeys_passed") or loaded.get("journeysPassed") or [],
+        field_name="journeys_passed",
+        source=source,
+    )
+    missing_required_journeys = sorted(
+        journey
+        for journey in REQUIRED_RELEASE_PROOF_JOURNEYS
+        if journey not in journeys
+    )
+    if missing_required_journeys:
+        raise ValueError(
+            "journeys_passed is missing required baseline golden journey ids "
+            f"({', '.join(missing_required_journeys)}) in {source}"
+        )
     routes = [
         str(item).strip()
         for item in loaded.get("proof_routes") or loaded.get("proofRoutes") or []
