@@ -188,7 +188,10 @@
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
       "installAccessClass": "open_public",
-      "channel": "docker"
+      "channel": "docker",
+      "channelId": "docker",
+      "version": "local-docker",
+      "releaseVersion": "local-docker"
     },
     {
       "artifactId": "blazor-desktop-linux-x64-installer",
@@ -206,7 +209,10 @@
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
       "installAccessClass": "open_public",
-      "channel": "docker"
+      "channel": "docker",
+      "channelId": "docker",
+      "version": "local-docker",
+      "releaseVersion": "local-docker"
     }
   ],
   "desktopTupleCoverage": {

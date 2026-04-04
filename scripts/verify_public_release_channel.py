@@ -809,7 +809,7 @@ def expected_channel_id(payload: dict) -> str:
     for item in iter_manifest_download_entries(payload):
         if not isinstance(item, dict):
             continue
-        item_channel = normalized_token(item.get("channel"))
+        item_channel = normalized_token(item.get("channelId") or item.get("channel"))
         if item_channel:
             return item_channel
     return ""
@@ -978,12 +978,34 @@ def verify_artifacts(
             compatibility_state = item.get("compatibilityState")
             if compatibility_state in (None, "") or not isinstance(compatibility_state, str):
                 raise SystemExit(f"artifacts[{index}] is missing compatibilityState in {source}")
+            artifact_channel_id = str(item.get("channelId") or "").strip()
             artifact_channel = str(item.get("channel") or "").strip()
+            artifact_version = str(item.get("version") or "").strip()
+            artifact_release_version = str(item.get("releaseVersion") or "").strip()
+            if not artifact_channel_id:
+                raise SystemExit(f"artifacts[{index}] is missing channelId in {source}")
             if not artifact_channel:
                 raise SystemExit(f"artifacts[{index}] is missing channel in {source}")
+            if artifact_channel_id != artifact_channel:
+                raise SystemExit(
+                    f"artifacts[{index}] channelId '{artifact_channel_id}' does not match channel '{artifact_channel}' in {source}"
+                )
             if channel and artifact_channel != channel:
                 raise SystemExit(
                     f"artifacts[{index}] channel '{artifact_channel}' does not match channel '{channel}' in {source}"
+                )
+            if not artifact_version:
+                raise SystemExit(f"artifacts[{index}] is missing version in {source}")
+            if not artifact_release_version:
+                raise SystemExit(f"artifacts[{index}] is missing releaseVersion in {source}")
+            if artifact_version != artifact_release_version:
+                raise SystemExit(
+                    f"artifacts[{index}] version '{artifact_version}' does not match releaseVersion '{artifact_release_version}' in {source}"
+                )
+            payload_version = str(payload.get("version") or "").strip()
+            if payload_version and artifact_version != payload_version:
+                raise SystemExit(
+                    f"artifacts[{index}] version '{artifact_version}' does not match release-channel version '{payload_version}' in {source}"
                 )
         coverage = verify_desktop_tuple_coverage(payload, source)
         if require_complete_desktop_coverage:
