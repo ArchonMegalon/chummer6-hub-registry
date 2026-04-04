@@ -962,6 +962,10 @@ def verify_release_truth(payload: dict, source: str) -> None:
         token = normalized_token(raw_journey)
         if not token:
             raise SystemExit(f"releaseProof.journeysPassed[{index}] must not be blank in {source}")
+        if not re.fullmatch(r"[a-z0-9][a-z0-9_-]*", token):
+            raise SystemExit(
+                f"releaseProof.journeysPassed[{index}] must be a canonical journey id token in {source}"
+            )
         normalized_journeys.append(token)
     duplicate_journeys = sorted({journey for journey in normalized_journeys if normalized_journeys.count(journey) > 1})
     if duplicate_journeys:
