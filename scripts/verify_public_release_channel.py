@@ -152,6 +152,7 @@ ALLOWED_DESKTOP_TUPLE_COVERAGE_KEYS = (
     "missingRequiredPlatformHeadPairs",
     "missingRequiredPlatformHeadRidTuples",
     "externalProofRequests",
+    "complete",
 )
 ALLOWED_DESKTOP_TUPLE_ROW_KEYS = (
     "tupleId",
@@ -209,6 +210,19 @@ def verify_required_desktop_heads(required_heads: list[str], source: str) -> Non
         raise SystemExit(
             f"{source} desktopTupleCoverage.requiredDesktopHeads must include canonical heads "
             f"{list(REQUIRED_DESKTOP_HEADS)} (missing: {', '.join(missing_required_heads)})"
+        )
+
+
+def verify_desktop_tuple_coverage_complete_flag(
+    reported_complete: bool,
+    *,
+    missing_platform_head_rid_tuples: list[str],
+    source: str,
+) -> None:
+    expected_complete = not bool(missing_platform_head_rid_tuples)
+    if reported_complete is not expected_complete:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.complete does not match promoted tuple coverage completeness"
         )
 
 
@@ -758,6 +772,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
     missing_pairs = coverage.get("missingRequiredPlatformHeadPairs")
     missing_platform_head_rid_tuples = coverage.get("missingRequiredPlatformHeadRidTuples")
     external_proof_requests = coverage.get("externalProofRequests")
+    complete = coverage.get("complete")
 
     for key, value in (
         ("requiredDesktopPlatforms", required_platforms),
@@ -771,6 +786,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         ("missingRequiredPlatformHeadPairs", missing_pairs),
         ("missingRequiredPlatformHeadRidTuples", missing_platform_head_rid_tuples),
         ("externalProofRequests", external_proof_requests),
+        ("complete", complete),
     ):
         if value is None:
             raise SystemExit(f"{source} desktopTupleCoverage is missing {key}")
@@ -796,6 +812,8 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         raise SystemExit(f"{source} desktopTupleCoverage.missingRequiredPlatformHeadRidTuples must be a string list")
     if not isinstance(external_proof_requests, list):
         raise SystemExit(f"{source} desktopTupleCoverage.externalProofRequests must be a list")
+    if not isinstance(complete, bool):
+        raise SystemExit(f"{source} desktopTupleCoverage.complete must be a boolean")
 
     normalized_required_platforms = [normalized_token(item) for item in required_platforms if normalized_token(item)]
     normalized_required_heads = [normalized_token(item) for item in required_heads if normalized_token(item)]
@@ -978,6 +996,11 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         raise SystemExit(
             f"{source} desktopTupleCoverage.missingRequiredPlatformHeadRidTuples does not match promoted tuple coverage"
         )
+    verify_desktop_tuple_coverage_complete_flag(
+        complete,
+        missing_platform_head_rid_tuples=expected_missing_platform_head_rid_tuples,
+        source=source,
+    )
     expected_external_proof_requests = []
     for tuple_id in expected_missing_platform_head_rid_tuples:
         parts = tuple_id.split(":", 2)

@@ -109,3 +109,14 @@ def test_load_startup_smoke_receipts_accepts_future_dated_receipts_within_skew()
             "channelId": "preview",
         }
     ]
+
+
+def test_desktop_tuple_coverage_emits_explicit_complete_flag() -> None:
+    coverage = MODULE.desktop_tuple_coverage(
+        [],
+        required_heads=["avalonia", "blazor-desktop"],
+        required_platforms=["linux", "windows", "macos"],
+        channel_id="preview",
+    )
+    assert coverage["complete"] is False
+    assert "missingRequiredPlatformHeadRidTuples" in coverage

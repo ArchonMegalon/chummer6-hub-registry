@@ -1526,6 +1526,12 @@ def desktop_tuple_coverage(
                 ),
             }
         )
+    complete = not (
+        missing_required_platforms
+        or missing_required_heads
+        or missing_required_platform_head_pairs
+        or missing_required_platform_head_rid_tuples
+    )
     return {
         "requiredDesktopPlatforms": list(required_platforms),
         "requiredDesktopHeads": list(required_heads),
@@ -1538,6 +1544,7 @@ def desktop_tuple_coverage(
         "missingRequiredPlatformHeadPairs": missing_required_platform_head_pairs,
         "missingRequiredPlatformHeadRidTuples": missing_required_platform_head_rid_tuples,
         "externalProofRequests": external_proof_requests,
+        "complete": complete,
     }
 
 

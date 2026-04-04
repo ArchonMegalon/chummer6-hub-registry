@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-04T22:11:10Z",
-  "generatedAt": "2026-04-04T22:11:10Z",
+  "generated_at": "2026-04-04T22:15:52Z",
+  "generatedAt": "2026-04-04T22:15:52Z",
   "version": "local-docker",
   "channel": "docker",
   "publishedAt": "2026-04-04T17:55:17Z",
@@ -397,6 +397,7 @@
           "cd /docker/chummercomplete/chummer6-ui && ./scripts/generate-releases-manifest.sh"
         ]
       }
-    ]
+    ],
+    "complete": false
   }
 }
