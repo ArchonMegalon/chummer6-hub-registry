@@ -421,6 +421,31 @@ def first_present(mapping: dict[str, Any], *keys: str) -> Any:
     return None
 
 
+def resolve_alias_value(
+    mapping: dict[str, Any],
+    *,
+    primary_key: str,
+    secondary_key: str,
+    field_path: str,
+    source: str,
+) -> Any:
+    has_primary = primary_key in mapping
+    has_secondary = secondary_key in mapping
+    if has_primary and has_secondary:
+        primary_value = mapping.get(primary_key)
+        secondary_value = mapping.get(secondary_key)
+        if primary_value != secondary_value:
+            raise SystemExit(
+                f"{field_path} alias values drift between {primary_key} and {secondary_key} in {source}"
+            )
+        return primary_value
+    if has_primary:
+        return mapping.get(primary_key)
+    if has_secondary:
+        return mapping.get(secondary_key)
+    return None
+
+
 def is_desktop_install_media(platform: object, kind: object) -> bool:
     platform_token = normalized_token(platform)
     kind_token = normalized_token(kind)
@@ -1083,7 +1108,13 @@ def verify_release_truth(payload: dict, source: str) -> None:
         source=source,
     )
     proof_base_url = normalize_release_proof_base_url(
-        first_present(proof, "baseUrl", "base_url"),
+        resolve_alias_value(
+            proof,
+            primary_key="baseUrl",
+            secondary_key="base_url",
+            field_path="releaseProof.baseUrl",
+            source=source,
+        ),
         field_path="releaseProof.baseUrl",
         source=source,
     )
