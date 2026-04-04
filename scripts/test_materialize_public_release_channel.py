@@ -1,6 +1,9 @@
 from __future__ import annotations
 
 import importlib.util
+import json
+import tempfile
+from datetime import timezone
 from pathlib import Path
 
 
@@ -38,3 +41,71 @@ def test_desktop_tuple_coverage_gap_summary_reports_missing_rid_tuples() -> None
         "required desktop tuple coverage is incomplete (tuples: "
         "avalonia:osx-arm64:macos, blazor-desktop:win-x64:windows)"
     )
+
+
+def test_load_startup_smoke_receipts_rejects_future_dated_receipts_beyond_skew() -> None:
+    now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        receipt_path = root / "startup-smoke-avalonia-osx-arm64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": "2026-04-04T22:10:00Z",
+                    "headId": "avalonia",
+                    "platform": "macos",
+                    "arch": "arm64",
+                    "channelId": "preview",
+                    "artifactDigest": "sha256:abc123",
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipts = MODULE.load_startup_smoke_receipts(
+            root,
+            max_age_seconds=86400,
+            max_future_skew_seconds=60,
+            expected_channel="preview",
+            now=now,
+        )
+    assert receipts == []
+
+
+def test_load_startup_smoke_receipts_accepts_future_dated_receipts_within_skew() -> None:
+    now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        receipt_path = root / "startup-smoke-avalonia-osx-arm64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": "2026-04-04T22:00:45Z",
+                    "headId": "avalonia",
+                    "platform": "macos",
+                    "arch": "arm64",
+                    "channelId": "preview",
+                    "artifactDigest": "sha256:abc123",
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipts = MODULE.load_startup_smoke_receipts(
+            root,
+            max_age_seconds=86400,
+            max_future_skew_seconds=60,
+            expected_channel="preview",
+            now=now,
+        )
+    assert receipts == [
+        {
+            "head": "avalonia",
+            "platform": "macos",
+            "arch": "arm64",
+            "artifactDigest": "sha256:abc123",
+            "channelId": "preview",
+        }
+    ]

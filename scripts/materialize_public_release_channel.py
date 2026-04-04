@@ -36,6 +36,7 @@ WINDOWS_INSTALLER_PAYLOAD_MARKERS = (
 STARTUP_SMOKE_GATED_KINDS = {"installer", "dmg", "pkg", "msix"}
 STARTUP_SMOKE_GATED_PLATFORMS = {"linux", "windows", "macos"}
 STARTUP_SMOKE_MAX_AGE_SECONDS = 24 * 3600
+STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS = 300
 STARTUP_SMOKE_REQUIRED_READY_CHECKPOINT = "pre_ui_event_loop"
 DEFAULT_REQUIRED_DESKTOP_HEADS = ("avalonia", "blazor-desktop")
 DEFAULT_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
@@ -236,6 +237,12 @@ def parse_args() -> argparse.Namespace:
         type=int,
         default=STARTUP_SMOKE_MAX_AGE_SECONDS,
         help="Maximum allowed age for startup-smoke receipts; stale receipts are ignored.",
+    )
+    parser.add_argument(
+        "--startup-smoke-max-future-skew-seconds",
+        type=int,
+        default=STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
+        help="Maximum allowed future clock skew for startup-smoke receipts; beyond this, receipts are ignored.",
     )
     parser.add_argument("--output", type=Path, required=True, help="Canonical release-channel output path.")
     parser.add_argument("--compat-output", type=Path, help="Optional compatibility `releases.json` output path.")
@@ -448,6 +455,7 @@ def load_startup_smoke_receipts(
     startup_smoke_dir: Path | None,
     *,
     max_age_seconds: int = STARTUP_SMOKE_MAX_AGE_SECONDS,
+    max_future_skew_seconds: int = STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
     expected_channel: str = "",
     now: dt.datetime | None = None,
 ) -> list[dict[str, str]] | None:
@@ -474,7 +482,12 @@ def load_startup_smoke_receipts(
         if recorded_at is None:
             continue
         if max_age_seconds >= 0:
-            age_seconds = max(0, int((now - recorded_at).total_seconds()))
+            age_seconds = int((now - recorded_at).total_seconds())
+            if age_seconds < 0:
+                future_skew_seconds = abs(age_seconds)
+                if future_skew_seconds > max(0, int(max_future_skew_seconds)):
+                    continue
+                age_seconds = 0
             if age_seconds > max_age_seconds:
                 continue
         head = str(loaded.get("headId") or "").strip()
@@ -1766,6 +1779,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         load_startup_smoke_receipts(
             args.startup_smoke_dir,
             max_age_seconds=args.startup_smoke_max_age_seconds,
+            max_future_skew_seconds=args.startup_smoke_max_future_skew_seconds,
             expected_channel=normalize_token(channel),
         ),
     )
