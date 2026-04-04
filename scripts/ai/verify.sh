@@ -115,6 +115,8 @@ assert all(str(item.get("channel") or "") == str(payload.get("channelId") or "")
 coverage = payload.get("desktopTupleCoverage") or {}
 assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows", "macos"]
 assert coverage.get("requiredDesktopHeads") == ["avalonia", "blazor-desktop"]
+assert coverage.get("requiredDesktopPlatformHeadRidTuples") == ["avalonia:linux-x64:linux"]
+assert coverage.get("promotedPlatformHeadRidTuples") == ["avalonia:linux-x64:linux"]
 assert coverage.get("missingRequiredPlatforms") == ["windows", "macos"]
 assert coverage.get("missingRequiredHeads") == ["blazor-desktop"]
 assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == sorted([
@@ -124,6 +126,7 @@ assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == sorted(
     "avalonia:macos",
     "blazor-desktop:macos",
 ])
+assert coverage.get("missingRequiredPlatformHeadRidTuples") == []
 PY
 cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json <<'JSON'
 {
@@ -415,6 +418,8 @@ assert "required desktop tuple coverage is incomplete" in canonical["knownIssueS
 coverage = canonical.get("desktopTupleCoverage") or {}
 assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows", "macos"]
 assert coverage.get("requiredDesktopHeads") == ["avalonia", "blazor-desktop"]
+assert coverage.get("requiredDesktopPlatformHeadRidTuples") == ["avalonia:win-x64:windows"]
+assert coverage.get("promotedPlatformHeadRidTuples") == ["avalonia:win-x64:windows"]
 assert coverage.get("missingRequiredPlatforms") == ["linux", "macos"]
 assert coverage.get("missingRequiredHeads") == ["blazor-desktop"]
 assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == sorted([
@@ -424,6 +429,7 @@ assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == sorted(
     "avalonia:macos",
     "blazor-desktop:macos",
 ])
+assert coverage.get("missingRequiredPlatformHeadRidTuples") == []
 
 downloads = {item["id"]: item for item in compat["downloads"]}
 assert downloads["avalonia-win-x64-portable"]["kind"] == "portable"

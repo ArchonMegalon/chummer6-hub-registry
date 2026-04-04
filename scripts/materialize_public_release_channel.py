@@ -598,6 +598,7 @@ def desktop_tuple_coverage(
     promoted_head_tokens: set[str] = set()
     promoted_platform_tokens: set[str] = set()
     promoted_pairs: set[str] = set()
+    promoted_platform_head_rid_tuples: set[str] = set()
     promoted_platform_heads: dict[str, list[str]] = {platform: [] for platform in required_platforms}
     promoted_platform_heads_seen: dict[str, set[str]] = {platform: set() for platform in required_platforms}
     for item in artifacts:
@@ -629,6 +630,8 @@ def desktop_tuple_coverage(
             if head not in promoted_platform_heads_seen[platform]:
                 promoted_platform_heads_seen[platform].add(head)
                 promoted_platform_heads[platform].append(head)
+        if head and rid:
+            promoted_platform_head_rid_tuples.add(f"{head}:{rid}:{platform}")
         promoted_platform_tokens.add(platform)
     promoted_tuples.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
     for platform in promoted_platform_heads:
@@ -641,14 +644,23 @@ def desktop_tuple_coverage(
         for head in required_heads
         if f"{head}:{platform}" not in promoted_pairs
     ]
+    required_platform_head_rid_tuples = sorted(promoted_platform_head_rid_tuples)
+    missing_required_platform_head_rid_tuples = sorted(
+        tuple_id
+        for tuple_id in required_platform_head_rid_tuples
+        if tuple_id not in promoted_platform_head_rid_tuples
+    )
     return {
         "requiredDesktopPlatforms": list(required_platforms),
         "requiredDesktopHeads": list(required_heads),
         "promotedInstallerTuples": promoted_tuples,
         "promotedPlatformHeads": promoted_platform_heads,
+        "requiredDesktopPlatformHeadRidTuples": required_platform_head_rid_tuples,
+        "promotedPlatformHeadRidTuples": sorted(promoted_platform_head_rid_tuples),
         "missingRequiredPlatforms": missing_required_platforms,
         "missingRequiredHeads": missing_required_heads,
         "missingRequiredPlatformHeadPairs": missing_required_platform_head_pairs,
+        "missingRequiredPlatformHeadRidTuples": missing_required_platform_head_rid_tuples,
     }
 
 

@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-03T23:38:36Z",
-  "generatedAt": "2026-04-03T23:38:36Z",
+  "generated_at": "2026-04-04T00:36:34Z",
+  "generatedAt": "2026-04-04T00:36:34Z",
   "version": "local-docker",
   "channel": "docker",
   "publishedAt": "2026-04-03T23:38:36Z",
@@ -147,6 +147,14 @@
       "windows": [],
       "macos": []
     },
+    "requiredDesktopPlatformHeadRidTuples": [
+      "avalonia:linux-x64:linux",
+      "blazor-desktop:linux-x64:linux"
+    ],
+    "promotedPlatformHeadRidTuples": [
+      "avalonia:linux-x64:linux",
+      "blazor-desktop:linux-x64:linux"
+    ],
     "missingRequiredPlatforms": [
       "windows",
       "macos"
@@ -157,6 +165,7 @@
       "blazor-desktop:windows",
       "avalonia:macos",
       "blazor-desktop:macos"
-    ]
+    ],
+    "missingRequiredPlatformHeadRidTuples": []
   }
 }

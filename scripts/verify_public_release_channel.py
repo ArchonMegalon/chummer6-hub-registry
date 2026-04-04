@@ -284,18 +284,24 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
     required_heads = coverage.get("requiredDesktopHeads")
     promoted_tuples = coverage.get("promotedInstallerTuples")
     promoted_platform_heads = coverage.get("promotedPlatformHeads")
+    required_platform_head_rid_tuples = coverage.get("requiredDesktopPlatformHeadRidTuples")
+    promoted_platform_head_rid_tuples = coverage.get("promotedPlatformHeadRidTuples")
     missing_platforms = coverage.get("missingRequiredPlatforms")
     missing_heads = coverage.get("missingRequiredHeads")
     missing_pairs = coverage.get("missingRequiredPlatformHeadPairs")
+    missing_platform_head_rid_tuples = coverage.get("missingRequiredPlatformHeadRidTuples")
 
     for key, value in (
         ("requiredDesktopPlatforms", required_platforms),
         ("requiredDesktopHeads", required_heads),
         ("promotedInstallerTuples", promoted_tuples),
         ("promotedPlatformHeads", promoted_platform_heads),
+        ("requiredDesktopPlatformHeadRidTuples", required_platform_head_rid_tuples),
+        ("promotedPlatformHeadRidTuples", promoted_platform_head_rid_tuples),
         ("missingRequiredPlatforms", missing_platforms),
         ("missingRequiredHeads", missing_heads),
         ("missingRequiredPlatformHeadPairs", missing_pairs),
+        ("missingRequiredPlatformHeadRidTuples", missing_platform_head_rid_tuples),
     ):
         if value is None:
             raise SystemExit(f"{source} desktopTupleCoverage is missing {key}")
@@ -307,12 +313,18 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         raise SystemExit(f"{source} desktopTupleCoverage.promotedInstallerTuples must be a list")
     if not isinstance(promoted_platform_heads, dict):
         raise SystemExit(f"{source} desktopTupleCoverage.promotedPlatformHeads must be an object")
+    if not isinstance(required_platform_head_rid_tuples, list) or not all(isinstance(item, str) for item in required_platform_head_rid_tuples):
+        raise SystemExit(f"{source} desktopTupleCoverage.requiredDesktopPlatformHeadRidTuples must be a string list")
+    if not isinstance(promoted_platform_head_rid_tuples, list) or not all(isinstance(item, str) for item in promoted_platform_head_rid_tuples):
+        raise SystemExit(f"{source} desktopTupleCoverage.promotedPlatformHeadRidTuples must be a string list")
     if not isinstance(missing_platforms, list) or not all(isinstance(item, str) for item in missing_platforms):
         raise SystemExit(f"{source} desktopTupleCoverage.missingRequiredPlatforms must be a string list")
     if not isinstance(missing_heads, list) or not all(isinstance(item, str) for item in missing_heads):
         raise SystemExit(f"{source} desktopTupleCoverage.missingRequiredHeads must be a string list")
     if not isinstance(missing_pairs, list) or not all(isinstance(item, str) for item in missing_pairs):
         raise SystemExit(f"{source} desktopTupleCoverage.missingRequiredPlatformHeadPairs must be a string list")
+    if not isinstance(missing_platform_head_rid_tuples, list) or not all(isinstance(item, str) for item in missing_platform_head_rid_tuples):
+        raise SystemExit(f"{source} desktopTupleCoverage.missingRequiredPlatformHeadRidTuples must be a string list")
 
     normalized_required_platforms = [normalized_token(item) for item in required_platforms if normalized_token(item)]
     normalized_required_heads = [normalized_token(item) for item in required_heads if normalized_token(item)]
@@ -441,12 +453,40 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         raise SystemExit(
             f"{source} desktopTupleCoverage.missingRequiredPlatformHeadPairs does not match promoted tuple coverage"
         )
+    expected_promoted_platform_head_rid_tuples = sorted(
+        {
+            f"{row['head']}:{row['rid']}:{row['platform']}"
+            for row in expected_promoted_tuple_rows
+            if row.get("head") and row.get("rid") and row.get("platform")
+        }
+    )
+    normalized_required_platform_head_rid_tuples = sorted(normalized_string_list(required_platform_head_rid_tuples))
+    normalized_promoted_platform_head_rid_tuples = sorted(normalized_string_list(promoted_platform_head_rid_tuples))
+    if normalized_promoted_platform_head_rid_tuples != expected_promoted_platform_head_rid_tuples:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.promotedPlatformHeadRidTuples does not match promoted tuple coverage"
+        )
+    if normalized_required_platform_head_rid_tuples != expected_promoted_platform_head_rid_tuples:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.requiredDesktopPlatformHeadRidTuples does not match promoted tuple coverage"
+        )
+    expected_missing_platform_head_rid_tuples = sorted(
+        tuple_id
+        for tuple_id in normalized_required_platform_head_rid_tuples
+        if tuple_id not in set(normalized_promoted_platform_head_rid_tuples)
+    )
+    normalized_missing_platform_head_rid_tuples = sorted(normalized_string_list(missing_platform_head_rid_tuples))
+    if normalized_missing_platform_head_rid_tuples != expected_missing_platform_head_rid_tuples:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.missingRequiredPlatformHeadRidTuples does not match promoted tuple coverage"
+        )
     return {
         "required_platforms": list(REQUIRED_DESKTOP_PLATFORMS),
         "required_heads": normalized_required_heads,
         "missing_platforms": normalized_missing_platforms,
         "missing_heads": normalized_missing_heads,
         "missing_pairs": normalized_missing_pairs,
+        "missing_platform_head_rid_tuples": normalized_missing_platform_head_rid_tuples,
     }
 
 
@@ -454,7 +494,8 @@ def verify_desktop_tuple_completeness(coverage: dict[str, list[str]], source: st
     missing_platforms = coverage.get("missing_platforms") or []
     missing_heads = coverage.get("missing_heads") or []
     missing_pairs = coverage.get("missing_pairs") or []
-    if missing_platforms or missing_heads or missing_pairs:
+    missing_platform_head_rid_tuples = coverage.get("missing_platform_head_rid_tuples") or []
+    if missing_platforms or missing_heads or missing_pairs or missing_platform_head_rid_tuples:
         details: list[str] = []
         if missing_platforms:
             details.append("missing platforms: " + ", ".join(missing_platforms))
@@ -462,6 +503,8 @@ def verify_desktop_tuple_completeness(coverage: dict[str, list[str]], source: st
             details.append("missing heads: " + ", ".join(missing_heads))
         if missing_pairs:
             details.append("missing platform/head pairs: " + ", ".join(missing_pairs))
+        if missing_platform_head_rid_tuples:
+            details.append("missing platform/head/rid tuples: " + ", ".join(missing_platform_head_rid_tuples))
         raise SystemExit(
             f"{source} is missing required desktop tuple coverage for public release ({'; '.join(details)})"
         )
@@ -475,7 +518,7 @@ def verify_desktop_tuple_honesty(payload: dict, source: str, coverage: dict[str,
         return
     coverage_incomplete = any(
         coverage.get(key)
-        for key in ("missing_platforms", "missing_heads", "missing_pairs")
+        for key in ("missing_platforms", "missing_heads", "missing_pairs", "missing_platform_head_rid_tuples")
     )
     if not coverage_incomplete:
         return
