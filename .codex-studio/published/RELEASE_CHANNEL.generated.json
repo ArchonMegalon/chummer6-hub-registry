@@ -1,21 +1,21 @@
 {
-  "generated_at": "2026-04-04T22:37:24Z",
-  "generatedAt": "2026-04-04T22:37:24Z",
+  "generated_at": "2026-04-05T00:57:30Z",
+  "generatedAt": "2026-04-05T00:57:30Z",
   "schemaVersion": 1,
   "product": "chummer6",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "channelId": "docker",
-  "version": "local-docker",
-  "publishedAt": "2026-04-04T17:55:17Z",
+  "version": "unpublished",
+  "publishedAt": "2026-04-05T00:57:29Z",
   "status": "published",
   "artifactSource": "ui_desktop_bundle",
   "message": null,
   "rolloutState": "coverage_incomplete",
-  "rolloutReason": "Current shelf is published, but promotion stays blocked because required desktop tuple coverage is incomplete (platforms: windows, macos; pairs: avalonia:windows, blazor-desktop:windows, avalonia:macos, blazor-desktop:macos).",
+  "rolloutReason": "Current shelf is published, but promotion stays blocked because required desktop tuple coverage is incomplete (platforms: windows, macos; pairs: avalonia:windows, blazor-desktop:windows, avalonia:macos, blazor-desktop:macos; tuples: avalonia:osx-arm64:macos, avalonia:win-x64:windows, blazor-desktop:osx-arm64:macos, blazor-desktop:win-x64:windows).",
   "supportabilityState": "review_required",
-  "supportabilitySummary": "Treat the current shelf as review-required because required desktop tuple coverage is incomplete (platforms: windows, macos; pairs: avalonia:windows, blazor-desktop:windows, avalonia:macos, blazor-desktop:macos).",
-  "knownIssueSummary": "Known issue: required desktop tuple coverage is incomplete (platforms: windows, macos; pairs: avalonia:windows, blazor-desktop:windows, avalonia:macos, blazor-desktop:macos).",
+  "supportabilitySummary": "Treat the current shelf as review-required because required desktop tuple coverage is incomplete (platforms: windows, macos; pairs: avalonia:windows, blazor-desktop:windows, avalonia:macos, blazor-desktop:macos; tuples: avalonia:osx-arm64:macos, avalonia:win-x64:windows, blazor-desktop:osx-arm64:macos, blazor-desktop:win-x64:windows).",
+  "knownIssueSummary": "Known issue: required desktop tuple coverage is incomplete (platforms: windows, macos; pairs: avalonia:windows, blazor-desktop:windows, avalonia:macos, blazor-desktop:macos; tuples: avalonia:osx-arm64:macos, avalonia:win-x64:windows, blazor-desktop:osx-arm64:macos, blazor-desktop:win-x64:windows).",
   "fixAvailabilitySummary": "Do not send fixed notices until required desktop tuple coverage is complete for the promoted shelf.",
   "releaseProof": {
     "status": "passed",
@@ -37,7 +37,7 @@
     ],
     "uiLocalizationReleaseGate": {
       "status": "pass",
-      "generatedAt": "2026-04-04T16:40:43Z",
+      "generatedAt": "2026-04-04T18:02:33Z",
       "defaultKeyCount": 383,
       "explicitFallbackRuntime": "pass",
       "signoffSmokeRunnerStatus": "pass",
@@ -189,13 +189,13 @@
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
+      "installAccessClass": "open_public",
       "channelId": "docker",
       "channel": "docker",
-      "version": "local-docker",
-      "releaseVersion": "local-docker",
-      "installAccessClass": "open_public",
-      "generated_at": "2026-04-04T22:37:24Z",
-      "generatedAt": "2026-04-04T22:37:24Z"
+      "version": "unpublished",
+      "releaseVersion": "unpublished",
+      "generated_at": "2026-04-05T00:57:30Z",
+      "generatedAt": "2026-04-05T00:57:30Z"
     },
     {
       "artifactId": "blazor-desktop-linux-x64-installer",
@@ -212,13 +212,13 @@
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
+      "installAccessClass": "open_public",
       "channelId": "docker",
       "channel": "docker",
-      "version": "local-docker",
-      "releaseVersion": "local-docker",
-      "installAccessClass": "open_public",
-      "generated_at": "2026-04-04T22:37:24Z",
-      "generatedAt": "2026-04-04T22:37:24Z"
+      "version": "unpublished",
+      "releaseVersion": "unpublished",
+      "generated_at": "2026-04-05T00:57:30Z",
+      "generatedAt": "2026-04-05T00:57:30Z"
     }
   ],
   "desktopTupleCoverage": {
@@ -302,6 +302,7 @@
         ],
         "expectedArtifactId": "avalonia-osx-arm64-installer",
         "expectedInstallerFileName": "chummer-avalonia-osx-arm64-installer.dmg",
+        "expectedInstallerRelativePath": "files/chummer-avalonia-osx-arm64-installer.dmg",
         "expectedPublicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
         "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-avalonia-osx-arm64.receipt.json",
         "startupSmokeReceiptContract": {
@@ -334,6 +335,7 @@
         ],
         "expectedArtifactId": "avalonia-win-x64-installer",
         "expectedInstallerFileName": "chummer-avalonia-win-x64-installer.exe",
+        "expectedInstallerRelativePath": "files/chummer-avalonia-win-x64-installer.exe",
         "expectedPublicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
         "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-avalonia-win-x64.receipt.json",
         "startupSmokeReceiptContract": {
@@ -366,6 +368,7 @@
         ],
         "expectedArtifactId": "blazor-desktop-osx-arm64-installer",
         "expectedInstallerFileName": "chummer-blazor-desktop-osx-arm64-installer.dmg",
+        "expectedInstallerRelativePath": "files/chummer-blazor-desktop-osx-arm64-installer.dmg",
         "expectedPublicInstallRoute": "/downloads/install/blazor-desktop-osx-arm64-installer",
         "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-blazor-desktop-osx-arm64.receipt.json",
         "startupSmokeReceiptContract": {
@@ -398,6 +401,7 @@
         ],
         "expectedArtifactId": "blazor-desktop-win-x64-installer",
         "expectedInstallerFileName": "chummer-blazor-desktop-win-x64-installer.exe",
+        "expectedInstallerRelativePath": "files/chummer-blazor-desktop-win-x64-installer.exe",
         "expectedPublicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer",
         "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-blazor-desktop-win-x64.receipt.json",
         "startupSmokeReceiptContract": {

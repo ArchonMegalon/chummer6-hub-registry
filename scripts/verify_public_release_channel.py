@@ -173,6 +173,7 @@ ALLOWED_EXTERNAL_PROOF_REQUEST_KEYS = (
     "requiredProofs",
     "expectedArtifactId",
     "expectedInstallerFileName",
+    "expectedInstallerRelativePath",
     "expectedPublicInstallRoute",
     "expectedStartupSmokeReceiptPath",
     "startupSmokeReceiptContract",
@@ -1124,6 +1125,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
                 ],
                 "expectedArtifactId": head + "-" + rid + "-installer",
                 "expectedInstallerFileName": expected_installer_file_name,
+                "expectedInstallerRelativePath": "files/" + expected_installer_file_name,
                 "expectedPublicInstallRoute": "/downloads/install/" + head + "-" + rid + "-installer",
                 "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-" + head + "-" + rid + ".receipt.json",
                 "startupSmokeReceiptContract": expected_external_proof_receipt_contract(
@@ -1189,6 +1191,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
                 "requiredProofs": required_proofs,
                 "expectedArtifactId": str(item.get("expectedArtifactId") or "").strip(),
                 "expectedInstallerFileName": str(item.get("expectedInstallerFileName") or "").strip(),
+                "expectedInstallerRelativePath": str(item.get("expectedInstallerRelativePath") or "").strip(),
                 "expectedPublicInstallRoute": str(item.get("expectedPublicInstallRoute") or "").strip(),
                 "expectedStartupSmokeReceiptPath": str(item.get("expectedStartupSmokeReceiptPath") or "").strip(),
                 "startupSmokeReceiptContract": {

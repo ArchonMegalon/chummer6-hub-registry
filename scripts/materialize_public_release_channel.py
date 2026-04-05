@@ -1566,6 +1566,7 @@ def desktop_tuple_coverage(
             f"chummer-{head}-{rid}-installer."
             f"{expected_installer_extension_for_platform(platform)}"
         )
+        expected_installer_relative_path = f"files/{expected_installer_file_name}"
         external_proof_requests.append(
             {
                 "tupleId": tuple_id,
@@ -1580,6 +1581,7 @@ def desktop_tuple_coverage(
                 ],
                 "expectedArtifactId": f"{head}-{rid}-installer",
                 "expectedInstallerFileName": expected_installer_file_name,
+                "expectedInstallerRelativePath": expected_installer_relative_path,
                 "expectedPublicInstallRoute": f"/downloads/install/{head}-{rid}-installer",
                 "expectedStartupSmokeReceiptPath": f"startup-smoke/startup-smoke-{head}-{rid}.receipt.json",
                 "startupSmokeReceiptContract": external_proof_request_receipt_contract(
