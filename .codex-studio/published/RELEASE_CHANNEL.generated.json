@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-04-05T00:57:30Z",
-  "generatedAt": "2026-04-05T00:57:30Z",
+  "generated_at": "2026-04-05T01:50:28Z",
+  "generatedAt": "2026-04-05T01:50:28Z",
   "schemaVersion": 1,
   "product": "chummer6",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "channelId": "docker",
   "version": "unpublished",
-  "publishedAt": "2026-04-05T00:57:29Z",
+  "publishedAt": "2026-04-05T01:50:27Z",
   "status": "published",
   "artifactSource": "ui_desktop_bundle",
   "message": null,
@@ -194,8 +194,8 @@
       "channel": "docker",
       "version": "unpublished",
       "releaseVersion": "unpublished",
-      "generated_at": "2026-04-05T00:57:30Z",
-      "generatedAt": "2026-04-05T00:57:30Z"
+      "generated_at": "2026-04-05T01:50:28Z",
+      "generatedAt": "2026-04-05T01:50:28Z"
     },
     {
       "artifactId": "blazor-desktop-linux-x64-installer",
@@ -217,8 +217,8 @@
       "channel": "docker",
       "version": "unpublished",
       "releaseVersion": "unpublished",
-      "generated_at": "2026-04-05T00:57:30Z",
-      "generatedAt": "2026-04-05T00:57:30Z"
+      "generated_at": "2026-04-05T01:50:28Z",
+      "generatedAt": "2026-04-05T01:50:28Z"
     }
   ],
   "desktopTupleCoverage": {
