@@ -598,6 +598,31 @@ def startup_smoke_artifact_file_name_from_path(raw_path: object) -> str:
     return normalized_token(tokens[-1])
 
 
+def normalized_receipt_artifact_relative_path(receipt: dict[str, Any]) -> str:
+    explicit_path = str(
+        receipt.get("artifactRelativePath")
+        or receipt.get("artifact_relative_path")
+        or ""
+    ).strip()
+    if explicit_path:
+        tokens = [normalized_token(token) for token in re.split(r"[\\/]+", explicit_path) if token]
+        return "/".join(tokens)
+    raw_path = str(
+        receipt.get("artifactPath")
+        or receipt.get("artifact_path")
+        or ""
+    ).strip()
+    if not raw_path:
+        return ""
+    tokens = [normalized_token(token) for token in re.split(r"[\\/]+", raw_path) if token]
+    if not tokens:
+        return ""
+    for index in range(len(tokens) - 1, -1, -1):
+        if tokens[index] == "files":
+            return "/".join(tokens[index:])
+    return ""
+
+
 def normalized_receipt_artifact_id(receipt: dict[str, Any]) -> str:
     return normalized_token(
         receipt.get("artifactId")
@@ -626,6 +651,7 @@ def verify_startup_smoke_receipt_artifact_identity(
     *,
     expected_artifact_id: str,
     expected_file_name: str,
+    expected_relative_path: str = "",
     source: str,
 ) -> None:
     receipt_artifact_id = normalized_receipt_artifact_id(receipt)
@@ -642,6 +668,12 @@ def verify_startup_smoke_receipt_artifact_identity(
         raise SystemExit(
             f"{source} startup-smoke receipt artifact file name mismatch"
         )
+    if expected_relative_path:
+        receipt_relative_path = normalized_receipt_artifact_relative_path(receipt)
+        if receipt_relative_path != expected_relative_path:
+            raise SystemExit(
+                f"{source} startup-smoke receipt artifact relative path mismatch"
+            )
 
 
 def expected_arch_from_rid(rid: str) -> str:
@@ -1529,10 +1561,16 @@ def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) 
                 f"{source} startup-smoke receipt artifactDigest does not match release-channel artifact sha256 for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
         expected_artifact_identity = expected_identity_by_tuple.get((head, platform, rid), ("", ""))
+        expected_installer_relative_path = (
+            f"files/{expected_artifact_identity[1]}"
+            if expected_artifact_identity[1]
+            else ""
+        )
         verify_startup_smoke_receipt_artifact_identity(
             receipt,
             expected_artifact_id=expected_artifact_identity[0],
             expected_file_name=expected_artifact_identity[1],
+            expected_relative_path=expected_installer_relative_path,
             source=(
                 f"{source} startup-smoke receipt for promoted desktop installer tuple {head}:{platform}:{rid}"
             ),

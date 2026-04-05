@@ -124,6 +124,7 @@ def test_verify_startup_smoke_receipt_artifact_identity_rejects_file_name_mismat
             },
             expected_artifact_id="avalonia-win-x64-installer",
             expected_file_name="chummer-avalonia-win-x64-installer.exe",
+            expected_relative_path="",
             source="release-channel.json",
         )
 
@@ -135,5 +136,31 @@ def test_verify_startup_smoke_receipt_artifact_identity_accepts_matching_artifac
         },
         expected_artifact_id="avalonia-win-x64-installer",
         expected_file_name="chummer-avalonia-win-x64-installer.exe",
+        expected_relative_path="",
+        source="release-channel.json",
+    )
+
+
+def test_verify_startup_smoke_receipt_artifact_identity_rejects_relative_path_mismatch() -> None:
+    with pytest.raises(SystemExit, match="artifact relative path mismatch"):
+        MODULE.verify_startup_smoke_receipt_artifact_identity(
+            {
+                "artifactPath": r"C:\\Users\\runner\\Downloads\\wrong\\chummer-avalonia-win-x64-installer.exe",
+            },
+            expected_artifact_id="avalonia-win-x64-installer",
+            expected_file_name="chummer-avalonia-win-x64-installer.exe",
+            expected_relative_path="files/chummer-avalonia-win-x64-installer.exe",
+            source="release-channel.json",
+        )
+
+
+def test_verify_startup_smoke_receipt_artifact_identity_accepts_matching_relative_path() -> None:
+    MODULE.verify_startup_smoke_receipt_artifact_identity(
+        {
+            "artifactPath": "/tmp/chummer/Docker/Downloads/files/chummer-avalonia-win-x64-installer.exe",
+        },
+        expected_artifact_id="avalonia-win-x64-installer",
+        expected_file_name="chummer-avalonia-win-x64-installer.exe",
+        expected_relative_path="files/chummer-avalonia-win-x64-installer.exe",
         source="release-channel.json",
     )
