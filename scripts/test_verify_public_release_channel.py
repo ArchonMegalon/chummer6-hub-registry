@@ -198,3 +198,31 @@ def test_verify_startup_smoke_receipt_artifact_identity_accepts_matching_relativ
         expected_relative_path="files/chummer-avalonia-win-x64-installer.exe",
         source="release-channel.json",
     )
+
+
+def test_expected_external_proof_capture_commands_include_operating_system_hint() -> None:
+    commands = MODULE.expected_external_proof_capture_commands(
+        head="avalonia",
+        rid="win-x64",
+        platform="windows",
+        installer_file_name="chummer-avalonia-win-x64-installer.exe",
+        required_host="windows",
+    )
+
+    assert len(commands) == 2
+    assert "CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=windows-host" in commands[0]
+    assert "CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=Windows" in commands[0]
+
+
+def test_expected_external_proof_capture_commands_include_linux_operating_system_hint() -> None:
+    commands = MODULE.expected_external_proof_capture_commands(
+        head="blazor-desktop",
+        rid="linux-x64",
+        platform="linux",
+        installer_file_name="chummer-blazor-desktop-linux-x64-installer.deb",
+        required_host="linux",
+    )
+
+    assert len(commands) == 2
+    assert "CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=linux-host" in commands[0]
+    assert "CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=Linux" in commands[0]

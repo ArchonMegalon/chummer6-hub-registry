@@ -249,6 +249,17 @@ def expected_external_proof_launch_target(head: str, platform: str) -> str:
     return "Chummer.Avalonia.exe" if platform_token == "windows" else "Chummer.Avalonia"
 
 
+def expected_external_proof_operating_system_hint(platform: str) -> str:
+    platform_token = normalized_platform_token(platform)
+    if platform_token == "windows":
+        return "Windows"
+    if platform_token == "macos":
+        return "macOS"
+    if platform_token == "linux":
+        return "Linux"
+    return ""
+
+
 def expected_external_proof_receipt_contract(head: str, rid: str, platform: str, required_host: str) -> dict[str, Any]:
     host_token = normalized_platform_token(required_host) or normalized_platform_token(platform) or "required"
     return {
@@ -276,10 +287,17 @@ def expected_external_proof_capture_commands(
     if not head_token or not rid_token or not platform_token or not installer_name:
         return []
     required_host_token = normalized_platform_token(required_host) or platform_token
+    operating_system_hint = expected_external_proof_operating_system_hint(required_host_token) or expected_external_proof_operating_system_hint(platform_token)
     repo_root = "/docker/chummercomplete/chummer6-ui"
+    operating_system_env = (
+        f"CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM={operating_system_hint} "
+        if operating_system_hint
+        else ""
+    )
     run_smoke = (
         f"cd {repo_root} && "
         f"CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS={required_host_token}-host "
+        f"{operating_system_env}"
         "./scripts/run-desktop-startup-smoke.sh "
         f"{repo_root}/Docker/Downloads/files/{installer_name} "
         f"{head_token} "

@@ -287,3 +287,31 @@ def test_verify_required_desktop_heads_rejects_order_drift() -> None:
         assert "must be exactly canonical desktop heads" in str(exc)
     else:
         raise AssertionError("expected ValueError for noncanonical required desktop head ordering")
+
+
+def test_external_proof_request_capture_commands_include_operating_system_hint() -> None:
+    commands = MODULE.external_proof_request_capture_commands(
+        head="avalonia",
+        rid="win-x64",
+        platform="windows",
+        installer_file_name="chummer-avalonia-win-x64-installer.exe",
+        required_host="windows",
+    )
+
+    assert len(commands) == 2
+    assert "CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=windows-host" in commands[0]
+    assert "CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=Windows" in commands[0]
+
+
+def test_external_proof_request_capture_commands_include_macos_operating_system_hint() -> None:
+    commands = MODULE.external_proof_request_capture_commands(
+        head="blazor-desktop",
+        rid="osx-arm64",
+        platform="macos",
+        installer_file_name="chummer-blazor-desktop-osx-arm64-installer.dmg",
+        required_host="macos",
+    )
+
+    assert len(commands) == 2
+    assert "CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=macos-host" in commands[0]
+    assert "CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=macOS" in commands[0]
