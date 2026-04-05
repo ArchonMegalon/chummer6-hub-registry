@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-04-05T02:03:30Z",
-  "generatedAt": "2026-04-05T02:03:30Z",
+  "generated_at": "2026-04-05T02:06:47Z",
+  "generatedAt": "2026-04-05T02:06:47Z",
   "schemaVersion": 1,
   "product": "chummer6",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "channelId": "docker",
   "version": "unpublished",
-  "publishedAt": "2026-04-05T02:03:30Z",
+  "publishedAt": "2026-04-05T02:06:46Z",
   "status": "published",
   "artifactSource": "ui_desktop_bundle",
   "message": null,
@@ -189,13 +189,13 @@
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
-      "installAccessClass": "open_public",
       "channelId": "docker",
       "channel": "docker",
       "version": "unpublished",
       "releaseVersion": "unpublished",
-      "generated_at": "2026-04-05T02:03:30Z",
-      "generatedAt": "2026-04-05T02:03:30Z"
+      "installAccessClass": "open_public",
+      "generated_at": "2026-04-05T02:06:47Z",
+      "generatedAt": "2026-04-05T02:06:47Z"
     },
     {
       "artifactId": "blazor-desktop-linux-x64-installer",
@@ -212,13 +212,13 @@
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
-      "installAccessClass": "open_public",
       "channelId": "docker",
       "channel": "docker",
       "version": "unpublished",
       "releaseVersion": "unpublished",
-      "generated_at": "2026-04-05T02:03:30Z",
-      "generatedAt": "2026-04-05T02:03:30Z"
+      "installAccessClass": "open_public",
+      "generated_at": "2026-04-05T02:06:47Z",
+      "generatedAt": "2026-04-05T02:06:47Z"
     }
   ],
   "desktopTupleCoverage": {
