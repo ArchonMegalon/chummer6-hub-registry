@@ -151,6 +151,25 @@ def startup_smoke_host_class_matches_platform(loaded: dict[str, Any], *, platfor
     return platform_token in host_class
 
 
+def startup_smoke_operating_system_matches_platform(loaded: dict[str, Any], *, platform: str) -> bool:
+    platform_token = normalize_token(platform)
+    operating_system = str(
+        loaded.get("operatingSystem")
+        or loaded.get("operating_system")
+        or loaded.get("os")
+        or ""
+    ).strip().lower()
+    if not platform_token or not operating_system:
+        return False
+    if platform_token == "windows":
+        return any(token in operating_system for token in ("windows", "win32", "win64"))
+    if platform_token == "macos":
+        return any(token in operating_system for token in ("macos", "mac os", "darwin", "os x"))
+    if platform_token == "linux":
+        return "linux" in operating_system
+    return platform_token in operating_system
+
+
 def startup_smoke_artifact_file_name_from_path(raw_path: Any) -> str:
     raw = str(raw_path or "").strip()
     if not raw:
@@ -545,6 +564,8 @@ def load_startup_smoke_receipts(
         if not head or not platform or not arch:
             continue
         if not startup_smoke_host_class_matches_platform(loaded, platform=platform):
+            continue
+        if not startup_smoke_operating_system_matches_platform(loaded, platform=platform):
             continue
         if expected_channel and channel_id != expected_channel:
             continue

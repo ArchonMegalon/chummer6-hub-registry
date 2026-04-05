@@ -174,6 +174,7 @@ ALLOWED_EXTERNAL_PROOF_REQUEST_KEYS = (
     "expectedArtifactId",
     "expectedInstallerFileName",
     "expectedInstallerRelativePath",
+    "expectedInstallerSha256",
     "expectedPublicInstallRoute",
     "expectedStartupSmokeReceiptPath",
     "startupSmokeReceiptContract",
@@ -713,6 +714,44 @@ def verify_startup_smoke_receipt_host_class(
         )
 
 
+def normalized_receipt_operating_system(receipt: dict[str, Any]) -> str:
+    return normalized_token(
+        receipt.get("operatingSystem")
+        or receipt.get("operating_system")
+        or receipt.get("os")
+    )
+
+
+def startup_smoke_operating_system_matches_platform(receipt: dict[str, Any], *, platform: str) -> bool:
+    platform_token = normalized_platform_token(platform)
+    operating_system = normalized_receipt_operating_system(receipt)
+    if not platform_token or not operating_system:
+        return False
+    if platform_token == "windows":
+        return any(token in operating_system for token in ("windows", "win32", "win64"))
+    if platform_token == "macos":
+        return any(token in operating_system for token in ("macos", "mac os", "darwin", "os x"))
+    if platform_token == "linux":
+        return "linux" in operating_system
+    return platform_token in operating_system
+
+
+def verify_startup_smoke_receipt_operating_system(
+    receipt: dict[str, Any],
+    *,
+    platform: str,
+    source: str,
+) -> None:
+    operating_system = normalized_receipt_operating_system(receipt)
+    if not operating_system:
+        raise SystemExit(f"{source} startup-smoke receipt operatingSystem is missing")
+    platform_token = normalized_platform_token(platform)
+    if platform_token and not startup_smoke_operating_system_matches_platform(receipt, platform=platform_token):
+        raise SystemExit(
+            f"{source} startup-smoke receipt operatingSystem does not satisfy required platform token '{platform_token}'"
+        )
+
+
 def parse_required_token_list(value: object, *, field_path: str, source: str) -> list[str]:
     if not isinstance(value, list):
         raise SystemExit(f"{field_path} must be a list in {source}")
@@ -1212,6 +1251,12 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
                 f"{source} desktopTupleCoverage.externalProofRequests[{index}].proofCaptureCommands must be a string list"
             )
         proof_capture_commands = [str(token).strip() for token in proof_capture_commands_raw if str(token).strip()]
+        expected_installer_sha256 = normalize_sha256(item.get("expectedInstallerSha256"))
+        if expected_installer_sha256 and not re.fullmatch(r"[0-9a-f]{64}", expected_installer_sha256):
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.externalProofRequests[{index}].expectedInstallerSha256 "
+                "must be lowercase hex sha256 or blank"
+            )
         normalized_external_proof_requests.append(
             {
                 "tupleId": tuple_id,
@@ -1523,6 +1568,13 @@ def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) 
                 f"{source} startup-smoke receipt platform mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
         verify_startup_smoke_receipt_host_class(
+            receipt,
+            platform=platform,
+            source=(
+                f"{source} startup-smoke receipt for promoted desktop installer tuple {head}:{platform}:{rid}"
+            ),
+        )
+        verify_startup_smoke_receipt_operating_system(
             receipt,
             platform=platform,
             source=(

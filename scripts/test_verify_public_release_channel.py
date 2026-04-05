@@ -91,6 +91,40 @@ def test_verify_startup_smoke_receipt_host_class_accepts_host_alias_field() -> N
     )
 
 
+def test_verify_startup_smoke_receipt_operating_system_rejects_missing_operating_system() -> None:
+    with pytest.raises(SystemExit, match="operatingSystem is missing"):
+        MODULE.verify_startup_smoke_receipt_operating_system(
+            {
+                "platform": "windows",
+            },
+            platform="windows",
+            source="release-channel.json",
+        )
+
+
+def test_verify_startup_smoke_receipt_operating_system_rejects_platform_mismatch() -> None:
+    with pytest.raises(SystemExit, match="does not satisfy required platform token 'windows'"):
+        MODULE.verify_startup_smoke_receipt_operating_system(
+            {
+                "platform": "windows",
+                "operatingSystem": "Darwin 23.0",
+            },
+            platform="windows",
+            source="release-channel.json",
+        )
+
+
+def test_verify_startup_smoke_receipt_operating_system_accepts_platform_alias() -> None:
+    MODULE.verify_startup_smoke_receipt_operating_system(
+        {
+            "platform": "macos",
+            "operatingSystem": "Darwin 23.5.0",
+        },
+        platform="macos",
+        source="release-channel.json",
+    )
+
+
 def test_verify_startup_smoke_receipt_artifact_identity_rejects_missing_identity() -> None:
     with pytest.raises(SystemExit, match="artifact identity is missing"):
         MODULE.verify_startup_smoke_receipt_artifact_identity(
