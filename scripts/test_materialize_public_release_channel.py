@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
 import json
 import tempfile
@@ -263,6 +264,122 @@ def test_desktop_tuple_coverage_emits_explicit_complete_flag() -> None:
     )
     assert coverage["complete"] is False
     assert "missingRequiredPlatformHeadRidTuples" in coverage
+
+
+def test_desktop_tuple_coverage_uses_downloads_dir_sha_for_missing_tuple_request() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        downloads_dir = Path(tmp)
+        installer_path = downloads_dir / "chummer-avalonia-win-x64-installer.exe"
+        payload = b"\n".join(MODULE.WINDOWS_INSTALLER_PAYLOAD_MARKERS) + b"\n"
+        installer_path.write_bytes(payload)
+        expected_sha = hashlib.sha256(payload).hexdigest()
+
+        coverage = MODULE.desktop_tuple_coverage(
+            [],
+            required_heads=["avalonia"],
+            required_platforms=["windows"],
+            channel_id="docker",
+            downloads_dir=downloads_dir,
+        )
+
+    requests = coverage["externalProofRequests"]
+    assert len(requests) == 1
+    assert requests[0]["tupleId"] == "avalonia:win-x64:windows"
+    assert requests[0]["expectedInstallerSha256"] == expected_sha
+
+
+def test_desktop_tuple_coverage_uses_quarantine_sha_for_missing_tuple_request() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        repo_root = Path(tmp)
+        downloads_dir = repo_root / "Docker" / "Downloads" / "files"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        quarantine_dir = (
+            repo_root
+            / ".codex-studio"
+            / "quarantine"
+            / "unpromoted-desktop-installers-20260403T2110Z"
+        )
+        quarantine_dir.mkdir(parents=True, exist_ok=True)
+        installer_path = quarantine_dir / "chummer-avalonia-win-x64-installer.exe"
+        payload = b"\n".join(MODULE.WINDOWS_INSTALLER_PAYLOAD_MARKERS) + b"\n"
+        installer_path.write_bytes(payload)
+        expected_sha = hashlib.sha256(payload).hexdigest()
+
+        coverage = MODULE.desktop_tuple_coverage(
+            [],
+            required_heads=["avalonia"],
+            required_platforms=["windows"],
+            channel_id="docker",
+            downloads_dir=downloads_dir,
+        )
+
+    requests = coverage["externalProofRequests"]
+    assert len(requests) == 1
+    assert requests[0]["tupleId"] == "avalonia:win-x64:windows"
+    assert requests[0]["expectedInstallerSha256"] == expected_sha
+
+
+def test_desktop_tuple_coverage_uses_downloads_quarantine_sha_for_missing_tuple_request() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        repo_root = Path(tmp)
+        downloads_dir = repo_root / "Docker" / "Downloads" / "files"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        quarantine_dir = (
+            repo_root
+            / "Docker"
+            / "Downloads"
+            / "quarantine"
+            / "unpromoted-desktop-installers-20260403T2110Z"
+        )
+        quarantine_dir.mkdir(parents=True, exist_ok=True)
+        installer_path = quarantine_dir / "chummer-avalonia-win-x64-installer.exe"
+        payload = b"\n".join(MODULE.WINDOWS_INSTALLER_PAYLOAD_MARKERS) + b"\n"
+        installer_path.write_bytes(payload)
+        expected_sha = hashlib.sha256(payload).hexdigest()
+
+        coverage = MODULE.desktop_tuple_coverage(
+            [],
+            required_heads=["avalonia"],
+            required_platforms=["windows"],
+            channel_id="docker",
+            downloads_dir=downloads_dir,
+        )
+
+    requests = coverage["externalProofRequests"]
+    assert len(requests) == 1
+    assert requests[0]["tupleId"] == "avalonia:win-x64:windows"
+    assert requests[0]["expectedInstallerSha256"] == expected_sha
+
+
+def test_desktop_tuple_coverage_uses_quarantine_sha_without_windows_payload_markers() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        repo_root = Path(tmp)
+        downloads_dir = repo_root / "Docker" / "Downloads" / "files"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        quarantine_dir = (
+            repo_root
+            / ".codex-studio"
+            / "quarantine"
+            / "unpromoted-desktop-installers-20260403T2110Z"
+        )
+        quarantine_dir.mkdir(parents=True, exist_ok=True)
+        installer_path = quarantine_dir / "chummer-blazor-desktop-win-x64-installer.exe"
+        payload = b"missing-payload-markers"
+        installer_path.write_bytes(payload)
+        expected_sha = hashlib.sha256(payload).hexdigest()
+
+        coverage = MODULE.desktop_tuple_coverage(
+            [],
+            required_heads=["blazor-desktop"],
+            required_platforms=["windows"],
+            channel_id="docker",
+            downloads_dir=downloads_dir,
+        )
+
+    requests = coverage["externalProofRequests"]
+    assert len(requests) == 1
+    assert requests[0]["tupleId"] == "blazor-desktop:win-x64:windows"
+    assert requests[0]["expectedInstallerSha256"] == expected_sha
 
 
 def test_verify_required_desktop_heads_rejects_noncanonical_head_set() -> None:

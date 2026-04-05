@@ -1517,6 +1517,7 @@ def desktop_tuple_coverage(
     required_heads: list[str],
     required_platforms: list[str],
     channel_id: str,
+    downloads_dir: Path | None = None,
 ) -> dict[str, Any]:
     promoted_tuples: list[dict[str, Any]] = []
     promoted_head_tokens: set[str] = set()
@@ -1609,6 +1610,62 @@ def desktop_tuple_coverage(
             continue
         tuple_key = f"{head}:{rid}:{platform}"
         installer_artifacts_by_tuple.setdefault(tuple_key, []).append(item)
+
+    def fallback_expected_installer_sha256(
+        *,
+        head: str,
+        rid: str,
+        platform: str,
+        expected_installer_file_name: str,
+    ) -> str:
+        if downloads_dir is None or not downloads_dir.exists():
+            return ""
+        candidates: list[Path] = []
+
+        primary = downloads_dir / expected_installer_file_name
+        if primary.is_file():
+            candidates.append(primary)
+
+        # Keep unresolved-proof hash truth aligned with quarantine candidates when
+        # startup-smoke gating withholds installers from the promoted downloads shelf.
+        if (
+            downloads_dir.name == "files"
+            and downloads_dir.parent.name == "Downloads"
+            and downloads_dir.parent.parent.name == "Docker"
+        ):
+            repo_root = downloads_dir.parent.parent.parent
+            quarantine_roots = (
+                repo_root / ".codex-studio" / "quarantine",
+                repo_root / "Docker" / "Downloads" / "quarantine",
+            )
+            for quarantine_root in quarantine_roots:
+                if not quarantine_root.is_dir():
+                    continue
+                candidates.extend(
+                    sorted(
+                        (
+                            path
+                            for path in quarantine_root.rglob(expected_installer_file_name)
+                            if path.is_file()
+                        ),
+                        key=lambda path: path.stat().st_mtime,
+                        reverse=True,
+                    )
+                )
+
+        for candidate in candidates:
+            discovered = row_from_file(candidate, downloads_prefix="/downloads/files")
+            if not isinstance(discovered, dict):
+                continue
+            if (
+                normalized_token(discovered.get("head")) != normalized_token(head)
+                or normalized_token(discovered.get("rid")) != normalized_token(rid)
+                or normalized_token(discovered.get("platform")) != normalized_token(platform)
+                or not is_desktop_install_media(platform, discovered.get("kind"))
+            ):
+                continue
+            return str(discovered.get("sha256") or "").strip().lower()
+        return ""
     external_proof_requests: list[dict[str, Any]] = []
     for tuple_id in missing_required_platform_head_rid_tuples:
         parts = tuple_id.split(":", 2)
@@ -1634,6 +1691,13 @@ def desktop_tuple_coverage(
         expected_installer_sha256 = (
             str((selected_artifact or {}).get("sha256") or "").strip().lower()
         )
+        if not expected_installer_sha256:
+            expected_installer_sha256 = fallback_expected_installer_sha256(
+                head=head,
+                rid=rid,
+                platform=platform,
+                expected_installer_file_name=expected_installer_file_name,
+            )
         external_proof_requests.append(
             {
                 "tupleId": tuple_id,
@@ -2007,6 +2071,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         required_heads=required_heads,
         required_platforms=list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS),
         channel_id=channel,
+        downloads_dir=args.downloads_dir,
     )
     desktop_coverage_complete = desktop_tuple_coverage_is_complete(tuple_coverage)
     rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip() or derive_rollout_state(

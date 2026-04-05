@@ -1,25 +1,10 @@
 {
-  "generated_at": "2026-04-05T03:02:54Z",
-  "generatedAt": "2026-04-05T03:02:54Z",
+  "generated_at": "2026-04-05T04:09:15Z",
+  "generatedAt": "2026-04-05T04:09:15Z",
   "version": "unpublished",
   "channel": "docker",
-  "publishedAt": "2026-04-05T03:02:43Z",
+  "publishedAt": "2026-04-05T04:09:15Z",
   "downloads": [
-    {
-      "id": "avalonia-linux-x64-installer",
-      "platform": "Avalonia Desktop Linux X64 Installer",
-      "url": "/downloads/files/chummer-avalonia-linux-x64-installer.deb",
-      "sha256": "4544ef844262d3381bc424105c4d67e95fa6f3c2541c1c79b00d0b4666a6198c",
-      "sizeBytes": 31796460,
-      "format": "deb",
-      "flavor": "installer",
-      "kind": "installer",
-      "head": "avalonia",
-      "platformId": "linux-x64",
-      "arch": "x64",
-      "fileName": "chummer-avalonia-linux-x64-installer.deb",
-      "installAccessClass": "open_public"
-    },
     {
       "id": "blazor-desktop-linux-x64-installer",
       "platform": "Blazor Desktop Linux X64 Installer",
@@ -213,15 +198,6 @@
     ],
     "promotedInstallerTuples": [
       {
-        "tupleId": "avalonia:linux:linux-x64",
-        "head": "avalonia",
-        "platform": "linux",
-        "rid": "linux-x64",
-        "arch": "x64",
-        "kind": "installer",
-        "artifactId": "avalonia-linux-x64-installer"
-      },
-      {
         "tupleId": "blazor-desktop:linux:linux-x64",
         "head": "blazor-desktop",
         "platform": "linux",
@@ -233,7 +209,6 @@
     ],
     "promotedPlatformHeads": {
       "linux": [
-        "avalonia",
         "blazor-desktop"
       ],
       "windows": [],
@@ -248,27 +223,64 @@
       "blazor-desktop:win-x64:windows"
     ],
     "promotedPlatformHeadRidTuples": [
-      "avalonia:linux-x64:linux",
       "blazor-desktop:linux-x64:linux"
     ],
     "missingRequiredPlatforms": [
       "windows",
       "macos"
     ],
-    "missingRequiredHeads": [],
+    "missingRequiredHeads": [
+      "avalonia"
+    ],
     "missingRequiredPlatformHeadPairs": [
+      "avalonia:linux",
       "avalonia:windows",
       "blazor-desktop:windows",
       "avalonia:macos",
       "blazor-desktop:macos"
     ],
     "missingRequiredPlatformHeadRidTuples": [
+      "avalonia:linux-x64:linux",
       "avalonia:osx-arm64:macos",
       "avalonia:win-x64:windows",
       "blazor-desktop:osx-arm64:macos",
       "blazor-desktop:win-x64:windows"
     ],
     "externalProofRequests": [
+      {
+        "tupleId": "avalonia:linux-x64:linux",
+        "channelId": "docker",
+        "head": "avalonia",
+        "platform": "linux",
+        "rid": "linux-x64",
+        "requiredHost": "linux",
+        "requiredProofs": [
+          "promoted_installer_artifact",
+          "startup_smoke_receipt"
+        ],
+        "expectedArtifactId": "avalonia-linux-x64-installer",
+        "expectedInstallerFileName": "chummer-avalonia-linux-x64-installer.deb",
+        "expectedInstallerRelativePath": "files/chummer-avalonia-linux-x64-installer.deb",
+        "expectedInstallerSha256": "4544ef844262d3381bc424105c4d67e95fa6f3c2541c1c79b00d0b4666a6198c",
+        "expectedPublicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
+        "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json",
+        "startupSmokeReceiptContract": {
+          "statusAnyOf": [
+            "pass",
+            "passed",
+            "ready"
+          ],
+          "readyCheckpoint": "pre_ui_event_loop",
+          "headId": "avalonia",
+          "platform": "linux",
+          "rid": "linux-x64",
+          "hostClassContains": "linux"
+        },
+        "proofCaptureCommands": [
+          "cd /docker/chummercomplete/chummer6-ui && CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=linux-host CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=Linux ./scripts/run-desktop-startup-smoke.sh /docker/chummercomplete/chummer6-ui/Docker/Downloads/files/chummer-avalonia-linux-x64-installer.deb avalonia linux-x64 Chummer.Avalonia /docker/chummercomplete/chummer6-ui/Docker/Downloads/startup-smoke",
+          "cd /docker/chummercomplete/chummer6-ui && ./scripts/generate-releases-manifest.sh"
+        ]
+      },
       {
         "tupleId": "avalonia:osx-arm64:macos",
         "channelId": "docker",
@@ -283,7 +295,7 @@
         "expectedArtifactId": "avalonia-osx-arm64-installer",
         "expectedInstallerFileName": "chummer-avalonia-osx-arm64-installer.dmg",
         "expectedInstallerRelativePath": "files/chummer-avalonia-osx-arm64-installer.dmg",
-        "expectedInstallerSha256": "",
+        "expectedInstallerSha256": "086e7c0f2c55da5a3932c324f54b3bd98fabe6dc7715553406c3c9a74f24f89a",
         "expectedPublicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
         "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-avalonia-osx-arm64.receipt.json",
         "startupSmokeReceiptContract": {
@@ -317,7 +329,7 @@
         "expectedArtifactId": "avalonia-win-x64-installer",
         "expectedInstallerFileName": "chummer-avalonia-win-x64-installer.exe",
         "expectedInstallerRelativePath": "files/chummer-avalonia-win-x64-installer.exe",
-        "expectedInstallerSha256": "",
+        "expectedInstallerSha256": "529a427c84a36082fe66d09a4547b17bd6c5046d2e4586277c5b7cd0c83ab00f",
         "expectedPublicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
         "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-avalonia-win-x64.receipt.json",
         "startupSmokeReceiptContract": {
@@ -351,7 +363,7 @@
         "expectedArtifactId": "blazor-desktop-osx-arm64-installer",
         "expectedInstallerFileName": "chummer-blazor-desktop-osx-arm64-installer.dmg",
         "expectedInstallerRelativePath": "files/chummer-blazor-desktop-osx-arm64-installer.dmg",
-        "expectedInstallerSha256": "",
+        "expectedInstallerSha256": "19af740fb995ee5dff0c5c7a4e601159d8779ce08b4ce47ae3b0db7f796cd581",
         "expectedPublicInstallRoute": "/downloads/install/blazor-desktop-osx-arm64-installer",
         "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-blazor-desktop-osx-arm64.receipt.json",
         "startupSmokeReceiptContract": {
@@ -385,7 +397,7 @@
         "expectedArtifactId": "blazor-desktop-win-x64-installer",
         "expectedInstallerFileName": "chummer-blazor-desktop-win-x64-installer.exe",
         "expectedInstallerRelativePath": "files/chummer-blazor-desktop-win-x64-installer.exe",
-        "expectedInstallerSha256": "",
+        "expectedInstallerSha256": "bc960d8d8081bd3e661b6f7ac281ee08879a5eeb007d45ec0bdfb9a98f188499",
         "expectedPublicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer",
         "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-blazor-desktop-win-x64.receipt.json",
         "startupSmokeReceiptContract": {
