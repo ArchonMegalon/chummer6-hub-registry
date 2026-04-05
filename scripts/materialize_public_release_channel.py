@@ -1554,6 +1554,22 @@ def desktop_tuple_coverage(
         for tuple_id in required_platform_head_rid_tuples
         if tuple_id not in promoted_platform_head_rid_tuples
     )
+    installer_artifacts_by_tuple: dict[str, list[dict[str, Any]]] = {}
+    for item in artifacts:
+        if not isinstance(item, dict):
+            continue
+        platform = normalized_token(item.get("platform"))
+        head = normalized_token(item.get("head"))
+        rid = normalized_token(item.get("rid"))
+        if (
+            not head
+            or not rid
+            or platform not in required_platforms
+            or not is_desktop_install_media(platform, item.get("kind"))
+        ):
+            continue
+        tuple_key = f"{head}:{rid}:{platform}"
+        installer_artifacts_by_tuple.setdefault(tuple_key, []).append(item)
     external_proof_requests: list[dict[str, Any]] = []
     for tuple_id in missing_required_platform_head_rid_tuples:
         parts = tuple_id.split(":", 2)
@@ -1562,11 +1578,23 @@ def desktop_tuple_coverage(
         head, rid, platform = parts
         if not head or not rid or not platform:
             continue
+        expected_artifact_id = f"{head}-{rid}-installer"
         expected_installer_file_name = (
             f"chummer-{head}-{rid}-installer."
             f"{expected_installer_extension_for_platform(platform)}"
         )
         expected_installer_relative_path = f"files/{expected_installer_file_name}"
+        artifact_candidates = installer_artifacts_by_tuple.get(tuple_id, [])
+        selected_artifact: dict[str, Any] | None = None
+        for artifact in artifact_candidates:
+            if normalized_token(artifact.get("artifactId")) == expected_artifact_id:
+                selected_artifact = artifact
+                break
+        if selected_artifact is None and artifact_candidates:
+            selected_artifact = artifact_candidates[0]
+        expected_installer_sha256 = (
+            str((selected_artifact or {}).get("sha256") or "").strip().lower()
+        )
         external_proof_requests.append(
             {
                 "tupleId": tuple_id,
@@ -1579,9 +1607,10 @@ def desktop_tuple_coverage(
                     "promoted_installer_artifact",
                     "startup_smoke_receipt",
                 ],
-                "expectedArtifactId": f"{head}-{rid}-installer",
+                "expectedArtifactId": expected_artifact_id,
                 "expectedInstallerFileName": expected_installer_file_name,
                 "expectedInstallerRelativePath": expected_installer_relative_path,
+                "expectedInstallerSha256": expected_installer_sha256,
                 "expectedPublicInstallRoute": f"/downloads/install/{head}-{rid}-installer",
                 "expectedStartupSmokeReceiptPath": f"startup-smoke/startup-smoke-{head}-{rid}.receipt.json",
                 "startupSmokeReceiptContract": external_proof_request_receipt_contract(

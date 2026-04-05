@@ -1,9 +1,9 @@
 {
-  "generated_at": "2026-04-05T02:06:47Z",
-  "generatedAt": "2026-04-05T02:06:47Z",
+  "generated_at": "2026-04-05T02:38:39Z",
+  "generatedAt": "2026-04-05T02:38:39Z",
   "version": "unpublished",
   "channel": "docker",
-  "publishedAt": "2026-04-05T02:06:46Z",
+  "publishedAt": "2026-04-05T02:45:00Z",
   "downloads": [
     {
       "id": "avalonia-linux-x64-installer",
@@ -283,6 +283,7 @@
         "expectedArtifactId": "avalonia-osx-arm64-installer",
         "expectedInstallerFileName": "chummer-avalonia-osx-arm64-installer.dmg",
         "expectedInstallerRelativePath": "files/chummer-avalonia-osx-arm64-installer.dmg",
+        "expectedInstallerSha256": "",
         "expectedPublicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
         "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-avalonia-osx-arm64.receipt.json",
         "startupSmokeReceiptContract": {
@@ -316,6 +317,7 @@
         "expectedArtifactId": "avalonia-win-x64-installer",
         "expectedInstallerFileName": "chummer-avalonia-win-x64-installer.exe",
         "expectedInstallerRelativePath": "files/chummer-avalonia-win-x64-installer.exe",
+        "expectedInstallerSha256": "",
         "expectedPublicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
         "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-avalonia-win-x64.receipt.json",
         "startupSmokeReceiptContract": {
@@ -349,6 +351,7 @@
         "expectedArtifactId": "blazor-desktop-osx-arm64-installer",
         "expectedInstallerFileName": "chummer-blazor-desktop-osx-arm64-installer.dmg",
         "expectedInstallerRelativePath": "files/chummer-blazor-desktop-osx-arm64-installer.dmg",
+        "expectedInstallerSha256": "",
         "expectedPublicInstallRoute": "/downloads/install/blazor-desktop-osx-arm64-installer",
         "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-blazor-desktop-osx-arm64.receipt.json",
         "startupSmokeReceiptContract": {
@@ -382,6 +385,7 @@
         "expectedArtifactId": "blazor-desktop-win-x64-installer",
         "expectedInstallerFileName": "chummer-blazor-desktop-win-x64-installer.exe",
         "expectedInstallerRelativePath": "files/chummer-blazor-desktop-win-x64-installer.exe",
+        "expectedInstallerSha256": "",
         "expectedPublicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer",
         "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-blazor-desktop-win-x64.receipt.json",
         "startupSmokeReceiptContract": {
