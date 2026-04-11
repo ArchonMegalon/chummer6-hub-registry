@@ -94,12 +94,17 @@ Result:
 - `scripts/ai/verify.sh` now enables strict ownership enforcement by default (`CHUMMER_ENFORCE_CONSUMER_OWNERSHIP=1`), so live cross-repo ownership drift in `chummer.run-services/Chummer.Run.Contracts/PipelineObservabilityContracts.cs` fails the default verification path.
 - No duplicate backlog artifact created; this file remains the canonical runnable backlog for the install/review/compatibility/runtime-bundle-head package-boundary slice.
 
-Remaining runnable follow-up from the same feedback bundle:
+Remaining runnable follow-up from the accumulated feedback bundles:
 
 1. Cut over run-services compatibility observability DTO declarations to package consumption.
 - Remove source-owned `PipelineProjectionEnvelope` and related `Pipeline*Projection` DTO declarations from `chummer.run-services/Chummer.Run.Contracts/PipelineObservabilityContracts.cs`.
 - Replace call sites with package-owned `Chummer.Hub.Registry.Contracts` compatibility DTO consumption.
 - Re-run `scripts/ai/verify.sh` and confirm the ownership gate no longer reports compatibility-root violations.
+
+2. Publish explicit package-owned desktop route truth for runtime-bundle and install channel selection.
+- Add canonical registry metadata for primary desktop head, fallback desktop head, platform promotion state, parity posture, and rollback/revoke posture.
+- Ensure the registry response can answer recommended head per platform, whether the selected head is flagship or fallback, and why the route/channel was chosen.
+- Add verifier coverage that fails when promoted desktop routes are emitted without explicit primary/fallback classification and parity posture.
 
 Date: 2026-03-22 (`/fast` system re-entry replay, deduplicated current-run evidence)
 Audit source: required disk/context/feedback reload set, `.codex-studio/published/QUEUE.generated.yaml`, unread feedback files in order (`feedback/2026-03-21-github-review-pr.md`, `feedback/2026-03-22-github-review-pr.md`), `./scripts/ai/verify.sh`, direct `Chummer.Run.Registry.Verify`, and advisory `Chummer.Hub.Registry.Contracts.Verify` with `CHUMMER_RUN_SERVICES_ROOT=/docker/chummercomplete/chummer.run-services` plus `CHUMMER_PRESENTATION_ROOT=/docker/chummercomplete/chummer-presentation`
@@ -122,3 +127,12 @@ Result:
 - Re-ran `dotnet run --project Chummer.Run.Registry.Verify/Chummer.Run.Registry.Verify.csproj -v q`; in-repo runtime verification remains green (`Registry runtime verification passed.`).
 - Re-ran advisory contracts verification with `CHUMMER_ENFORCE_CONSUMER_OWNERSHIP=0`, `CHUMMER_RUN_SERVICES_ROOT=/docker/chummercomplete/chummer.run-services`, and `CHUMMER_PRESENTATION_ROOT=/docker/chummercomplete/chummer-presentation`; advisory drift remains unchanged and scoped to the same downstream run-services compatibility DTO ownership set.
 - Blocker remains external to this repository boundary: downstream `chummer.run-services` must complete compatibility observability DTO package cutover before strict default verification can pass.
+
+Date: 2026-04-11 (`/fast` system re-entry replay, cross-repo-contract lane)
+Audit source: required disk/context reload set, `.codex-studio/published/QUEUE.generated.yaml`, unread feedback replay in order (`feedback/2026-04-11-201723-primary-route-truth.md`, `feedback/2026-04-11-204446-audit-task-11712.md`), and `./scripts/ai/verify.sh`
+
+Result:
+
+- Revalidated this file as the canonical runnable backlog artifact for queue item "Publish or append runnable backlog for Install, review, compatibility, and runtime-bundle head seams are not yet a package-only registry boundary.." with no duplicate backlog document creation.
+- Ingested primary/fallback route feedback by appending an explicit runnable follow-up to publish authoritative package-owned desktop route truth (primary/fallback recommendation, parity posture, and route reason) so downstream shelves stop emitting hand-wavy route messaging.
+- Noted the separate design-mirror audit publication (`audit-task-11712`) is outside this slice; no cross-slice backlog duplication was introduced here.
