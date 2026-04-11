@@ -1,0 +1,30 @@
+{
+  "artifacts": [
+    "ARTIFACT_PUBLICATION_CERTIFICATION.generated.json",
+    "QUEUE.generated.yaml",
+    "RELEASE_CHANNEL.generated.json",
+    "WORKPACKAGES.generated.yaml",
+    "releases.json"
+  ],
+  "dispatchable_truth_contract": {
+    "capacity_compile_required_separately": false,
+    "design_compile_required_separately": true,
+    "execution_compile_required": false,
+    "package_compile_required_separately": false,
+    "policy_compile_required_separately": false,
+    "scope": "execution_truth_only"
+  },
+  "dispatchable_truth_ready": false,
+  "lifecycle": "scaffold",
+  "published_at": "2026-04-01T14:44:31Z",
+  "schema_version": "2026-03-10.v1",
+  "stages": {
+    "capacity_compile": true,
+    "design_compile": true,
+    "execution_compile": true,
+    "package_compile": true,
+    "policy_compile": true
+  },
+  "target_id": "hub-registry",
+  "target_type": "project"
+}

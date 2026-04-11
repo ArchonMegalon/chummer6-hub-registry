@@ -78,6 +78,7 @@ printf 'broken-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer
 printf 'portable-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64.exe
 printf 'archive-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-linux-x64.tar.gz
 release_fixture_windows_digest="$(sha256sum /tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64-installer.exe | awk '{print $1}')"
+release_fixture_blazor_windows_digest="$(sha256sum /tmp/chummer-hub-registry-release-fixture/files/chummer-blazor-desktop-win-x64-installer.exe | awk '{print $1}')"
 cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
 {
   "status": "pass",
@@ -85,12 +86,33 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
+cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-blazor-desktop-win-x64.receipt.json <<'JSON'
+{
+  "status": "pass",
+  "readyCheckpoint": "pre_ui_event_loop",
+  "headId": "blazor-desktop",
+  "channelId": "preview",
+  "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
+  "rid": "win-x64",
+  "artifactId": "blazor-desktop-win-x64-installer",
+  "artifactPath": "files/chummer-blazor-desktop-win-x64-installer.exe",
+  "artifactDigest": "sha256:RELEASE_FIXTURE_BLAZOR_WINDOWS_DIGEST",
+  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
+}
+JSON
+sed -i "s/RELEASE_FIXTURE_BLAZOR_WINDOWS_DIGEST/${release_fixture_blazor_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-blazor-desktop-win-x64.receipt.json
 rm -rf /tmp/chummer-hub-registry-startup-smoke-filter-fixture
 mkdir -p /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files
 mkdir -p /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke
@@ -105,6 +127,7 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startu
   "headId": "avalonia",
   "channelId": "preview",
   "platform": "linux",
+  "rid": "linux-x64",
   "arch": "x64",
   "artifactDigest": "sha256:STARTUP_FILTER_LINUX_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT",
@@ -196,10 +219,12 @@ from pathlib import Path
 
 payload = json.loads(Path("/tmp/chummer-hub-registry-startup-smoke-filter-fixture/RELEASE_CHANNEL.generated.json").read_text(encoding="utf-8"))
 artifacts = {item["artifactId"]: item for item in payload.get("artifacts", [])}
-assert "avalonia-linux-x64-installer" in artifacts
-assert "avalonia-win-x64-installer" not in artifacts
-assert "avalonia-osx-arm64-installer" not in artifacts
+assert artifacts == {}
 assert all(str(item.get("channel") or "") == str(payload.get("channelId") or "") for item in artifacts.values())
+assert payload.get("rolloutState") == "unpublished"
+assert payload.get("supportabilityState") == "unpublished"
+assert "no release shelf is live" in str(payload.get("supportabilitySummary") or "").lower()
+assert "shelf is still empty" in str(payload.get("knownIssueSummary") or "").lower()
 coverage = payload.get("desktopTupleCoverage") or {}
 assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows", "macos"]
 assert coverage.get("requiredDesktopHeads") == ["avalonia", "blazor-desktop"]
@@ -211,10 +236,11 @@ assert sorted(coverage.get("requiredDesktopPlatformHeadRidTuples") or []) == sor
     "blazor-desktop:win-x64:windows",
     "blazor-desktop:osx-arm64:macos",
 ])
-assert coverage.get("promotedPlatformHeadRidTuples") == ["avalonia:linux-x64:linux"]
-assert coverage.get("missingRequiredPlatforms") == ["windows", "macos"]
-assert coverage.get("missingRequiredHeads") == ["blazor-desktop"]
+assert coverage.get("promotedPlatformHeadRidTuples") == []
+assert coverage.get("missingRequiredPlatforms") == ["linux", "windows", "macos"]
+assert coverage.get("missingRequiredHeads") == ["avalonia", "blazor-desktop"]
 assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == sorted([
+    "avalonia:linux",
     "blazor-desktop:linux",
     "avalonia:windows",
     "blazor-desktop:windows",
@@ -222,6 +248,7 @@ assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == sorted(
     "blazor-desktop:macos",
 ])
 assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == sorted([
+    "avalonia:linux-x64:linux",
     "avalonia:win-x64:windows",
     "avalonia:osx-arm64:macos",
     "blazor-desktop:linux-x64:linux",
@@ -230,7 +257,7 @@ assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == sor
 ])
 external_requests = coverage.get("externalProofRequests") or []
 assert sorted(item.get("tupleId") for item in external_requests) == sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or [])
-assert all(str(item.get("channelId") or "").strip() == str(canonical.get("channelId") or "").strip() for item in external_requests)
+assert all(str(item.get("channelId") or "").strip() == str(payload.get("channelId") or "").strip() for item in external_requests)
 assert all(item.get("requiredHost") == item.get("platform") for item in external_requests)
 assert all(sorted(item.get("requiredProofs") or []) == ["promoted_installer_artifact", "startup_smoke_receipt"] for item in external_requests)
 assert all(str(item.get("expectedArtifactId") or "").strip() for item in external_requests)
@@ -391,6 +418,7 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startu
   "headId": "avalonia",
   "channelId": "wrong-channel",
   "platform": "linux",
+  "rid": "linux-x64",
   "arch": "x64",
   "artifactDigest": "sha256:STARTUP_FILTER_LINUX_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
@@ -420,6 +448,7 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startu
   "headId": "avalonia",
   "channelId": "preview",
   "platform": "linux",
+  "rid": "linux-x64",
   "arch": "x64",
   "artifactDigest": "sha256:STARTUP_FILTER_LINUX_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_STALE_RECORDED_AT"
@@ -761,6 +790,50 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/proof.unexpected-route.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
+cp /tmp/chummer-hub-registry-release-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.artifact-route.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/proof.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["proof_routes"] = [
+  "/downloads/install/avalonia-linux-x64-installer",
+  "/home/access",
+  "/home/work",
+  "/account/work",
+  "/account/support",
+  "/contact",
+  "/downloads/install/avalonia-osx-arm64-installer"
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+payload = json.loads(Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json").read_text(encoding="utf-8"))
+assert payload["releaseProof"]["proofRoutes"] == [
+  "/downloads/install/avalonia-linux-x64-installer",
+  "/home/access",
+  "/home/work",
+  "/account/work",
+  "/account/support",
+  "/contact",
+  "/downloads/install/avalonia-osx-arm64-installer",
+  "/downloads/install/avalonia-win-x64-installer",
+  "/downloads/install/blazor-desktop-win-x64-installer",
+]
+PY
+mv /tmp/chummer-hub-registry-release-fixture/proof.artifact-route.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
 cp /tmp/chummer-hub-registry-release-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.noncanonical-route-order.backup.json
 python3 - <<'PY'
 import json
@@ -1315,11 +1388,6 @@ python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_
   --version 0.0.0-smoke \
   --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
   --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
-  echo "verify gate failed: verifier should reject bundle roots that still expose filtered-out desktop files." >&2
-  exit 1
-fi
-rm -f /tmp/chummer-hub-registry-release-fixture/files/chummer-blazor-desktop-win-x64-installer.exe
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture/releases.json
 cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json
@@ -1384,10 +1452,10 @@ from pathlib import Path
 path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
 payload = json.loads(path.read_text(encoding="utf-8"))
 coverage = payload.get("desktopTupleCoverage") or {}
-values = coverage.get("missingRequiredHeads") or []
-if not values:
-    raise SystemExit("verify gate failed: expected missingRequiredHeads values in release fixture.")
-coverage["missingRequiredHeads"] = values + ["tampered-head"]
+values = coverage.get("missingRequiredHeads")
+if values is None:
+    raise SystemExit("verify gate failed: expected desktopTupleCoverage.missingRequiredHeads in release fixture.")
+coverage["missingRequiredHeads"] = list(values) + ["tampered-head"]
 payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -2134,7 +2202,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -2147,7 +2219,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "wrong-channel",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -2164,7 +2240,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -2181,7 +2261,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:deadbeef",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -2197,7 +2281,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "readyCheckpoint": "pre_ui_event_loop",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -2223,7 +2311,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "blazor-desktop",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -2250,7 +2342,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "head": "blazor-desktop",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -2277,6 +2373,8 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "channelId": "preview",
   "platform": "linux",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -2302,6 +2400,8 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "preview",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -2327,6 +2427,10 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -2351,7 +2455,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "readyCheckpoint": "pre_ui_event_loop",
   "headId": "avalonia",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -2378,7 +2486,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "channelId": "preview",
   "channel": "stable",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -2404,7 +2516,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "stable",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -2430,7 +2546,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST"
 }
 JSON
@@ -2455,7 +2575,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_STALE_RECORDED_AT"
 }
@@ -2481,7 +2605,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FUTURE_RECORDED_AT"
 }
@@ -2507,7 +2635,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -2533,7 +2665,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-arm64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -2559,7 +2695,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "arch": "arm64",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
@@ -2586,7 +2726,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "arch": "arm64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -2612,7 +2756,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
 JSON
@@ -2651,7 +2799,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
   "headId": "avalonia",
   "channelId": "preview",
   "platform": "windows",
+  "hostClass": "windows-host",
+  "operatingSystem": "Windows",
   "rid": "win-x64",
+  "artifactId": "avalonia-win-x64-installer",
+  "artifactPath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactDigest": "sha256:RELEASE_FIXTURE_WINDOWS_DIGEST",
   "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
 }
@@ -3382,6 +3534,27 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_re
   echo "verify gate failed: verifier should reject releaseProof.proofRoutes when unexpected flagship routes are present." >&2
   exit 1
 fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["releaseProof"]["proofRoutes"] = [
+  "/downloads/install/avalonia-linux-x64-installer",
+  "/home/access",
+  "/home/work",
+  "/account/work",
+  "/account/support",
+  "/contact",
+  "/downloads/install/avalonia-osx-arm64-installer",
+  "/downloads/install/avalonia-win-x64-installer"
+]
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
 cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
 python3 - <<'PY'
@@ -4956,11 +5129,12 @@ compat = json.loads(Path("/tmp/chummer-hub-registry-release-fixture/releases.jso
 
 artifacts = {item["artifactId"]: item for item in canonical["artifacts"]}
 assert artifacts["avalonia-win-x64-installer"]["kind"] == "installer"
+assert artifacts["blazor-desktop-win-x64-installer"]["kind"] == "installer"
 assert artifacts["avalonia-win-x64-portable"]["kind"] == "portable"
 assert artifacts["avalonia-linux-x64-archive"]["kind"] == "archive"
-assert "blazor-desktop-win-x64-installer" not in artifacts
 assert all(str(item.get("channel") or "") == str(canonical.get("channelId") or "") for item in artifacts.values())
 assert artifacts["avalonia-win-x64-installer"]["compatibilityState"] == "compatible"
+assert artifacts["blazor-desktop-win-x64-installer"]["compatibilityState"] == "compatible"
 assert artifacts["avalonia-win-x64-portable"]["compatibilityState"] == "compatible"
 assert artifacts["avalonia-linux-x64-archive"]["compatibilityState"] == "compatible"
 assert canonical["rolloutState"] == "coverage_incomplete"
@@ -5042,13 +5216,15 @@ assert sorted(coverage.get("requiredDesktopPlatformHeadRidTuples") or []) == sor
     "blazor-desktop:win-x64:windows",
     "blazor-desktop:osx-arm64:macos",
 ])
-assert coverage.get("promotedPlatformHeadRidTuples") == ["avalonia:win-x64:windows"]
+assert sorted(coverage.get("promotedPlatformHeadRidTuples") or []) == sorted([
+    "avalonia:win-x64:windows",
+    "blazor-desktop:win-x64:windows",
+])
 assert coverage.get("missingRequiredPlatforms") == ["linux", "macos"]
-assert coverage.get("missingRequiredHeads") == ["blazor-desktop"]
+assert coverage.get("missingRequiredHeads") == []
 assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == sorted([
     "avalonia:linux",
     "blazor-desktop:linux",
-    "blazor-desktop:windows",
     "avalonia:macos",
     "blazor-desktop:macos",
 ])
@@ -5056,7 +5232,6 @@ assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == sor
     "avalonia:linux-x64:linux",
     "avalonia:osx-arm64:macos",
     "blazor-desktop:linux-x64:linux",
-    "blazor-desktop:win-x64:windows",
     "blazor-desktop:osx-arm64:macos",
 ])
 external_requests = coverage.get("externalProofRequests") or []
@@ -5066,6 +5241,7 @@ assert all(item.get("requiredHost") == item.get("platform") for item in external
 assert all(sorted(item.get("requiredProofs") or []) == ["promoted_installer_artifact", "startup_smoke_receipt"] for item in external_requests)
 
 downloads = {item["id"]: item for item in compat["downloads"]}
+assert downloads["blazor-desktop-win-x64-installer"]["kind"] == "installer"
 assert downloads["avalonia-win-x64-portable"]["kind"] == "portable"
 assert downloads["avalonia-linux-x64-archive"]["format"] == "tar.gz"
 assert compat["supportabilityState"] == "review_required"

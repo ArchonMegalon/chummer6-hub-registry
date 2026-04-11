@@ -1,13 +1,14 @@
-source_queue_fingerprint: f6af64eb2e93eef8b1996c6067f7033b42bdbfbb
+source_queue_fingerprint: 63cfe6e85c12c3ae99c49fd3a810351cd56a170f
 work_packages:
-- package_id: hub-registry-package-compile-f6af64eb2e
+- package_id: hub-registry-package-compile-63cfe6e85c12
   package_kind: package_compile
   horizon_family: package-compile
   title: Compile booster-ready work packages from queue truth
   allowed_lanes:
-  - core_authority
-  allow_credit_burn: true
-  premium_required: true
+  - easy
+  - groundwork
+  allow_credit_burn: false
+  premium_required: false
   required_reviewer_lane: core_authority
   final_reviewer_lane: core_authority
   landing_lane: core_authority

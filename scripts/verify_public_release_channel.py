@@ -83,6 +83,9 @@ REQUIRED_RELEASE_PROOF_ROUTES = (
     "/account/support",
     "/contact",
 )
+RELEASE_PROOF_ARTIFACT_INSTALL_ROUTE_RE = re.compile(
+    r"^/downloads/install/(?P<artifact_id>[a-z0-9][a-z0-9-]*)$"
+)
 ALLOWED_RELEASE_PROOF_KEYS = (
     "status",
     "generatedAt",
@@ -488,6 +491,45 @@ def normalize_release_proof_route(raw_route: object, *, field_path: str, source:
     return canonical_route
 
 
+def validate_release_proof_route_set(routes: list[str], *, source: str) -> list[str]:
+    missing_required_proof_routes = sorted(
+        route
+        for route in REQUIRED_RELEASE_PROOF_ROUTES
+        if route not in routes
+    )
+    if missing_required_proof_routes:
+        raise SystemExit(
+            "releaseProof.proofRoutes is missing required flagship routes "
+            f"({', '.join(missing_required_proof_routes)}) in {source}"
+        )
+
+    required_route_order = list(REQUIRED_RELEASE_PROOF_ROUTES)
+    required_prefix = routes[: len(required_route_order)]
+    if required_prefix != required_route_order:
+        raise SystemExit(
+            "releaseProof.proofRoutes must preserve canonical flagship route ordering "
+            f"(actual={routes}, expected_prefix={required_route_order}) in {source}"
+        )
+
+    additional_routes = routes[len(required_route_order) :]
+    invalid_additional_routes = sorted(
+        route
+        for route in additional_routes
+        if RELEASE_PROOF_ARTIFACT_INSTALL_ROUTE_RE.fullmatch(route) is None
+    )
+    if invalid_additional_routes:
+        raise SystemExit(
+            "releaseProof.proofRoutes declares unexpected non-artifact install routes "
+            f"({', '.join(invalid_additional_routes)}) in {source}"
+        )
+    if additional_routes != sorted(additional_routes):
+        raise SystemExit(
+            "releaseProof.proofRoutes additional artifact install routes must use canonical ordering "
+            f"(actual={additional_routes}, expected={sorted(additional_routes)}) in {source}"
+        )
+    return required_route_order + additional_routes
+
+
 def normalize_release_proof_base_url(raw_base_url: object, *, field_path: str, source: str) -> str:
     if not isinstance(raw_base_url, str):
         raise SystemExit(f"{field_path} must be a string in {source}")
@@ -723,10 +765,15 @@ def verify_startup_smoke_receipt_host_class(
     source: str,
 ) -> None:
     host_class = normalized_receipt_host_class(receipt)
-    platform_token = normalized_platform_token(platform)
     if not host_class:
         raise SystemExit(f"{source} startup-smoke receipt hostClass is missing")
-    if platform_token and platform_token not in host_class:
+    platform_token = normalized_platform_token(platform)
+    expected_platform_tokens = {
+        "linux": ("linux",),
+        "windows": ("win", "windows"),
+        "macos": ("osx", "macos"),
+    }.get(platform_token, (platform_token,))
+    if platform_token and not any(token in host_class for token in expected_platform_tokens):
         raise SystemExit(
             f"{source} startup-smoke receipt hostClass does not satisfy required host token '{platform_token}'"
         )
@@ -750,7 +797,26 @@ def startup_smoke_operating_system_matches_platform(receipt: dict[str, Any], *, 
     if platform_token == "macos":
         return any(token in operating_system for token in ("macos", "mac os", "darwin", "os x"))
     if platform_token == "linux":
-        return "linux" in operating_system
+        return any(
+            token in operating_system
+            for token in (
+                "linux",
+                "ubuntu",
+                "debian",
+                "centos",
+                "fedora",
+                "rhel",
+                "alpine",
+                "arch",
+                "opensuse",
+                "suse",
+                "kali",
+                "mint",
+                "pop",
+                "nixos",
+                "wsl",
+            )
+        )
     return platform_token in operating_system
 
 
@@ -1976,32 +2042,10 @@ def verify_release_truth(payload: dict, source: str) -> None:
             "releaseProof.proofRoutes must not contain duplicate routes after normalization "
             f"({', '.join(duplicate_proof_routes)}) in {source}"
         )
-    missing_required_proof_routes = sorted(
-        route
-        for route in REQUIRED_RELEASE_PROOF_ROUTES
-        if route not in normalized_proof_routes
+    normalized_proof_routes = validate_release_proof_route_set(
+        normalized_proof_routes,
+        source=source,
     )
-    if missing_required_proof_routes:
-        raise SystemExit(
-            "releaseProof.proofRoutes is missing required flagship routes "
-            f"({', '.join(missing_required_proof_routes)}) in {source}"
-        )
-    unexpected_proof_routes = sorted(
-        route
-        for route in normalized_proof_routes
-        if route not in REQUIRED_RELEASE_PROOF_ROUTES
-    )
-    if unexpected_proof_routes:
-        raise SystemExit(
-            "releaseProof.proofRoutes declares unexpected flagship routes "
-            f"({', '.join(unexpected_proof_routes)}) in {source}"
-        )
-    required_route_order = list(REQUIRED_RELEASE_PROOF_ROUTES)
-    if normalized_proof_routes != required_route_order:
-        raise SystemExit(
-            "releaseProof.proofRoutes must preserve canonical flagship route ordering "
-            f"(actual={normalized_proof_routes}, expected={required_route_order}) in {source}"
-        )
 
     ui_localization_release_gate = resolve_alias_value(
         proof,
