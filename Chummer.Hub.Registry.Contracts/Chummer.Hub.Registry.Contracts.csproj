@@ -4,6 +4,7 @@
     <TargetFramework>net10.0</TargetFramework>
     <ImplicitUsings>enable</ImplicitUsings>
     <Nullable>enable</Nullable>
+    <RuntimeIdentifiers Condition="'$(RuntimeIdentifiers)' == '' and '$(RuntimeIdentifier)' != ''">$(RuntimeIdentifier)</RuntimeIdentifiers>
     <PackageId>Chummer.Hub.Registry.Contracts</PackageId>
     <Title>Chummer Hub Registry Contracts</Title>
     <Description>Immutable contract surface for Hub registry artifacts, publication, moderation, installs, compatibility, and runtime-bundle heads.</Description>
