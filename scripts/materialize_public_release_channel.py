@@ -210,13 +210,11 @@ def startup_smoke_operating_system_matches_platform(loaded: dict[str, Any], *, p
 
 def normalize_platform_token(raw: Any) -> str:
     token = normalize_token(raw)
-    match token:
-        case "osx" | "darwin" | "mac":
-            return "macos"
-        case "win":
-            return "windows"
-        case _:
-            return token
+    if token in {"osx", "darwin", "mac"}:
+        return "macos"
+    if token == "win":
+        return "windows"
+    return token
 
 
 def startup_smoke_artifact_file_name_from_path(raw_path: Any) -> str:

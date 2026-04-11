@@ -1,22 +1,22 @@
 {
-  "generated_at": "2026-04-10T15:32:26Z",
-  "generatedAt": "2026-04-10T15:32:26Z",
+  "generated_at": "2026-04-11T19:43:00Z",
+  "generatedAt": "2026-04-11T19:43:00Z",
   "schemaVersion": 1,
   "product": "chummer6",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
-  "channelId": "preview",
-  "version": "run-20260410-123339",
-  "publishedAt": "2026-04-10T12:34:32Z",
-  "status": "published",
+  "channelId": "docker",
+  "version": "unpublished",
+  "publishedAt": "2026-04-11T19:42:21Z",
+  "status": "unpublished",
   "artifactSource": "ui_desktop_bundle",
   "message": null,
-  "rolloutState": "coverage_incomplete",
-  "rolloutReason": "Current shelf is published, but promotion stays blocked because required desktop tuple coverage is incomplete (platforms: windows; pairs: avalonia:windows, blazor-desktop:windows; tuples: avalonia:win-x64:windows, blazor-desktop:win-x64:windows).",
-  "supportabilityState": "review_required",
-  "supportabilitySummary": "Treat the current shelf as review-required because required desktop tuple coverage is incomplete (platforms: windows; pairs: avalonia:windows, blazor-desktop:windows; tuples: avalonia:win-x64:windows, blazor-desktop:win-x64:windows).",
-  "knownIssueSummary": "Known issue: required desktop tuple coverage is incomplete (platforms: windows; pairs: avalonia:windows, blazor-desktop:windows; tuples: avalonia:win-x64:windows, blazor-desktop:win-x64:windows).",
-  "fixAvailabilitySummary": "Do not send fixed notices until required desktop tuple coverage is complete for the promoted shelf.",
+  "rolloutState": "unpublished",
+  "rolloutReason": "No published artifact shelf exists yet.",
+  "supportabilityState": "unpublished",
+  "supportabilitySummary": "No published channel support posture exists because no release shelf is live.",
+  "knownIssueSummary": "No active channel issues are published because the shelf is still empty.",
+  "fixAvailabilitySummary": "Fix notices should stay pending until a published shelf exists.",
   "releaseProof": {
     "status": "passed",
     "generatedAt": "2026-04-10T04:40:41Z",
@@ -34,14 +34,12 @@
       "/account/work",
       "/account/support",
       "/contact",
-      "/downloads/install/avalonia-osx-arm64-installer",
-      "/downloads/install/blazor-desktop-linux-x64-installer",
-      "/downloads/install/blazor-desktop-osx-arm64-installer"
+      "/downloads/install/blazor-desktop-linux-x64-installer"
     ],
     "uiLocalizationReleaseGate": {
       "status": "pass",
-      "generatedAt": "2026-04-10T15:18:10Z",
-      "defaultKeyCount": 774,
+      "generatedAt": "2026-04-11T19:18:59Z",
+      "defaultKeyCount": 383,
       "explicitFallbackRuntime": "pass",
       "signoffSmokeRunnerStatus": "pass",
       "shippingLocales": [
@@ -56,8 +54,8 @@
         {
           "locale": "en-us",
           "untranslatedKeyCount": 0,
-          "overrideCount": 774,
-          "minimumOverrideCount": 774,
+          "overrideCount": 383,
+          "minimumOverrideCount": 383,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
           "legacyDataXmlPresent": true
@@ -65,7 +63,7 @@
         {
           "locale": "de-de",
           "untranslatedKeyCount": 0,
-          "overrideCount": 777,
+          "overrideCount": 383,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -74,7 +72,7 @@
         {
           "locale": "fr-fr",
           "untranslatedKeyCount": 0,
-          "overrideCount": 774,
+          "overrideCount": 383,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -83,7 +81,7 @@
         {
           "locale": "ja-jp",
           "untranslatedKeyCount": 0,
-          "overrideCount": 774,
+          "overrideCount": 383,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -92,7 +90,7 @@
         {
           "locale": "pt-br",
           "untranslatedKeyCount": 0,
-          "overrideCount": 777,
+          "overrideCount": 383,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -101,7 +99,7 @@
         {
           "locale": "zh-cn",
           "untranslatedKeyCount": 0,
-          "overrideCount": 774,
+          "overrideCount": 383,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -186,19 +184,19 @@
       "kind": "installer",
       "fileName": "chummer-avalonia-linux-x64-installer.deb",
       "downloadUrl": "/downloads/files/chummer-avalonia-linux-x64-installer.deb",
-      "sha256": "602e09651c2a4f74ba4e914968fd6e1ec9d8e845c073326943967a3becefc21b",
-      "sizeBytes": 35000278,
+      "sha256": "d97ea93d9dc45d59b7a19671e9e4008ee899e5d7276e7c70b8855f3b52b6d049",
+      "sizeBytes": 34731064,
       "platformLabel": "Avalonia Desktop Linux X64 Installer",
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
-      "compatibilityState": "compatible",
+      "compatibilityState": "unknown",
       "installAccessClass": "open_public",
-      "channelId": "preview",
-      "channel": "preview",
-      "version": "run-20260410-123339",
-      "releaseVersion": "run-20260410-123339",
-      "generated_at": "2026-04-10T15:32:26Z",
-      "generatedAt": "2026-04-10T15:32:26Z",
+      "channelId": "docker",
+      "channel": "docker",
+      "version": "unpublished",
+      "releaseVersion": "unpublished",
+      "generated_at": "2026-04-11T19:43:00Z",
+      "generatedAt": "2026-04-11T19:43:00Z",
       "id": "avalonia-linux-x64-installer"
     },
     {
@@ -210,164 +208,20 @@
       "kind": "installer",
       "fileName": "chummer-blazor-desktop-linux-x64-installer.deb",
       "downloadUrl": "/downloads/files/chummer-blazor-desktop-linux-x64-installer.deb",
-      "sha256": "275192e41b0a32fe97240d955d94496bcb471ac0b5b4a8caa1f918fa682ac883",
-      "sizeBytes": 37390846,
+      "sha256": "ecb5d916470f84cc58c97653a6079634145014c235f7c8ff5255f22e889e999a",
+      "sizeBytes": 37129550,
       "platformLabel": "Blazor Desktop Linux X64 Installer",
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
-      "compatibilityState": "compatible",
+      "compatibilityState": "unknown",
       "installAccessClass": "open_public",
-      "channelId": "preview",
-      "channel": "preview",
-      "version": "run-20260410-123339",
-      "releaseVersion": "run-20260410-123339",
-      "generated_at": "2026-04-10T15:32:26Z",
-      "generatedAt": "2026-04-10T15:32:26Z",
+      "channelId": "docker",
+      "channel": "docker",
+      "version": "unpublished",
+      "releaseVersion": "unpublished",
+      "generated_at": "2026-04-11T19:43:00Z",
+      "generatedAt": "2026-04-11T19:43:00Z",
       "id": "blazor-desktop-linux-x64-installer"
-    },
-    {
-      "artifactId": "avalonia-osx-arm64-installer",
-      "head": "avalonia",
-      "rid": "osx-arm64",
-      "platform": "macos",
-      "arch": "arm64",
-      "kind": "installer",
-      "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
-      "downloadUrl": "/downloads/files/chummer-avalonia-osx-arm64-installer.dmg",
-      "sha256": "69baf0fb19c38abf83d52a40268dac39a1913a7b87db6de7a29614a2fa3c1097",
-      "sizeBytes": 50309905,
-      "platformLabel": "Avalonia Desktop macOS ARM64 Installer",
-      "updateFeedUrl": null,
-      "embeddedRuntimeBundleHeadId": null,
-      "compatibilityState": "compatible",
-      "installAccessClass": "account_required",
-      "channelId": "preview",
-      "channel": "preview",
-      "version": "run-20260410-123339",
-      "releaseVersion": "run-20260410-123339",
-      "generated_at": "2026-04-10T15:32:26Z",
-      "generatedAt": "2026-04-10T15:32:26Z",
-      "id": "avalonia-osx-arm64-installer"
-    },
-    {
-      "artifactId": "blazor-desktop-osx-arm64-installer",
-      "head": "blazor-desktop",
-      "rid": "osx-arm64",
-      "platform": "macos",
-      "arch": "arm64",
-      "kind": "installer",
-      "fileName": "chummer-blazor-desktop-osx-arm64-installer.dmg",
-      "downloadUrl": "/downloads/files/chummer-blazor-desktop-osx-arm64-installer.dmg",
-      "sha256": "586a5af64beb0d43f104c1b2cb3659d167efb40cf65db252d06b51221140bc21",
-      "sizeBytes": 50298543,
-      "platformLabel": "Blazor Desktop macOS ARM64 Installer",
-      "updateFeedUrl": null,
-      "embeddedRuntimeBundleHeadId": null,
-      "compatibilityState": "compatible",
-      "installAccessClass": "account_required",
-      "channelId": "preview",
-      "channel": "preview",
-      "version": "run-20260410-123339",
-      "releaseVersion": "run-20260410-123339",
-      "generated_at": "2026-04-10T15:32:26Z",
-      "generatedAt": "2026-04-10T15:32:26Z",
-      "id": "blazor-desktop-osx-arm64-installer"
-    },
-    {
-      "artifactId": "avalonia-linux-x64-archive",
-      "head": "avalonia",
-      "rid": "linux-x64",
-      "platform": "linux",
-      "arch": "x64",
-      "kind": "archive",
-      "fileName": "chummer-avalonia-linux-x64.tar.gz",
-      "downloadUrl": "/downloads/files/chummer-avalonia-linux-x64.tar.gz",
-      "sha256": "9088c42c320d6e0a93b8e8233df8d9862eb02b9cad3a88a2f914e5bee595a5d3",
-      "sizeBytes": 42997935,
-      "platformLabel": "Avalonia Desktop Linux X64",
-      "updateFeedUrl": null,
-      "embeddedRuntimeBundleHeadId": null,
-      "compatibilityState": "compatible",
-      "installAccessClass": "open_public",
-      "channelId": "preview",
-      "channel": "preview",
-      "version": "run-20260410-123339",
-      "releaseVersion": "run-20260410-123339",
-      "generated_at": "2026-04-10T15:32:26Z",
-      "generatedAt": "2026-04-10T15:32:26Z",
-      "id": "avalonia-linux-x64-archive"
-    },
-    {
-      "artifactId": "blazor-desktop-linux-x64-archive",
-      "head": "blazor-desktop",
-      "rid": "linux-x64",
-      "platform": "linux",
-      "arch": "x64",
-      "kind": "archive",
-      "fileName": "chummer-blazor-desktop-linux-x64.tar.gz",
-      "downloadUrl": "/downloads/files/chummer-blazor-desktop-linux-x64.tar.gz",
-      "sha256": "55eea738dd92e4e0e16740f7c989f2fa31b7870d8ab74719c07ed3583517a5dd",
-      "sizeBytes": 46722170,
-      "platformLabel": "Blazor Desktop Linux X64",
-      "updateFeedUrl": null,
-      "embeddedRuntimeBundleHeadId": null,
-      "compatibilityState": "compatible",
-      "installAccessClass": "open_public",
-      "channelId": "preview",
-      "channel": "preview",
-      "version": "run-20260410-123339",
-      "releaseVersion": "run-20260410-123339",
-      "generated_at": "2026-04-10T15:32:26Z",
-      "generatedAt": "2026-04-10T15:32:26Z",
-      "id": "blazor-desktop-linux-x64-archive"
-    },
-    {
-      "artifactId": "avalonia-osx-arm64-archive",
-      "head": "avalonia",
-      "rid": "osx-arm64",
-      "platform": "macos",
-      "arch": "arm64",
-      "kind": "archive",
-      "fileName": "chummer-avalonia-osx-arm64.tar.gz",
-      "downloadUrl": "/downloads/files/chummer-avalonia-osx-arm64.tar.gz",
-      "sha256": "07a9da02e9ae37021d3274d54f4c40363bc3b3fc569602c70046990ca239221d",
-      "sizeBytes": 44212988,
-      "platformLabel": "Avalonia Desktop macOS ARM64",
-      "updateFeedUrl": null,
-      "embeddedRuntimeBundleHeadId": null,
-      "compatibilityState": "compatible",
-      "installAccessClass": "open_public",
-      "channelId": "preview",
-      "channel": "preview",
-      "version": "run-20260410-123339",
-      "releaseVersion": "run-20260410-123339",
-      "generated_at": "2026-04-10T15:32:26Z",
-      "generatedAt": "2026-04-10T15:32:26Z",
-      "id": "avalonia-osx-arm64-archive"
-    },
-    {
-      "artifactId": "blazor-desktop-osx-arm64-archive",
-      "head": "blazor-desktop",
-      "rid": "osx-arm64",
-      "platform": "macos",
-      "arch": "arm64",
-      "kind": "archive",
-      "fileName": "chummer-blazor-desktop-osx-arm64.tar.gz",
-      "downloadUrl": "/downloads/files/chummer-blazor-desktop-osx-arm64.tar.gz",
-      "sha256": "2ed2865eee2fafa04707ccf522b80e632ba5d147cc0d01a6fe601d3bd0d9cd33",
-      "sizeBytes": 44331185,
-      "platformLabel": "Blazor Desktop macOS ARM64",
-      "updateFeedUrl": null,
-      "embeddedRuntimeBundleHeadId": null,
-      "compatibilityState": "compatible",
-      "installAccessClass": "open_public",
-      "channelId": "preview",
-      "channel": "preview",
-      "version": "run-20260410-123339",
-      "releaseVersion": "run-20260410-123339",
-      "generated_at": "2026-04-10T15:32:26Z",
-      "generatedAt": "2026-04-10T15:32:26Z",
-      "id": "blazor-desktop-osx-arm64-archive"
     }
   ],
   "desktopTupleCoverage": {
@@ -398,24 +252,6 @@
         "arch": "x64",
         "kind": "installer",
         "artifactId": "blazor-desktop-linux-x64-installer"
-      },
-      {
-        "tupleId": "avalonia:macos:osx-arm64",
-        "head": "avalonia",
-        "platform": "macos",
-        "rid": "osx-arm64",
-        "arch": "arm64",
-        "kind": "installer",
-        "artifactId": "avalonia-osx-arm64-installer"
-      },
-      {
-        "tupleId": "blazor-desktop:macos:osx-arm64",
-        "head": "blazor-desktop",
-        "platform": "macos",
-        "rid": "osx-arm64",
-        "arch": "arm64",
-        "kind": "installer",
-        "artifactId": "blazor-desktop-osx-arm64-installer"
       }
     ],
     "promotedPlatformHeads": {
@@ -424,10 +260,7 @@
         "blazor-desktop"
       ],
       "windows": [],
-      "macos": [
-        "avalonia",
-        "blazor-desktop"
-      ]
+      "macos": []
     },
     "requiredDesktopPlatformHeadRidTuples": [
       "avalonia:linux-x64:linux",
@@ -439,26 +272,63 @@
     ],
     "promotedPlatformHeadRidTuples": [
       "avalonia:linux-x64:linux",
-      "avalonia:osx-arm64:macos",
-      "blazor-desktop:linux-x64:linux",
-      "blazor-desktop:osx-arm64:macos"
+      "blazor-desktop:linux-x64:linux"
     ],
     "missingRequiredPlatforms": [
-      "windows"
+      "windows",
+      "macos"
     ],
     "missingRequiredHeads": [],
     "missingRequiredPlatformHeadPairs": [
       "avalonia:windows",
-      "blazor-desktop:windows"
+      "blazor-desktop:windows",
+      "avalonia:macos",
+      "blazor-desktop:macos"
     ],
     "missingRequiredPlatformHeadRidTuples": [
+      "avalonia:osx-arm64:macos",
       "avalonia:win-x64:windows",
+      "blazor-desktop:osx-arm64:macos",
       "blazor-desktop:win-x64:windows"
     ],
     "externalProofRequests": [
       {
+        "tupleId": "avalonia:osx-arm64:macos",
+        "channelId": "docker",
+        "head": "avalonia",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "requiredHost": "macos",
+        "requiredProofs": [
+          "promoted_installer_artifact",
+          "startup_smoke_receipt"
+        ],
+        "expectedArtifactId": "avalonia-osx-arm64-installer",
+        "expectedInstallerFileName": "chummer-avalonia-osx-arm64-installer.dmg",
+        "expectedInstallerRelativePath": "files/chummer-avalonia-osx-arm64-installer.dmg",
+        "expectedInstallerSha256": "",
+        "expectedPublicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
+        "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-avalonia-osx-arm64.receipt.json",
+        "startupSmokeReceiptContract": {
+          "statusAnyOf": [
+            "pass",
+            "passed",
+            "ready"
+          ],
+          "readyCheckpoint": "pre_ui_event_loop",
+          "headId": "avalonia",
+          "platform": "macos",
+          "rid": "osx-arm64",
+          "hostClassContains": "macos"
+        },
+        "proofCaptureCommands": [
+          "cd /docker/chummercomplete/chummer6-ui && CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=macos-host CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=macOS ./scripts/run-desktop-startup-smoke.sh /docker/chummercomplete/chummer6-ui/Docker/Downloads/files/chummer-avalonia-osx-arm64-installer.dmg avalonia osx-arm64 Chummer.Avalonia /docker/chummercomplete/chummer6-ui/Docker/Downloads/startup-smoke",
+          "cd /docker/chummercomplete/chummer6-ui && ./scripts/generate-releases-manifest.sh"
+        ]
+      },
+      {
         "tupleId": "avalonia:win-x64:windows",
-        "channelId": "preview",
+        "channelId": "docker",
         "head": "avalonia",
         "platform": "windows",
         "rid": "win-x64",
@@ -491,8 +361,42 @@
         ]
       },
       {
+        "tupleId": "blazor-desktop:osx-arm64:macos",
+        "channelId": "docker",
+        "head": "blazor-desktop",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "requiredHost": "macos",
+        "requiredProofs": [
+          "promoted_installer_artifact",
+          "startup_smoke_receipt"
+        ],
+        "expectedArtifactId": "blazor-desktop-osx-arm64-installer",
+        "expectedInstallerFileName": "chummer-blazor-desktop-osx-arm64-installer.dmg",
+        "expectedInstallerRelativePath": "files/chummer-blazor-desktop-osx-arm64-installer.dmg",
+        "expectedInstallerSha256": "",
+        "expectedPublicInstallRoute": "/downloads/install/blazor-desktop-osx-arm64-installer",
+        "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-blazor-desktop-osx-arm64.receipt.json",
+        "startupSmokeReceiptContract": {
+          "statusAnyOf": [
+            "pass",
+            "passed",
+            "ready"
+          ],
+          "readyCheckpoint": "pre_ui_event_loop",
+          "headId": "blazor-desktop",
+          "platform": "macos",
+          "rid": "osx-arm64",
+          "hostClassContains": "macos"
+        },
+        "proofCaptureCommands": [
+          "cd /docker/chummercomplete/chummer6-ui && CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=macos-host CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=macOS ./scripts/run-desktop-startup-smoke.sh /docker/chummercomplete/chummer6-ui/Docker/Downloads/files/chummer-blazor-desktop-osx-arm64-installer.dmg blazor-desktop osx-arm64 Chummer.Blazor.Desktop /docker/chummercomplete/chummer6-ui/Docker/Downloads/startup-smoke",
+          "cd /docker/chummercomplete/chummer6-ui && ./scripts/generate-releases-manifest.sh"
+        ]
+      },
+      {
         "tupleId": "blazor-desktop:win-x64:windows",
-        "channelId": "preview",
+        "channelId": "docker",
         "head": "blazor-desktop",
         "platform": "windows",
         "rid": "win-x64",
