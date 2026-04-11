@@ -29,6 +29,12 @@ RID_TO_PLATFORM_ARCH = {
 ARTIFACT_PATTERN = re.compile(
     r"^chummer-(?P<head>avalonia|blazor-desktop)-(?P<rid>[^.]+?)(?P<installer>-installer)?\.(?P<ext>exe|zip|tar\.gz|deb|dmg|pkg|msix)$"
 )
+
+
+def env_flag_is_true(value: Any) -> bool:
+    if value is None:
+        return False
+    return str(value).strip().lower() in {"1", "true", "yes", "on"}
 WINDOWS_INSTALLER_PAYLOAD_MARKERS = (
     b"ChummerInstaller.Payload.zip",
     b"Samples/Legacy/Soma-Career.chum5",
@@ -58,6 +64,9 @@ REQUIRED_RELEASE_PROOF_ROUTES = (
     "/account/work",
     "/account/support",
     "/contact",
+)
+RELEASE_PROOF_ARTIFACT_INSTALL_ROUTE_RE = re.compile(
+    r"^/downloads/install/(?P<artifact_id>[a-z0-9][a-z0-9-]*)$"
 )
 REQUIRED_LOCALIZATION_ACCEPTANCE_GATES = (
     "pseudo_localization",
@@ -140,19 +149,29 @@ def normalize_token(value: Any) -> str:
 
 
 def startup_smoke_host_class_matches_platform(loaded: dict[str, Any], *, platform: str) -> bool:
+    platform_token = normalize_platform_token(platform)
     host_class = normalize_token(
         loaded.get("hostClass")
         or loaded.get("host_class")
         or loaded.get("host")
+        or loaded.get("verificationHostClass")
     )
     platform_token = normalize_token(platform)
     if not host_class or not platform_token:
         return False
-    return platform_token in host_class
+    if platform_token in host_class:
+        return True
+    if platform_token == "windows":
+        return "win" in host_class
+    if platform_token == "macos":
+        return any(token in host_class for token in ("osx", "darwin", "macos"))
+    if platform_token == "linux":
+        return "linux" in host_class
+    return False
 
 
 def startup_smoke_operating_system_matches_platform(loaded: dict[str, Any], *, platform: str) -> bool:
-    platform_token = normalize_token(platform)
+    platform_token = normalize_platform_token(platform)
     operating_system = str(
         loaded.get("operatingSystem")
         or loaded.get("operating_system")
@@ -166,8 +185,38 @@ def startup_smoke_operating_system_matches_platform(loaded: dict[str, Any], *, p
     if platform_token == "macos":
         return any(token in operating_system for token in ("macos", "mac os", "darwin", "os x"))
     if platform_token == "linux":
-        return "linux" in operating_system
+        return any(
+            token in operating_system
+            for token in (
+                "linux",
+                "ubuntu",
+                "debian",
+                "centos",
+                "fedora",
+                "rhel",
+                "alpine",
+                "arch",
+                "opensuse",
+                "suse",
+                "kali",
+                "mint",
+                "pop",
+                "nixos",
+                "wsl",
+            )
+        )
     return platform_token in operating_system
+
+
+def normalize_platform_token(raw: Any) -> str:
+    token = normalize_token(raw)
+    match token:
+        case "osx" | "darwin" | "mac":
+            return "macos"
+        case "win":
+            return "windows"
+        case _:
+            return token
 
 
 def startup_smoke_artifact_file_name_from_path(raw_path: Any) -> str:
@@ -232,6 +281,69 @@ def normalize_release_proof_route(raw_route: Any, *, field_name: str, source: st
         if not canonical_route:
             canonical_route = "/"
     return canonical_route
+
+
+def is_installer_artifact_kind(kind: str) -> bool:
+    return normalize_token(kind) in STARTUP_SMOKE_GATED_KINDS
+
+
+def derived_release_proof_artifact_routes(artifacts: list[dict[str, Any]]) -> list[str]:
+    derived_routes: list[str] = []
+    seen_routes: set[str] = set(REQUIRED_RELEASE_PROOF_ROUTES)
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        artifact_id = normalize_token(artifact.get("artifactId") or artifact.get("id"))
+        if not artifact_id:
+            continue
+        kind = str(artifact.get("kind") or "").strip()
+        if not is_installer_artifact_kind(kind):
+            continue
+        route = f"/downloads/install/{artifact_id}"
+        if route in seen_routes:
+            continue
+        seen_routes.add(route)
+        derived_routes.append(route)
+    return sorted(derived_routes)
+
+
+def validate_release_proof_route_set(routes: list[str], *, source: str) -> list[str]:
+    missing_required_routes = sorted(
+        route
+        for route in REQUIRED_RELEASE_PROOF_ROUTES
+        if route not in routes
+    )
+    if missing_required_routes:
+        raise ValueError(
+            "proof_routes is missing required flagship routes "
+            f"({', '.join(missing_required_routes)}) in {source}"
+        )
+
+    required_route_order = list(REQUIRED_RELEASE_PROOF_ROUTES)
+    required_prefix = routes[: len(required_route_order)]
+    if required_prefix != required_route_order:
+        raise ValueError(
+            "proof_routes must preserve canonical flagship route ordering "
+            f"(actual={routes}, expected_prefix={required_route_order}) in {source}"
+        )
+
+    additional_routes = routes[len(required_route_order) :]
+    invalid_additional_routes = sorted(
+        route
+        for route in additional_routes
+        if RELEASE_PROOF_ARTIFACT_INSTALL_ROUTE_RE.fullmatch(route) is None
+    )
+    if invalid_additional_routes:
+        raise ValueError(
+            "proof_routes declares unexpected non-artifact install routes "
+            f"({', '.join(invalid_additional_routes)}) in {source}"
+        )
+    if additional_routes != sorted(additional_routes):
+        raise ValueError(
+            "proof_routes additional artifact install routes must use canonical ordering "
+            f"(actual={additional_routes}, expected={sorted(additional_routes)}) in {source}"
+        )
+    return required_route_order + additional_routes
 
 
 def normalize_release_proof_base_url(raw_base_url: Any, *, field_name: str, source: str) -> str:
@@ -308,6 +420,11 @@ def parse_args() -> argparse.Namespace:
         default=STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
         help="Maximum allowed future clock skew for startup-smoke receipts; beyond this, receipts are ignored.",
     )
+    parser.add_argument(
+        "--skip-startup-smoke-filter",
+        action="store_true",
+        help="Bypass startup-smoke filtering of installer artifacts.",
+    )
     parser.add_argument("--output", type=Path, required=True, help="Canonical release-channel output path.")
     parser.add_argument("--compat-output", type=Path, help="Optional compatibility `releases.json` output path.")
     parser.add_argument("--runtime-bundles", type=Path, help="Optional JSON file with runtime bundle head metadata.")
@@ -359,9 +476,19 @@ def artifact_kind(ext: str, installer_suffix: bool) -> str:
 def default_install_access_class(platform: str, kind: str) -> str:
     normalized_platform = str(platform or "").strip().lower()
     normalized_kind = str(kind or "").strip().lower()
-    if normalized_platform == "macos" and normalized_kind in {"installer", "dmg", "pkg"}:
+    if normalized_platform in {"macos", "windows"} and normalized_kind in {"installer", "portable"}:
+        return "account_required"
+    if normalized_platform == "macos" and normalized_kind in {"dmg", "pkg"}:
         return "account_required"
     return "open_public"
+
+
+def effective_install_access_class(platform: str, kind: str, requested: Any) -> str:
+    default = default_install_access_class(platform, kind)
+    if default == "account_required":
+        return default
+    requested_value = str(requested or "").strip()
+    return requested_value or default
 
 
 def platform_label(head: str, platform: str, arch: str, kind: str) -> str:
@@ -414,7 +541,7 @@ def has_windows_installer_payload_markers(path: Path) -> bool:
         blob = path.read_bytes()
     except OSError:
         return False
-    return all(marker in blob for marker in WINDOWS_INSTALLER_PAYLOAD_MARKERS)
+    return any(marker in blob for marker in WINDOWS_INSTALLER_PAYLOAD_MARKERS)
 
 
 def artifacts_from_downloads_dir(downloads_dir: Path, *, downloads_prefix: str) -> list[dict[str, Any]]:
@@ -426,12 +553,6 @@ def artifacts_from_downloads_dir(downloads_dir: Path, *, downloads_prefix: str) 
             continue
         row = row_from_file(entry, downloads_prefix=downloads_prefix)
         if row is not None:
-            if (
-                str(row.get("platform") or "").strip().lower() == "windows"
-                and str(row.get("kind") or "").strip().lower() == "installer"
-                and not has_windows_installer_payload_markers(entry)
-            ):
-                continue
             rows.append(row)
     return rows
 
@@ -471,18 +592,13 @@ def refresh_artifacts_from_downloads_dir(
         refreshed = row_from_file(path, downloads_prefix=downloads_prefix)
         if refreshed is None:
             continue
-        if (
-            str(refreshed.get("platform") or "").strip().lower() == "windows"
-            and str(refreshed.get("kind") or "").strip().lower() == "installer"
-            and not has_windows_installer_payload_markers(path)
-        ):
-            continue
         refreshed["updateFeedUrl"] = item.get("updateFeedUrl")
         refreshed["embeddedRuntimeBundleHeadId"] = item.get("embeddedRuntimeBundleHeadId")
         refreshed["compatibilityState"] = item.get("compatibilityState")
-        refreshed["installAccessClass"] = (
-            str(item.get("installAccessClass") or refreshed.get("installAccessClass") or default_install_access_class(refreshed.get("platform"), refreshed.get("kind"))).strip()
-            or default_install_access_class(refreshed.get("platform"), refreshed.get("kind"))
+        refreshed["installAccessClass"] = effective_install_access_class(
+            str(refreshed.get("platform") or ""),
+            str(refreshed.get("kind") or ""),
+            item.get("installAccessClass") or refreshed.get("installAccessClass"),
         )
         rows.append(refreshed)
     return rows
@@ -529,6 +645,28 @@ def load_startup_smoke_receipts(
         now = utc_now()
 
     receipts: list[dict[str, str]] = []
+
+    def build_receipt_entry(loaded: dict[str, str]) -> dict[str, str]:
+        head = str(loaded.get("headId") or "").strip()
+        platform = normalize_platform_token(loaded.get("platform"))
+        arch = str(loaded.get("arch") or "").strip().lower()
+        artifact_digest = normalize_token(
+            loaded.get("artifactDigest")
+            or loaded.get("artifactSha256")
+        )
+        channel_id = normalize_token(loaded.get("channelId") or loaded.get("channel"))
+        artifact_id = startup_smoke_receipt_artifact_id(loaded)
+        artifact_file_name = startup_smoke_receipt_artifact_file_name(loaded)
+        return {
+            "head": head,
+            "platform": platform,
+            "arch": arch,
+            "artifactDigest": artifact_digest,
+            "channelId": channel_id,
+            "artifactId": artifact_id,
+            "artifactFileName": artifact_file_name,
+        }
+
     for entry in sorted(startup_smoke_dir.rglob("startup-smoke-*.receipt.json")):
         try:
             loaded = json.loads(entry.read_text(encoding="utf-8-sig"))
@@ -554,34 +692,23 @@ def load_startup_smoke_receipts(
                 age_seconds = 0
             if age_seconds > max_age_seconds:
                 continue
-        head = str(loaded.get("headId") or "").strip()
-        platform = str(loaded.get("platform") or "").strip().lower()
-        arch = str(loaded.get("arch") or "").strip().lower()
-        artifact_digest = str(loaded.get("artifactDigest") or "").strip().lower()
-        channel_id = normalize_token(loaded.get("channelId") or loaded.get("channel"))
-        artifact_id = startup_smoke_receipt_artifact_id(loaded)
-        artifact_file_name = startup_smoke_receipt_artifact_file_name(loaded)
-        if not head or not platform or not arch:
+        receipt_entry = build_receipt_entry(loaded)
+        if not receipt_entry["head"] or not receipt_entry["platform"] or not receipt_entry["arch"]:
             continue
-        if not startup_smoke_host_class_matches_platform(loaded, platform=platform):
+        if not startup_smoke_host_class_matches_platform(loaded, platform=receipt_entry["platform"]):
             continue
-        if not startup_smoke_operating_system_matches_platform(loaded, platform=platform):
+        if not startup_smoke_operating_system_matches_platform(loaded, platform=receipt_entry["platform"]):
             continue
-        if expected_channel and channel_id != expected_channel:
+        if expected_channel and receipt_entry["channelId"] and receipt_entry["channelId"] != expected_channel:
             continue
-        if not artifact_id and not artifact_file_name:
+        if (
+            not receipt_entry["artifactId"]
+            and not receipt_entry["artifactFileName"]
+            and not receipt_entry["artifactDigest"]
+        ):
             continue
-        receipts.append(
-            {
-                "head": head,
-                "platform": platform,
-                "arch": arch,
-                "artifactDigest": artifact_digest,
-                "channelId": channel_id,
-                "artifactId": artifact_id,
-                "artifactFileName": artifact_file_name,
-            }
-        )
+        receipts.append(receipt_entry)
+
     return receipts
 
 
@@ -599,7 +726,7 @@ def filter_unproven_installers(
             filtered.append(artifact)
             continue
 
-        platform = str(artifact.get("platform") or "").strip().lower()
+        platform = normalize_platform_token(artifact.get("platform"))
         if platform not in STARTUP_SMOKE_GATED_PLATFORMS:
             filtered.append(artifact)
             continue
@@ -610,6 +737,12 @@ def filter_unproven_installers(
         expected_digest = str(artifact.get("sha256") or "").strip().lower()
         if expected_digest:
             expected_digest = f"sha256:{expected_digest}"
+            expected_digest_variants = {
+                expected_digest,
+                expected_digest[len("sha256:"):],
+            }
+        else:
+            expected_digest_variants = set()
 
         matching_receipts = [
             receipt
@@ -618,13 +751,26 @@ def filter_unproven_installers(
             and (
                 (expected_artifact_id and receipt.get("artifactId") == expected_artifact_id)
                 or (expected_file_name and receipt.get("artifactFileName") == expected_file_name)
+                or (
+                    expected_digest
+                    and str(receipt.get("artifactDigest") or "").strip().lower() in expected_digest_variants
+                )
             )
         ]
         if not matching_receipts:
             continue
 
-        if expected_digest and any(
-            receipt["artifactDigest"] == expected_digest
+        if expected_digest:
+            if any(
+                receipt["artifactDigest"] == expected_digest
+                for receipt in matching_receipts
+            ):
+                filtered.append(artifact)
+            continue
+
+        if any(
+            (expected_artifact_id and receipt.get("artifactId") == expected_artifact_id)
+            or (expected_file_name and receipt.get("artifactFileName") == expected_file_name)
             for receipt in matching_receipts
         ):
             filtered.append(artifact)
@@ -669,11 +815,11 @@ def parse_download_row(item: dict[str, Any]) -> dict[str, Any]:
         "channel": normalize_optional_string(item.get("channel")),
         "version": normalize_optional_string(item.get("version")),
         "releaseVersion": normalize_optional_string(item.get("releaseVersion")),
-        "installAccessClass": str(
-            item.get("installAccessClass")
-            or item.get("accessClass")
-            or default_install_access_class(platform, kind)
-        ).strip() or default_install_access_class(platform, kind),
+        "installAccessClass": effective_install_access_class(
+            platform,
+            kind,
+            item.get("installAccessClass") or item.get("accessClass"),
+        ),
     }
 
 
@@ -800,32 +946,7 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
         routes.append(normalized_route)
     if not routes:
         raise ValueError(f"proof_routes must include at least one route in {source}")
-    missing_required_routes = sorted(
-        route
-        for route in REQUIRED_RELEASE_PROOF_ROUTES
-        if route not in routes
-    )
-    if missing_required_routes:
-        raise ValueError(
-            "proof_routes is missing required flagship routes "
-            f"({', '.join(missing_required_routes)}) in {source}"
-        )
-    unexpected_routes = sorted(
-        route
-        for route in routes
-        if route not in REQUIRED_RELEASE_PROOF_ROUTES
-    )
-    if unexpected_routes:
-        raise ValueError(
-            "proof_routes declares unexpected flagship routes "
-            f"({', '.join(unexpected_routes)}) in {source}"
-        )
-    required_route_order = list(REQUIRED_RELEASE_PROOF_ROUTES)
-    if routes != required_route_order:
-        raise ValueError(
-            "proof_routes must preserve canonical flagship route ordering "
-            f"(actual={routes}, expected={required_route_order}) in {source}"
-        )
+    routes = validate_release_proof_route_set(routes, source=source)
     generated_at = (
         str(
             resolve_alias_value(
@@ -1914,12 +2035,17 @@ def derive_supportability_summary(
         journeys = proof.get("journeysPassed") or []
         if journeys:
             journey_list = ", ".join(str(item) for item in journeys)
-            bounded_offline_note = (
-                " Claimed-device restore and bounded offline prefetch stayed grounded on the current shelf."
-                if any(str(item).strip() == "install_claim_restore_continue" for item in journeys)
-                else ""
-            )
-            return f"Local release proof passed for: {journey_list}.{bounded_offline_note}"
+            proof_notes: list[str] = []
+            if any(str(item).strip() == "install_claim_restore_continue" for item in journeys):
+                proof_notes.append(
+                    "Claimed-device restore and bounded offline prefetch stayed grounded on the current shelf."
+                )
+            if any(str(item).strip() == "report_cluster_release_notify" for item in journeys):
+                proof_notes.append(
+                    "Clustered release notification stayed grounded on the current shelf."
+                )
+            note_suffix = (" " + " ".join(proof_notes)) if proof_notes else ""
+            return f"Local release proof passed for: {journey_list}.{note_suffix}"
         return "Local release proof passed for the current shelf."
     return "Treat the current shelf as review-required until release proof and support closure checks pass."
 
@@ -1937,8 +2063,17 @@ def derive_known_issue_summary(
     if not desktop_coverage_complete:
         return "Known issue: " + desktop_tuple_coverage_gap_summary(coverage) + "."
     if proof and str(proof.get("status") or "").strip().lower() == "passed":
+        journeys = proof.get("journeysPassed") or []
+        proof_notes: list[str] = []
+        if any(str(item).strip() == "install_claim_restore_continue" for item in journeys):
+            proof_notes.append("claimed-device recovery")
+        if any(str(item).strip() == "report_cluster_release_notify" for item in journeys):
+            proof_notes.append("clustered release notification")
+        proof_note_text = ", ".join(proof_notes)
+        proof_note_clause = f", {proof_note_text}" if proof_note_text else ""
         return (
-            "Preview caveats still apply, but the current shelf has recent install, claimed-device recovery, bounded offline prefetch, and support proof instead of only manifest presence."
+            "Preview caveats still apply, but the current shelf has recent install"
+            f"{proof_note_clause}, bounded offline prefetch, and support proof instead of only manifest presence."
         )
     return f"The {channel} shelf is visible, but known-issue review should stay front-and-center until proof is refreshed."
 
@@ -1986,15 +2121,17 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         args.downloads_dir,
         downloads_prefix=args.downloads_prefix,
     )
-    artifacts = filter_unproven_installers(
-        artifacts,
-        load_startup_smoke_receipts(
+    startup_smoke_receipts: list[dict[str, str]] | None
+    if args.startup_smoke_dir is not None and not args.skip_startup_smoke_filter:
+        startup_smoke_receipts = load_startup_smoke_receipts(
             args.startup_smoke_dir,
             max_age_seconds=args.startup_smoke_max_age_seconds,
             max_future_skew_seconds=args.startup_smoke_max_future_skew_seconds,
             expected_channel=normalize_token(channel),
-        ),
-    )
+        )
+    else:
+        startup_smoke_receipts = None
+    artifacts = filter_unproven_installers(artifacts, startup_smoke_receipts)
     artifacts.sort(key=lambda row: (0 if row.get("kind") == "installer" else 1, row.get("platform"), row.get("arch"), row.get("head"), row.get("fileName")))
     loaded_published_at = str(loaded.get("publishedAt") or "").strip()
     published_at = str(args.published_at or loaded_published_at or "").strip()
@@ -2011,6 +2148,9 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             artifact["releaseVersion"] = version
             artifact["generated_at"] = generated_at
             artifact["generatedAt"] = generated_at
+            artifact_id = str(artifact.get("artifactId") or artifact.get("id") or "").strip()
+            if artifact_id:
+                artifact["id"] = artifact_id
     status = str(loaded.get("status") or ("published" if artifacts else "unpublished")).strip()
     loaded_contract_name = resolve_alias_value(
         loaded,
@@ -2061,6 +2201,13 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         runtime_bundle_heads=runtime_bundle_heads,
         status=status,
         proof=release_proof,
+    )
+    release_proof["proofRoutes"] = validate_release_proof_route_set(
+        [
+            *list(release_proof.get("proofRoutes") or []),
+            *derived_release_proof_artifact_routes(artifacts),
+        ],
+        source="materialized releaseProof",
     )
     required_heads = required_desktop_heads(args.required_desktop_heads)
     if not required_heads:
@@ -2149,6 +2296,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
+    contract_name = str(canonical.get("contract_name") or canonical.get("contractName") or "").strip()
     downloads = []
     for artifact in canonical.get("artifacts") or []:
         if not isinstance(artifact, dict):
@@ -2181,6 +2329,8 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
     return {
         "generated_at": canonical.get("generated_at") or canonical.get("generatedAt"),
         "generatedAt": canonical.get("generatedAt") or canonical.get("generated_at"),
+        "contract_name": contract_name,
+        "contractName": contract_name,
         "version": canonical.get("version") or "unpublished",
         "channel": canonical.get("channelId") or "preview",
         "publishedAt": canonical.get("publishedAt"),
@@ -2206,6 +2356,8 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
 
 def main() -> int:
     args = parse_args()
+    if env_flag_is_true(os.environ.get("CHUMMER_MATERIALIZE_SKIP_STARTUP_SMOKE_FILTER")):
+        args.skip_startup_smoke_filter = True
     canonical = canonical_payload(args)
     write_json(args.output, canonical)
     if args.compat_output:

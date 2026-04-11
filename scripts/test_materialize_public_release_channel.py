@@ -191,6 +191,81 @@ def test_load_startup_smoke_receipts_accepts_host_class_alias_when_platform_matc
     ]
 
 
+def test_load_startup_smoke_receipts_accepts_missing_channel_when_expected_channel_is_set() -> None:
+    now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        receipt_path = root / "startup-smoke-avalonia-osx-arm64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": "2026-04-04T21:59:45Z",
+                    "headId": "avalonia",
+                    "platform": "macos",
+                    "arch": "arm64",
+                    "host_class": "macos-host",
+                    "operatingSystem": "Darwin 23.0",
+                    "artifactDigest": "sha256:abc123",
+                    "artifactPath": "/tmp/chummer-avalonia-osx-arm64-installer.dmg",
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipts = MODULE.load_startup_smoke_receipts(
+            root,
+            max_age_seconds=86400,
+            max_future_skew_seconds=60,
+            expected_channel="preview",
+            now=now,
+        )
+    assert receipts == [
+        {
+            "head": "avalonia",
+            "platform": "macos",
+            "arch": "arm64",
+            "artifactDigest": "sha256:abc123",
+            "channelId": "",
+            "artifactId": "",
+            "artifactFileName": "chummer-avalonia-osx-arm64-installer.dmg",
+        }
+    ]
+
+
+def test_load_startup_smoke_receipts_rejects_channel_mismatch_when_channel_present() -> None:
+    now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        receipt_path = root / "startup-smoke-avalonia-osx-arm64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": "2026-04-04T21:59:45Z",
+                    "headId": "avalonia",
+                    "platform": "macos",
+                    "arch": "arm64",
+                    "host_class": "macos-host",
+                    "operatingSystem": "Darwin 23.0",
+                    "channelId": "docker",
+                    "artifactDigest": "sha256:abc123",
+                    "artifactPath": "/tmp/chummer-avalonia-osx-arm64-installer.dmg",
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipts = MODULE.load_startup_smoke_receipts(
+            root,
+            max_age_seconds=86400,
+            max_future_skew_seconds=60,
+            expected_channel="preview",
+            now=now,
+        )
+    assert receipts == []
+
+
 def test_load_startup_smoke_receipts_rejects_missing_artifact_identity() -> None:
     now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
     with tempfile.TemporaryDirectory() as tmp:
@@ -220,6 +295,23 @@ def test_load_startup_smoke_receipts_rejects_missing_artifact_identity() -> None
             now=now,
         )
     assert receipts == []
+
+
+def test_compatibility_payload_preserves_contract_name_aliases() -> None:
+    payload = MODULE.compatibility_payload(
+        {
+            "generatedAt": "2026-04-10T11:24:43Z",
+            "contract_name": "chummer.run.desktop_release_publication",
+            "channelId": "preview",
+            "version": "2026.04.10.1",
+            "publishedAt": "2026-04-10T11:24:43Z",
+            "status": "published",
+            "artifacts": [],
+        }
+    )
+
+    assert payload["contract_name"] == "chummer.run.desktop_release_publication"
+    assert payload["contractName"] == "chummer.run.desktop_release_publication"
 
 
 def test_load_startup_smoke_receipts_rejects_operating_system_platform_mismatch() -> None:
@@ -253,6 +345,64 @@ def test_load_startup_smoke_receipts_rejects_operating_system_platform_mismatch(
             now=now,
         )
     assert receipts == []
+
+
+def test_filter_unproven_installers_rejects_identity_matched_installer_when_receipt_digest_is_stale() -> None:
+    artifacts = [
+        {
+            "artifactId": "avalonia-osx-arm64-installer",
+            "head": "avalonia",
+            "platform": "macos",
+            "arch": "arm64",
+            "kind": "installer",
+            "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
+            "sha256": "abc123",
+        }
+    ]
+    startup_smoke_receipts = [
+        {
+            "head": "avalonia",
+            "platform": "macos",
+            "arch": "arm64",
+            "artifactDigest": "sha256:def456",
+            "channelId": "preview",
+            "artifactId": "avalonia-osx-arm64-installer",
+            "artifactFileName": "chummer-avalonia-osx-arm64-installer.dmg",
+        }
+    ]
+
+    filtered = MODULE.filter_unproven_installers(artifacts, startup_smoke_receipts)
+
+    assert filtered == []
+
+
+def test_filter_unproven_installers_still_rejects_installer_without_matching_identity_or_digest() -> None:
+    artifacts = [
+        {
+            "artifactId": "avalonia-osx-arm64-installer",
+            "head": "avalonia",
+            "platform": "macos",
+            "arch": "arm64",
+            "kind": "installer",
+            "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
+            "sha256": "abc123",
+        }
+    ]
+    startup_smoke_receipts = [
+        {
+            "head": "avalonia",
+            "platform": "macos",
+            "arch": "arm64",
+            "artifactDigest": "sha256:def456",
+            "channelId": "preview",
+            "artifactId": "avalonia-osx-arm64-dmg",
+            "artifactFileName": "different-installer.dmg",
+        }
+    ]
+
+    filtered = MODULE.filter_unproven_installers(artifacts, startup_smoke_receipts)
+
+    assert filtered == []
 
 
 def test_desktop_tuple_coverage_emits_explicit_complete_flag() -> None:
