@@ -105,6 +105,9 @@ Remaining runnable follow-up from the accumulated feedback bundles:
 - Add canonical registry metadata for primary desktop head, fallback desktop head, platform promotion state, parity posture, and rollback/revoke posture.
 - Ensure the registry response can answer recommended head per platform, whether the selected head is flagship or fallback, and why the route/channel was chosen.
 - Add verifier coverage that fails when promoted desktop routes are emitted without explicit primary/fallback classification and parity posture.
+- Expand channel-truth metadata to include update eligibility, explicit channel assignment reason, and route-selection reason per client/platform tuple.
+- Add installer posture signaling so registry responses can state whether installer-first or portable/manual posture is recommended, with rationale.
+- Require a shared route-truth payload consumed by public shelf and desktop in-app surfaces so primary/fallback decisions cannot drift between surfaces.
 
 Date: 2026-03-22 (`/fast` system re-entry replay, deduplicated current-run evidence)
 Audit source: required disk/context/feedback reload set, `.codex-studio/published/QUEUE.generated.yaml`, unread feedback files in order (`feedback/2026-03-21-github-review-pr.md`, `feedback/2026-03-22-github-review-pr.md`), `./scripts/ai/verify.sh`, direct `Chummer.Run.Registry.Verify`, and advisory `Chummer.Hub.Registry.Contracts.Verify` with `CHUMMER_RUN_SERVICES_ROOT=/docker/chummercomplete/chummer.run-services` plus `CHUMMER_PRESENTATION_ROOT=/docker/chummercomplete/chummer-presentation`
@@ -136,3 +139,14 @@ Result:
 - Revalidated this file as the canonical runnable backlog artifact for queue item "Publish or append runnable backlog for Install, review, compatibility, and runtime-bundle head seams are not yet a package-only registry boundary.." with no duplicate backlog document creation.
 - Ingested primary/fallback route feedback by appending an explicit runnable follow-up to publish authoritative package-owned desktop route truth (primary/fallback recommendation, parity posture, and route reason) so downstream shelves stop emitting hand-wavy route messaging.
 - Noted the separate design-mirror audit publication (`audit-task-11712`) is outside this slice; no cross-slice backlog duplication was introduced here.
+
+Date: 2026-04-12 (`/fast` system re-entry replay, cross-repo-contract lane)
+Audit source: required disk/context reload set, `.codex-studio/published/QUEUE.generated.yaml`, unread feedback replay in order (`feedback/2026-04-12-primary-route-and-channel-truth.md`, `feedback/2026-04-12-114559-audit-task-11712.md`), and `./scripts/ai/verify.sh`
+
+Result:
+
+- Revalidated this file as the canonical runnable backlog artifact for queue item "Publish or append runnable backlog for Install, review, compatibility, and runtime-bundle head seams are not yet a package-only registry boundary.." with no duplicate backlog document creation.
+- Expanded the existing primary/fallback follow-up into executable channel-truth work that explicitly includes update eligibility, rollback/revoke state, client channel-assignment reason, head primary/fallback reason, and installer-first vs portable/manual recommendation posture.
+- Reasserted the implementation guard that the same route-truth payload must feed Hub/public shelf and desktop in-app surfaces so route messaging cannot disagree.
+- Replayed `./scripts/ai/verify.sh`; verify exits `0` with registry contract/runtime checks passing while release-channel proof/localization/startup-smoke fixture tracebacks remain non-fatal negative-case coverage outside this slice.
+- Kept design-mirror audit publication (`audit-task-11712`) out of this slice to avoid cross-slice duplication.

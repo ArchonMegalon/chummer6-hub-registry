@@ -74,6 +74,7 @@ REQUIRED_RELEASE_PROOF_JOURNEYS = (
     "build_explain_publish",
     "campaign_session_recover_recap",
     "report_cluster_release_notify",
+    "organize_community_and_close_loop",
 )
 REQUIRED_RELEASE_PROOF_ROUTES = (
     "/downloads/install/avalonia-linux-x64-installer",

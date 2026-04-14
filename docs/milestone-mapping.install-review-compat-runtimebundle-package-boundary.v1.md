@@ -35,6 +35,9 @@ Exit criteria addressed by this slice:
 2. Publish package-only seam cutover checklist that removes source-owned seam DTO usage and local mirrors.
 3. Add verify-harness checks that fail when these seam DTO families are source-owned outside `Chummer.Hub.Registry.Contracts`.
 4. Capture cutover evidence and close this uncovered-scope item once all targeted seams read as package/service consumption only.
+5. Publish package-owned channel-truth mapping for desktop routes that declares primary head, fallback head, platform promotion state, update eligibility, and rollback/revoke state.
+6. Ensure channel-truth mapping answers route rationale directly: why this client is on this channel, why this head is primary/fallback, and whether installer-first or portable/manual posture is recommended.
+7. Add cross-surface parity acceptance criteria so Hub/public shelf and desktop in-app route surfaces consume the same channel-truth payload without divergence.
 
 ## Queue refresh
 
@@ -53,3 +56,12 @@ Result:
 
 - Revalidated for prepend queue item "Add milestone mapping or executable queue work for Install, review, compatibility, and runtime-bundle head seams are not yet a package-only registry boundary..".
 - No milestone-mapping duplication required; this document remains the canonical mapping for the install/review/compatibility/runtime-bundle-head package-boundary slice.
+
+Date: 2026-04-12 (`/fast` system re-entry replay, cross-repo-contract lane)
+Audit source: required disk/context reload set, `.codex-studio/published/QUEUE.generated.yaml`, unread feedback replay in order (`feedback/2026-04-12-primary-route-and-channel-truth.md`, `feedback/2026-04-12-114559-audit-task-11712.md`)
+
+Result:
+
+- Revalidated for queue item "Add milestone mapping or executable queue work for Install, review, compatibility, and runtime-bundle head seams are not yet a package-only registry boundary.." without creating a duplicate milestone artifact.
+- Expanded executable queue work so channel truth now explicitly includes update eligibility plus route rationale fields (client channel reason, primary/fallback reason, and installer-first vs portable/manual posture recommendation).
+- Added explicit cross-surface parity requirement so Hub/public shelf and desktop in-app channel messaging resolve from one authoritative registry payload.

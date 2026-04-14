@@ -169,7 +169,7 @@ ReleaseChannelHeadProjection releaseChannel = new(
         Status: ReleaseProofStatuses.Passed,
         GeneratedAtUtc: DateTimeOffset.UnixEpoch,
         BaseUrl: "http://127.0.0.1:8091",
-        JourneysPassed: ["install_claim_restore_continue", "build_explain_publish", "campaign_session_recover_recap", "report_cluster_release_notify"],
+        JourneysPassed: ["install_claim_restore_continue", "build_explain_publish", "campaign_session_recover_recap", "report_cluster_release_notify", "organize_community_and_close_loop"],
         ProofRoutes: ["/downloads/install/avalonia-linux-x64-installer", "/home/access", "/home/work", "/account/work", "/account/support", "/contact"]));
 
 HubPublicationResult<RuntimeBundleHeadProjection> implemented = HubPublicationResult<RuntimeBundleHeadProjection>.Implemented(head);
@@ -194,7 +194,7 @@ IReadOnlyList<string> journeysPassed = releaseProof.JourneysPassed ?? Array.Empt
 IReadOnlyList<string> proofRoutes = releaseProof.ProofRoutes ?? Array.Empty<string>();
 Assert(
     journeysPassed.SequenceEqual(
-        ["install_claim_restore_continue", "build_explain_publish", "campaign_session_recover_recap", "report_cluster_release_notify"],
+        ["install_claim_restore_continue", "build_explain_publish", "campaign_session_recover_recap", "report_cluster_release_notify", "organize_community_and_close_loop"],
         StringComparer.Ordinal),
     "Release channel projections must retain canonical baseline journey ordering.");
 Assert(

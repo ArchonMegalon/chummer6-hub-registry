@@ -144,7 +144,8 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/proof.json <<'JSON'
     "install_claim_restore_continue",
     "build_explain_publish",
     "campaign_session_recover_recap",
-    "report_cluster_release_notify"
+    "report_cluster_release_notify",
+    "organize_community_and_close_loop"
   ],
   "proof_routes": [
     "/downloads/install/avalonia-linux-x64-installer",
@@ -480,7 +481,8 @@ cat >/tmp/chummer-hub-registry-release-fixture/proof.json <<'JSON'
     "install_claim_restore_continue",
     "build_explain_publish",
     "campaign_session_recover_recap",
-    "report_cluster_release_notify"
+    "report_cluster_release_notify",
+    "organize_community_and_close_loop"
   ],
   "proof_routes": [
     "/downloads/install/avalonia-linux-x64-installer",
@@ -596,7 +598,8 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["journeys_passed"] = [
   "install_claim_restore_continue",
   "build_explain_publish",
-  "campaign_session_recover_recap"
+  "campaign_session_recover_recap",
+  "report_cluster_release_notify"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -624,6 +627,7 @@ payload["journeys_passed"] = [
   "build_explain_publish",
   "campaign_session_recover_recap",
   "report_cluster_release_notify",
+  "organize_community_and_close_loop",
   "bonus_unapproved_journey"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -651,7 +655,8 @@ payload["journeys_passed"] = [
   "build_explain_publish",
   "install_claim_restore_continue",
   "campaign_session_recover_recap",
-  "report_cluster_release_notify"
+  "report_cluster_release_notify",
+  "organize_community_and_close_loop"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -678,7 +683,8 @@ payload["journeys_passed"] = [
   "Install_claim_restore_continue",
   "build_explain_publish",
   "campaign_session_recover_recap",
-  "report_cluster_release_notify"
+  "report_cluster_release_notify",
+  "organize_community_and_close_loop"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -1040,13 +1046,15 @@ payload["journeysPassed"] = [
   "install_claim_restore_continue",
   "build_explain_publish",
   "campaign_session_recover_recap",
-  "report_cluster_release_notify"
+  "report_cluster_release_notify",
+  "organize_community_and_close_loop"
 ]
 payload["journeys_passed"] = [
   "build_explain_publish",
   "install_claim_restore_continue",
   "campaign_session_recover_recap",
-  "report_cluster_release_notify"
+  "report_cluster_release_notify",
+  "organize_community_and_close_loop"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -2835,7 +2843,8 @@ payload["releaseProof"]["journeysPassed"] = [
     "build_explain_publish",
     "install_claim_restore_continue",
     "campaign_session_recover_recap",
-    "report_cluster_release_notify"
+    "report_cluster_release_notify",
+    "organize_community_and_close_loop"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -2924,12 +2933,14 @@ payload["releaseProof"]["journeysPassed"] = [
   "install_claim_restore_continue",
   "build_explain_publish",
   "campaign_session_recover_recap",
-  "report_cluster_release_notify"
+  "report_cluster_release_notify",
+  "organize_community_and_close_loop"
 ]
 payload["releaseProof"]["journeys_passed"] = [
   "install_claim_restore_continue",
   "build_explain_publish",
-  "campaign_session_recover_recap"
+  "campaign_session_recover_recap",
+  "report_cluster_release_notify"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -3446,7 +3457,8 @@ payload["releaseProof"]["journeysPassed"] = [
     "Install_claim_restore_continue",
     "build_explain_publish",
     "campaign_session_recover_recap",
-    "report_cluster_release_notify"
+    "report_cluster_release_notify",
+    "organize_community_and_close_loop"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -3467,6 +3479,7 @@ payload["releaseProof"]["journeysPassed"] = [
     "build_explain_publish",
     "campaign_session_recover_recap",
     "report_cluster_release_notify",
+    "organize_community_and_close_loop",
     "bonus_unapproved_journey"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -3581,7 +3594,8 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["journeysPassed"] = [
     "install_claim_restore_continue",
     "build_explain_publish",
-    "campaign_session_recover_recap"
+    "campaign_session_recover_recap",
+    "report_cluster_release_notify"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY

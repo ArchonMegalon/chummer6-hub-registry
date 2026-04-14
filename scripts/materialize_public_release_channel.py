@@ -56,6 +56,7 @@ REQUIRED_RELEASE_PROOF_JOURNEYS = (
     "build_explain_publish",
     "campaign_session_recover_recap",
     "report_cluster_release_notify",
+    "organize_community_and_close_loop",
 )
 REQUIRED_RELEASE_PROOF_ROUTES = (
     "/downloads/install/avalonia-linux-x64-installer",
@@ -2042,6 +2043,10 @@ def derive_supportability_summary(
                 proof_notes.append(
                     "Clustered release notification stayed grounded on the current shelf."
                 )
+            if any(str(item).strip() == "organize_community_and_close_loop" for item in journeys):
+                proof_notes.append(
+                    "Community organizer closure stayed grounded on the current shelf."
+                )
             note_suffix = (" " + " ".join(proof_notes)) if proof_notes else ""
             return f"Local release proof passed for: {journey_list}.{note_suffix}"
         return "Local release proof passed for the current shelf."
@@ -2067,6 +2072,8 @@ def derive_known_issue_summary(
             proof_notes.append("claimed-device recovery")
         if any(str(item).strip() == "report_cluster_release_notify" for item in journeys):
             proof_notes.append("clustered release notification")
+        if any(str(item).strip() == "organize_community_and_close_loop" for item in journeys):
+            proof_notes.append("community closure")
         proof_note_text = ", ".join(proof_notes)
         proof_note_clause = f", {proof_note_text}" if proof_note_text else ""
         return (

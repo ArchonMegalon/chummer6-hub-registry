@@ -35,7 +35,7 @@ File.WriteAllText(
                 status = "passed",
                 generatedAt = "2026-03-28T16:31:31Z",
                 baseUrl = "http://127.0.0.1:8091",
-                journeysPassed = new[] { "install_claim_restore_continue", "build_explain_publish", "campaign_session_recover_recap", "report_cluster_release_notify" },
+                journeysPassed = new[] { "install_claim_restore_continue", "build_explain_publish", "campaign_session_recover_recap", "report_cluster_release_notify", "organize_community_and_close_loop" },
                 proofRoutes = new[] { "/downloads/install/avalonia-linux-x64-installer", "/home/access", "/home/work", "/account/work", "/account/support", "/contact" }
             },
             artifacts = new[]
