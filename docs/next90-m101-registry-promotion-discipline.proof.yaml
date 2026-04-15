@@ -10,6 +10,8 @@ owned_surfaces:
   - rollback_and_revoke_reasoning
 assigned_allowed_paths:
   - Chummer.Hub.Registry
+  - scripts
+  - docs
 repo_local_path_expansion:
   Chummer.Hub.Registry:
     - Chummer.Hub.Registry.Contracts

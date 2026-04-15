@@ -232,7 +232,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "successor-frontier proof self-test",
     "compatibility-shelf route-truth self-test",
     "WORKLIST.md",
-    "assigned `Chummer.Hub.Registry` package path label",
+    "exact assigned allowed paths `Chummer.Hub.Registry`, `scripts`, and `docs`",
     "Do not reopen this package unless one of these facts changes",
 )
 
@@ -248,6 +248,8 @@ PROOF_RECEIPT_SNIPPETS = (
     "rollback_and_revoke_reasoning",
     "assigned_allowed_paths:",
     "Chummer.Hub.Registry",
+    "scripts",
+    "docs",
     "repo_local_path_expansion:",
     "Chummer.Hub.Registry.Contracts",
     "Chummer.Run.Registry",
@@ -300,6 +302,8 @@ EXPECTED_PROOF_RECEIPT_LISTS = {
     ],
     "assigned_allowed_paths": [
         "Chummer.Hub.Registry",
+        "scripts",
+        "docs",
     ],
     "allowed_paths": [
         "Chummer.Hub.Registry.Contracts",

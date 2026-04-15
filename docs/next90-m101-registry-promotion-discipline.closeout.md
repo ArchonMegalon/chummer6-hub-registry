@@ -15,11 +15,13 @@ Owned surfaces:
 * release_channel_truth:desktop
 * rollback_and_revoke_reasoning
 
-Assigned package path label:
+Assigned allowed paths:
 
 * Chummer.Hub.Registry
+* scripts
+* docs
 
-Repo-local implementation roots under that label:
+Repo-local implementation roots under the `Chummer.Hub.Registry` package label:
 
 * Chummer.Hub.Registry.Contracts
 * Chummer.Run.Registry
@@ -27,6 +29,7 @@ Repo-local implementation roots under that label:
 * docs
 
 `Chummer.Hub.Registry.Contracts` and `Chummer.Run.Registry` are the repo-local implementation roots for the registry contract and service surfaces covered by the package path label `Chummer.Hub.Registry`.
+`scripts` and `docs` are first-class assigned package paths for the package verifier, generated-proof guardrails, and closeout receipts rather than incidental adjacent edits.
 
 ## Canonical registry state
 
@@ -70,7 +73,7 @@ The verifier recomputes canonical route-truth rows and fail-closes if generated 
 `scripts/verify_next90_m101_registry_promotion_discipline.py` is the no-pytest closeout guardrail for future shards. It verifies canonical successor registry status, Fleet queue staging status, the release-channel verifier, the expected six desktop route-truth rows with nonblank rationale fields in both `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `.codex-studio/published/releases.json`, the human-facing pipeline and closeout docs that tell future shards when not to reopen this package, the repo-local `WORKLIST.md` done entry, and the repo standard `scripts/ai/verify.sh` integration so the closeout check cannot silently fall out of full verification.
 
 `docs/next90-m101-registry-promotion-discipline.proof.yaml` is the source-controlled proof receipt for the closed package. It records the successor frontier id, canonical authority files, owned surfaces, allowed implementation roots, six required desktop route-truth tuples, guardrails, and do-not-reopen conditions in a machine-readable file so future shards do not have to infer package state from prose alone.
-It also preserves the assigned `Chummer.Hub.Registry` package path label and maps it to the repo-local `Chummer.Hub.Registry.Contracts` and `Chummer.Run.Registry` roots used by the landed implementation, so future shards do not treat the canonical path label as evidence of path drift.
+It also preserves the exact assigned allowed paths `Chummer.Hub.Registry`, `scripts`, and `docs`, and maps `Chummer.Hub.Registry` to the repo-local `Chummer.Hub.Registry.Contracts` and `Chummer.Run.Registry` roots used by the landed implementation, so future shards do not treat the canonical path label as evidence of path drift.
 
 ## Verification
 
@@ -200,7 +203,7 @@ python3 scripts/verify_next90_m101_registry_promotion_discipline.py
 verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
 ```
 
-The proof receipt now records both the assigned allowed path label `Chummer.Hub.Registry` and the repo-local implementation roots `Chummer.Hub.Registry.Contracts` plus `Chummer.Run.Registry`. The package-specific verifier fail-closes if that label-to-root mapping is removed, preventing a future shard from reopening the completed slice just because the assignment uses the umbrella path label while the repo stores the contract and runtime service in separate roots.
+The proof receipt now records the assigned allowed paths `Chummer.Hub.Registry`, `scripts`, and `docs`, plus the repo-local implementation roots `Chummer.Hub.Registry.Contracts` and `Chummer.Run.Registry` under the umbrella package label. The package-specific verifier fail-closes if that assigned-path set or label-to-root mapping is removed, preventing a future shard from reopening the completed slice just because the assignment uses the umbrella path label while the repo stores the contract and runtime service in separate roots.
 
 Successor-wave proof-receipt structure tightening on 2026-04-15:
 
@@ -209,7 +212,7 @@ python3 scripts/verify_next90_m101_registry_promotion_discipline.py
 verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
 ```
 
-The package-specific verifier now parses `docs/next90-m101-registry-promotion-discipline.proof.yaml` structurally instead of trusting only snippet presence. It fail-closes drift in scalar package identity, owned surfaces, assigned allowed-path label, repo-local path expansion, local allowed roots, canonical authority paths, release-truth projections, exact tuple list, guardrails, and do-not-reopen rules.
+The package-specific verifier now parses `docs/next90-m101-registry-promotion-discipline.proof.yaml` structurally instead of trusting only snippet presence. It fail-closes drift in scalar package identity, owned surfaces, exact assigned allowed paths, repo-local path expansion, local allowed roots, canonical authority paths, release-truth projections, exact tuple list, guardrails, and do-not-reopen rules.
 
 Successor-wave proof-receipt schema tightening on 2026-04-15:
 
@@ -297,7 +300,7 @@ Do not reopen this package unless one of these facts changes:
 * Fleet queue staging no longer marks `next90-m101-registry-promotion-discipline` complete for frontier `3017689961`,
 * design-owned queue staging no longer marks `next90-m101-registry-promotion-discipline` complete for frontier `3017689961`,
 * repo-local `WORKLIST.md` no longer records the successor M101 route-truth slice as done,
-* `docs/next90-m101-registry-promotion-discipline.proof.yaml` loses or structurally drifts its package identity, successor frontier id, landed commit, assigned `Chummer.Hub.Registry` path label, repo-local path expansion, exact tuple list, guardrails, do-not-reopen conditions, or closed receipt schema,
+* `docs/next90-m101-registry-promotion-discipline.proof.yaml` loses or structurally drifts its package identity, successor frontier id, landed commit, exact assigned allowed paths (`Chummer.Hub.Registry`, `scripts`, and `docs`), repo-local path expansion, exact tuple list, guardrails, do-not-reopen conditions, or closed receipt schema,
 * `RELEASE_CHANNEL.generated.json` loses verifier-bound `desktopRouteTruth`,
 * `.codex-studio/published/releases.json` loses matching verifier-bound `desktopRouteTruth`,
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, or non-canonical primary/fallback/rollback/revoke rationale,
