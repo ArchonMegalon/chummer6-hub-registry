@@ -48,6 +48,7 @@ if ! python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_
   echo "verify gate failed: published release-channel receipt must pass verify_public_release_channel.py." >&2
   exit 1
 fi
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m101_registry_promotion_discipline.py >/dev/null
 
 # Default verify must fail when consumer repos still source-own registry contracts.
 export CHUMMER_ENFORCE_CONSUMER_OWNERSHIP="${CHUMMER_ENFORCE_CONSUMER_OWNERSHIP:-1}"

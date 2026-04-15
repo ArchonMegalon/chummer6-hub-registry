@@ -33,6 +33,8 @@ The canonical successor-wave registry marks task `101.2` complete with evidence 
 * `docs/RELEASE_CHANNEL_PIPELINE.md`
 * commit `a4e47da`
 
+Repo-local follow-up guardrail `875671c` tightened artifact-level revoke rationale so tuple-specific artifact revoke reasons beat channel-level known-issue text for individually revoked desktop rows.
+
 Fleet queue staging also marks package `next90-m101-registry-promotion-discipline` complete with the same proof paths and landed commit.
 
 ## Release channel truth
@@ -59,6 +61,8 @@ The row contract carries nonblank rationale fields for:
 
 The verifier recomputes canonical route-truth rows and fail-closes if generated truth omits rows, carries unexpected keys, has blank rationale, drifts from expected primary/fallback posture, or fails to block revoked channel/artifact routes. Artifact-level revoke reasons are preferred over channel-level known-issue text for individually revoked tuples, so a revoked fallback installer can explain its own rollback block without making the whole channel look revoked.
 
+`scripts/verify_next90_m101_registry_promotion_discipline.py` is the no-pytest closeout guardrail for future shards. It verifies canonical successor registry status, Fleet queue staging status, the release-channel verifier, and the expected six desktop route-truth rows with nonblank rationale fields.
+
 ## Verification
 
 Fresh verification on 2026-04-15:
@@ -69,6 +73,9 @@ verified public release manifest: .codex-studio/published/RELEASE_CHANNEL.genera
 
 python3 -m py_compile scripts/materialize_public_release_channel.py scripts/verify_public_release_channel.py scripts/test_materialize_public_release_channel.py scripts/test_verify_public_release_channel.py
 exit 0
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
 
 dotnet build Chummer.Hub.Registry.slnx -v q
 Build succeeded. 0 Warning(s), 0 Error(s)
