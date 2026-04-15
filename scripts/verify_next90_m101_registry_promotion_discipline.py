@@ -28,7 +28,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "e16f6aa"
+VERIFIED_GUARDRAIL_COMMIT = "5c799e0"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -221,7 +221,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 design queue proof guard",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Pin M101 design queue proof floor",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -490,6 +490,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit 66564d4 pins the M101 mixed-case helper proof guard",
         "commit 800b65d pins M101 mixed-case helper proof floor",
         "commit e16f6aa tightens M101 design queue proof guard",
+        "commit 5c799e0 pins M101 design queue proof floor",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -526,6 +527,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit 66564d4 pins the M101 mixed-case helper proof guard",
         "commit 800b65d pins M101 mixed-case helper proof floor",
         "commit e16f6aa tightens M101 design queue proof guard",
+        "commit 5c799e0 pins M101 design queue proof floor",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
