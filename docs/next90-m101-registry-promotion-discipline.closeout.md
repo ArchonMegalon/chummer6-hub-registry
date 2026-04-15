@@ -5,7 +5,7 @@ Milestone: 101, Native-host desktop release train and promotion discipline
 Package: next90-m101-registry-promotion-discipline
 Owner: chummer6-hub-registry
 Landed commit: a4e47da, Publish desktop route rationale in release channel truth
-Verified guardrail commit: e88ac6c, Tighten M101 guardrail commit self-test
+Verified guardrail commit: 8391bdb, Tighten M101 canonical proof hygiene
 
 ## Scope
 
@@ -44,7 +44,7 @@ The canonical successor-wave registry marks task `101.2` complete with evidence 
 * commit `a4e47da`
 
 Repo-local follow-up guardrail `875671c` tightened artifact-level revoke rationale so tuple-specific artifact revoke reasons beat channel-level known-issue text for individually revoked desktop rows.
-Repo-local guardrail commit `e88ac6c` is now pinned in the machine-readable proof receipt and verifier so future shards also prove the current M101 repeat-prevention guardrail floor is present, not only the original implementation commit.
+Repo-local guardrail commit `8391bdb` is now pinned in the machine-readable proof receipt and verifier so future shards also prove the current M101 repeat-prevention guardrail floor includes canonical registry and queue staging active-run helper proof exclusion, not only the original implementation commit.
 
 Fleet queue staging also marks package `next90-m101-registry-promotion-discipline` complete with the same proof paths and landed commit.
 

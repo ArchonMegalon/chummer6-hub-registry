@@ -221,6 +221,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 canonical proof hygiene",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -250,6 +251,8 @@ STALE_CLOSEOUT_CURRENT_CLAIMS = (
     "now records `verified_guardrail_commit: e91fe39`",
     "now records `verified_guardrail_commit: 1586dfc`",
     "now records `verified_guardrail_commit: e88ac6c`",
+    "Verified guardrail commit: e88ac6c,",
+    "Repo-local guardrail commit `e88ac6c` is now pinned",
 )
 
 DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
