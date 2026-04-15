@@ -28,7 +28,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "dcf6d28"
+VERIFIED_GUARDRAIL_COMMIT = "868f85b"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -221,7 +221,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 closeout guardrail proof",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Pin M101 closeout headline guard",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -255,6 +255,8 @@ STALE_CLOSEOUT_CURRENT_CLAIMS = (
     "Repo-local guardrail commit `e88ac6c` is now pinned",
     "Verified guardrail commit: 8391bdb,",
     "Repo-local guardrail commit `8391bdb` is now pinned",
+    "Verified guardrail commit: dcf6d28,",
+    "Repo-local guardrail commit `dcf6d28` is now pinned",
 )
 
 DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
@@ -455,6 +457,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit f1d0763 pins the latest M101 queue authority proof",
         "commit e88ac6c tightens the M101 guardrail commit self-test",
         "commit 8391bdb tightens M101 canonical proof hygiene",
+        "commit 868f85b pins the M101 closeout headline guard",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -482,6 +485,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit f1d0763 pins the latest M101 queue authority proof",
         "commit e88ac6c tightens the M101 guardrail commit self-test",
         "commit 8391bdb tightens M101 canonical proof hygiene",
+        "commit 868f85b pins the M101 closeout headline guard",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
