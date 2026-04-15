@@ -232,6 +232,18 @@ exit 0
 
 The package-specific verifier now checks each generated `desktopTupleCoverage.desktopRouteTruth` row as a closed row-shape contract in both `RELEASE_CHANNEL.generated.json` and `releases.json`. It fail-closes unexpected route-truth fields and drift in tuple metadata (`head`, `platform`, `rid`, `arch`, and `artifactId`) before checking the per-tuple primary/fallback, promotion, update, rollback, revoke, install-posture, and public install route rationale.
 
+Successor-wave standard-gate row-shape negative-case tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+
+./scripts/ai/verify.sh
+exit 0
+```
+
+The standard `scripts/ai/verify.sh` fixture lane now also tampers a generated `desktopTupleCoverage.desktopRouteTruth` row with an unexpected noncanonical field and requires `scripts/verify_public_release_channel.py` to reject it with the route-truth row-shape fail-close marker. The package-specific verifier checks that this negative case remains wired, so full verification cannot silently stop proving the closed desktop route-truth row schema.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
