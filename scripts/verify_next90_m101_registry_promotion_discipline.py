@@ -28,7 +28,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "e88ac6c"
+VERIFIED_GUARDRAIL_COMMIT = "8391bdb"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -249,6 +249,7 @@ STALE_CLOSEOUT_CURRENT_CLAIMS = (
     "now records `verified_guardrail_commit: 97e0897`",
     "now records `verified_guardrail_commit: e91fe39`",
     "now records `verified_guardrail_commit: 1586dfc`",
+    "now records `verified_guardrail_commit: e88ac6c`",
 )
 
 DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
@@ -267,7 +268,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "status: complete",
     "owner: chummer6-hub-registry",
     "landed_commit: a4e47da",
-    "verified_guardrail_commit: e88ac6c",
+    "verified_guardrail_commit: 8391bdb",
     "successor_frontier_id: 3017689961",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
@@ -290,7 +291,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "scripts/verify_next90_m101_registry_promotion_discipline.py",
     "scripts/ai/verify.sh",
     "the landed commit a4e47da no longer resolves in this repo",
-    "the verified guardrail commit e88ac6c no longer resolves in this repo",
+    "the verified guardrail commit 8391bdb no longer resolves in this repo",
 )
 
 EXPECTED_PROOF_RECEIPT_SCALARS = {
@@ -448,6 +449,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit 1586dfc pins the M101 queue authority guard",
         "commit f1d0763 pins the latest M101 queue authority proof",
         "commit e88ac6c tightens the M101 guardrail commit self-test",
+        "commit 8391bdb tightens M101 canonical proof hygiene",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -474,6 +476,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit 1586dfc pins the M101 queue authority guard",
         "commit f1d0763 pins the latest M101 queue authority proof",
         "commit e88ac6c tightens the M101 guardrail commit self-test",
+        "commit 8391bdb tightens M101 canonical proof hygiene",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )

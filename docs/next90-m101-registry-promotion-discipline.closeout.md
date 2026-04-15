@@ -442,7 +442,7 @@ python3 scripts/verify_next90_m101_registry_promotion_discipline.py
 verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
 ```
 
-The machine-readable proof receipt now records `verified_guardrail_commit: e88ac6c`, and the package-specific verifier requires the successor registry plus Fleet and design queue staging rows to cite that current guardrail-commit self-test. That keeps future shards from repeating this completed package when the repo already contains the latest repeat-prevention guardrail.
+At this point in the closeout sequence, the machine-readable proof receipt recorded `verified_guardrail_commit: e88ac6c`, and the package-specific verifier required the successor registry plus Fleet and design queue staging rows to cite that guardrail-commit self-test. That kept future shards from repeating this completed package when the repo already contained that repeat-prevention guardrail. The current verified guardrail floor is superseded below by `8391bdb`.
 
 Successor-wave canonical proof hygiene tightening on 2026-04-15:
 
@@ -455,6 +455,21 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 ```
 
 The package-specific verifier now applies the active-run helper proof exclusion to the canonical successor registry, Fleet queue staging, and design queue staging before trusting those completed-package rows. The self-test mutates a temporary queue row with helper-receipt proof text and proves the guard rejects it, so future closure evidence must stay repo-local instead of depending on operator-owned run artifacts.
+
+Successor-wave canonical proof hygiene floor pinning on 2026-04-15:
+
+```text
+git cat-file -e 8391bdb^{commit}
+exit 0
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The machine-readable proof receipt now records `verified_guardrail_commit: 8391bdb`, and the package-specific verifier requires canonical successor registry, Fleet queue staging, and design queue staging proof rows to cite that canonical proof-hygiene guard. That makes the completed successor package repeat-prevention floor include the active-run helper exclusion for authority rows, not only repo-local proof files. The previous verified guardrail floor `e88ac6c` is superseded by `8391bdb`.
 
 ## Future-shard rule
 
@@ -471,6 +486,6 @@ Do not reopen this package unless one of these facts changes:
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` stops applying canonical registry and queue staging active-run helper proof exclusion,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
-* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `e88ac6c`,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `8391bdb`,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail, successor-frontier proof self-test, or hand-edited `desktopRouteTruth` negative-case verifier,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.
