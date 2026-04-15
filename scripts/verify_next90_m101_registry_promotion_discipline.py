@@ -233,6 +233,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         ".codex-studio/published/releases.json",
         "scripts/verify_public_release_channel.py",
         "scripts/verify_next90_m101_registry_promotion_discipline.py",
+        "docs/next90-m101-registry-promotion-discipline.proof.yaml",
         "docs/next90-m101-registry-promotion-discipline.closeout.md",
         "commit a4e47da landed the package slice",
     )
@@ -254,6 +255,7 @@ def verify_queue_staging(path: Path) -> None:
         "scripts/verify_public_release_channel.py",
         "scripts/verify_next90_m101_registry_promotion_discipline.py",
         "docs/RELEASE_CHANNEL_PIPELINE.md",
+        "docs/next90-m101-registry-promotion-discipline.proof.yaml",
         "docs/next90-m101-registry-promotion-discipline.closeout.md",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",

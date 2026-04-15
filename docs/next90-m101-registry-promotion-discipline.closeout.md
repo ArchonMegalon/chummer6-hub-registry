@@ -179,6 +179,15 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 The package now carries `docs/next90-m101-registry-promotion-discipline.proof.yaml` as an explicit machine-readable closeout receipt. The package-specific verifier requires that receipt to retain the package id, milestone/task ids, successor frontier id, landed commit, owned surfaces, exact six route-truth tuples, standard guardrails, and do-not-reopen rule.
 
+Successor-wave canonical proof-anchor tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The canonical successor registry plus Fleet and design queue staging rows now cite `docs/next90-m101-registry-promotion-discipline.proof.yaml` directly, and the package-specific verifier fail-closes if that proof receipt anchor drops from any of those authority files.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
