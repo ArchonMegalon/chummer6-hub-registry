@@ -28,7 +28,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "66564d4"
+VERIFIED_GUARDRAIL_COMMIT = "800b65d"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -221,7 +221,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Pin M101 mixed-case helper proof guard",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Pin M101 mixed-case helper proof floor",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -275,6 +275,9 @@ STALE_CLOSEOUT_CURRENT_CLAIMS = (
     "Verified guardrail commit: d8f3911,",
     "Repo-local guardrail commit `d8f3911` is now pinned",
     "now records `verified_guardrail_commit: d8f3911`",
+    "Verified guardrail commit: 66564d4,",
+    "Repo-local guardrail commit `66564d4` is now pinned",
+    "now records `verified_guardrail_commit: 66564d4`",
 )
 
 DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
@@ -482,6 +485,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit 894c200 pins the M101 authority proof floor",
         "commit 061cc27 tightens the M101 helper proof casing guard",
         "commit 66564d4 pins the M101 mixed-case helper proof guard",
+        "commit 800b65d pins M101 mixed-case helper proof floor",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -516,6 +520,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit 894c200 pins the M101 authority proof floor",
         "commit 061cc27 tightens the M101 helper proof casing guard",
         "commit 66564d4 pins the M101 mixed-case helper proof guard",
+        "commit 800b65d pins M101 mixed-case helper proof floor",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
@@ -920,6 +925,24 @@ def run_self_test(proof_receipt: Path) -> None:
         )
         source_queue_path = Path(temp_dir) / "design-queue-staging.yaml"
         source_queue_text = DEFAULT_SOURCE_QUEUE_STAGING.read_text(encoding="utf-8")
+        source_queue_path.write_text(
+            replace_queue_package_block(source_queue_text, "frontier_id: 3017689961", "frontier_id: 9999999999"),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "design-queue-frontier-drift",
+            lambda: verify_queue_staging(source_queue_path),
+            "frontier_id: 3017689961",
+        )
+        source_queue_path.write_text(
+            replace_queue_package_block(source_queue_text, "status: complete", "status: in_progress"),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "design-queue-status-drift",
+            lambda: verify_queue_staging(source_queue_path),
+            "status: complete",
+        )
         source_queue_path.write_text(
             replace_queue_package_block(
                 source_queue_text,
