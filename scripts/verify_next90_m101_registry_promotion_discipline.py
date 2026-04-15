@@ -410,6 +410,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "scripts/verify_next90_m101_registry_promotion_discipline.py",
         "docs/next90-m101-registry-promotion-discipline.proof.yaml",
         "docs/next90-m101-registry-promotion-discipline.closeout.md",
+        "successor frontier 3017689961",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -422,6 +423,7 @@ def verify_queue_staging(path: Path) -> None:
     block = block_after_marker(text, f"package_id: {PACKAGE_ID}", stop_markers=("\n  - title:",))
     required_snippets = (
         "milestone_id: 101",
+        "frontier_id: 3017689961",
         "repo: chummer6-hub-registry",
         "status: complete",
         f"landed_commit: {LANDED_COMMIT}",

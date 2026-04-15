@@ -268,13 +268,22 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 The no-pytest self-test now also mutates a temporary copy of `.codex-studio/published/RELEASE_CHANNEL.generated.json` and proves per-tuple route-truth rationale drift is rejected by the package-specific closeout verifier itself. That keeps repeat-prevention proof tied to the owned surface, not only to the public release-channel verifier's standard-gate negative case.
 
+Successor-wave queue frontier tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+Fleet queue staging and design-owned queue staging now both carry `frontier_id: 3017689961` on the completed `next90-m101-registry-promotion-discipline` row. The package-specific verifier requires that frontier id in both queue projections, so a future successor shard cannot treat the active frontier assignment as an unclosed duplicate while the repo-local proof receipt is already pinned.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
 
 * canonical successor-wave registry no longer marks task `101.2` complete,
-* Fleet queue staging no longer marks `next90-m101-registry-promotion-discipline` complete,
-* design-owned queue staging no longer marks `next90-m101-registry-promotion-discipline` complete,
+* Fleet queue staging no longer marks `next90-m101-registry-promotion-discipline` complete for frontier `3017689961`,
+* design-owned queue staging no longer marks `next90-m101-registry-promotion-discipline` complete for frontier `3017689961`,
 * repo-local `WORKLIST.md` no longer records the successor M101 route-truth slice as done,
 * `docs/next90-m101-registry-promotion-discipline.proof.yaml` loses or structurally drifts its package identity, successor frontier id, landed commit, assigned `Chummer.Hub.Registry` path label, repo-local path expansion, exact tuple list, guardrails, do-not-reopen conditions, or closed receipt schema,
 * `RELEASE_CHANNEL.generated.json` loses verifier-bound `desktopRouteTruth`,
