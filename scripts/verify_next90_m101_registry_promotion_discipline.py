@@ -149,6 +149,7 @@ PIPELINE_DOC_SNIPPETS = (
 CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
+    "git cat-file -e a4e47da^{commit}",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -251,6 +252,21 @@ def run_release_channel_verifier(path: Path) -> None:
         fail(f"release-channel verifier failed for {path}: {output}")
 
 
+def verify_landed_commit_exists() -> None:
+    result = subprocess.run(
+        ["git", "cat-file", "-e", f"{LANDED_COMMIT}^{{commit}}"],
+        cwd=str(REPO_ROOT),
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    if result.returncode != 0:
+        output = result.stdout.strip()
+        suffix = f": {output}" if output else ""
+        fail(f"landed commit {LANDED_COMMIT} is not present in this repository{suffix}")
+
+
 def verify_release_channel_route_truth(path: Path) -> None:
     if not path.is_file():
         fail(f"release channel artifact is missing: {path}")
@@ -315,6 +331,7 @@ def parse_args() -> argparse.Namespace:
 
 def main() -> int:
     args = parse_args()
+    verify_landed_commit_exists()
     verify_canonical_successor_registry(args.successor_registry)
     verify_queue_staging(args.queue_staging)
     verify_queue_staging(args.source_queue_staging)

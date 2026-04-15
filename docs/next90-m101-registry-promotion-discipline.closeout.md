@@ -152,6 +152,21 @@ exit 0
 
 The standard `scripts/ai/verify.sh` fixture lane now tampers a generated `desktopTupleCoverage.desktopRouteTruth` rationale and requires `scripts/verify_public_release_channel.py` to reject it with the canonical promotion/fallback route-truth drift marker. The package-specific closeout verifier also checks that this negative-case guard remains wired, so full verification cannot silently degrade to only checking the currently checked-in generated artifacts.
 
+Successor-wave landed-commit proof tightening on 2026-04-15:
+
+```text
+git cat-file -e a4e47da^{commit}
+exit 0
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+
+./scripts/ai/verify.sh
+exit 0
+```
+
+The package-specific closeout verifier now proves the recorded landed commit exists in this repo before trusting canonical registry or queue staging closeout text. That prevents a copied or stale queue proof row from keeping `next90-m101-registry-promotion-discipline` closed in a checkout that does not contain the implementation commit.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
@@ -164,5 +179,6 @@ Do not reopen this package unless one of these facts changes:
 * `.codex-studio/published/releases.json` loses matching verifier-bound `desktopRouteTruth`,
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, or non-canonical primary/fallback/rollback/revoke rationale,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the exact per-tuple rationale and public install route for both generated projections,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail or the hand-edited `desktopRouteTruth` negative-case verifier,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.
