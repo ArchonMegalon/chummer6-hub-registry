@@ -5,7 +5,7 @@ Milestone: 101, Native-host desktop release train and promotion discipline
 Package: next90-m101-registry-promotion-discipline
 Owner: chummer6-hub-registry
 Landed commit: a4e47da, Publish desktop route rationale in release channel truth
-Verified guardrail commit: 3de7d00, Pin M101 stale guardrail proof
+Verified guardrail commit: 97e0897, Tighten M101 route truth tuple self-test
 
 ## Scope
 
@@ -44,7 +44,7 @@ The canonical successor-wave registry marks task `101.2` complete with evidence 
 * commit `a4e47da`
 
 Repo-local follow-up guardrail `875671c` tightened artifact-level revoke rationale so tuple-specific artifact revoke reasons beat channel-level known-issue text for individually revoked desktop rows.
-Repo-local guardrail commit `3de7d00` is now pinned in the machine-readable proof receipt and verifier so future shards also prove the current M101 repeat-prevention guardrail floor is present, not only the original implementation commit.
+Repo-local guardrail commit `97e0897` is now pinned in the machine-readable proof receipt and verifier so future shards also prove the current M101 repeat-prevention guardrail floor is present, not only the original implementation commit.
 
 Fleet queue staging also marks package `next90-m101-registry-promotion-discipline` complete with the same proof paths and landed commit.
 
@@ -241,7 +241,7 @@ python3 scripts/verify_next90_m101_registry_promotion_discipline.py
 verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
 ```
 
-At this point in the closeout sequence, the machine-readable proof receipt recorded `verified_guardrail_commit: 6ebbb75`, and the package-specific verifier required that guardrail commit to resolve locally before trusting the completed package row. The closeout verifier also rejected stale prose that presented the older `dd55d5b` guardrail floor as current, so future shards got one current repeat-prevention floor instead of contradictory historical notes. The current verified guardrail floor is superseded below by `3de7d00`.
+At this point in the closeout sequence, the machine-readable proof receipt recorded `verified_guardrail_commit: 6ebbb75`, and the package-specific verifier required that guardrail commit to resolve locally before trusting the completed package row. The closeout verifier also rejected stale prose that presented the older `dd55d5b` guardrail floor as current, so future shards got one current repeat-prevention floor instead of contradictory historical notes. The current verified guardrail floor is superseded below by `97e0897`.
 
 Successor-wave proof-receipt structure tightening on 2026-04-15:
 
@@ -333,7 +333,7 @@ The no-pytest self-test now mutates temporary copies of both `.codex-studio/publ
 Successor-wave active-run helper proof exclusion on 2026-04-15:
 
 ```text
-git cat-file -e 3de7d00^{commit}
+git cat-file -e 97e0897^{commit}
 exit 0
 
 python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
@@ -343,7 +343,7 @@ python3 scripts/verify_next90_m101_registry_promotion_discipline.py
 verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
 ```
 
-The machine-readable proof receipt now records `verified_guardrail_commit: 3de7d00`, and the package-specific verifier requires that guardrail commit to resolve locally before trusting the completed package row. The verifier also rejects package proof receipts or closeout notes that cite active-run handoff files, task-local telemetry files, telemetry logs, or active-run helper receipts as closure evidence. That keeps this completed successor slice tied to repo-local release-channel truth and avoids reopening it from operator-run artifacts that are not package-owned proof.
+The machine-readable proof receipt now records `verified_guardrail_commit: 97e0897`, and the package-specific verifier requires that guardrail commit to resolve locally before trusting the completed package row. The verifier also rejects package proof receipts or closeout notes that cite active-run handoff files, task-local telemetry files, telemetry logs, or active-run helper receipts as closure evidence. That keeps this completed successor slice tied to repo-local release-channel truth and avoids reopening it from operator-run artifacts that are not package-owned proof.
 
 Successor-wave tuple-set self-test tightening on 2026-04-15:
 
@@ -371,6 +371,6 @@ Do not reopen this package unless one of these facts changes:
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, or non-canonical primary/fallback/rollback/revoke rationale,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
-* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `3de7d00`,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `97e0897`,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail, successor-frontier proof self-test, or hand-edited `desktopRouteTruth` negative-case verifier,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.
