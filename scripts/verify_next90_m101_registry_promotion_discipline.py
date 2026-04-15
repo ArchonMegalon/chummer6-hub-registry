@@ -28,7 +28,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "87cfff0"
+VERIFIED_GUARDRAIL_COMMIT = "df3587f"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -221,7 +221,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Pin M101 registry proof floor",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 authority helper proof self-test",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -263,6 +263,9 @@ STALE_CLOSEOUT_CURRENT_CLAIMS = (
     "Verified guardrail commit: 6609726,",
     "Repo-local guardrail commit `6609726` is now pinned",
     "now records `verified_guardrail_commit: 6609726`",
+    "Verified guardrail commit: 87cfff0,",
+    "Repo-local guardrail commit `87cfff0` is now pinned",
+    "now records `verified_guardrail_commit: 87cfff0`",
 )
 
 DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
@@ -464,7 +467,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit e88ac6c tightens the M101 guardrail commit self-test",
         "commit 8391bdb tightens M101 canonical proof hygiene",
         "commit 868f85b pins the M101 closeout headline guard",
-        "commit 87cfff0 pins the current M101 registry proof floor",
+        "commit df3587f tightens M101 authority helper proof self-test",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -493,7 +496,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit e88ac6c tightens the M101 guardrail commit self-test",
         "commit 8391bdb tightens M101 canonical proof hygiene",
         "commit 868f85b pins the M101 closeout headline guard",
-        "commit 87cfff0 pins the current M101 registry proof floor",
+        "commit df3587f tightens M101 authority helper proof self-test",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
