@@ -605,8 +605,9 @@ def verify_closeout_doc(path: Path) -> None:
 
 def verify_no_active_run_helper_evidence(path: Path, *, label: str) -> None:
     text = read_text(path)
+    folded = text.casefold()
     for snippet in DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS:
-        if snippet in text:
+        if snippet.casefold() in folded:
             fail(f"{label} cites active-run helper or telemetry evidence: {snippet}")
 
 
@@ -863,6 +864,15 @@ def run_self_test(proof_receipt: Path) -> None:
         )
         expect_self_test_failure(
             "active-run-helper-proof",
+            lambda: verify_no_active_run_helper_evidence(temp_path, label="temporary M101 proof receipt"),
+            "active-run helper or telemetry evidence",
+        )
+        temp_path.write_text(
+            source_text + "TaSk_LoCaL_TeLeMeTrY.generated.json mixed-case helper evidence\n",
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "mixed-case-active-run-helper-proof",
             lambda: verify_no_active_run_helper_evidence(temp_path, label="temporary M101 proof receipt"),
             "active-run helper or telemetry evidence",
         )
