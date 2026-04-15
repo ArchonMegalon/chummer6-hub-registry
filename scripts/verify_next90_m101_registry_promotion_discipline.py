@@ -13,6 +13,7 @@ DEFAULT_RELEASE_CHANNEL = REPO_ROOT / ".codex-studio/published/RELEASE_CHANNEL.g
 DEFAULT_RELEASES_MANIFEST = REPO_ROOT / ".codex-studio/published/releases.json"
 DEFAULT_PIPELINE_DOC = REPO_ROOT / "docs/RELEASE_CHANNEL_PIPELINE.md"
 DEFAULT_CLOSEOUT_DOC = REPO_ROOT / "docs/next90-m101-registry-promotion-discipline.closeout.md"
+DEFAULT_PROOF_RECEIPT = REPO_ROOT / "docs/next90-m101-registry-promotion-discipline.proof.yaml"
 DEFAULT_VERIFY_SH = REPO_ROOT / "scripts/ai/verify.sh"
 DEFAULT_WORKLIST = REPO_ROOT / "WORKLIST.md"
 DEFAULT_SUCCESSOR_REGISTRY = Path(
@@ -154,10 +155,35 @@ CLOSEOUT_DOC_SNIPPETS = (
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
     ".codex-studio/published/releases.json",
+    "docs/next90-m101-registry-promotion-discipline.proof.yaml",
     "scripts/verify_public_release_channel.py",
     "scripts/verify_next90_m101_registry_promotion_discipline.py",
     "WORKLIST.md",
     "Do not reopen this package unless one of these facts changes",
+)
+
+PROOF_RECEIPT_SNIPPETS = (
+    "package_id: next90-m101-registry-promotion-discipline",
+    "milestone_id: 101",
+    'task_id: "101.2"',
+    "status: complete",
+    "owner: chummer6-hub-registry",
+    "landed_commit: a4e47da",
+    "successor_frontier_id: 3017689961",
+    "release_channel_truth:desktop",
+    "rollback_and_revoke_reasoning",
+    "desktopTupleCoverage.desktopRouteTruth",
+    "required_tuple_count: 6",
+    "avalonia:linux:linux-x64",
+    "blazor-desktop:linux:linux-x64",
+    "avalonia:windows:win-x64",
+    "blazor-desktop:windows:win-x64",
+    "avalonia:macos:osx-arm64",
+    "blazor-desktop:macos:osx-arm64",
+    "scripts/verify_public_release_channel.py",
+    "scripts/verify_next90_m101_registry_promotion_discipline.py",
+    "scripts/ai/verify.sh",
+    "the landed commit a4e47da no longer resolves in this repo",
 )
 
 VERIFY_SH_SNIPPETS = (
@@ -321,6 +347,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--releases-manifest", type=Path, default=DEFAULT_RELEASES_MANIFEST)
     parser.add_argument("--pipeline-doc", type=Path, default=DEFAULT_PIPELINE_DOC)
     parser.add_argument("--closeout-doc", type=Path, default=DEFAULT_CLOSEOUT_DOC)
+    parser.add_argument("--proof-receipt", type=Path, default=DEFAULT_PROOF_RECEIPT)
     parser.add_argument("--verify-sh", type=Path, default=DEFAULT_VERIFY_SH)
     parser.add_argument("--worklist", type=Path, default=DEFAULT_WORKLIST)
     parser.add_argument("--successor-registry", type=Path, default=DEFAULT_SUCCESSOR_REGISTRY)
@@ -341,6 +368,7 @@ def main() -> int:
     verify_release_channel_route_truth(args.releases_manifest)
     verify_doc(args.pipeline_doc, label="release channel pipeline doc", snippets=PIPELINE_DOC_SNIPPETS)
     verify_doc(args.closeout_doc, label="M101 closeout doc", snippets=CLOSEOUT_DOC_SNIPPETS)
+    verify_doc(args.proof_receipt, label="M101 proof receipt", snippets=PROOF_RECEIPT_SNIPPETS)
     verify_standard_gate_includes_guardrail(args.verify_sh)
     verify_worklist_closeout(args.worklist)
     print(f"verified next90 M101 registry promotion discipline: {PACKAGE_ID}")

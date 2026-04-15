@@ -32,6 +32,7 @@ The canonical successor-wave registry marks task `101.2` complete with evidence 
 * `.codex-studio/published/releases.json`
 * `scripts/verify_public_release_channel.py`
 * `docs/RELEASE_CHANNEL_PIPELINE.md`
+* `docs/next90-m101-registry-promotion-discipline.proof.yaml`
 * commit `a4e47da`
 
 Repo-local follow-up guardrail `875671c` tightened artifact-level revoke rationale so tuple-specific artifact revoke reasons beat channel-level known-issue text for individually revoked desktop rows.
@@ -63,6 +64,8 @@ The row contract carries nonblank rationale fields for:
 The verifier recomputes canonical route-truth rows and fail-closes if generated truth omits rows, carries unexpected keys, has blank rationale, drifts from expected primary/fallback posture, or fails to block revoked channel/artifact routes. Artifact-level revoke reasons are preferred over channel-level known-issue text for individually revoked tuples, so a revoked fallback installer can explain its own rollback block without making the whole channel look revoked.
 
 `scripts/verify_next90_m101_registry_promotion_discipline.py` is the no-pytest closeout guardrail for future shards. It verifies canonical successor registry status, Fleet queue staging status, the release-channel verifier, the expected six desktop route-truth rows with nonblank rationale fields in both `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `.codex-studio/published/releases.json`, the human-facing pipeline and closeout docs that tell future shards when not to reopen this package, the repo-local `WORKLIST.md` done entry, and the repo standard `scripts/ai/verify.sh` integration so the closeout check cannot silently fall out of full verification.
+
+`docs/next90-m101-registry-promotion-discipline.proof.yaml` is the source-controlled proof receipt for the closed package. It records the successor frontier id, canonical authority files, owned surfaces, allowed implementation roots, six required desktop route-truth tuples, guardrails, and do-not-reopen conditions in a machine-readable file so future shards do not have to infer package state from prose alone.
 
 ## Verification
 
@@ -167,6 +170,15 @@ exit 0
 
 The package-specific closeout verifier now proves the recorded landed commit exists in this repo before trusting canonical registry or queue staging closeout text. That prevents a copied or stale queue proof row from keeping `next90-m101-registry-promotion-discipline` closed in a checkout that does not contain the implementation commit.
 
+Successor-wave proof-receipt tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The package now carries `docs/next90-m101-registry-promotion-discipline.proof.yaml` as an explicit machine-readable closeout receipt. The package-specific verifier requires that receipt to retain the package id, milestone/task ids, successor frontier id, landed commit, owned surfaces, exact six route-truth tuples, standard guardrails, and do-not-reopen rule.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
@@ -175,6 +187,7 @@ Do not reopen this package unless one of these facts changes:
 * Fleet queue staging no longer marks `next90-m101-registry-promotion-discipline` complete,
 * design-owned queue staging no longer marks `next90-m101-registry-promotion-discipline` complete,
 * repo-local `WORKLIST.md` no longer records the successor M101 route-truth slice as done,
+* `docs/next90-m101-registry-promotion-discipline.proof.yaml` loses the successor frontier id, landed commit, exact tuple list, guardrails, or do-not-reopen conditions,
 * `RELEASE_CHANNEL.generated.json` loses verifier-bound `desktopRouteTruth`,
 * `.codex-studio/published/releases.json` loses matching verifier-bound `desktopRouteTruth`,
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, or non-canonical primary/fallback/rollback/revoke rationale,

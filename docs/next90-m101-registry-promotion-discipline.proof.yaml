@@ -1,0 +1,42 @@
+package_id: next90-m101-registry-promotion-discipline
+milestone_id: 101
+task_id: "101.2"
+status: complete
+owner: chummer6-hub-registry
+landed_commit: a4e47da
+successor_frontier_id: 3017689961
+owned_surfaces:
+  - release_channel_truth:desktop
+  - rollback_and_revoke_reasoning
+allowed_paths:
+  - Chummer.Hub.Registry.Contracts
+  - Chummer.Run.Registry
+  - scripts
+  - docs
+canonical_authority:
+  successor_registry: /docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_PRODUCT_ADVANCE_REGISTRY.yaml
+  fleet_queue_staging: /docker/fleet/.codex-studio/published/NEXT_90_DAY_QUEUE_STAGING.generated.yaml
+  design_queue_staging: /docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_QUEUE_STAGING.generated.yaml
+release_truth:
+  release_channel: .codex-studio/published/RELEASE_CHANNEL.generated.json
+  compatibility_shelf: .codex-studio/published/releases.json
+  route_truth_path: desktopTupleCoverage.desktopRouteTruth
+  required_tuple_count: 6
+  required_tuple_ids:
+    - avalonia:linux:linux-x64
+    - blazor-desktop:linux:linux-x64
+    - avalonia:windows:win-x64
+    - blazor-desktop:windows:win-x64
+    - avalonia:macos:osx-arm64
+    - blazor-desktop:macos:osx-arm64
+guardrails:
+  - scripts/verify_public_release_channel.py
+  - scripts/verify_next90_m101_registry_promotion_discipline.py
+  - scripts/ai/verify.sh
+do_not_reopen_unless:
+  - canonical successor registry task 101.2 stops being complete
+  - Fleet or design queue staging stops carrying the completed package row
+  - release channel or compatibility shelf loses exact desktop route-truth rows
+  - promotion, fallback, rollback, revoke, update, or install-posture rationale drifts
+  - the landed commit a4e47da no longer resolves in this repo
+  - standard verification stops running the package-specific closeout guardrail
