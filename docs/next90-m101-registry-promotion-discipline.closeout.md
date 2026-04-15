@@ -5,7 +5,7 @@ Milestone: 101, Native-host desktop release train and promotion discipline
 Package: next90-m101-registry-promotion-discipline
 Owner: chummer6-hub-registry
 Landed commit: a4e47da, Publish desktop route rationale in release channel truth
-Verified guardrail commit: 800b65d, Pin M101 mixed-case helper proof floor
+Verified guardrail commit: e16f6aa, Tighten M101 design queue proof guard
 
 ## Scope
 
@@ -44,7 +44,7 @@ The canonical successor-wave registry marks task `101.2` complete with evidence 
 * commit `a4e47da`
 
 Repo-local follow-up guardrail `875671c` tightened artifact-level revoke rationale so tuple-specific artifact revoke reasons beat channel-level known-issue text for individually revoked desktop rows.
-Repo-local guardrail commit `800b65d` is now pinned in the machine-readable proof receipt and verifier so future shards prove the current M101 repeat-prevention guardrail floor includes the mixed-case helper proof floor, not only the original implementation commit.
+Repo-local guardrail commit `e16f6aa` is now pinned in the machine-readable proof receipt and verifier so future shards prove the current M101 repeat-prevention guardrail floor includes the design queue proof guard, not only the original implementation commit.
 
 Fleet queue staging also marks package `next90-m101-registry-promotion-discipline` complete with the same proof paths and landed commit.
 
@@ -619,7 +619,22 @@ python3 scripts/verify_next90_m101_registry_promotion_discipline.py
 verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
 ```
 
-The machine-readable proof receipt now records `verified_guardrail_commit: 800b65d`, and the package-specific verifier requires canonical successor registry, Fleet queue staging, design queue staging, and the closeout headline to cite the mixed-case helper proof floor. The verifier self-test also mutates the design-owned queue staging row for wrong frontier and non-complete status, so future shards prove both queue projections reject duplicate open-package posture before trusting this completed M101 package.
+At this point in the closeout sequence, the machine-readable proof receipt recorded `verified_guardrail_commit: 800b65d`, and the package-specific verifier required canonical successor registry, Fleet queue staging, design queue staging, and the closeout headline to cite the mixed-case helper proof floor. The verifier self-test also mutated the design-owned queue staging row for wrong frontier and non-complete status, so future shards proved both queue projections reject duplicate open-package posture before trusting this completed M101 package. That proof floor is superseded below by `e16f6aa`.
+
+Successor-wave design queue proof guard pinning on 2026-04-15:
+
+```text
+git cat-file -e e16f6aa^{commit}
+exit 0
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The machine-readable proof receipt now records `verified_guardrail_commit: e16f6aa`, and the package-specific verifier requires canonical successor registry, Fleet queue staging, design queue staging, and the closeout headline to cite the design queue proof guard. That keeps the completed package pinned to the current proof floor after the design-owned queue source drift checks were tightened.
 
 ## Future-shard rule
 
@@ -636,6 +651,6 @@ Do not reopen this package unless one of these facts changes:
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` stops applying canonical registry and queue staging active-run helper proof exclusion,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
-* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `800b65d`,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `e16f6aa`,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail, successor-frontier proof self-test, or hand-edited `desktopRouteTruth` negative-case verifier,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.

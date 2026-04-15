@@ -28,7 +28,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "800b65d"
+VERIFIED_GUARDRAIL_COMMIT = "e16f6aa"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -221,7 +221,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Pin M101 mixed-case helper proof floor",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 design queue proof guard",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -278,6 +278,9 @@ STALE_CLOSEOUT_CURRENT_CLAIMS = (
     "Verified guardrail commit: 66564d4,",
     "Repo-local guardrail commit `66564d4` is now pinned",
     "now records `verified_guardrail_commit: 66564d4`",
+    "Verified guardrail commit: 800b65d,",
+    "Repo-local guardrail commit `800b65d` is now pinned",
+    "now records `verified_guardrail_commit: 800b65d`",
 )
 
 DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
@@ -486,6 +489,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit 061cc27 tightens the M101 helper proof casing guard",
         "commit 66564d4 pins the M101 mixed-case helper proof guard",
         "commit 800b65d pins M101 mixed-case helper proof floor",
+        "commit e16f6aa tightens M101 design queue proof guard",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -521,6 +525,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit 061cc27 tightens the M101 helper proof casing guard",
         "commit 66564d4 pins the M101 mixed-case helper proof guard",
         "commit 800b65d pins M101 mixed-case helper proof floor",
+        "commit e16f6aa tightens M101 design queue proof guard",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
