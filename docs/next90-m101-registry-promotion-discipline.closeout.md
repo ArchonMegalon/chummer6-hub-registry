@@ -5,7 +5,7 @@ Milestone: 101, Native-host desktop release train and promotion discipline
 Package: next90-m101-registry-promotion-discipline
 Owner: chummer6-hub-registry
 Landed commit: a4e47da, Publish desktop route rationale in release channel truth
-Verified guardrail commit: 1586dfc, Pin M101 queue authority guard
+Verified guardrail commit: f1d0763, Pin M101 latest queue authority proof
 
 ## Scope
 
@@ -44,7 +44,7 @@ The canonical successor-wave registry marks task `101.2` complete with evidence 
 * commit `a4e47da`
 
 Repo-local follow-up guardrail `875671c` tightened artifact-level revoke rationale so tuple-specific artifact revoke reasons beat channel-level known-issue text for individually revoked desktop rows.
-Repo-local guardrail commit `1586dfc` is now pinned in the machine-readable proof receipt and verifier so future shards also prove the current M101 repeat-prevention guardrail floor is present, not only the original implementation commit.
+Repo-local guardrail commit `f1d0763` is now pinned in the machine-readable proof receipt and verifier so future shards also prove the current M101 repeat-prevention guardrail floor is present, not only the original implementation commit.
 
 Fleet queue staging also marks package `next90-m101-registry-promotion-discipline` complete with the same proof paths and landed commit.
 
@@ -400,7 +400,22 @@ python3 scripts/verify_next90_m101_registry_promotion_discipline.py
 verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
 ```
 
-The machine-readable proof receipt now records `verified_guardrail_commit: 1586dfc`, and the package-specific verifier requires the successor registry plus Fleet and design queue staging rows to cite the same queue-authority proof-floor pin. That keeps future shards from repeating the completed package when the repo already contains the latest queue-authority guard.
+At this point in the closeout sequence, the machine-readable proof receipt recorded `verified_guardrail_commit: 1586dfc`, and the package-specific verifier required the successor registry plus Fleet and design queue staging rows to cite the same queue-authority proof-floor pin. That kept future shards from repeating the completed package when the repo already contained that queue-authority guard. The current verified guardrail floor is superseded below by `f1d0763`.
+
+Successor-wave latest queue-authority proof pinning on 2026-04-15:
+
+```text
+git cat-file -e f1d0763^{commit}
+exit 0
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The machine-readable proof receipt now records `verified_guardrail_commit: f1d0763`, and the package-specific verifier requires the successor registry plus Fleet and design queue staging rows to cite the same latest queue-authority proof pin. That keeps future shards from repeating the completed package when the repo already contains the current queue-authority proof floor.
 
 ## Future-shard rule
 
@@ -416,6 +431,6 @@ Do not reopen this package unless one of these facts changes:
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, or non-canonical primary/fallback/rollback/revoke rationale,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
-* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `1586dfc`,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `f1d0763`,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail, successor-frontier proof self-test, or hand-edited `desktopRouteTruth` negative-case verifier,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.
