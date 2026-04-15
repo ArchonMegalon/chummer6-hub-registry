@@ -234,6 +234,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "compatibility-shelf route-truth self-test",
     "tuple-set self-test",
     "queue-authority self-test",
+    "guardrail-commit self-test",
     "WORKLIST.md",
     "exact assigned allowed paths `Chummer.Hub.Registry`, `scripts`, and `docs`",
     "Do not reopen this package unless one of these facts changes",
@@ -789,6 +790,18 @@ def run_self_test(proof_receipt: Path) -> None:
             "wrong-successor-frontier-id",
             lambda: verify_proof_receipt_structure(temp_path),
             "successor_frontier_id expected",
+        )
+        temp_path.write_text(
+            source_text.replace(
+                f"verified_guardrail_commit: {VERIFIED_GUARDRAIL_COMMIT}",
+                "verified_guardrail_commit: 0000000",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "wrong-verified-guardrail-commit",
+            lambda: verify_proof_receipt_structure(temp_path),
+            "verified_guardrail_commit expected",
         )
         temp_path.write_text(
             source_text

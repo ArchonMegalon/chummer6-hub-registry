@@ -417,6 +417,18 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 The machine-readable proof receipt now records `verified_guardrail_commit: f1d0763`, and the package-specific verifier requires the successor registry plus Fleet and design queue staging rows to cite the same latest queue-authority proof pin. That keeps future shards from repeating the completed package when the repo already contains the current queue-authority proof floor.
 
+Successor-wave guardrail-commit self-test tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The no-pytest self-test now mutates the machine-readable proof receipt's `verified_guardrail_commit` field and requires the package-specific verifier to reject the drift. That proves the closed package cannot remain green if a future shard changes the pinned repeat-prevention proof floor without updating the verifier-owned expected receipt.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
