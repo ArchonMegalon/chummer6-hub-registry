@@ -277,6 +277,18 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 Fleet queue staging and design-owned queue staging now both carry `frontier_id: 3017689961` on the completed `next90-m101-registry-promotion-discipline` row. The package-specific verifier requires that frontier id in both queue projections, so a future successor shard cannot treat the active frontier assignment as an unclosed duplicate while the repo-local proof receipt is already pinned.
 
+Successor-wave compatibility-shelf route-truth self-test tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The no-pytest self-test now mutates temporary copies of both `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `.codex-studio/published/releases.json`. That proves package-specific closeout verification rejects route-truth rationale drift in the canonical release-channel projection and in the compatibility download shelf projection, so future shards cannot keep this completed package closed with only one projection guarded.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:

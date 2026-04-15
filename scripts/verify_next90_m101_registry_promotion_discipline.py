@@ -230,6 +230,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "row-shape",
     "--self-test",
     "successor-frontier proof self-test",
+    "compatibility-shelf route-truth self-test",
     "WORKLIST.md",
     "assigned `Chummer.Hub.Registry` package path label",
     "Do not reopen this package unless one of these facts changes",
@@ -729,6 +730,17 @@ def run_self_test(proof_receipt: Path) -> None:
             "route-truth-rationale-drift",
             lambda: verify_release_channel_route_truth(release_path),
             "rollbackReason expected",
+        )
+        releases_path = Path(temp_dir) / "releases.json"
+        releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+        releases_payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["promotionReason"] = (
+            "Generic compatibility shelf copy that no longer matches channel route truth."
+        )
+        releases_path.write_text(json.dumps(releases_payload, indent=2) + "\n", encoding="utf-8")
+        expect_self_test_failure(
+            "compatibility-shelf-route-truth-rationale-drift",
+            lambda: verify_release_channel_route_truth(releases_path),
+            "promotionReason expected",
         )
     print(f"verified next90 M101 registry promotion discipline self-test: {PACKAGE_ID}")
 
