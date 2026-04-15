@@ -502,6 +502,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit 5c799e0 pins M101 design queue proof floor",
         "commit f2b4ef6 tightens M101 queue scope guard",
         "commit d1c9a12 pins the M101 queue-scope proof floor",
+        "commit cfb928b pins the M101 queue proof citation floor",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -541,6 +542,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit 5c799e0 pins M101 design queue proof floor",
         "commit f2b4ef6 tightens M101 queue scope guard",
         "commit d1c9a12 pins the M101 queue-scope proof floor",
+        "commit cfb928b pins the M101 queue proof citation floor",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )

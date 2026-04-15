@@ -45,6 +45,7 @@ The canonical successor-wave registry marks task `101.2` complete with evidence 
 
 Repo-local follow-up guardrail `875671c` tightened artifact-level revoke rationale so tuple-specific artifact revoke reasons beat channel-level known-issue text for individually revoked desktop rows.
 Repo-local guardrail commit `d7bf07e` is now pinned in the machine-readable proof receipt and verifier so future shards prove the current M101 repeat-prevention guardrail floor includes exact queue allowed-path and owned-surface scope proof citations, not only the original implementation commit.
+Repo-local proof-floor commit `cfb928b` is now cited by the canonical successor registry plus Fleet and design queue staging rows, and the package verifier requires those citations before trusting the completed package row.
 
 Fleet queue staging also marks package `next90-m101-registry-promotion-discipline` complete with the same proof paths and landed commit.
 
@@ -692,6 +693,18 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 ```
 
 The machine-readable proof receipt now records `verified_guardrail_commit: d7bf07e`, and the package-specific verifier requires this closeout headline to cite the current queue-scope proof-citation guard. That keeps future shards from accepting the completed package if the local checkout lacks the guard that requires canonical registry, Fleet queue staging, and design queue staging to cite both the queue-scope guard and the queue-scope proof floor.
+
+Successor-wave canonical queue proof-citation floor pinning on 2026-04-15:
+
+```text
+git cat-file -e cfb928b^{commit}
+exit 0
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+Canonical successor registry, Fleet queue staging, and design-owned queue staging now cite repo-local commit `cfb928b` as the current queue proof-citation floor for this completed package. The package-specific verifier requires those citations, so future shards cannot stop at the older `d1c9a12` queue-scope floor when the current proof receipt and closeout already pin the `d7bf07e` citation guard.
 
 ## Future-shard rule
 
