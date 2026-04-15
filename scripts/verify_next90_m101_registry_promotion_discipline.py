@@ -197,6 +197,17 @@ EXPECTED_ROUTE_TRUTH_ROW_KEYS = [
     "publicInstallRoute",
 ]
 
+EXPECTED_ASSIGNED_ALLOWED_PATHS = [
+    "Chummer.Hub.Registry",
+    "scripts",
+    "docs",
+]
+
+EXPECTED_OWNED_SURFACES = [
+    "release_channel_truth:desktop",
+    "rollback_and_revoke_reasoning",
+]
+
 RATIONALE_FIELDS = (
     "routeRoleReason",
     "promotionReason",
@@ -235,6 +246,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "compatibility-shelf route-truth self-test",
     "tuple-set self-test",
     "queue-authority self-test",
+    "queue-scope self-test",
     "guardrail-commit self-test",
     "canonical registry and queue staging active-run helper proof exclusion",
     "WORKLIST.md",
@@ -356,15 +368,8 @@ EXPECTED_PROOF_RECEIPT_TOP_LEVEL_KEYS = [
 ]
 
 EXPECTED_PROOF_RECEIPT_LISTS = {
-    "owned_surfaces": [
-        "release_channel_truth:desktop",
-        "rollback_and_revoke_reasoning",
-    ],
-    "assigned_allowed_paths": [
-        "Chummer.Hub.Registry",
-        "scripts",
-        "docs",
-    ],
+    "owned_surfaces": EXPECTED_OWNED_SURFACES,
+    "assigned_allowed_paths": EXPECTED_ASSIGNED_ALLOWED_PATHS,
     "allowed_paths": [
         "Chummer.Hub.Registry.Contracts",
         "Chummer.Run.Registry",
@@ -534,6 +539,18 @@ def verify_queue_staging(path: Path) -> None:
     for snippet in required_snippets:
         if snippet not in block:
             fail(f"queue staging package {PACKAGE_ID} is missing proof snippet: {snippet}")
+    allowed_paths = parse_queue_plain_list(block, "allowed_paths")
+    if allowed_paths != EXPECTED_ASSIGNED_ALLOWED_PATHS:
+        fail(
+            f"queue staging package {PACKAGE_ID} allowed_paths expected "
+            f"{EXPECTED_ASSIGNED_ALLOWED_PATHS!r}, actual {allowed_paths!r}"
+        )
+    owned_surfaces = parse_queue_plain_list(block, "owned_surfaces")
+    if owned_surfaces != EXPECTED_OWNED_SURFACES:
+        fail(
+            f"queue staging package {PACKAGE_ID} owned_surfaces expected "
+            f"{EXPECTED_OWNED_SURFACES!r}, actual {owned_surfaces!r}"
+        )
 
 
 def run_release_channel_verifier(path: Path) -> None:
@@ -843,6 +860,23 @@ def replace_registry_task_block(text: str, old: str, new: str) -> str:
     return text[:start] + block.replace(old, new, 1) + text[end:]
 
 
+def parse_queue_plain_list(block: str, section: str) -> list[str]:
+    marker = f"    {section}:"
+    start = block.find(marker)
+    if start < 0:
+        fail(f"queue staging package {PACKAGE_ID} is missing {section}")
+    values: list[str] = []
+    for line in block[start + len(marker) :].splitlines():
+        if not line.strip():
+            continue
+        if not line.startswith("      - "):
+            break
+        values.append(normalize_yaml_scalar(line.strip()[2:]))
+    if not values:
+        fail(f"queue staging package {PACKAGE_ID} {section} must be a non-empty list")
+    return values
+
+
 def run_self_test(proof_receipt: Path) -> None:
     source_text = read_text(proof_receipt)
     with tempfile.TemporaryDirectory(prefix="next90-m101-registry-proof-") as temp_dir:
@@ -920,6 +954,32 @@ def run_self_test(proof_receipt: Path) -> None:
         queue_path.write_text(
             replace_queue_package_block(
                 queue_source_text,
+                "      - docs",
+                "      - docs\n      - Chummer.Run.Registry",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "queue-allowed-path-scope-drift",
+            lambda: verify_queue_staging(queue_path),
+            "allowed_paths expected",
+        )
+        queue_path.write_text(
+            replace_queue_package_block(
+                queue_source_text,
+                "      - rollback_and_revoke_reasoning",
+                "      - rollback_and_revoke_reasoning\n      - support_followthrough:install_truth",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "queue-owned-surface-scope-drift",
+            lambda: verify_queue_staging(queue_path),
+            "owned_surfaces expected",
+        )
+        queue_path.write_text(
+            replace_queue_package_block(
+                queue_source_text,
                 "rollback_and_revoke_reasoning",
                 "rollback_and_revoke_reasoning\n      - ACTIVE_RUN_HELPER_RECEIPT evidence",
             ),
@@ -949,6 +1009,32 @@ def run_self_test(proof_receipt: Path) -> None:
             "design-queue-status-drift",
             lambda: verify_queue_staging(source_queue_path),
             "status: complete",
+        )
+        source_queue_path.write_text(
+            replace_queue_package_block(
+                source_queue_text,
+                "      - docs",
+                "      - docs\n      - Chummer.Run.Registry",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "design-queue-allowed-path-scope-drift",
+            lambda: verify_queue_staging(source_queue_path),
+            "allowed_paths expected",
+        )
+        source_queue_path.write_text(
+            replace_queue_package_block(
+                source_queue_text,
+                "      - rollback_and_revoke_reasoning",
+                "      - rollback_and_revoke_reasoning\n      - support_followthrough:install_truth",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "design-queue-owned-surface-scope-drift",
+            lambda: verify_queue_staging(source_queue_path),
+            "owned_surfaces expected",
         )
         source_queue_path.write_text(
             replace_queue_package_block(

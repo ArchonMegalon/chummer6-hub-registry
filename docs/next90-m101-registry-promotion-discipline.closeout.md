@@ -651,6 +651,18 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 The machine-readable proof receipt now records `verified_guardrail_commit: 5c799e0`, and the package-specific verifier requires canonical successor registry, Fleet queue staging, design queue staging, and this closeout headline to cite the design queue proof floor. That prevents a future shard from treating the older `e16f6aa` guard as the current completed-package floor after the local proof receipt and closeout were pinned forward.
 
+Successor-wave queue-scope self-test tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The package-specific verifier now parses the completed Fleet and design queue rows and requires exact `allowed_paths` and `owned_surfaces` lists for `next90-m101-registry-promotion-discipline`. Its no-pytest self-test mutates temporary queue rows with an extra allowed path and an unrelated owned surface, so future shards cannot keep this package closed if the queue row drifts into sibling M101/M102 scope while still carrying the right package id and frontier.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
@@ -658,6 +670,7 @@ Do not reopen this package unless one of these facts changes:
 * canonical successor-wave registry no longer marks task `101.2` complete,
 * Fleet queue staging no longer marks `next90-m101-registry-promotion-discipline` complete for frontier `3017689961`,
 * design-owned queue staging no longer marks `next90-m101-registry-promotion-discipline` complete for frontier `3017689961`,
+* Fleet or design queue staging stops carrying exactly the assigned allowed paths (`Chummer.Hub.Registry`, `scripts`, and `docs`) and owned surfaces (`release_channel_truth:desktop` and `rollback_and_revoke_reasoning`),
 * repo-local `WORKLIST.md` no longer records the successor M101 route-truth slice as done,
 * `docs/next90-m101-registry-promotion-discipline.proof.yaml` loses or structurally drifts its package identity, successor frontier id, landed commit, exact assigned allowed paths (`Chummer.Hub.Registry`, `scripts`, and `docs`), repo-local path expansion, exact tuple list, guardrails, do-not-reopen conditions, or closed receipt schema,
 * `RELEASE_CHANNEL.generated.json` loses verifier-bound `desktopRouteTruth`,
