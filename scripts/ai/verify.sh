@@ -49,6 +49,7 @@ if ! python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_
   exit 1
 fi
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m101_registry_promotion_discipline.py >/dev/null
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m101_registry_promotion_discipline.py --self-test >/dev/null
 
 # Default verify must fail when consumer repos still source-own registry contracts.
 export CHUMMER_ENFORCE_CONSUMER_OWNERSHIP="${CHUMMER_ENFORCE_CONSUMER_OWNERSHIP:-1}"

@@ -5,6 +5,7 @@ import argparse
 import json
 import subprocess
 import sys
+import tempfile
 from pathlib import Path
 
 
@@ -227,6 +228,8 @@ CLOSEOUT_DOC_SNIPPETS = (
     "scripts/verify_public_release_channel.py",
     "scripts/verify_next90_m101_registry_promotion_discipline.py",
     "row-shape",
+    "--self-test",
+    "successor-frontier proof self-test",
     "WORKLIST.md",
     "assigned `Chummer.Hub.Registry` package path label",
     "Do not reopen this package unless one of these facts changes",
@@ -357,6 +360,7 @@ EXPECTED_REPO_LOCAL_PATH_EXPANSION = {
 
 VERIFY_SH_SNIPPETS = (
     "verify_next90_m101_registry_promotion_discipline.py",
+    "--self-test",
     "verify_public_release_channel.py",
     "hand-edited desktop route truth rationale drift",
     "desktopRouteTruth canonical-drift fail-close marker",
@@ -679,6 +683,43 @@ def verify_worklist_closeout(path: Path) -> None:
             fail(f"repo-local worklist is missing M101 closeout snippet: {snippet}")
 
 
+def expect_self_test_failure(label: str, action, expected_snippet: str) -> None:
+    try:
+        action()
+    except SystemExit as exc:
+        message = str(exc)
+        if expected_snippet not in message:
+            fail(f"self-test {label} failed with unexpected message: {message}")
+        return
+    fail(f"self-test {label} unexpectedly passed")
+
+
+def run_self_test(proof_receipt: Path) -> None:
+    source_text = read_text(proof_receipt)
+    with tempfile.TemporaryDirectory(prefix="next90-m101-registry-proof-") as temp_dir:
+        temp_path = Path(temp_dir) / "proof.yaml"
+        temp_path.write_text(
+            "\n".join(line for line in source_text.splitlines() if not line.startswith("successor_frontier_id:"))
+            + "\n",
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "missing-successor-frontier-id",
+            lambda: verify_proof_receipt_structure(temp_path),
+            "top-level keys expected",
+        )
+        temp_path.write_text(
+            source_text.replace("successor_frontier_id: 3017689961", "successor_frontier_id: 9999999999"),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "wrong-successor-frontier-id",
+            lambda: verify_proof_receipt_structure(temp_path),
+            "successor_frontier_id expected",
+        )
+    print(f"verified next90 M101 registry promotion discipline self-test: {PACKAGE_ID}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Verify next90 M101 registry promotion discipline closeout.")
     parser.add_argument("--release-channel", type=Path, default=DEFAULT_RELEASE_CHANNEL)
@@ -691,11 +732,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--successor-registry", type=Path, default=DEFAULT_SUCCESSOR_REGISTRY)
     parser.add_argument("--queue-staging", type=Path, default=DEFAULT_QUEUE_STAGING)
     parser.add_argument("--source-queue-staging", type=Path, default=DEFAULT_SOURCE_QUEUE_STAGING)
+    parser.add_argument("--self-test", action="store_true")
     return parser.parse_args()
 
 
 def main() -> int:
     args = parse_args()
+    if args.self_test:
+        run_self_test(args.proof_receipt)
+        return 0
     verify_landed_commit_exists()
     verify_canonical_successor_registry(args.successor_registry)
     verify_queue_staging(args.queue_staging)

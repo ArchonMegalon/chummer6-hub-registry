@@ -244,6 +244,18 @@ exit 0
 
 The standard `scripts/ai/verify.sh` fixture lane now also tampers a generated `desktopTupleCoverage.desktopRouteTruth` row with an unexpected noncanonical field and requires `scripts/verify_public_release_channel.py` to reject it with the route-truth row-shape fail-close marker. The package-specific verifier checks that this negative case remains wired, so full verification cannot silently stop proving the closed desktop route-truth row schema.
 
+Successor-wave successor-frontier self-test tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The package-specific verifier now carries a no-pytest `--self-test` mode that mutates a temporary copy of `docs/next90-m101-registry-promotion-discipline.proof.yaml` and proves missing or wrong `successor_frontier_id` is rejected. `scripts/ai/verify.sh` runs that self-test immediately after the normal M101 closeout verifier, so the completed successor package cannot silently lose frontier `3017689961` while still passing standard verification.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
@@ -258,5 +270,5 @@ Do not reopen this package unless one of these facts changes:
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, or non-canonical primary/fallback/rollback/revoke rationale,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
-* `scripts/ai/verify.sh` stops running the package-specific closeout guardrail or the hand-edited `desktopRouteTruth` negative-case verifier,
+* `scripts/ai/verify.sh` stops running the package-specific closeout guardrail, successor-frontier proof self-test, or hand-edited `desktopRouteTruth` negative-case verifier,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.
