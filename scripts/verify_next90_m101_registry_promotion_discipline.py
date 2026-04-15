@@ -28,6 +28,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
+VERIFIED_GUARDRAIL_COMMIT = "b6c7af1"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -243,6 +244,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "status: complete",
     "owner: chummer6-hub-registry",
     "landed_commit: a4e47da",
+    "verified_guardrail_commit: b6c7af1",
     "successor_frontier_id: 3017689961",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
@@ -265,6 +267,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "scripts/verify_next90_m101_registry_promotion_discipline.py",
     "scripts/ai/verify.sh",
     "the landed commit a4e47da no longer resolves in this repo",
+    "the verified guardrail commit b6c7af1 no longer resolves in this repo",
 )
 
 EXPECTED_PROOF_RECEIPT_SCALARS = {
@@ -274,6 +277,7 @@ EXPECTED_PROOF_RECEIPT_SCALARS = {
     "status": "complete",
     "owner": "chummer6-hub-registry",
     "landed_commit": LANDED_COMMIT,
+    "verified_guardrail_commit": VERIFIED_GUARDRAIL_COMMIT,
     "successor_frontier_id": "3017689961",
 }
 
@@ -284,6 +288,7 @@ EXPECTED_PROOF_RECEIPT_TOP_LEVEL_KEYS = [
     "status",
     "owner",
     "landed_commit",
+    "verified_guardrail_commit",
     "successor_frontier_id",
     "owned_surfaces",
     "assigned_allowed_paths",
@@ -323,6 +328,7 @@ EXPECTED_PROOF_RECEIPT_LISTS = {
         "release channel or compatibility shelf loses exact desktop route-truth rows",
         "promotion, fallback, rollback, revoke, update, or install-posture rationale drifts",
         f"the landed commit {LANDED_COMMIT} no longer resolves in this repo",
+        f"the verified guardrail commit {VERIFIED_GUARDRAIL_COMMIT} no longer resolves in this repo",
         "standard verification stops running the package-specific closeout guardrail",
     ],
 }
@@ -462,9 +468,9 @@ def run_release_channel_verifier(path: Path) -> None:
         fail(f"release-channel verifier failed for {path}: {output}")
 
 
-def verify_landed_commit_exists() -> None:
+def verify_commit_exists(commit: str, *, label: str) -> None:
     result = subprocess.run(
-        ["git", "cat-file", "-e", f"{LANDED_COMMIT}^{{commit}}"],
+        ["git", "cat-file", "-e", f"{commit}^{{commit}}"],
         cwd=str(REPO_ROOT),
         text=True,
         stdout=subprocess.PIPE,
@@ -474,7 +480,12 @@ def verify_landed_commit_exists() -> None:
     if result.returncode != 0:
         output = result.stdout.strip()
         suffix = f": {output}" if output else ""
-        fail(f"landed commit {LANDED_COMMIT} is not present in this repository{suffix}")
+        fail(f"{label} commit {commit} is not present in this repository{suffix}")
+
+
+def verify_required_commits_exist() -> None:
+    verify_commit_exists(LANDED_COMMIT, label="landed")
+    verify_commit_exists(VERIFIED_GUARDRAIL_COMMIT, label="verified guardrail")
 
 
 def verify_release_channel_route_truth(path: Path) -> None:
@@ -770,7 +781,7 @@ def main() -> int:
     if args.self_test:
         run_self_test(args.proof_receipt)
         return 0
-    verify_landed_commit_exists()
+    verify_required_commits_exist()
     verify_canonical_successor_registry(args.successor_registry)
     verify_queue_staging(args.queue_staging)
     verify_queue_staging(args.source_queue_staging)

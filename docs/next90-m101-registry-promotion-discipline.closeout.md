@@ -5,6 +5,7 @@ Milestone: 101, Native-host desktop release train and promotion discipline
 Package: next90-m101-registry-promotion-discipline
 Owner: chummer6-hub-registry
 Landed commit: a4e47da, Publish desktop route rationale in release channel truth
+Verified guardrail commit: b6c7af1, Tighten M101 assigned path proof
 
 ## Scope
 
@@ -43,6 +44,7 @@ The canonical successor-wave registry marks task `101.2` complete with evidence 
 * commit `a4e47da`
 
 Repo-local follow-up guardrail `875671c` tightened artifact-level revoke rationale so tuple-specific artifact revoke reasons beat channel-level known-issue text for individually revoked desktop rows.
+Repo-local guardrail commit `b6c7af1` is now pinned in the machine-readable proof receipt and verifier so future shards also prove the latest M101 assigned-path hardening is present, not only the original implementation commit.
 
 Fleet queue staging also marks package `next90-m101-registry-promotion-discipline` complete with the same proof paths and landed commit.
 
@@ -205,6 +207,18 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 The proof receipt now records the assigned allowed paths `Chummer.Hub.Registry`, `scripts`, and `docs`, plus the repo-local implementation roots `Chummer.Hub.Registry.Contracts` and `Chummer.Run.Registry` under the umbrella package label. The package-specific verifier fail-closes if that assigned-path set or label-to-root mapping is removed, preventing a future shard from reopening the completed slice just because the assignment uses the umbrella path label while the repo stores the contract and runtime service in separate roots.
 
+Successor-wave guardrail commit tightening on 2026-04-15:
+
+```text
+git cat-file -e b6c7af1^{commit}
+exit 0
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The machine-readable proof receipt now records `verified_guardrail_commit: b6c7af1`, and the package-specific verifier requires that guardrail commit to resolve locally before trusting the completed package row. That prevents a checkout with only the original implementation commit from silently claiming the latest repeat-prevention proof.
+
 Successor-wave proof-receipt structure tightening on 2026-04-15:
 
 ```text
@@ -306,5 +320,6 @@ Do not reopen this package unless one of these facts changes:
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, or non-canonical primary/fallback/rollback/revoke rationale,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `b6c7af1`,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail, successor-frontier proof self-test, or hand-edited `desktopRouteTruth` negative-case verifier,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.
