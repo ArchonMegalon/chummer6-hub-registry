@@ -10,6 +10,7 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RELEASE_CHANNEL = REPO_ROOT / ".codex-studio/published/RELEASE_CHANNEL.generated.json"
+DEFAULT_RELEASES_MANIFEST = REPO_ROOT / ".codex-studio/published/releases.json"
 DEFAULT_PIPELINE_DOC = REPO_ROOT / "docs/RELEASE_CHANNEL_PIPELINE.md"
 DEFAULT_CLOSEOUT_DOC = REPO_ROOT / "docs/next90-m101-registry-promotion-discipline.closeout.md"
 DEFAULT_VERIFY_SH = REPO_ROOT / "scripts/ai/verify.sh"
@@ -100,6 +101,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
+    ".codex-studio/published/releases.json",
     "scripts/verify_public_release_channel.py",
     "scripts/verify_next90_m101_registry_promotion_discipline.py",
     "WORKLIST.md",
@@ -241,6 +243,7 @@ def verify_worklist_closeout(path: Path) -> None:
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Verify next90 M101 registry promotion discipline closeout.")
     parser.add_argument("--release-channel", type=Path, default=DEFAULT_RELEASE_CHANNEL)
+    parser.add_argument("--releases-manifest", type=Path, default=DEFAULT_RELEASES_MANIFEST)
     parser.add_argument("--pipeline-doc", type=Path, default=DEFAULT_PIPELINE_DOC)
     parser.add_argument("--closeout-doc", type=Path, default=DEFAULT_CLOSEOUT_DOC)
     parser.add_argument("--verify-sh", type=Path, default=DEFAULT_VERIFY_SH)
@@ -255,7 +258,9 @@ def main() -> int:
     verify_canonical_successor_registry(args.successor_registry)
     verify_queue_staging(args.queue_staging)
     run_release_channel_verifier(args.release_channel)
+    run_release_channel_verifier(args.releases_manifest)
     verify_release_channel_route_truth(args.release_channel)
+    verify_release_channel_route_truth(args.releases_manifest)
     verify_doc(args.pipeline_doc, label="release channel pipeline doc", snippets=PIPELINE_DOC_SNIPPETS)
     verify_doc(args.closeout_doc, label="M101 closeout doc", snippets=CLOSEOUT_DOC_SNIPPETS)
     verify_standard_gate_includes_guardrail(args.verify_sh)
