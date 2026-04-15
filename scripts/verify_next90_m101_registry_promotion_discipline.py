@@ -28,7 +28,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "868f85b"
+VERIFIED_GUARDRAIL_COMMIT = "6609726"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -221,7 +221,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Pin M101 closeout headline guard",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Pin M101 registry proof floor",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -257,6 +257,9 @@ STALE_CLOSEOUT_CURRENT_CLAIMS = (
     "Repo-local guardrail commit `8391bdb` is now pinned",
     "Verified guardrail commit: dcf6d28,",
     "Repo-local guardrail commit `dcf6d28` is now pinned",
+    "now records `verified_guardrail_commit: 868f85b`",
+    "Verified guardrail commit: 868f85b,",
+    "Repo-local guardrail commit `868f85b` is now pinned",
 )
 
 DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
@@ -458,6 +461,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit e88ac6c tightens the M101 guardrail commit self-test",
         "commit 8391bdb tightens M101 canonical proof hygiene",
         "commit 868f85b pins the M101 closeout headline guard",
+        "commit 6609726 pins the M101 registry proof floor",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -486,6 +490,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit e88ac6c tightens the M101 guardrail commit self-test",
         "commit 8391bdb tightens M101 canonical proof hygiene",
         "commit 868f85b pins the M101 closeout headline guard",
+        "commit 6609726 pins the M101 registry proof floor",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
