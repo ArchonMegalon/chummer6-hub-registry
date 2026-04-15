@@ -192,6 +192,67 @@ PROOF_RECEIPT_SNIPPETS = (
     "the landed commit a4e47da no longer resolves in this repo",
 )
 
+EXPECTED_PROOF_RECEIPT_SCALARS = {
+    "package_id": PACKAGE_ID,
+    "milestone_id": "101",
+    "task_id": "101.2",
+    "status": "complete",
+    "owner": "chummer6-hub-registry",
+    "landed_commit": LANDED_COMMIT,
+    "successor_frontier_id": "3017689961",
+}
+
+EXPECTED_PROOF_RECEIPT_LISTS = {
+    "owned_surfaces": [
+        "release_channel_truth:desktop",
+        "rollback_and_revoke_reasoning",
+    ],
+    "assigned_allowed_paths": [
+        "Chummer.Hub.Registry",
+    ],
+    "allowed_paths": [
+        "Chummer.Hub.Registry.Contracts",
+        "Chummer.Run.Registry",
+        "scripts",
+        "docs",
+    ],
+    "release_truth.required_tuple_ids": list(EXPECTED_ROUTE_TRUTH),
+    "guardrails": [
+        "scripts/verify_public_release_channel.py",
+        "scripts/verify_next90_m101_registry_promotion_discipline.py",
+        "scripts/ai/verify.sh",
+    ],
+    "do_not_reopen_unless": [
+        "canonical successor registry task 101.2 stops being complete",
+        "Fleet or design queue staging stops carrying the completed package row",
+        "release channel or compatibility shelf loses exact desktop route-truth rows",
+        "promotion, fallback, rollback, revoke, update, or install-posture rationale drifts",
+        f"the landed commit {LANDED_COMMIT} no longer resolves in this repo",
+        "standard verification stops running the package-specific closeout guardrail",
+    ],
+}
+
+EXPECTED_PROOF_RECEIPT_MAPS = {
+    "canonical_authority": {
+        "successor_registry": "/docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_PRODUCT_ADVANCE_REGISTRY.yaml",
+        "fleet_queue_staging": "/docker/fleet/.codex-studio/published/NEXT_90_DAY_QUEUE_STAGING.generated.yaml",
+        "design_queue_staging": "/docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_QUEUE_STAGING.generated.yaml",
+    },
+    "release_truth": {
+        "release_channel": ".codex-studio/published/RELEASE_CHANNEL.generated.json",
+        "compatibility_shelf": ".codex-studio/published/releases.json",
+        "route_truth_path": "desktopTupleCoverage.desktopRouteTruth",
+        "required_tuple_count": "6",
+    },
+}
+
+EXPECTED_REPO_LOCAL_PATH_EXPANSION = {
+    "Chummer.Hub.Registry": [
+        "Chummer.Hub.Registry.Contracts",
+        "Chummer.Run.Registry",
+    ],
+}
+
 VERIFY_SH_SNIPPETS = (
     "verify_next90_m101_registry_promotion_discipline.py",
     "verify_public_release_channel.py",
@@ -335,6 +396,130 @@ def verify_doc(path: Path, *, label: str, snippets: tuple[str, ...]) -> None:
             fail(f"{label} is missing proof snippet: {snippet}")
 
 
+def normalize_yaml_scalar(value: str) -> str:
+    value = value.strip()
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return value[1:-1]
+    return value
+
+
+def indented_block(lines: list[str], marker: str) -> list[str]:
+    try:
+        start = lines.index(f"{marker}:")
+    except ValueError:
+        fail(f"M101 proof receipt is missing section: {marker}")
+    block: list[str] = []
+    for line in lines[start + 1 :]:
+        if line and not line.startswith(" "):
+            break
+        if line.strip():
+            block.append(line)
+    return block
+
+
+def parse_top_level_scalars(lines: list[str]) -> dict[str, str]:
+    scalars: dict[str, str] = {}
+    for line in lines:
+        if line.startswith(" ") or ":" not in line:
+            continue
+        key, value = line.split(":", 1)
+        if value.strip():
+            scalars[key] = normalize_yaml_scalar(value)
+    return scalars
+
+
+def parse_list_section(lines: list[str], section: str) -> list[str]:
+    values: list[str] = []
+    for line in indented_block(lines, section):
+        stripped = line.strip()
+        if not stripped.startswith("- "):
+            fail(f"M101 proof receipt section {section} must be a plain list")
+        values.append(normalize_yaml_scalar(stripped[2:]))
+    return values
+
+
+def parse_map_section(lines: list[str], section: str) -> dict[str, str]:
+    values: dict[str, str] = {}
+    for line in indented_block(lines, section):
+        stripped = line.strip()
+        if ":" not in stripped or stripped.startswith("- "):
+            continue
+        key, value = stripped.split(":", 1)
+        if value.strip():
+            values[key] = normalize_yaml_scalar(value)
+    return values
+
+
+def parse_release_truth_tuple_ids(lines: list[str]) -> list[str]:
+    release_truth = indented_block(lines, "release_truth")
+    try:
+        tuple_marker = release_truth.index("  required_tuple_ids:")
+    except ValueError:
+        fail("M101 proof receipt release_truth is missing required_tuple_ids")
+    values: list[str] = []
+    for line in release_truth[tuple_marker + 1 :]:
+        if not line.startswith("    "):
+            break
+        stripped = line.strip()
+        if stripped.startswith("- "):
+            values.append(normalize_yaml_scalar(stripped[2:]))
+    return values
+
+
+def parse_repo_local_path_expansion(lines: list[str]) -> dict[str, list[str]]:
+    block = indented_block(lines, "repo_local_path_expansion")
+    expansion: dict[str, list[str]] = {}
+    current_key = ""
+    for line in block:
+        if line.startswith("  ") and not line.startswith("    "):
+            key, value = line.strip().split(":", 1)
+            if value.strip():
+                fail("M101 proof receipt repo_local_path_expansion values must be nested lists")
+            current_key = key
+            expansion[current_key] = []
+            continue
+        stripped = line.strip()
+        if stripped.startswith("- ") and current_key:
+            expansion[current_key].append(normalize_yaml_scalar(stripped[2:]))
+    return expansion
+
+
+def verify_proof_receipt_structure(path: Path) -> None:
+    text = read_text(path)
+    lines = text.splitlines()
+    scalars = parse_top_level_scalars(lines)
+    for key, expected in EXPECTED_PROOF_RECEIPT_SCALARS.items():
+        actual = scalars.get(key)
+        if actual != expected:
+            fail(f"M101 proof receipt {key} expected {expected!r}, actual {actual!r}")
+    for section, expected in EXPECTED_PROOF_RECEIPT_LISTS.items():
+        actual = parse_release_truth_tuple_ids(lines) if section == "release_truth.required_tuple_ids" else parse_list_section(lines, section)
+        if actual != expected:
+            fail(f"M101 proof receipt {section} expected {expected!r}, actual {actual!r}")
+    for section, expected in EXPECTED_PROOF_RECEIPT_MAPS.items():
+        actual = parse_map_section(lines, section)
+        for key, expected_value in expected.items():
+            actual_value = actual.get(key)
+            if actual_value != expected_value:
+                fail(
+                    f"M101 proof receipt {section}.{key} expected "
+                    f"{expected_value!r}, actual {actual_value!r}"
+                )
+    expansion = parse_repo_local_path_expansion(lines)
+    if expansion != EXPECTED_REPO_LOCAL_PATH_EXPANSION:
+        fail(
+            "M101 proof receipt repo_local_path_expansion expected "
+            f"{EXPECTED_REPO_LOCAL_PATH_EXPANSION!r}, actual {expansion!r}"
+        )
+    release_truth = parse_map_section(lines, "release_truth")
+    required_tuple_count = release_truth.get("required_tuple_count")
+    if required_tuple_count != str(len(EXPECTED_ROUTE_TRUTH)):
+        fail(
+            "M101 proof receipt release_truth.required_tuple_count expected "
+            f"{len(EXPECTED_ROUTE_TRUTH)!r}, actual {required_tuple_count!r}"
+        )
+
+
 def verify_standard_gate_includes_guardrail(path: Path) -> None:
     text = read_text(path)
     for snippet in VERIFY_SH_SNIPPETS:
@@ -377,6 +562,7 @@ def main() -> int:
     verify_doc(args.pipeline_doc, label="release channel pipeline doc", snippets=PIPELINE_DOC_SNIPPETS)
     verify_doc(args.closeout_doc, label="M101 closeout doc", snippets=CLOSEOUT_DOC_SNIPPETS)
     verify_doc(args.proof_receipt, label="M101 proof receipt", snippets=PROOF_RECEIPT_SNIPPETS)
+    verify_proof_receipt_structure(args.proof_receipt)
     verify_standard_gate_includes_guardrail(args.verify_sh)
     verify_worklist_closeout(args.worklist)
     print(f"verified next90 M101 registry promotion discipline: {PACKAGE_ID}")

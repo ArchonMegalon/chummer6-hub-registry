@@ -202,6 +202,15 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 The proof receipt now records both the assigned allowed path label `Chummer.Hub.Registry` and the repo-local implementation roots `Chummer.Hub.Registry.Contracts` plus `Chummer.Run.Registry`. The package-specific verifier fail-closes if that label-to-root mapping is removed, preventing a future shard from reopening the completed slice just because the assignment uses the umbrella path label while the repo stores the contract and runtime service in separate roots.
 
+Successor-wave proof-receipt structure tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The package-specific verifier now parses `docs/next90-m101-registry-promotion-discipline.proof.yaml` structurally instead of trusting only snippet presence. It fail-closes drift in scalar package identity, owned surfaces, assigned allowed-path label, repo-local path expansion, local allowed roots, canonical authority paths, release-truth projections, exact tuple list, guardrails, and do-not-reopen rules.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
@@ -210,7 +219,7 @@ Do not reopen this package unless one of these facts changes:
 * Fleet queue staging no longer marks `next90-m101-registry-promotion-discipline` complete,
 * design-owned queue staging no longer marks `next90-m101-registry-promotion-discipline` complete,
 * repo-local `WORKLIST.md` no longer records the successor M101 route-truth slice as done,
-* `docs/next90-m101-registry-promotion-discipline.proof.yaml` loses the successor frontier id, landed commit, assigned `Chummer.Hub.Registry` path label, repo-local path expansion, exact tuple list, guardrails, or do-not-reopen conditions,
+* `docs/next90-m101-registry-promotion-discipline.proof.yaml` loses or structurally drifts its package identity, successor frontier id, landed commit, assigned `Chummer.Hub.Registry` path label, repo-local path expansion, exact tuple list, guardrails, or do-not-reopen conditions,
 * `RELEASE_CHANNEL.generated.json` loses verifier-bound `desktopRouteTruth`,
 * `.codex-studio/published/releases.json` loses matching verifier-bound `desktopRouteTruth`,
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, or non-canonical primary/fallback/rollback/revoke rationale,
