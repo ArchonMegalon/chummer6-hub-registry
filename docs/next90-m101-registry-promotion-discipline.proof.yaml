@@ -8,6 +8,12 @@ successor_frontier_id: 3017689961
 owned_surfaces:
   - release_channel_truth:desktop
   - rollback_and_revoke_reasoning
+assigned_allowed_paths:
+  - Chummer.Hub.Registry
+repo_local_path_expansion:
+  Chummer.Hub.Registry:
+    - Chummer.Hub.Registry.Contracts
+    - Chummer.Run.Registry
 allowed_paths:
   - Chummer.Hub.Registry.Contracts
   - Chummer.Run.Registry

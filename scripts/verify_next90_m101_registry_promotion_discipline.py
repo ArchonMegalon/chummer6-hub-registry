@@ -159,6 +159,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "scripts/verify_public_release_channel.py",
     "scripts/verify_next90_m101_registry_promotion_discipline.py",
     "WORKLIST.md",
+    "assigned `Chummer.Hub.Registry` package path label",
     "Do not reopen this package unless one of these facts changes",
 )
 
@@ -172,6 +173,11 @@ PROOF_RECEIPT_SNIPPETS = (
     "successor_frontier_id: 3017689961",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
+    "assigned_allowed_paths:",
+    "Chummer.Hub.Registry",
+    "repo_local_path_expansion:",
+    "Chummer.Hub.Registry.Contracts",
+    "Chummer.Run.Registry",
     "desktopTupleCoverage.desktopRouteTruth",
     "required_tuple_count: 6",
     "avalonia:linux:linux-x64",
