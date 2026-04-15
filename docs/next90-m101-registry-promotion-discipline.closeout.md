@@ -345,6 +345,18 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 The machine-readable proof receipt now records `verified_guardrail_commit: 3de7d00`, and the package-specific verifier requires that guardrail commit to resolve locally before trusting the completed package row. The verifier also rejects package proof receipts or closeout notes that cite active-run handoff files, task-local telemetry files, telemetry logs, or active-run helper receipts as closure evidence. That keeps this completed successor slice tied to repo-local release-channel truth and avoids reopening it from operator-run artifacts that are not package-owned proof.
 
+Successor-wave tuple-set self-test tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The no-pytest self-test now also removes the `blazor-desktop:macos:osx-arm64` fallback route-truth row from a temporary release-channel projection and requires the package-specific verifier to reject the tuple-set drift. That proves the closed successor package cannot stay green if a future materializer or hand edit drops a required desktop head/platform tuple while keeping the remaining rationale rows intact.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:

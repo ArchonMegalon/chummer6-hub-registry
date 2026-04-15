@@ -799,6 +799,17 @@ def run_self_test(proof_receipt: Path) -> None:
             lambda: verify_release_channel_route_truth(releases_path),
             "promotionReason expected",
         )
+        release_payload["desktopTupleCoverage"]["desktopRouteTruth"] = [
+            row
+            for row in release_payload["desktopTupleCoverage"]["desktopRouteTruth"]
+            if row.get("tupleId") != "blazor-desktop:macos:osx-arm64"
+        ]
+        release_path.write_text(json.dumps(release_payload, indent=2) + "\n", encoding="utf-8")
+        expect_self_test_failure(
+            "missing-fallback-platform-route-truth-row",
+            lambda: verify_release_channel_route_truth(release_path),
+            "desktopRouteTruth tuple set drifted",
+        )
     print(f"verified next90 M101 registry promotion discipline self-test: {PACKAGE_ID}")
 
 
