@@ -140,6 +140,18 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 The canonical successor registry and both queue staging projections now name the compatibility `releases.json` projection, the package-specific closeout verifier, and this closeout note alongside the original release-channel and public verifier proof. The guardrail checks both `/docker/fleet/.codex-studio/published/NEXT_90_DAY_QUEUE_STAGING.generated.yaml` and `/docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_QUEUE_STAGING.generated.yaml`, so future shards cannot treat the package as a repeatable open item because one staging projection forgot the closeout proof.
 
+Successor-wave standard-gate negative-case tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+
+./scripts/ai/verify.sh
+exit 0
+```
+
+The standard `scripts/ai/verify.sh` fixture lane now tampers a generated `desktopTupleCoverage.desktopRouteTruth` rationale and requires `scripts/verify_public_release_channel.py` to reject it with the canonical promotion/fallback route-truth drift marker. The package-specific closeout verifier also checks that this negative-case guard remains wired, so full verification cannot silently degrade to only checking the currently checked-in generated artifacts.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
@@ -152,5 +164,5 @@ Do not reopen this package unless one of these facts changes:
 * `.codex-studio/published/releases.json` loses matching verifier-bound `desktopRouteTruth`,
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, or non-canonical primary/fallback/rollback/revoke rationale,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the exact per-tuple rationale and public install route for both generated projections,
-* `scripts/ai/verify.sh` stops running the package-specific closeout guardrail,
+* `scripts/ai/verify.sh` stops running the package-specific closeout guardrail or the hand-edited `desktopRouteTruth` negative-case verifier,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.

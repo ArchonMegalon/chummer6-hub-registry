@@ -162,6 +162,8 @@ CLOSEOUT_DOC_SNIPPETS = (
 VERIFY_SH_SNIPPETS = (
     "verify_next90_m101_registry_promotion_discipline.py",
     "verify_public_release_channel.py",
+    "hand-edited desktop route truth rationale drift",
+    "desktopRouteTruth canonical-drift fail-close marker",
 )
 
 WORKLIST_SNIPPETS = (
