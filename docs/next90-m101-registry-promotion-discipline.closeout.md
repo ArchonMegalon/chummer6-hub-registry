@@ -61,7 +61,7 @@ The row contract carries nonblank rationale fields for:
 
 The verifier recomputes canonical route-truth rows and fail-closes if generated truth omits rows, carries unexpected keys, has blank rationale, drifts from expected primary/fallback posture, or fails to block revoked channel/artifact routes. Artifact-level revoke reasons are preferred over channel-level known-issue text for individually revoked tuples, so a revoked fallback installer can explain its own rollback block without making the whole channel look revoked.
 
-`scripts/verify_next90_m101_registry_promotion_discipline.py` is the no-pytest closeout guardrail for future shards. It verifies canonical successor registry status, Fleet queue staging status, the release-channel verifier, the expected six desktop route-truth rows with nonblank rationale fields, the human-facing pipeline and closeout docs that tell future shards when not to reopen this package, and the repo standard `scripts/ai/verify.sh` integration so the closeout check cannot silently fall out of full verification.
+`scripts/verify_next90_m101_registry_promotion_discipline.py` is the no-pytest closeout guardrail for future shards. It verifies canonical successor registry status, Fleet queue staging status, the release-channel verifier, the expected six desktop route-truth rows with nonblank rationale fields, the human-facing pipeline and closeout docs that tell future shards when not to reopen this package, the repo-local `WORKLIST.md` done entry, and the repo standard `scripts/ai/verify.sh` integration so the closeout check cannot silently fall out of full verification.
 
 ## Verification
 
@@ -103,12 +103,22 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 The guardrail now also fail-closes if `scripts/ai/verify.sh` stops invoking the package-specific M101 closeout verifier alongside the public release-channel verifier.
 
+Successor-wave repo-local proof tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The guardrail now also fail-closes if `WORKLIST.md` stops carrying the done entry for successor M101 desktop route truth with per-platform primary/fallback, promotion, update, rollback, revoke, install-posture rationale, generated release-channel refresh, and standard verify proof.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
 
 * canonical successor-wave registry no longer marks task `101.2` complete,
 * Fleet queue staging no longer marks `next90-m101-registry-promotion-discipline` complete,
+* repo-local `WORKLIST.md` no longer records the successor M101 route-truth slice as done,
 * `RELEASE_CHANNEL.generated.json` loses verifier-bound `desktopRouteTruth`,
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, or non-canonical primary/fallback/rollback/revoke rationale,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail,
