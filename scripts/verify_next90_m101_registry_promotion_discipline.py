@@ -19,6 +19,9 @@ DEFAULT_SUCCESSOR_REGISTRY = Path(
     "/docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_PRODUCT_ADVANCE_REGISTRY.yaml"
 )
 DEFAULT_QUEUE_STAGING = Path("/docker/fleet/.codex-studio/published/NEXT_90_DAY_QUEUE_STAGING.generated.yaml")
+DEFAULT_SOURCE_QUEUE_STAGING = Path(
+    "/docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_QUEUE_STAGING.generated.yaml"
+)
 
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
@@ -198,7 +201,10 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "owner: chummer6-hub-registry",
         "status: complete",
         ".codex-studio/published/RELEASE_CHANNEL.generated.json",
+        ".codex-studio/published/releases.json",
         "scripts/verify_public_release_channel.py",
+        "scripts/verify_next90_m101_registry_promotion_discipline.py",
+        "docs/next90-m101-registry-promotion-discipline.closeout.md",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -215,8 +221,11 @@ def verify_queue_staging(path: Path) -> None:
         "status: complete",
         f"landed_commit: {LANDED_COMMIT}",
         ".codex-studio/published/RELEASE_CHANNEL.generated.json",
+        ".codex-studio/published/releases.json",
         "scripts/verify_public_release_channel.py",
+        "scripts/verify_next90_m101_registry_promotion_discipline.py",
         "docs/RELEASE_CHANNEL_PIPELINE.md",
+        "docs/next90-m101-registry-promotion-discipline.closeout.md",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
@@ -298,6 +307,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--worklist", type=Path, default=DEFAULT_WORKLIST)
     parser.add_argument("--successor-registry", type=Path, default=DEFAULT_SUCCESSOR_REGISTRY)
     parser.add_argument("--queue-staging", type=Path, default=DEFAULT_QUEUE_STAGING)
+    parser.add_argument("--source-queue-staging", type=Path, default=DEFAULT_SOURCE_QUEUE_STAGING)
     return parser.parse_args()
 
 
@@ -305,6 +315,7 @@ def main() -> int:
     args = parse_args()
     verify_canonical_successor_registry(args.successor_registry)
     verify_queue_staging(args.queue_staging)
+    verify_queue_staging(args.source_queue_staging)
     run_release_channel_verifier(args.release_channel)
     run_release_channel_verifier(args.releases_manifest)
     verify_release_channel_route_truth(args.release_channel)

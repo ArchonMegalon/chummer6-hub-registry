@@ -131,12 +131,22 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 The package-specific guardrail now checks the exact per-tuple route-role, promotion, parity, update, rollback, revoke, install-posture rationale, and public install route for all six desktop route-truth rows in both generated projections. This keeps the closeout from passing with generic nonblank rationale after a future materializer or hand-edited artifact drift.
 
+Successor-wave source registry and queue proof tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The canonical successor registry and both queue staging projections now name the compatibility `releases.json` projection, the package-specific closeout verifier, and this closeout note alongside the original release-channel and public verifier proof. The guardrail checks both `/docker/fleet/.codex-studio/published/NEXT_90_DAY_QUEUE_STAGING.generated.yaml` and `/docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_QUEUE_STAGING.generated.yaml`, so future shards cannot treat the package as a repeatable open item because one staging projection forgot the closeout proof.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
 
 * canonical successor-wave registry no longer marks task `101.2` complete,
 * Fleet queue staging no longer marks `next90-m101-registry-promotion-discipline` complete,
+* design-owned queue staging no longer marks `next90-m101-registry-promotion-discipline` complete,
 * repo-local `WORKLIST.md` no longer records the successor M101 route-truth slice as done,
 * `RELEASE_CHANNEL.generated.json` loses verifier-bound `desktopRouteTruth`,
 * `.codex-studio/published/releases.json` loses matching verifier-bound `desktopRouteTruth`,
