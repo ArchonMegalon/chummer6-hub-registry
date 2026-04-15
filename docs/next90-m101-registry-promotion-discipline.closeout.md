@@ -122,6 +122,15 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 The guardrail now also runs `scripts/verify_public_release_channel.py` and the exact desktop route-truth row contract against `.codex-studio/published/releases.json`, so the package cannot close while the public releases shelf drifts away from `RELEASE_CHANNEL.generated.json`.
 
+Successor-wave rationale-contract tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The package-specific guardrail now checks the exact per-tuple route-role, promotion, parity, update, rollback, revoke, install-posture rationale, and public install route for all six desktop route-truth rows in both generated projections. This keeps the closeout from passing with generic nonblank rationale after a future materializer or hand-edited artifact drift.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
@@ -132,5 +141,6 @@ Do not reopen this package unless one of these facts changes:
 * `RELEASE_CHANNEL.generated.json` loses verifier-bound `desktopRouteTruth`,
 * `.codex-studio/published/releases.json` loses matching verifier-bound `desktopRouteTruth`,
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, or non-canonical primary/fallback/rollback/revoke rationale,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the exact per-tuple rationale and public install route for both generated projections,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.
