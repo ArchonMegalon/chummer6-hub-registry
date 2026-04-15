@@ -150,3 +150,41 @@ Result:
 - Reasserted the implementation guard that the same route-truth payload must feed Hub/public shelf and desktop in-app surfaces so route messaging cannot disagree.
 - Replayed `./scripts/ai/verify.sh`; verify exits `0` with registry contract/runtime checks passing while release-channel proof/localization/startup-smoke fixture tracebacks remain non-fatal negative-case coverage outside this slice.
 - Kept design-mirror audit publication (`audit-task-11712`) out of this slice to avoid cross-slice duplication.
+
+Date: 2026-04-15 (`/fast` system re-entry replay, cross-repo-contract lane)
+Audit source: required disk/context reload set, `.codex-studio/published/QUEUE.generated.yaml`, unread feedback replay in order (`feedback/2026-04-12-primary-route-and-channel-truth.md`, `feedback/2026-04-12-114559-audit-task-11712.md`, `feedback/2026-04-13-post-flagship-promotion-and-channel-discipline.md`, `feedback/2026-04-15-021119-audit-task-11712.md`), and `./scripts/ai/verify.sh`
+
+Result:
+
+- Revalidated this file as the canonical runnable backlog artifact for queue item "Publish or append runnable backlog for Install, review, compatibility, and runtime-bundle head seams are not yet a package-only registry boundary.." with no duplicate backlog document creation.
+- Confirmed the 2026-04-13 follow-on route-truth priorities are already covered by the existing runnable items for per-head promotion/fallback rationale, channel-assignment reason, update eligibility, and rollback/revoke posture, so no new backlog item was appended.
+- Reconfirmed the design-mirror audit publication (`audit-task-11712`) remains a separate slice and was not duplicated into this package-boundary backlog.
+
+Date: 2026-04-15 (`/fast` system re-entry replay, cross-repo-contract lane, feedback refresh)
+Audit source: required disk/context reload set, `.codex-studio/published/QUEUE.generated.yaml`, unread feedback replay in order (`feedback/2026-04-14-104608-audit-task-11712.md`, `feedback/2026-04-15-025932-audit-task-11712.md`), and `./scripts/ai/verify.sh`
+
+Result:
+
+- Revalidated this file as the canonical runnable backlog artifact for the install/review/compatibility/runtime-bundle-head package-boundary queue item with no duplicate backlog item or document creation.
+- Confirmed the new unread feedback files are repeat design-mirror audit publications (`audit-task-11712`), which remain a separate queue slice and do not add executable work to this package-boundary backlog.
+- Replayed `./scripts/ai/verify.sh`; verify exits `0` after the stale release-channel verifier fixture assertions were updated to match the current materializer-required desktop head set.
+
+Date: 2026-04-15 (successor-wave M101, `next90-m101-registry-promotion-discipline`)
+Audit source: `NEXT_90_DAY_PRODUCT_ADVANCE_REGISTRY.yaml`, `NEXT_90_DAY_QUEUE_STAGING.generated.yaml`, `feedback/2026-04-12-primary-route-and-channel-truth.md`, `feedback/2026-04-13-post-flagship-promotion-and-channel-discipline.md`, and `./scripts/ai/verify.sh`
+
+Result:
+
+- Landed verifier-bound `desktopTupleCoverage.desktopRouteTruth` in the release-channel materializer and verifier so each required platform carries explicit `avalonia` primary and `blazor-desktop` fallback rows whether promoted or still proof-required.
+- Each route-truth row now answers route role, promotion state and rationale, parity posture, update eligibility, rollback state, revoke state, installer posture, and public install route from registry-owned channel truth rather than public-copy inference.
+- Added package contract records and manifest-store projection so registry responses can carry the same route-truth payload consumed by public shelf and desktop in-app surfaces.
+- Refreshed `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `.codex-studio/published/releases.json`; current channel truth emits six desktop route-truth rows across Linux, Windows, and macOS.
+- Replayed `./scripts/ai/verify.sh`; verify exits `0` with the route-truth verifier active.
+
+Date: 2026-04-15 (successor-wave M101 revoke-rationale tightening)
+Audit source: `NEXT_90_DAY_PRODUCT_ADVANCE_REGISTRY.yaml`, `NEXT_90_DAY_QUEUE_STAGING.generated.yaml`, package repo release-channel code, and scoped verifier/build proof.
+
+Result:
+
+- Tightened `desktopTupleCoverage.desktopRouteTruth` so registry-owned channel or artifact revocation now blocks promotion, update, rollback, and install posture on each affected desktop tuple instead of leaving `revokeState` hard-coded to `not_revoked`.
+- The materializer and verifier now derive revoked route rows from channel `status=revoked`, `rolloutState=revoked`, or artifact `compatibilityState=revoked`, with nonblank rationale from `rolloutReason`, `knownIssueSummary`, or the default revoke explanation.
+- Verification: `python3 scripts/verify_public_release_channel.py .codex-studio/published/RELEASE_CHANNEL.generated.json`, temp materialize-plus-verify against the current release-channel manifest, `python3 -m py_compile scripts/materialize_public_release_channel.py scripts/verify_public_release_channel.py scripts/test_materialize_public_release_channel.py scripts/test_verify_public_release_channel.py`, direct revoked-route helper assertions, `dotnet build Chummer.Hub.Registry.slnx -v q`, and `./scripts/ai/verify.sh` all exit `0`; `pytest` is unavailable in this environment (`No module named pytest`).

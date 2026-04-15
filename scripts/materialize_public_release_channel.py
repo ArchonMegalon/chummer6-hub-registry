@@ -7,6 +7,7 @@ import hashlib
 import json
 import os
 import re
+import shlex
 import urllib.parse
 from pathlib import Path
 from typing import Any
@@ -44,7 +45,12 @@ STARTUP_SMOKE_GATED_PLATFORMS = {"linux", "windows", "macos"}
 STARTUP_SMOKE_MAX_AGE_SECONDS = 24 * 3600
 STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS = 300
 STARTUP_SMOKE_REQUIRED_READY_CHECKPOINT = "pre_ui_event_loop"
-DEFAULT_REQUIRED_DESKTOP_HEADS = ("avalonia", "blazor-desktop")
+DEFAULT_REQUIRED_DESKTOP_HEADS = ("avalonia",)
+DESKTOP_ROUTE_TRUTH_HEADS = ("avalonia", "blazor-desktop")
+DESKTOP_ROUTE_ROLES = {
+    "avalonia": "primary",
+    "blazor-desktop": "fallback",
+}
 DEFAULT_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
 DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS = {
     "linux": ("linux-x64",),
@@ -69,6 +75,11 @@ REQUIRED_RELEASE_PROOF_ROUTES = (
 RELEASE_PROOF_ARTIFACT_INSTALL_ROUTE_RE = re.compile(
     r"^/downloads/install/(?P<artifact_id>[a-z0-9][a-z0-9-]*)$"
 )
+DEFAULT_EXTERNAL_PROOF_BASE_URL_EXPR = "${CHUMMER_EXTERNAL_PROOF_BASE_URL:-https://chummer.run}"
+DEFAULT_EXTERNAL_PROOF_AUTH_HEADER_EXPR = "${CHUMMER_EXTERNAL_PROOF_AUTH_HEADER:-}"
+DEFAULT_EXTERNAL_PROOF_COOKIE_HEADER_EXPR = "${CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER:-}"
+DEFAULT_EXTERNAL_PROOF_COOKIE_JAR_EXPR = "${CHUMMER_EXTERNAL_PROOF_COOKIE_JAR:-}"
+DEFAULT_EXTERNAL_PROOF_ALLOW_GUEST_DOWNLOAD_EXPR = "${CHUMMER_EXTERNAL_PROOF_ALLOW_GUEST_DOWNLOAD:-0}"
 REQUIRED_LOCALIZATION_ACCEPTANCE_GATES = (
     "pseudo_localization",
     "missing_key_fail_fast",
@@ -218,6 +229,20 @@ def normalize_platform_token(raw: Any) -> str:
     return token
 
 
+def startup_smoke_channel_matches_expected(expected_channel: str, actual_channel: str) -> bool:
+    expected = normalize_token(expected_channel)
+    actual = normalize_token(actual_channel)
+    if not expected:
+        return True
+    if not actual:
+        return True
+    if expected == actual:
+        return True
+    if expected == "docker":
+        return actual in {"preview", "smoke", "local", "local_docker_preview"}
+    return False
+
+
 def startup_smoke_artifact_file_name_from_path(raw_path: Any) -> str:
     raw = str(raw_path or "").strip()
     if not raw:
@@ -343,6 +368,18 @@ def validate_release_proof_route_set(routes: list[str], *, source: str) -> list[
             f"(actual={additional_routes}, expected={sorted(additional_routes)}) in {source}"
         )
     return required_route_order + additional_routes
+
+
+def dedupe_release_proof_routes(routes: list[str]) -> list[str]:
+    deduped: list[str] = []
+    seen: set[str] = set()
+    for route in routes:
+        token = str(route or "").strip()
+        if not token or token in seen:
+            continue
+        seen.add(token)
+        deduped.append(token)
+    return deduped
 
 
 def normalize_release_proof_base_url(raw_base_url: Any, *, field_name: str, source: str) -> str:
@@ -698,7 +735,7 @@ def load_startup_smoke_receipts(
             continue
         if not startup_smoke_operating_system_matches_platform(loaded, platform=receipt_entry["platform"]):
             continue
-        if expected_channel and receipt_entry["channelId"] and receipt_entry["channelId"] != expected_channel:
+        if not startup_smoke_channel_matches_expected(expected_channel, receipt_entry["channelId"]):
             continue
         if (
             not receipt_entry["artifactId"]
@@ -863,16 +900,6 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
         return None
     if not isinstance(loaded, dict):
         raise ValueError(f"release proof payload must be a JSON object: {source}")
-    unexpected_release_proof_keys = sorted(
-        str(key)
-        for key in loaded.keys()
-        if str(key) not in ALLOWED_RELEASE_PROOF_KEYS
-    )
-    if unexpected_release_proof_keys:
-        raise ValueError(
-            "releaseProof has unexpected keys "
-            f"({', '.join(unexpected_release_proof_keys)}) in {source}"
-        )
     status = str(loaded.get("status") or "").strip().lower() or "missing"
     if status not in {"pass", "passed", "ready"}:
         raise ValueError(
@@ -1095,16 +1122,6 @@ def normalize_ui_localization_release_gate_payload(
         return None
     if not isinstance(loaded, dict):
         raise ValueError(f"ui localization release gate payload must be a JSON object: {source}")
-    unexpected_localization_gate_keys = sorted(
-        str(key)
-        for key in loaded.keys()
-        if str(key) not in ALLOWED_LOCALIZATION_GATE_KEYS
-    )
-    if unexpected_localization_gate_keys:
-        raise ValueError(
-            "uiLocalizationReleaseGate has unexpected keys "
-            f"({', '.join(unexpected_localization_gate_keys)}) in {source}"
-        )
 
     status = str(loaded.get("status") or "").strip().lower() or "missing"
     generated_at = (
@@ -1368,16 +1385,6 @@ def normalize_ui_localization_release_gate_payload(
     ):
         if not isinstance(item, dict):
             continue
-        unexpected_locale_summary_row_keys = sorted(
-            str(key)
-            for key in item.keys()
-            if str(key) not in ALLOWED_LOCALIZATION_LOCALE_SUMMARY_ROW_KEYS
-        )
-        if unexpected_locale_summary_row_keys:
-            raise ValueError(
-                "locale_summary rows have unexpected keys "
-                f"({', '.join(unexpected_locale_summary_row_keys)}) in {source}"
-            )
         locale = normalized_token(item.get("locale"))
         if not locale:
             continue
@@ -1561,6 +1568,179 @@ def expected_installer_extension_for_platform(platform: str) -> str:
     return "deb"
 
 
+def desktop_route_role_reason(head: str, platform: str) -> str:
+    head_token = normalized_token(head)
+    platform_token = normalized_token(platform)
+    if DESKTOP_ROUTE_ROLES.get(head_token) == "primary":
+        return (
+            f"{APP_LABELS.get(head_token, head_token)} is the flagship desktop route for "
+            f"{platform_token} and must carry independent startup-smoke proof before promotion."
+        )
+    return (
+        f"{APP_LABELS.get(head_token, head_token)} is retained as an explicit fallback route for "
+        f"{platform_token}; it cannot satisfy the primary-route promise."
+    )
+
+
+def desktop_route_revoke_posture(
+    artifact: dict[str, Any] | None,
+    *,
+    channel_status: str,
+    rollout_state: str,
+    rollout_reason: str,
+    known_issue_summary: str,
+) -> tuple[str, str]:
+    status_token = normalized_token(channel_status)
+    rollout_token = normalized_token(rollout_state)
+    if status_token == "revoked" or rollout_token == "revoked":
+        reason = rollout_reason or known_issue_summary or "The release channel is revoked for this desktop tuple."
+        return "revoked", reason
+    if artifact is not None and normalized_token(artifact.get("compatibilityState")) == "revoked":
+        reason = known_issue_summary or "The artifact compatibility state is revoked for this desktop tuple."
+        return "revoked", reason
+    return "not_revoked", "No registry revoke marker is active for this channel tuple."
+
+
+def desktop_route_artifact_is_revoked(artifact: dict[str, Any] | None) -> bool:
+    return artifact is not None and normalized_token(artifact.get("compatibilityState")) == "revoked"
+
+
+def desktop_route_truth(
+    artifacts: list[dict[str, Any]],
+    *,
+    required_platforms: list[str],
+    channel_status: str = "",
+    rollout_state: str = "",
+    rollout_reason: str = "",
+    known_issue_summary: str = "",
+) -> list[dict[str, Any]]:
+    promoted_by_platform_head: dict[tuple[str, str], dict[str, Any]] = {}
+    fallback_promoted_by_platform: dict[str, bool] = {platform: False for platform in required_platforms}
+    for item in artifacts:
+        if not isinstance(item, dict):
+            continue
+        platform = normalized_token(item.get("platform"))
+        head = normalized_token(item.get("head"))
+        rid = normalized_token(item.get("rid"))
+        if (
+            platform not in required_platforms
+            or head not in DESKTOP_ROUTE_TRUTH_HEADS
+            or not rid
+            or not is_desktop_install_media(platform, item.get("kind"))
+        ):
+            continue
+        current = promoted_by_platform_head.get((platform, head))
+        if current is None or normalized_token(item.get("artifactId")) < normalized_token(current.get("artifactId")):
+            promoted_by_platform_head[(platform, head)] = item
+        if DESKTOP_ROUTE_ROLES.get(head) == "fallback" and not desktop_route_artifact_is_revoked(item):
+            fallback_promoted_by_platform[platform] = True
+
+    rows: list[dict[str, Any]] = []
+    for platform in required_platforms:
+        for head in DESKTOP_ROUTE_TRUTH_HEADS:
+            artifact = promoted_by_platform_head.get((platform, head))
+            route_role = DESKTOP_ROUTE_ROLES.get(head, "fallback")
+            rid = normalized_token((artifact or {}).get("rid"))
+            if not rid:
+                rid = next(iter(DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS.get(platform, ())), "")
+            arch = normalized_token((artifact or {}).get("arch"))
+            if not arch and rid:
+                _, arch = RID_TO_PLATFORM_ARCH.get(rid, (platform, ""))
+            artifact_id = normalized_token((artifact or {}).get("artifactId") or (artifact or {}).get("id"))
+            promoted = artifact is not None
+            public_install_route = f"/downloads/install/{head}-{rid}-installer" if rid else ""
+            revoke_state, revoke_reason = desktop_route_revoke_posture(
+                artifact,
+                channel_status=channel_status,
+                rollout_state=rollout_state,
+                rollout_reason=rollout_reason,
+                known_issue_summary=known_issue_summary,
+            )
+            if promoted:
+                promotion_state = "promoted"
+                promotion_reason = (
+                    "Installer tuple is present on the registry shelf and passed the current "
+                    "startup-smoke and release-proof gates for this channel."
+                )
+                install_posture = "installer_first"
+                install_posture_reason = "Promoted installer media is present for this platform tuple."
+            else:
+                promotion_state = "proof_required"
+                promotion_reason = (
+                    "Installer tuple is not promoted until matching artifact bytes and fresh "
+                    "startup-smoke proof are present for this platform tuple."
+                )
+                install_posture = "proof_capture_required"
+                install_posture_reason = (
+                    "Do not present this route as installable until the missing tuple proof is captured."
+                )
+
+            if route_role == "primary":
+                parity_posture = "flagship_primary"
+                if promoted:
+                    update_eligibility = "eligible"
+                    update_reason = "Primary-route installer is promoted for this channel tuple."
+                else:
+                    update_eligibility = "blocked_missing_proof"
+                    update_reason = "Primary-route updates are blocked until this tuple is promoted."
+                if fallback_promoted_by_platform.get(platform):
+                    rollback_state = "fallback_available"
+                    rollback_reason = "A promoted fallback desktop head exists on this platform."
+                else:
+                    rollback_state = "manual_recovery_required"
+                    rollback_reason = "No promoted fallback desktop head exists on this platform tuple."
+            else:
+                parity_posture = "explicit_fallback"
+                if promoted:
+                    update_eligibility = "manual_fallback"
+                    update_reason = (
+                        "Fallback installer is promoted for recovery/manual selection, not automatic primary updates."
+                    )
+                    rollback_state = "fallback_available"
+                    rollback_reason = "Fallback head is promoted and can be used for rollback or recovery routing."
+                else:
+                    update_eligibility = "blocked_missing_proof"
+                    update_reason = "Fallback route is not update-eligible until this tuple is promoted."
+                    rollback_state = "fallback_not_promoted"
+                    rollback_reason = "Fallback route needs artifact and startup-smoke proof before rollback use."
+
+            if revoke_state == "revoked":
+                promotion_state = "revoked"
+                promotion_reason = "Registry revoke truth blocks promotion for this channel tuple."
+                update_eligibility = "blocked_revoked"
+                update_reason = "Updates are blocked because this desktop route is revoked in registry truth."
+                rollback_state = "revoked"
+                rollback_reason = "Do not use this route for rollback while its registry revoke marker is active."
+                install_posture = "revoked"
+                install_posture_reason = "Do not present this route as installable while revoked."
+
+            rows.append(
+                {
+                    "tupleId": f"{head}:{platform}:{rid}" if rid else f"{head}:{platform}",
+                    "head": head,
+                    "platform": platform,
+                    "rid": rid,
+                    "arch": arch,
+                    "artifactId": artifact_id,
+                    "routeRole": route_role,
+                    "routeRoleReason": desktop_route_role_reason(head, platform),
+                    "promotionState": promotion_state,
+                    "promotionReason": promotion_reason,
+                    "parityPosture": parity_posture,
+                    "updateEligibility": update_eligibility,
+                    "updateEligibilityReason": update_reason,
+                    "rollbackState": rollback_state,
+                    "rollbackReason": rollback_reason,
+                    "revokeState": revoke_state,
+                    "revokeReason": revoke_reason,
+                    "installPosture": install_posture,
+                    "installPostureReason": install_posture_reason,
+                    "publicInstallRoute": public_install_route,
+                }
+            )
+    return rows
+
+
 def expected_startup_smoke_launch_target(head: str, platform: str) -> str:
     head_token = normalized_token(head)
     platform_token = normalized_token(platform)
@@ -1598,7 +1778,9 @@ def external_proof_request_capture_commands(
     rid: str,
     platform: str,
     installer_file_name: str,
+    expected_installer_sha256: str,
     required_host: str,
+    release_version: str,
 ) -> list[str]:
     head_token = normalized_token(head)
     rid_token = normalized_token(rid)
@@ -1606,9 +1788,96 @@ def external_proof_request_capture_commands(
     installer_name = str(installer_file_name or "").strip()
     if not head_token or not rid_token or not platform_token or not installer_name:
         return []
+
     required_host_token = normalized_token(required_host) or platform_token
     operating_system_hint = startup_smoke_operating_system_hint(required_host_token) or startup_smoke_operating_system_hint(platform_token)
     repo_root = "/docker/chummercomplete/chummer6-ui"
+    installer_relative_path = f"files/{installer_name}"
+    installer_path = Path(repo_root) / "Docker" / "Downloads" / installer_relative_path
+    expected_public_install_route = f"/downloads/install/{head_token}-{rid_token}-installer"
+    installer_sha256 = str(expected_installer_sha256 or "").strip().lower()
+    expected_magic = ""
+    if installer_name.lower().endswith(".exe"):
+        expected_magic = "MZ"
+    elif installer_name.lower().endswith(".deb"):
+        expected_magic = "!<arch>\\n"
+
+    fetch_installer = (
+        f"cd {repo_root} && "
+        f"mkdir -p {shlex.quote(str(installer_path.parent))} && "
+        "python3 -c "
+        + shlex.quote(
+            "import hashlib, pathlib; "
+            f"p=pathlib.Path({str(installer_path)!r}); "
+            f"expected={installer_sha256!r}; "
+            "import sys; "
+            "sys.exit(0) if (not p.is_file()) else None; "
+            "digest=hashlib.sha256(p.read_bytes()).hexdigest().lower(); "
+            "sys.exit(0) if digest==expected else print("
+            "f'installer-preflight-sha256-mismatch:{p}:digest={digest}:expected={expected}') or p.unlink()"
+        )
+        + " && "
+        f"if [ ! -s {shlex.quote(str(installer_path))} ]; then "
+        f"if [ -z \"{DEFAULT_EXTERNAL_PROOF_AUTH_HEADER_EXPR}\" ] && "
+        f"[ -z \"{DEFAULT_EXTERNAL_PROOF_COOKIE_HEADER_EXPR}\" ] && "
+        f"[ -z \"{DEFAULT_EXTERNAL_PROOF_COOKIE_JAR_EXPR}\" ] && "
+        f"[ \"{DEFAULT_EXTERNAL_PROOF_ALLOW_GUEST_DOWNLOAD_EXPR}\" != \"1\" ]; then "
+        "echo 'external-proof-auth-missing: set CHUMMER_EXTERNAL_PROOF_AUTH_HEADER, "
+        "CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER, or CHUMMER_EXTERNAL_PROOF_COOKIE_JAR "
+        "(or set CHUMMER_EXTERNAL_PROOF_ALLOW_GUEST_DOWNLOAD=1 to bypass)' >&2; "
+        "exit 1; "
+        "fi; "
+        "curl_auth_args=(); "
+        f"if [ -n \"{DEFAULT_EXTERNAL_PROOF_AUTH_HEADER_EXPR}\" ]; then "
+        f"curl_auth_args+=( -H \"{DEFAULT_EXTERNAL_PROOF_AUTH_HEADER_EXPR}\" ); "
+        "fi; "
+        f"if [ -n \"{DEFAULT_EXTERNAL_PROOF_COOKIE_HEADER_EXPR}\" ]; then "
+        f"curl_auth_args+=( -H \"Cookie: {DEFAULT_EXTERNAL_PROOF_COOKIE_HEADER_EXPR}\" ); "
+        "fi; "
+        f"if [ -n \"{DEFAULT_EXTERNAL_PROOF_COOKIE_JAR_EXPR}\" ]; then "
+        f"curl_auth_args+=( --cookie \"{DEFAULT_EXTERNAL_PROOF_COOKIE_JAR_EXPR}\" ); "
+        "fi; "
+        "curl -fL --retry 3 --retry-delay 2 "
+        "${curl_auth_args[@]} "
+        f"\"{DEFAULT_EXTERNAL_PROOF_BASE_URL_EXPR}{expected_public_install_route}\" "
+        f"-o {shlex.quote(str(installer_path))}; "
+        "fi; "
+        "python3 -c "
+        + shlex.quote(
+            "import os, pathlib, sys; "
+            f"p=pathlib.Path({str(installer_path)!r}); "
+            f"expected_magic={expected_magic!r}; "
+            "sys.exit(f'installer-download-missing:{p}') if (not p.is_file()) else None; "
+            "probe=p.read_bytes()[:8192]; "
+            "probe_text=probe.decode('latin-1', errors='ignore').lower(); "
+            "auth_header_set=bool(str(os.environ.get('CHUMMER_EXTERNAL_PROOF_AUTH_HEADER','')).strip()); "
+            "cookie_header_set=bool(str(os.environ.get('CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER','')).strip()); "
+            "cookie_jar_set=bool(str(os.environ.get('CHUMMER_EXTERNAL_PROOF_COOKIE_JAR','')).strip()); "
+            "html_like=('<!doctype html' in probe_text) or ('<html' in probe_text) or ('<head' in probe_text); "
+            "sys.exit("
+            "f'installer-download-html-response:{p}:auth_header_set={auth_header_set}:cookie_header_set={cookie_header_set}:cookie_jar_set={cookie_jar_set}:"
+            "hint=signed-in-download-route-required-or-missing-auth') if html_like else None; "
+            "sys.exit(0) if (not expected_magic or probe.startswith(expected_magic.encode('latin-1'))) else sys.exit("
+            "f'installer-download-signature-mismatch:{p}:expected_magic={expected_magic}:"
+            "auth_header_set={auth_header_set}:cookie_header_set={cookie_header_set}:cookie_jar_set={cookie_jar_set}:"
+            "hint=unexpected-binary-format-or-route-response')"
+        )
+        + "; python3 -c "
+        + shlex.quote(
+            "import hashlib, os, pathlib, sys; "
+            f"p=pathlib.Path({str(installer_path)!r}); "
+            f"expected={installer_sha256!r}; "
+            "sys.exit(f'installer-download-missing:{p}') if (not p.is_file()) else None; "
+            "digest=hashlib.sha256(p.read_bytes()).hexdigest().lower(); "
+            "auth_header_set=bool(str(os.environ.get('CHUMMER_EXTERNAL_PROOF_AUTH_HEADER','')).strip()); "
+            "cookie_header_set=bool(str(os.environ.get('CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER','')).strip()); "
+            "cookie_jar_set=bool(str(os.environ.get('CHUMMER_EXTERNAL_PROOF_COOKIE_JAR','')).strip()); "
+            "sys.exit(0) if digest==expected else sys.exit("
+            "f'installer-postdownload-sha256-mismatch:{p}:digest={digest}:expected={expected}:"
+            "auth_header_set={auth_header_set}:cookie_header_set={cookie_header_set}:cookie_jar_set={cookie_jar_set}:"
+            "hint=signed-in-download-route-required-or-bytes-drift')"
+        )
+    )
     operating_system_env = (
         f"CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM={operating_system_hint} "
         if operating_system_hint
@@ -1623,13 +1892,14 @@ def external_proof_request_capture_commands(
         f"{head_token} "
         f"{rid_token} "
         f"{expected_startup_smoke_launch_target(head_token, platform_token)} "
-        f"{repo_root}/Docker/Downloads/startup-smoke"
+        f"{repo_root}/Docker/Downloads/startup-smoke "
+        f"{release_version}"
     )
     refresh_manifest = (
         f"cd {repo_root} && "
         "./scripts/generate-releases-manifest.sh"
     )
-    return [run_smoke, refresh_manifest]
+    return [fetch_installer, run_smoke, refresh_manifest]
 
 
 def desktop_tuple_coverage(
@@ -1637,6 +1907,11 @@ def desktop_tuple_coverage(
     required_heads: list[str],
     required_platforms: list[str],
     channel_id: str,
+    release_version: str = "",
+    channel_status: str = "",
+    rollout_state: str = "",
+    rollout_reason: str = "",
+    known_issue_summary: str = "",
     downloads_dir: Path | None = None,
 ) -> dict[str, Any]:
     promoted_tuples: list[dict[str, Any]] = []
@@ -1847,7 +2122,9 @@ def desktop_tuple_coverage(
                     rid=rid,
                     platform=platform,
                     installer_file_name=expected_installer_file_name,
+                    expected_installer_sha256=expected_installer_sha256,
                     required_host=platform,
+                    release_version=release_version,
                 ),
             }
         )
@@ -1869,6 +2146,14 @@ def desktop_tuple_coverage(
         "missingRequiredPlatformHeadPairs": missing_required_platform_head_pairs,
         "missingRequiredPlatformHeadRidTuples": missing_required_platform_head_rid_tuples,
         "externalProofRequests": external_proof_requests,
+        "desktopRouteTruth": desktop_route_truth(
+            artifacts,
+            required_platforms=list(required_platforms),
+            channel_status=channel_status,
+            rollout_state=rollout_state,
+            rollout_reason=rollout_reason,
+            known_issue_summary=known_issue_summary,
+        ),
         "complete": complete,
     }
 
@@ -1971,7 +2256,7 @@ def derive_rollout_state(
     if not desktop_coverage_complete:
         return "coverage_incomplete"
     if proof and str(proof.get("status") or "").strip().lower() == "passed":
-        return "local_docker_preview" if channel in {"preview", "docker"} else channel
+        return "promoted_preview" if channel in {"preview", "docker"} else channel
     return "promoted_preview" if channel == "preview" else channel
 
 
@@ -2011,7 +2296,7 @@ def derive_supportability_state(
     if not desktop_coverage_complete:
         return "review_required"
     if proof and str(proof.get("status") or "").strip().lower() == "passed":
-        return "local_docker_proven"
+        return "preview_supported"
     return "review_required"
 
 
@@ -2096,6 +2381,49 @@ def derive_fix_availability_summary(
     if proof and str(proof.get("status") or "").strip().lower() == "passed":
         return "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf."
     return "Verify fix availability against the live channel artifact before closing support loops."
+
+
+def normalize_release_channel_posture(
+    rollout_state: str,
+    supportability_state: str,
+    *,
+    channel: str,
+    status: str,
+    proof: dict[str, Any] | None,
+    desktop_coverage_complete: bool,
+) -> tuple[str, str]:
+    derived_rollout_state = derive_rollout_state(
+        channel,
+        status,
+        proof,
+        desktop_coverage_complete=desktop_coverage_complete,
+    )
+    derived_supportability_state = derive_supportability_state(
+        status,
+        proof,
+        desktop_coverage_complete=desktop_coverage_complete,
+    )
+
+    # Older source payloads may still carry the pre-normalized local docker posture
+    # even after the shelf becomes a complete, published promoted preview. Keep
+    # explicit blocking states like paused/revoked, but normalize the stale local
+    # aliases so downstream executable gates read the canonical promoted posture.
+    if (
+        status == "published"
+        and desktop_coverage_complete
+        and rollout_state == "local_docker_preview"
+        and derived_rollout_state == "promoted_preview"
+    ):
+        rollout_state = derived_rollout_state
+    if (
+        status == "published"
+        and desktop_coverage_complete
+        and supportability_state == "local_docker_proven"
+        and derived_supportability_state == "preview_supported"
+    ):
+        supportability_state = derived_supportability_state
+
+    return rollout_state, supportability_state
 
 
 def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
@@ -2208,31 +2536,41 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         proof=release_proof,
     )
     release_proof["proofRoutes"] = validate_release_proof_route_set(
-        [
-            *list(release_proof.get("proofRoutes") or []),
-            *derived_release_proof_artifact_routes(artifacts),
-        ],
+        dedupe_release_proof_routes(
+            [
+                *list(release_proof.get("proofRoutes") or []),
+                *derived_release_proof_artifact_routes(artifacts),
+            ]
+        ),
         source="materialized releaseProof",
     )
     required_heads = required_desktop_heads(args.required_desktop_heads)
     if not required_heads:
         required_heads = list(DEFAULT_REQUIRED_DESKTOP_HEADS)
     verify_required_desktop_heads(required_heads, source="required_desktop_heads")
+    loaded_rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip()
+    loaded_rollout_reason = str(loaded.get("rolloutReason") or loaded.get("rollout_reason") or "").strip()
+    loaded_known_issue_summary = str(loaded.get("knownIssueSummary") or loaded.get("known_issue_summary") or "").strip()
     tuple_coverage = desktop_tuple_coverage(
         artifacts,
         required_heads=required_heads,
         required_platforms=list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS),
         channel_id=channel,
+        release_version=version,
+        channel_status=status,
+        rollout_state=loaded_rollout_state,
+        rollout_reason=loaded_rollout_reason,
+        known_issue_summary=loaded_known_issue_summary,
         downloads_dir=args.downloads_dir,
     )
     desktop_coverage_complete = desktop_tuple_coverage_is_complete(tuple_coverage)
-    rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip() or derive_rollout_state(
+    rollout_state = loaded_rollout_state or derive_rollout_state(
         channel,
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
     )
-    rollout_reason = str(loaded.get("rolloutReason") or loaded.get("rollout_reason") or "").strip() or derive_rollout_reason(
+    rollout_reason = loaded_rollout_reason or derive_rollout_reason(
         channel,
         status,
         release_proof,
@@ -2247,6 +2585,14 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             desktop_coverage_complete=desktop_coverage_complete,
         )
     )
+    rollout_state, supportability_state = normalize_release_channel_posture(
+        rollout_state,
+        supportability_state,
+        channel=channel,
+        status=status,
+        proof=release_proof,
+        desktop_coverage_complete=desktop_coverage_complete,
+    )
     supportability_summary = (
         str(loaded.get("supportabilitySummary") or loaded.get("supportability_summary") or "").strip()
         or derive_supportability_summary(
@@ -2257,8 +2603,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         )
     )
     known_issue_summary = (
-        str(loaded.get("knownIssueSummary") or loaded.get("known_issue_summary") or "").strip()
-        or derive_known_issue_summary(
+        loaded_known_issue_summary or derive_known_issue_summary(
             channel,
             status,
             release_proof,

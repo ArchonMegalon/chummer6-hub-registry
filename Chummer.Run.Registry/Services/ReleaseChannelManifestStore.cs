@@ -89,7 +89,41 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
                     GeneratedAtUtc: parsed.ReleaseProof.GeneratedAt,
                     BaseUrl: parsed.ReleaseProof.BaseUrl,
                     JourneysPassed: parsed.ReleaseProof.JourneysPassed ?? [],
-                    ProofRoutes: parsed.ReleaseProof.ProofRoutes ?? []));
+                    ProofRoutes: parsed.ReleaseProof.ProofRoutes ?? []),
+            DesktopTupleCoverage: parsed.DesktopTupleCoverage is null
+                ? null
+                : new ReleaseDesktopTupleCoverage(
+                    RequiredDesktopPlatforms: parsed.DesktopTupleCoverage.RequiredDesktopPlatforms ?? [],
+                    RequiredDesktopHeads: parsed.DesktopTupleCoverage.RequiredDesktopHeads ?? [],
+                    DesktopRouteTruth: (parsed.DesktopTupleCoverage.DesktopRouteTruth ?? [])
+                        .Where(static item => !string.IsNullOrWhiteSpace(item.TupleId))
+                        .Select(static item => new ReleaseDesktopRouteTruth(
+                            TupleId: item.TupleId ?? string.Empty,
+                            Head: item.Head ?? string.Empty,
+                            Platform: item.Platform ?? string.Empty,
+                            Rid: item.Rid ?? string.Empty,
+                            Arch: item.Arch ?? string.Empty,
+                            ArtifactId: item.ArtifactId,
+                            RouteRole: item.RouteRole ?? string.Empty,
+                            RouteRoleReason: item.RouteRoleReason ?? string.Empty,
+                            PromotionState: item.PromotionState ?? string.Empty,
+                            PromotionReason: item.PromotionReason ?? string.Empty,
+                            ParityPosture: item.ParityPosture ?? string.Empty,
+                            UpdateEligibility: item.UpdateEligibility ?? string.Empty,
+                            UpdateEligibilityReason: item.UpdateEligibilityReason ?? string.Empty,
+                            RollbackState: item.RollbackState ?? string.Empty,
+                            RollbackReason: item.RollbackReason ?? string.Empty,
+                            RevokeState: item.RevokeState ?? string.Empty,
+                            RevokeReason: item.RevokeReason ?? string.Empty,
+                            InstallPosture: item.InstallPosture ?? string.Empty,
+                            InstallPostureReason: item.InstallPostureReason ?? string.Empty,
+                            PublicInstallRoute: item.PublicInstallRoute ?? string.Empty))
+                        .ToArray(),
+                    MissingRequiredPlatforms: parsed.DesktopTupleCoverage.MissingRequiredPlatforms ?? [],
+                    MissingRequiredHeads: parsed.DesktopTupleCoverage.MissingRequiredHeads ?? [],
+                    MissingRequiredPlatformHeadPairs: parsed.DesktopTupleCoverage.MissingRequiredPlatformHeadPairs ?? [],
+                    MissingRequiredPlatformHeadRidTuples: parsed.DesktopTupleCoverage.MissingRequiredPlatformHeadRidTuples ?? [],
+                    Complete: parsed.DesktopTupleCoverage.Complete));
     }
 
     private sealed record RegistryReleaseChannelManifest(
@@ -108,6 +142,7 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
         string? FixAvailabilitySummary,
         RegistryReleaseProof? ReleaseProof,
         IReadOnlyList<RegistryReleaseArtifact>? Artifacts,
+        RegistryDesktopTupleCoverage? DesktopTupleCoverage,
         IReadOnlyList<RegistryRuntimeBundleHead>? RuntimeBundleHeads);
 
     private sealed record RegistryReleaseProof(
@@ -132,6 +167,38 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
         string? EmbeddedRuntimeBundleHeadId,
         string? CompatibilityState,
         string? InstallAccessClass);
+
+    private sealed record RegistryDesktopTupleCoverage(
+        IReadOnlyList<string>? RequiredDesktopPlatforms,
+        IReadOnlyList<string>? RequiredDesktopHeads,
+        IReadOnlyList<RegistryDesktopRouteTruth>? DesktopRouteTruth,
+        IReadOnlyList<string>? MissingRequiredPlatforms,
+        IReadOnlyList<string>? MissingRequiredHeads,
+        IReadOnlyList<string>? MissingRequiredPlatformHeadPairs,
+        IReadOnlyList<string>? MissingRequiredPlatformHeadRidTuples,
+        bool Complete);
+
+    private sealed record RegistryDesktopRouteTruth(
+        string? TupleId,
+        string? Head,
+        string? Platform,
+        string? Rid,
+        string? Arch,
+        string? ArtifactId,
+        string? RouteRole,
+        string? RouteRoleReason,
+        string? PromotionState,
+        string? PromotionReason,
+        string? ParityPosture,
+        string? UpdateEligibility,
+        string? UpdateEligibilityReason,
+        string? RollbackState,
+        string? RollbackReason,
+        string? RevokeState,
+        string? RevokeReason,
+        string? InstallPosture,
+        string? InstallPostureReason,
+        string? PublicInstallRoute);
 
     private sealed record RegistryRuntimeBundleHead(
         string? HeadId,

@@ -1,25 +1,25 @@
 {
-  "generated_at": "2026-04-11T19:43:00Z",
-  "generatedAt": "2026-04-11T19:43:00Z",
+  "generated_at": "2026-04-15T08:11:58Z",
+  "generatedAt": "2026-04-15T08:11:58Z",
   "schemaVersion": 1,
   "product": "chummer6",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "channelId": "docker",
-  "version": "unpublished",
-  "publishedAt": "2026-04-11T19:42:21Z",
-  "status": "unpublished",
+  "version": "run-20260414-1836",
+  "publishedAt": "2026-04-15T02:00:00Z",
+  "status": "published",
   "artifactSource": "ui_desktop_bundle",
   "message": null,
-  "rolloutState": "unpublished",
-  "rolloutReason": "No published artifact shelf exists yet.",
-  "supportabilityState": "unpublished",
-  "supportabilitySummary": "No published channel support posture exists because no release shelf is live.",
-  "knownIssueSummary": "No active channel issues are published because the shelf is still empty.",
-  "fixAvailabilitySummary": "Fix notices should stay pending until a published shelf exists.",
+  "rolloutState": "promoted_preview",
+  "rolloutReason": "Current release shelf was exercised by the local docker release proof harness before publication.",
+  "supportabilityState": "preview_supported",
+  "supportabilitySummary": "Local release proof passed for: install_claim_restore_continue, build_explain_publish, campaign_session_recover_recap, report_cluster_release_notify, organize_community_and_close_loop. Claimed-device restore and bounded offline prefetch stayed grounded on the current shelf. Clustered release notification stayed grounded on the current shelf. Community organizer closure stayed grounded on the current shelf.",
+  "knownIssueSummary": "Preview caveats still apply, but the current shelf has recent install, claimed-device recovery, clustered release notification, community closure, bounded offline prefetch, and support proof instead of only manifest presence.",
+  "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
   "releaseProof": {
     "status": "passed",
-    "generatedAt": "2026-04-10T04:40:41Z",
+    "generatedAt": "2026-04-12T14:13:32Z",
     "baseUrl": "https://chummer.run",
     "journeysPassed": [
       "install_claim_restore_continue",
@@ -35,11 +35,13 @@
       "/account/work",
       "/account/support",
       "/contact",
+      "/downloads/install/avalonia-osx-arm64-installer",
+      "/downloads/install/avalonia-win-x64-installer",
       "/downloads/install/blazor-desktop-linux-x64-installer"
     ],
     "uiLocalizationReleaseGate": {
       "status": "pass",
-      "generatedAt": "2026-04-11T19:18:59Z",
+      "generatedAt": "2026-04-11T14:14:24Z",
       "defaultKeyCount": 383,
       "explicitFallbackRuntime": "pass",
       "signoffSmokeRunnerStatus": "pass",
@@ -185,19 +187,19 @@
       "kind": "installer",
       "fileName": "chummer-avalonia-linux-x64-installer.deb",
       "downloadUrl": "/downloads/files/chummer-avalonia-linux-x64-installer.deb",
-      "sha256": "d97ea93d9dc45d59b7a19671e9e4008ee899e5d7276e7c70b8855f3b52b6d049",
-      "sizeBytes": 34731064,
+      "sha256": "4544ef844262d3381bc424105c4d67e95fa6f3c2541c1c79b00d0b4666a6198c",
+      "sizeBytes": 31796460,
       "platformLabel": "Avalonia Desktop Linux X64 Installer",
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
-      "compatibilityState": "unknown",
-      "installAccessClass": "open_public",
+      "compatibilityState": "compatible",
       "channelId": "docker",
       "channel": "docker",
-      "version": "unpublished",
-      "releaseVersion": "unpublished",
-      "generated_at": "2026-04-11T19:43:00Z",
-      "generatedAt": "2026-04-11T19:43:00Z",
+      "version": "run-20260414-1836",
+      "releaseVersion": "run-20260414-1836",
+      "installAccessClass": "open_public",
+      "generated_at": "2026-04-15T08:11:58Z",
+      "generatedAt": "2026-04-15T08:11:58Z",
       "id": "avalonia-linux-x64-installer"
     },
     {
@@ -209,20 +211,68 @@
       "kind": "installer",
       "fileName": "chummer-blazor-desktop-linux-x64-installer.deb",
       "downloadUrl": "/downloads/files/chummer-blazor-desktop-linux-x64-installer.deb",
-      "sha256": "ecb5d916470f84cc58c97653a6079634145014c235f7c8ff5255f22e889e999a",
-      "sizeBytes": 37129550,
+      "sha256": "fba47bb24a11f45dcd37c9d70b036346355d24802a434bf9eac2e6f3767c11f3",
+      "sizeBytes": 34182932,
       "platformLabel": "Blazor Desktop Linux X64 Installer",
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
-      "compatibilityState": "unknown",
-      "installAccessClass": "open_public",
+      "compatibilityState": "compatible",
       "channelId": "docker",
       "channel": "docker",
-      "version": "unpublished",
-      "releaseVersion": "unpublished",
-      "generated_at": "2026-04-11T19:43:00Z",
-      "generatedAt": "2026-04-11T19:43:00Z",
+      "version": "run-20260414-1836",
+      "releaseVersion": "run-20260414-1836",
+      "installAccessClass": "open_public",
+      "generated_at": "2026-04-15T08:11:58Z",
+      "generatedAt": "2026-04-15T08:11:58Z",
       "id": "blazor-desktop-linux-x64-installer"
+    },
+    {
+      "artifactId": "avalonia-osx-arm64-installer",
+      "head": "avalonia",
+      "rid": "osx-arm64",
+      "platform": "macos",
+      "arch": "arm64",
+      "kind": "installer",
+      "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
+      "downloadUrl": "/downloads/files/chummer-avalonia-osx-arm64-installer.dmg",
+      "sha256": "424b3216afedf86347494eea985cc1e7ceca7cb8cbf7aff04a475456a15973f4",
+      "sizeBytes": 50299530,
+      "platformLabel": "Avalonia Desktop macOS ARM64 Installer",
+      "updateFeedUrl": null,
+      "embeddedRuntimeBundleHeadId": null,
+      "compatibilityState": "compatible",
+      "channelId": "docker",
+      "channel": "docker",
+      "version": "run-20260414-1836",
+      "releaseVersion": "run-20260414-1836",
+      "installAccessClass": "account_required",
+      "generated_at": "2026-04-15T08:11:58Z",
+      "generatedAt": "2026-04-15T08:11:58Z",
+      "id": "avalonia-osx-arm64-installer"
+    },
+    {
+      "artifactId": "avalonia-win-x64-installer",
+      "head": "avalonia",
+      "rid": "win-x64",
+      "platform": "windows",
+      "arch": "x64",
+      "kind": "installer",
+      "fileName": "chummer-avalonia-win-x64-installer.exe",
+      "downloadUrl": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
+      "sha256": "cb3493c1113c23b5e496dfe8a1e6de9afc43c802d7da865adc5255497341e5c4",
+      "sizeBytes": 96466473,
+      "platformLabel": "Avalonia Desktop Windows X64 Installer",
+      "updateFeedUrl": null,
+      "embeddedRuntimeBundleHeadId": null,
+      "compatibilityState": "compatible",
+      "channelId": "docker",
+      "channel": "docker",
+      "version": "run-20260414-1836",
+      "releaseVersion": "run-20260414-1836",
+      "installAccessClass": "account_required",
+      "generated_at": "2026-04-15T08:11:58Z",
+      "generatedAt": "2026-04-15T08:11:58Z",
+      "id": "avalonia-win-x64-installer"
     }
   ],
   "desktopTupleCoverage": {
@@ -232,8 +282,7 @@
       "macos"
     ],
     "requiredDesktopHeads": [
-      "avalonia",
-      "blazor-desktop"
+      "avalonia"
     ],
     "promotedInstallerTuples": [
       {
@@ -253,6 +302,24 @@
         "arch": "x64",
         "kind": "installer",
         "artifactId": "blazor-desktop-linux-x64-installer"
+      },
+      {
+        "tupleId": "avalonia:macos:osx-arm64",
+        "head": "avalonia",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "arch": "arm64",
+        "kind": "installer",
+        "artifactId": "avalonia-osx-arm64-installer"
+      },
+      {
+        "tupleId": "avalonia:windows:win-x64",
+        "head": "avalonia",
+        "platform": "windows",
+        "rid": "win-x64",
+        "arch": "x64",
+        "kind": "installer",
+        "artifactId": "avalonia-win-x64-installer"
       }
     ],
     "promotedPlatformHeads": {
@@ -260,177 +327,164 @@
         "avalonia",
         "blazor-desktop"
       ],
-      "windows": [],
-      "macos": []
+      "windows": [
+        "avalonia"
+      ],
+      "macos": [
+        "avalonia"
+      ]
     },
     "requiredDesktopPlatformHeadRidTuples": [
       "avalonia:linux-x64:linux",
       "avalonia:osx-arm64:macos",
-      "avalonia:win-x64:windows",
-      "blazor-desktop:linux-x64:linux",
-      "blazor-desktop:osx-arm64:macos",
-      "blazor-desktop:win-x64:windows"
+      "avalonia:win-x64:windows"
     ],
     "promotedPlatformHeadRidTuples": [
       "avalonia:linux-x64:linux",
-      "blazor-desktop:linux-x64:linux"
-    ],
-    "missingRequiredPlatforms": [
-      "windows",
-      "macos"
-    ],
-    "missingRequiredHeads": [],
-    "missingRequiredPlatformHeadPairs": [
-      "avalonia:windows",
-      "blazor-desktop:windows",
-      "avalonia:macos",
-      "blazor-desktop:macos"
-    ],
-    "missingRequiredPlatformHeadRidTuples": [
       "avalonia:osx-arm64:macos",
       "avalonia:win-x64:windows",
-      "blazor-desktop:osx-arm64:macos",
-      "blazor-desktop:win-x64:windows"
+      "blazor-desktop:linux-x64:linux"
     ],
-    "externalProofRequests": [
+    "missingRequiredPlatforms": [],
+    "missingRequiredHeads": [],
+    "missingRequiredPlatformHeadPairs": [],
+    "missingRequiredPlatformHeadRidTuples": [],
+    "externalProofRequests": [],
+    "desktopRouteTruth": [
       {
-        "tupleId": "avalonia:osx-arm64:macos",
-        "channelId": "docker",
+        "tupleId": "avalonia:linux:linux-x64",
         "head": "avalonia",
-        "platform": "macos",
-        "rid": "osx-arm64",
-        "requiredHost": "macos",
-        "requiredProofs": [
-          "promoted_installer_artifact",
-          "startup_smoke_receipt"
-        ],
-        "expectedArtifactId": "avalonia-osx-arm64-installer",
-        "expectedInstallerFileName": "chummer-avalonia-osx-arm64-installer.dmg",
-        "expectedInstallerRelativePath": "files/chummer-avalonia-osx-arm64-installer.dmg",
-        "expectedInstallerSha256": "",
-        "expectedPublicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
-        "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-avalonia-osx-arm64.receipt.json",
-        "startupSmokeReceiptContract": {
-          "statusAnyOf": [
-            "pass",
-            "passed",
-            "ready"
-          ],
-          "readyCheckpoint": "pre_ui_event_loop",
-          "headId": "avalonia",
-          "platform": "macos",
-          "rid": "osx-arm64",
-          "hostClassContains": "macos"
-        },
-        "proofCaptureCommands": [
-          "cd /docker/chummercomplete/chummer6-ui && CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=macos-host CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=macOS ./scripts/run-desktop-startup-smoke.sh /docker/chummercomplete/chummer6-ui/Docker/Downloads/files/chummer-avalonia-osx-arm64-installer.dmg avalonia osx-arm64 Chummer.Avalonia /docker/chummercomplete/chummer6-ui/Docker/Downloads/startup-smoke",
-          "cd /docker/chummercomplete/chummer6-ui && ./scripts/generate-releases-manifest.sh"
-        ]
+        "platform": "linux",
+        "rid": "linux-x64",
+        "arch": "x64",
+        "artifactId": "avalonia-linux-x64-installer",
+        "routeRole": "primary",
+        "routeRoleReason": "Avalonia Desktop is the flagship desktop route for linux and must carry independent startup-smoke proof before promotion.",
+        "promotionState": "promoted",
+        "promotionReason": "Installer tuple is present on the registry shelf and passed the current startup-smoke and release-proof gates for this channel.",
+        "parityPosture": "flagship_primary",
+        "updateEligibility": "eligible",
+        "updateEligibilityReason": "Primary-route installer is promoted for this channel tuple.",
+        "rollbackState": "fallback_available",
+        "rollbackReason": "A promoted fallback desktop head exists on this platform.",
+        "revokeState": "not_revoked",
+        "revokeReason": "No registry revoke marker is active for this channel tuple.",
+        "installPosture": "installer_first",
+        "installPostureReason": "Promoted installer media is present for this platform tuple.",
+        "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer"
       },
       {
-        "tupleId": "avalonia:win-x64:windows",
-        "channelId": "docker",
+        "tupleId": "blazor-desktop:linux:linux-x64",
+        "head": "blazor-desktop",
+        "platform": "linux",
+        "rid": "linux-x64",
+        "arch": "x64",
+        "artifactId": "blazor-desktop-linux-x64-installer",
+        "routeRole": "fallback",
+        "routeRoleReason": "Blazor Desktop is retained as an explicit fallback route for linux; it cannot satisfy the primary-route promise.",
+        "promotionState": "promoted",
+        "promotionReason": "Installer tuple is present on the registry shelf and passed the current startup-smoke and release-proof gates for this channel.",
+        "parityPosture": "explicit_fallback",
+        "updateEligibility": "manual_fallback",
+        "updateEligibilityReason": "Fallback installer is promoted for recovery/manual selection, not automatic primary updates.",
+        "rollbackState": "fallback_available",
+        "rollbackReason": "Fallback head is promoted and can be used for rollback or recovery routing.",
+        "revokeState": "not_revoked",
+        "revokeReason": "No registry revoke marker is active for this channel tuple.",
+        "installPosture": "installer_first",
+        "installPostureReason": "Promoted installer media is present for this platform tuple.",
+        "publicInstallRoute": "/downloads/install/blazor-desktop-linux-x64-installer"
+      },
+      {
+        "tupleId": "avalonia:windows:win-x64",
         "head": "avalonia",
         "platform": "windows",
         "rid": "win-x64",
-        "requiredHost": "windows",
-        "requiredProofs": [
-          "promoted_installer_artifact",
-          "startup_smoke_receipt"
-        ],
-        "expectedArtifactId": "avalonia-win-x64-installer",
-        "expectedInstallerFileName": "chummer-avalonia-win-x64-installer.exe",
-        "expectedInstallerRelativePath": "files/chummer-avalonia-win-x64-installer.exe",
-        "expectedInstallerSha256": "",
-        "expectedPublicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
-        "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-avalonia-win-x64.receipt.json",
-        "startupSmokeReceiptContract": {
-          "statusAnyOf": [
-            "pass",
-            "passed",
-            "ready"
-          ],
-          "readyCheckpoint": "pre_ui_event_loop",
-          "headId": "avalonia",
-          "platform": "windows",
-          "rid": "win-x64",
-          "hostClassContains": "windows"
-        },
-        "proofCaptureCommands": [
-          "cd /docker/chummercomplete/chummer6-ui && CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=windows-host CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=Windows ./scripts/run-desktop-startup-smoke.sh /docker/chummercomplete/chummer6-ui/Docker/Downloads/files/chummer-avalonia-win-x64-installer.exe avalonia win-x64 Chummer.Avalonia.exe /docker/chummercomplete/chummer6-ui/Docker/Downloads/startup-smoke",
-          "cd /docker/chummercomplete/chummer6-ui && ./scripts/generate-releases-manifest.sh"
-        ]
+        "arch": "x64",
+        "artifactId": "avalonia-win-x64-installer",
+        "routeRole": "primary",
+        "routeRoleReason": "Avalonia Desktop is the flagship desktop route for windows and must carry independent startup-smoke proof before promotion.",
+        "promotionState": "promoted",
+        "promotionReason": "Installer tuple is present on the registry shelf and passed the current startup-smoke and release-proof gates for this channel.",
+        "parityPosture": "flagship_primary",
+        "updateEligibility": "eligible",
+        "updateEligibilityReason": "Primary-route installer is promoted for this channel tuple.",
+        "rollbackState": "manual_recovery_required",
+        "rollbackReason": "No promoted fallback desktop head exists on this platform tuple.",
+        "revokeState": "not_revoked",
+        "revokeReason": "No registry revoke marker is active for this channel tuple.",
+        "installPosture": "installer_first",
+        "installPostureReason": "Promoted installer media is present for this platform tuple.",
+        "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer"
       },
       {
-        "tupleId": "blazor-desktop:osx-arm64:macos",
-        "channelId": "docker",
-        "head": "blazor-desktop",
-        "platform": "macos",
-        "rid": "osx-arm64",
-        "requiredHost": "macos",
-        "requiredProofs": [
-          "promoted_installer_artifact",
-          "startup_smoke_receipt"
-        ],
-        "expectedArtifactId": "blazor-desktop-osx-arm64-installer",
-        "expectedInstallerFileName": "chummer-blazor-desktop-osx-arm64-installer.dmg",
-        "expectedInstallerRelativePath": "files/chummer-blazor-desktop-osx-arm64-installer.dmg",
-        "expectedInstallerSha256": "",
-        "expectedPublicInstallRoute": "/downloads/install/blazor-desktop-osx-arm64-installer",
-        "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-blazor-desktop-osx-arm64.receipt.json",
-        "startupSmokeReceiptContract": {
-          "statusAnyOf": [
-            "pass",
-            "passed",
-            "ready"
-          ],
-          "readyCheckpoint": "pre_ui_event_loop",
-          "headId": "blazor-desktop",
-          "platform": "macos",
-          "rid": "osx-arm64",
-          "hostClassContains": "macos"
-        },
-        "proofCaptureCommands": [
-          "cd /docker/chummercomplete/chummer6-ui && CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=macos-host CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=macOS ./scripts/run-desktop-startup-smoke.sh /docker/chummercomplete/chummer6-ui/Docker/Downloads/files/chummer-blazor-desktop-osx-arm64-installer.dmg blazor-desktop osx-arm64 Chummer.Blazor.Desktop /docker/chummercomplete/chummer6-ui/Docker/Downloads/startup-smoke",
-          "cd /docker/chummercomplete/chummer6-ui && ./scripts/generate-releases-manifest.sh"
-        ]
-      },
-      {
-        "tupleId": "blazor-desktop:win-x64:windows",
-        "channelId": "docker",
+        "tupleId": "blazor-desktop:windows:win-x64",
         "head": "blazor-desktop",
         "platform": "windows",
         "rid": "win-x64",
-        "requiredHost": "windows",
-        "requiredProofs": [
-          "promoted_installer_artifact",
-          "startup_smoke_receipt"
-        ],
-        "expectedArtifactId": "blazor-desktop-win-x64-installer",
-        "expectedInstallerFileName": "chummer-blazor-desktop-win-x64-installer.exe",
-        "expectedInstallerRelativePath": "files/chummer-blazor-desktop-win-x64-installer.exe",
-        "expectedInstallerSha256": "",
-        "expectedPublicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer",
-        "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-blazor-desktop-win-x64.receipt.json",
-        "startupSmokeReceiptContract": {
-          "statusAnyOf": [
-            "pass",
-            "passed",
-            "ready"
-          ],
-          "readyCheckpoint": "pre_ui_event_loop",
-          "headId": "blazor-desktop",
-          "platform": "windows",
-          "rid": "win-x64",
-          "hostClassContains": "windows"
-        },
-        "proofCaptureCommands": [
-          "cd /docker/chummercomplete/chummer6-ui && CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=windows-host CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=Windows ./scripts/run-desktop-startup-smoke.sh /docker/chummercomplete/chummer6-ui/Docker/Downloads/files/chummer-blazor-desktop-win-x64-installer.exe blazor-desktop win-x64 Chummer.Blazor.Desktop.exe /docker/chummercomplete/chummer6-ui/Docker/Downloads/startup-smoke",
-          "cd /docker/chummercomplete/chummer6-ui && ./scripts/generate-releases-manifest.sh"
-        ]
+        "arch": "x64",
+        "artifactId": "",
+        "routeRole": "fallback",
+        "routeRoleReason": "Blazor Desktop is retained as an explicit fallback route for windows; it cannot satisfy the primary-route promise.",
+        "promotionState": "proof_required",
+        "promotionReason": "Installer tuple is not promoted until matching artifact bytes and fresh startup-smoke proof are present for this platform tuple.",
+        "parityPosture": "explicit_fallback",
+        "updateEligibility": "blocked_missing_proof",
+        "updateEligibilityReason": "Fallback route is not update-eligible until this tuple is promoted.",
+        "rollbackState": "fallback_not_promoted",
+        "rollbackReason": "Fallback route needs artifact and startup-smoke proof before rollback use.",
+        "revokeState": "not_revoked",
+        "revokeReason": "No registry revoke marker is active for this channel tuple.",
+        "installPosture": "proof_capture_required",
+        "installPostureReason": "Do not present this route as installable until the missing tuple proof is captured.",
+        "publicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer"
+      },
+      {
+        "tupleId": "avalonia:macos:osx-arm64",
+        "head": "avalonia",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "arch": "arm64",
+        "artifactId": "avalonia-osx-arm64-installer",
+        "routeRole": "primary",
+        "routeRoleReason": "Avalonia Desktop is the flagship desktop route for macos and must carry independent startup-smoke proof before promotion.",
+        "promotionState": "promoted",
+        "promotionReason": "Installer tuple is present on the registry shelf and passed the current startup-smoke and release-proof gates for this channel.",
+        "parityPosture": "flagship_primary",
+        "updateEligibility": "eligible",
+        "updateEligibilityReason": "Primary-route installer is promoted for this channel tuple.",
+        "rollbackState": "manual_recovery_required",
+        "rollbackReason": "No promoted fallback desktop head exists on this platform tuple.",
+        "revokeState": "not_revoked",
+        "revokeReason": "No registry revoke marker is active for this channel tuple.",
+        "installPosture": "installer_first",
+        "installPostureReason": "Promoted installer media is present for this platform tuple.",
+        "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer"
+      },
+      {
+        "tupleId": "blazor-desktop:macos:osx-arm64",
+        "head": "blazor-desktop",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "arch": "arm64",
+        "artifactId": "",
+        "routeRole": "fallback",
+        "routeRoleReason": "Blazor Desktop is retained as an explicit fallback route for macos; it cannot satisfy the primary-route promise.",
+        "promotionState": "proof_required",
+        "promotionReason": "Installer tuple is not promoted until matching artifact bytes and fresh startup-smoke proof are present for this platform tuple.",
+        "parityPosture": "explicit_fallback",
+        "updateEligibility": "blocked_missing_proof",
+        "updateEligibilityReason": "Fallback route is not update-eligible until this tuple is promoted.",
+        "rollbackState": "fallback_not_promoted",
+        "rollbackReason": "Fallback route needs artifact and startup-smoke proof before rollback use.",
+        "revokeState": "not_revoked",
+        "revokeReason": "No registry revoke marker is active for this channel tuple.",
+        "installPosture": "proof_capture_required",
+        "installPostureReason": "Do not present this route as installable until the missing tuple proof is captured.",
+        "publicInstallRoute": "/downloads/install/blazor-desktop-osx-arm64-installer"
       }
     ],
-    "complete": false
+    "complete": true
   },
   "runtimeBundleHeads": []
 }

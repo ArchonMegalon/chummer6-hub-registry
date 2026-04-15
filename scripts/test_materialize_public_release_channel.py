@@ -15,6 +15,40 @@ MODULE = importlib.util.module_from_spec(MODULE_SPEC)
 MODULE_SPEC.loader.exec_module(MODULE)
 
 
+def test_derive_rollout_state_uses_promoted_preview_for_complete_published_docker_release() -> None:
+    assert (
+        MODULE.derive_rollout_state(
+            "docker",
+            "published",
+            {"status": "passed"},
+            desktop_coverage_complete=True,
+        )
+        == "promoted_preview"
+    )
+
+
+def test_derive_supportability_state_uses_preview_supported_for_complete_published_release() -> None:
+    assert (
+        MODULE.derive_supportability_state(
+            "published",
+            {"status": "passed"},
+            desktop_coverage_complete=True,
+        )
+        == "preview_supported"
+    )
+
+
+def test_normalize_release_channel_posture_upgrades_stale_local_docker_states() -> None:
+    assert MODULE.normalize_release_channel_posture(
+        "local_docker_preview",
+        "local_docker_proven",
+        channel="docker",
+        status="published",
+        proof={"status": "passed"},
+        desktop_coverage_complete=True,
+    ) == ("promoted_preview", "preview_supported")
+
+
 def test_desktop_tuple_coverage_incomplete_when_only_rid_tuple_is_missing() -> None:
     coverage = {
         "missingRequiredPlatforms": [],
@@ -266,6 +300,49 @@ def test_load_startup_smoke_receipts_rejects_channel_mismatch_when_channel_prese
     assert receipts == []
 
 
+def test_load_startup_smoke_receipts_accepts_preview_channel_when_expected_channel_is_docker() -> None:
+    now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        receipt_path = root / "startup-smoke-avalonia-win-x64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": "2026-04-04T21:59:45Z",
+                    "headId": "avalonia",
+                    "platform": "windows",
+                    "arch": "x64",
+                    "hostClass": "windows-host",
+                    "operatingSystem": "Windows 11",
+                    "channelId": "preview",
+                    "artifactDigest": "sha256:abc123",
+                    "artifactPath": "/tmp/chummer-avalonia-win-x64-installer.exe",
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipts = MODULE.load_startup_smoke_receipts(
+            root,
+            max_age_seconds=86400,
+            max_future_skew_seconds=60,
+            expected_channel="docker",
+            now=now,
+        )
+    assert receipts == [
+        {
+            "head": "avalonia",
+            "platform": "windows",
+            "arch": "x64",
+            "artifactDigest": "sha256:abc123",
+            "channelId": "preview",
+            "artifactId": "",
+            "artifactFileName": "chummer-avalonia-win-x64-installer.exe",
+        }
+    ]
+
+
 def test_load_startup_smoke_receipts_rejects_missing_artifact_identity() -> None:
     now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
     with tempfile.TemporaryDirectory() as tmp:
@@ -312,6 +389,133 @@ def test_compatibility_payload_preserves_contract_name_aliases() -> None:
 
     assert payload["contract_name"] == "chummer.run.desktop_release_publication"
     assert payload["contractName"] == "chummer.run.desktop_release_publication"
+
+
+def test_normalize_release_proof_payload_ignores_extra_metadata_keys() -> None:
+    payload = MODULE.normalize_release_proof_payload(
+        {
+            "status": "passed",
+            "generatedAt": "2026-04-14T18:12:04Z",
+            "baseUrl": "https://chummer.run",
+            "journeysPassed": list(MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS),
+            "proofRoutes": list(MODULE.REQUIRED_RELEASE_PROOF_ROUTES),
+            "contract_name": "chummer6-ui.local_release_proof",
+            "compose_file": "docker-compose.public-edge.yml",
+            "edge_rebuild_skipped": True,
+            "playwright_timeout_seconds": 240,
+            "route_probe_executed": True,
+        },
+        source="ui-local-release-proof",
+    )
+
+    assert payload is not None
+    assert payload["status"] == "passed"
+    assert payload["journeysPassed"] == list(MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS)
+
+
+def test_normalize_ui_localization_release_gate_payload_ignores_extra_metadata_keys() -> None:
+    payload = MODULE.normalize_ui_localization_release_gate_payload(
+        {
+            "status": "pass",
+            "generatedAt": "2026-04-14T18:12:04Z",
+            "defaultKeyCount": 383,
+            "explicitFallbackRuntime": "pass",
+            "signoffSmokeRunnerStatus": "pass",
+            "shippingLocales": list(MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES),
+            "acceptanceGates": list(MODULE.REQUIRED_LOCALIZATION_ACCEPTANCE_GATES),
+            "domainCoverage": {
+                "app_chrome": "pass",
+                "data_rules_names": "pass",
+                "explain_receipts": "pass",
+                "generated_artifacts": "pass",
+                "install_update_support": "pass",
+            },
+            "localeDomainCoverage": {
+                locale: {
+                    "app_chrome": "pass",
+                    "data_rules_names": "pass",
+                    "explain_receipts": "pass",
+                    "generated_artifacts": "pass",
+                    "install_update_support": "pass",
+                }
+                for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+            },
+            "localeSummary": [
+                {
+                    "locale": locale,
+                    "untranslatedKeyCount": 0,
+                    "overrideCount": 383,
+                    "minimumOverrideCount": 40 if locale != "en-us" else 383,
+                    "missingReleaseSeedKeys": [],
+                    "legacyXmlPresent": True,
+                    "legacyDataXmlPresent": True,
+                }
+                for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+            ],
+            "release_seed_keys": ["foo"],
+            "legacy_language_root": "/tmp/lang",
+            "contract_name": "chummer6-ui.localization_release_gate",
+            "local_release_proof": {"status": "passed"},
+        },
+        source="ui-localization-release-gate",
+    )
+
+    assert payload is not None
+    assert payload["status"] == "pass"
+    assert payload["defaultKeyCount"] == 383
+
+
+def test_dedupe_release_proof_routes_preserves_first_route_order() -> None:
+    routes = MODULE.dedupe_release_proof_routes(
+        [
+            "/downloads/install/avalonia-linux-x64-installer",
+            "/downloads/install/avalonia-win-x64-installer",
+            "/downloads/install/avalonia-win-x64-installer",
+            "/downloads/install/blazor-desktop-linux-x64-installer",
+            "/downloads/install/blazor-desktop-linux-x64-installer",
+        ]
+    )
+
+    assert routes == [
+        "/downloads/install/avalonia-linux-x64-installer",
+        "/downloads/install/avalonia-win-x64-installer",
+        "/downloads/install/blazor-desktop-linux-x64-installer",
+    ]
+
+
+def test_desktop_route_truth_does_not_offer_revoked_fallback_for_primary_rollback() -> None:
+    rows = MODULE.desktop_route_truth(
+        [
+            {
+                "artifactId": "avalonia-linux-x64-installer",
+                "head": "avalonia",
+                "rid": "linux-x64",
+                "platform": "linux",
+                "arch": "x64",
+                "kind": "installer",
+                "compatibilityState": "compatible",
+            },
+            {
+                "artifactId": "blazor-desktop-linux-x64-installer",
+                "head": "blazor-desktop",
+                "rid": "linux-x64",
+                "platform": "linux",
+                "arch": "x64",
+                "kind": "installer",
+                "compatibilityState": "revoked",
+            },
+        ],
+        required_platforms=["linux"],
+        known_issue_summary="Fallback installer signature was revoked.",
+    )
+    primary = next(row for row in rows if row["head"] == "avalonia")
+    fallback = next(row for row in rows if row["head"] == "blazor-desktop")
+
+    assert primary["rollbackState"] == "manual_recovery_required"
+    assert primary["rollbackReason"] == "No promoted fallback desktop head exists on this platform tuple."
+    assert fallback["promotionState"] == "revoked"
+    assert fallback["updateEligibility"] == "blocked_revoked"
+    assert fallback["revokeReason"] == "Fallback installer signature was revoked."
 
 
 def test_load_startup_smoke_receipts_rejects_operating_system_platform_mismatch() -> None:
@@ -414,6 +618,105 @@ def test_desktop_tuple_coverage_emits_explicit_complete_flag() -> None:
     )
     assert coverage["complete"] is False
     assert "missingRequiredPlatformHeadRidTuples" in coverage
+
+
+def test_desktop_tuple_coverage_emits_route_truth_for_primary_and_fallback_heads() -> None:
+    coverage = MODULE.desktop_tuple_coverage(
+        [
+            {
+                "artifactId": "avalonia-linux-x64-installer",
+                "head": "avalonia",
+                "platform": "linux",
+                "rid": "linux-x64",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "blazor-desktop-linux-x64-installer",
+                "head": "blazor-desktop",
+                "platform": "linux",
+                "rid": "linux-x64",
+                "arch": "x64",
+                "kind": "installer",
+            },
+        ],
+        required_heads=["avalonia"],
+        required_platforms=["linux"],
+        channel_id="preview",
+    )
+
+    route_truth = {
+        row["head"]: row for row in coverage["desktopRouteTruth"]
+    }
+    assert route_truth["avalonia"]["routeRole"] == "primary"
+    assert route_truth["avalonia"]["promotionState"] == "promoted"
+    assert route_truth["avalonia"]["updateEligibility"] == "eligible"
+    assert route_truth["avalonia"]["rollbackState"] == "fallback_available"
+    assert route_truth["blazor-desktop"]["routeRole"] == "fallback"
+    assert route_truth["blazor-desktop"]["promotionState"] == "promoted"
+    assert route_truth["blazor-desktop"]["updateEligibility"] == "manual_fallback"
+    assert route_truth["blazor-desktop"]["revokeState"] == "not_revoked"
+
+
+def test_desktop_tuple_coverage_marks_unpromoted_fallback_as_proof_required() -> None:
+    coverage = MODULE.desktop_tuple_coverage(
+        [
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "platform": "windows",
+                "rid": "win-x64",
+                "arch": "x64",
+                "kind": "installer",
+            },
+        ],
+        required_heads=["avalonia"],
+        required_platforms=["windows"],
+        channel_id="preview",
+    )
+
+    fallback = next(row for row in coverage["desktopRouteTruth"] if row["head"] == "blazor-desktop")
+    primary = next(row for row in coverage["desktopRouteTruth"] if row["head"] == "avalonia")
+    assert primary["rollbackState"] == "manual_recovery_required"
+    assert fallback["promotionState"] == "proof_required"
+    assert fallback["rollbackState"] == "fallback_not_promoted"
+    assert fallback["installPosture"] == "proof_capture_required"
+
+
+def test_desktop_tuple_coverage_marks_channel_revoked_routes_as_revoked() -> None:
+    coverage = MODULE.desktop_tuple_coverage(
+        [
+            {
+                "artifactId": "avalonia-linux-x64-installer",
+                "head": "avalonia",
+                "platform": "linux",
+                "rid": "linux-x64",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "blazor-desktop-linux-x64-installer",
+                "head": "blazor-desktop",
+                "platform": "linux",
+                "rid": "linux-x64",
+                "arch": "x64",
+                "kind": "installer",
+            },
+        ],
+        required_heads=["avalonia"],
+        required_platforms=["linux"],
+        channel_id="preview",
+        channel_status="revoked",
+        rollout_reason="Signature receipt was revoked after publication.",
+    )
+
+    for row in coverage["desktopRouteTruth"]:
+        assert row["promotionState"] == "revoked"
+        assert row["updateEligibility"] == "blocked_revoked"
+        assert row["rollbackState"] == "revoked"
+        assert row["revokeState"] == "revoked"
+        assert row["revokeReason"] == "Signature receipt was revoked after publication."
+        assert row["installPosture"] == "revoked"
 
 
 def test_desktop_tuple_coverage_uses_downloads_dir_sha_for_missing_tuple_request() -> None:
@@ -562,12 +865,21 @@ def test_external_proof_request_capture_commands_include_operating_system_hint()
         rid="win-x64",
         platform="windows",
         installer_file_name="chummer-avalonia-win-x64-installer.exe",
+        expected_installer_sha256="a" * 64,
         required_host="windows",
+        release_version="run-20260414-1836",
     )
 
-    assert len(commands) == 2
-    assert "CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=windows-host" in commands[0]
-    assert "CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=Windows" in commands[0]
+    assert len(commands) == 3
+    assert "external-proof-auth-missing" in commands[0]
+    assert "curl_auth_args" in commands[0]
+    assert "/downloads/install/avalonia-win-x64-installer" in commands[0]
+    assert "installer-preflight-sha256-mismatch" in commands[0]
+    assert "installer-postdownload-sha256-mismatch" in commands[0]
+    assert "CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=windows-host" in commands[1]
+    assert "CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=Windows" in commands[1]
+    assert commands[1].endswith("/docker/chummercomplete/chummer6-ui/Docker/Downloads/startup-smoke run-20260414-1836")
+    assert commands[2] == "cd /docker/chummercomplete/chummer6-ui && ./scripts/generate-releases-manifest.sh"
 
 
 def test_external_proof_request_capture_commands_include_macos_operating_system_hint() -> None:
@@ -576,9 +888,16 @@ def test_external_proof_request_capture_commands_include_macos_operating_system_
         rid="osx-arm64",
         platform="macos",
         installer_file_name="chummer-blazor-desktop-osx-arm64-installer.dmg",
+        expected_installer_sha256="b" * 64,
         required_host="macos",
+        release_version="run-20260414-1836",
     )
 
-    assert len(commands) == 2
-    assert "CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=macos-host" in commands[0]
-    assert "CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=macOS" in commands[0]
+    assert len(commands) == 3
+    assert "external-proof-auth-missing" in commands[0]
+    assert "/downloads/install/blazor-desktop-osx-arm64-installer" in commands[0]
+    assert "installer-download-html-response" in commands[0]
+    assert "CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=macos-host" in commands[1]
+    assert "CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=macOS" in commands[1]
+    assert commands[1].endswith("/docker/chummercomplete/chummer6-ui/Docker/Downloads/startup-smoke run-20260414-1836")
+    assert commands[2] == "cd /docker/chummercomplete/chummer6-ui && ./scripts/generate-releases-manifest.sh"

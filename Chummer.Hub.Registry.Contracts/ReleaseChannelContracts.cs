@@ -76,6 +76,38 @@ public sealed record ReleaseChannelArtifact(
     string? CompatibilityState = null,
     string? InstallAccessClass = null);
 
+public sealed record ReleaseDesktopRouteTruth(
+    string TupleId,
+    string Head,
+    string Platform,
+    string Rid,
+    string Arch,
+    string? ArtifactId,
+    string RouteRole,
+    string RouteRoleReason,
+    string PromotionState,
+    string PromotionReason,
+    string ParityPosture,
+    string UpdateEligibility,
+    string UpdateEligibilityReason,
+    string RollbackState,
+    string RollbackReason,
+    string RevokeState,
+    string RevokeReason,
+    string InstallPosture,
+    string InstallPostureReason,
+    string PublicInstallRoute);
+
+public sealed record ReleaseDesktopTupleCoverage(
+    IReadOnlyList<string> RequiredDesktopPlatforms,
+    IReadOnlyList<string> RequiredDesktopHeads,
+    IReadOnlyList<ReleaseDesktopRouteTruth> DesktopRouteTruth,
+    IReadOnlyList<string>? MissingRequiredPlatforms = null,
+    IReadOnlyList<string>? MissingRequiredHeads = null,
+    IReadOnlyList<string>? MissingRequiredPlatformHeadPairs = null,
+    IReadOnlyList<string>? MissingRequiredPlatformHeadRidTuples = null,
+    bool Complete = false);
+
 public sealed record ReleaseChannelHeadProjection(
     string Product,
     string ChannelId,
@@ -92,4 +124,5 @@ public sealed record ReleaseChannelHeadProjection(
     string? SupportabilitySummary = null,
     string? KnownIssueSummary = null,
     string? FixAvailabilitySummary = null,
-    ReleaseProofProjection? ReleaseProof = null);
+    ReleaseProofProjection? ReleaseProof = null,
+    ReleaseDesktopTupleCoverage? DesktopTupleCoverage = null);

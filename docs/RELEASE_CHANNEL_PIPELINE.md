@@ -166,6 +166,30 @@ Minimum canonical payload:
       "blazor-desktop:windows",
       "avalonia:macos",
       "blazor-desktop:macos"
+    ],
+    "desktopRouteTruth": [
+      {
+        "tupleId": "avalonia:windows:win-x64",
+        "head": "avalonia",
+        "platform": "windows",
+        "rid": "win-x64",
+        "arch": "x64",
+        "artifactId": "avalonia-win-x64-installer",
+        "routeRole": "primary",
+        "routeRoleReason": "Avalonia Desktop is the flagship desktop route for windows and must carry independent startup-smoke proof before promotion.",
+        "promotionState": "promoted",
+        "promotionReason": "Installer tuple is present on the registry shelf and passed the current startup-smoke and release-proof gates for this channel.",
+        "parityPosture": "flagship_primary",
+        "updateEligibility": "eligible",
+        "updateEligibilityReason": "Primary-route installer is promoted for this channel tuple.",
+        "rollbackState": "manual_recovery_required",
+        "rollbackReason": "No promoted fallback desktop head exists on this platform tuple.",
+        "revokeState": "not_revoked",
+        "revokeReason": "No registry revoke marker is active for this channel tuple.",
+        "installPosture": "installer_first",
+        "installPostureReason": "Promoted installer media is present for this platform tuple.",
+        "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer"
+      }
     ]
   },
   "runtimeBundleHeads": [
@@ -207,6 +231,8 @@ Use `CHUMMER_VERIFY_STARTUP_SMOKE_MAX_AGE_SECONDS` (or shared `CHUMMER_DESKTOP_S
 Each promoted artifact row must carry explicit `channel` metadata that matches top-level `channelId` so channel/head/platform/arch truth stays aligned in one object graph.
 `desktopTupleCoverage` is required and must be internally consistent with published artifacts, so missing required heads/platforms are explicitly visible in release truth instead of implied by silent omissions.
 `promotedInstallerTuples` rows are also verifier-bound object truth (`tupleId`, `head`, `platform`, `rid`, `arch`, `kind`, `artifactId`) and must match canonical artifact metadata exactly.
+`desktopTupleCoverage.desktopRouteTruth` is verifier-bound channel-truth metadata for desktop route decisions. It must include one row for each canonical desktop head (`avalonia` primary, `blazor-desktop` fallback) on every required platform tuple, whether or not that tuple is currently promoted. Each row answers the route role, route-role reason, promotion state and reason, parity posture, update eligibility and reason, rollback state and reason, revoke state and reason, installer posture and reason, and public install route. Missing fallback proof is represented as `promotionState=proof_required`, not by omitting the fallback row; active revocation must be represented by explicit revoke state and reason rather than public-copy inference.
+Revocation is derived from registry-owned truth, not from downstream wording: if the channel `status` or `rolloutState` is `revoked`, every desktop route row must switch to `promotionState=revoked`, `updateEligibility=blocked_revoked`, `rollbackState=revoked`, `installPosture=revoked`, and a nonblank `revokeReason` from `rolloutReason`, `knownIssueSummary`, or the default revoke rationale. If a promoted artifact's `compatibilityState` is `revoked`, the affected tuple follows the same blocked posture while other tuples keep their normal primary/fallback reasoning.
 `desktopTupleCoverage` is strict verifier contract surface: unexpected top-level keys are fail-closed, and `promotedInstallerTuples` rows are fail-closed if they carry unexpected keys outside the canonical tuple metadata fields.
 `desktopTupleCoverage.externalProofRequests` rows are strict verifier-bound contract truth for cross-host blocker capture (`tupleId`, `channelId`, `head`, `platform`, `rid`, `requiredHost`, `requiredProofs`, `expectedArtifactId`, `expectedInstallerFileName`, `expectedPublicInstallRoute`, `expectedStartupSmokeReceiptPath`, `startupSmokeReceiptContract`, and `proofCaptureCommands`) and must match canonical tuple-derived values exactly.
 `releaseProof` is required and materializer-and-verifier-bound for promoted shelf truth, and `releaseProof.status` must be passing (`pass`, `passed`, or `ready`) so failed or missing proof packets cannot be projected or promoted as shelf truth.

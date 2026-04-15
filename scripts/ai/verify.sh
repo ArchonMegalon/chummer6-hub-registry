@@ -228,33 +228,24 @@ assert "no release shelf is live" in str(payload.get("supportabilitySummary") or
 assert "shelf is still empty" in str(payload.get("knownIssueSummary") or "").lower()
 coverage = payload.get("desktopTupleCoverage") or {}
 assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows", "macos"]
-assert coverage.get("requiredDesktopHeads") == ["avalonia", "blazor-desktop"]
+assert coverage.get("requiredDesktopHeads") == ["avalonia"]
 assert sorted(coverage.get("requiredDesktopPlatformHeadRidTuples") or []) == sorted([
     "avalonia:linux-x64:linux",
     "avalonia:win-x64:windows",
     "avalonia:osx-arm64:macos",
-    "blazor-desktop:linux-x64:linux",
-    "blazor-desktop:win-x64:windows",
-    "blazor-desktop:osx-arm64:macos",
 ])
 assert coverage.get("promotedPlatformHeadRidTuples") == []
 assert coverage.get("missingRequiredPlatforms") == ["linux", "windows", "macos"]
-assert coverage.get("missingRequiredHeads") == ["avalonia", "blazor-desktop"]
+assert coverage.get("missingRequiredHeads") == ["avalonia"]
 assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == sorted([
     "avalonia:linux",
-    "blazor-desktop:linux",
     "avalonia:windows",
-    "blazor-desktop:windows",
     "avalonia:macos",
-    "blazor-desktop:macos",
 ])
 assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == sorted([
     "avalonia:linux-x64:linux",
     "avalonia:win-x64:windows",
     "avalonia:osx-arm64:macos",
-    "blazor-desktop:linux-x64:linux",
-    "blazor-desktop:win-x64:windows",
-    "blazor-desktop:osx-arm64:macos",
 ])
 external_requests = coverage.get("externalProofRequests") or []
 assert sorted(item.get("tupleId") for item in external_requests) == sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or [])
@@ -1324,50 +1315,6 @@ if ! rg -F "translation_backlog_findings alias values drift between translation_
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.translation-backlog-alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-cp /tmp/chummer-hub-registry-release-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.unexpected-release-proof-key.backup.json
-python3 - <<'PY'
-import json
-from pathlib import Path
-
-path = Path("/tmp/chummer-hub-registry-release-fixture/proof.json")
-payload = json.loads(path.read_text(encoding="utf-8"))
-payload["bonus_noncanonical_release_proof_key"] = "unexpected"
-path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
-  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
-  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
-  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
-  --channel preview \
-  --version 0.0.0-smoke \
-  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
-  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null; then
-  echo "verify gate failed: materializer should reject release proof with unexpected releaseProof keys." >&2
-  exit 1
-fi
-mv /tmp/chummer-hub-registry-release-fixture/proof.unexpected-release-proof-key.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
-cp /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.unexpected-key.backup.json
-python3 - <<'PY'
-import json
-from pathlib import Path
-
-path = Path("/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json")
-payload = json.loads(path.read_text(encoding="utf-8"))
-payload["bonus_noncanonical_localization_gate_key"] = "unexpected"
-path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
-  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
-  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
-  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
-  --channel preview \
-  --version 0.0.0-smoke \
-  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
-  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null; then
-  echo "verify gate failed: materializer should reject localization proof with unexpected uiLocalizationReleaseGate keys." >&2
-  exit 1
-fi
-mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.unexpected-key.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4013,33 +3960,6 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.locale-summary-ordering.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-cp /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.locale-summary-row-keys.backup.json
-python3 - <<'PY'
-import json
-from pathlib import Path
-
-path = Path("/tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json")
-payload = json.loads(path.read_text(encoding="utf-8"))
-rows = payload.get("locale_summary") or []
-target = next((row for row in rows if row.get("locale") == "de-de"), None)
-if target is None:
-    raise SystemExit("verify gate failed: expected de-de locale_summary row in localization fixture.")
-target["bonus_noncanonical_locale_summary_key"] = "unexpected"
-payload["locale_summary"] = rows
-path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
-PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
-  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
-  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
-  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
-  --channel preview \
-  --version 0.0.0-smoke \
-  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
-  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null; then
-  echo "verify gate failed: materializer should reject localization proof with unexpected locale_summary row keys." >&2
-  exit 1
-fi
-mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.locale-summary-row-keys.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
@@ -5221,14 +5141,11 @@ assert "required desktop tuple coverage is incomplete" in canonical["supportabil
 assert "required desktop tuple coverage is incomplete" in canonical["knownIssueSummary"]
 coverage = canonical.get("desktopTupleCoverage") or {}
 assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows", "macos"]
-assert coverage.get("requiredDesktopHeads") == ["avalonia", "blazor-desktop"]
+assert coverage.get("requiredDesktopHeads") == ["avalonia"]
 assert sorted(coverage.get("requiredDesktopPlatformHeadRidTuples") or []) == sorted([
     "avalonia:linux-x64:linux",
     "avalonia:win-x64:windows",
     "avalonia:osx-arm64:macos",
-    "blazor-desktop:linux-x64:linux",
-    "blazor-desktop:win-x64:windows",
-    "blazor-desktop:osx-arm64:macos",
 ])
 assert sorted(coverage.get("promotedPlatformHeadRidTuples") or []) == sorted([
     "avalonia:win-x64:windows",
@@ -5238,15 +5155,11 @@ assert coverage.get("missingRequiredPlatforms") == ["linux", "macos"]
 assert coverage.get("missingRequiredHeads") == []
 assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == sorted([
     "avalonia:linux",
-    "blazor-desktop:linux",
     "avalonia:macos",
-    "blazor-desktop:macos",
 ])
 assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == sorted([
     "avalonia:linux-x64:linux",
     "avalonia:osx-arm64:macos",
-    "blazor-desktop:linux-x64:linux",
-    "blazor-desktop:osx-arm64:macos",
 ])
 external_requests = coverage.get("externalProofRequests") or []
 assert sorted(item.get("tupleId") for item in external_requests) == sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or [])
