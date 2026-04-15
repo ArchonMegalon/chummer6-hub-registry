@@ -28,7 +28,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "6ebbb75"
+VERIFIED_GUARDRAIL_COMMIT = "3de7d00"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -240,6 +240,16 @@ CLOSEOUT_DOC_SNIPPETS = (
 STALE_CLOSEOUT_CURRENT_CLAIMS = (
     "now records `verified_guardrail_commit: dd55d5b`",
     "current repeat-prevention proof.\n\nSuccessor-wave latest guardrail floor tightening",
+    "now records `verified_guardrail_commit: 6ebbb75`",
+)
+
+DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
+    "ACTIVE_RUN_HANDOFF.generated.md",
+    "TASK_LOCAL_TELEMETRY.generated.json",
+    "/logs/telemetry/",
+    "codexea telemetry",
+    "operator/OODA telemetry",
+    "ACTIVE_RUN_HELPER_RECEIPT",
 )
 
 PROOF_RECEIPT_SNIPPETS = (
@@ -249,7 +259,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "status: complete",
     "owner: chummer6-hub-registry",
     "landed_commit: a4e47da",
-    "verified_guardrail_commit: 6ebbb75",
+    "verified_guardrail_commit: 3de7d00",
     "successor_frontier_id: 3017689961",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
@@ -272,7 +282,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "scripts/verify_next90_m101_registry_promotion_discipline.py",
     "scripts/ai/verify.sh",
     "the landed commit a4e47da no longer resolves in this repo",
-    "the verified guardrail commit 6ebbb75 no longer resolves in this repo",
+    "the verified guardrail commit 3de7d00 no longer resolves in this repo",
 )
 
 EXPECTED_PROOF_RECEIPT_SCALARS = {
@@ -546,6 +556,13 @@ def verify_closeout_doc(path: Path) -> None:
             fail(f"M101 closeout doc still presents stale guardrail proof as current: {stale_claim}")
 
 
+def verify_no_active_run_helper_evidence(path: Path, *, label: str) -> None:
+    text = read_text(path)
+    for snippet in DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS:
+        if snippet in text:
+            fail(f"{label} cites active-run helper or telemetry evidence: {snippet}")
+
+
 def normalize_yaml_scalar(value: str) -> str:
     value = value.strip()
     if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
@@ -750,6 +767,16 @@ def run_self_test(proof_receipt: Path) -> None:
             lambda: verify_proof_receipt_structure(temp_path),
             "successor_frontier_id expected",
         )
+        temp_path.write_text(
+            source_text
+            + "ACTIVE_RUN_HELPER_RECEIPT=/var/lib/codex-fleet/shard-8/ACTIVE_RUN_HANDOFF.generated.md\n",
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "active-run-helper-proof",
+            lambda: verify_no_active_run_helper_evidence(temp_path, label="temporary M101 proof receipt"),
+            "active-run helper or telemetry evidence",
+        )
         release_path = Path(temp_dir) / "release-channel.json"
         release_payload = json.loads(DEFAULT_RELEASE_CHANNEL.read_text(encoding="utf-8"))
         release_payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["rollbackReason"] = (
@@ -807,6 +834,8 @@ def main() -> int:
     verify_doc(args.pipeline_doc, label="release channel pipeline doc", snippets=PIPELINE_DOC_SNIPPETS)
     verify_closeout_doc(args.closeout_doc)
     verify_doc(args.proof_receipt, label="M101 proof receipt", snippets=PROOF_RECEIPT_SNIPPETS)
+    verify_no_active_run_helper_evidence(args.proof_receipt, label="M101 proof receipt")
+    verify_no_active_run_helper_evidence(args.closeout_doc, label="M101 closeout doc")
     verify_proof_receipt_structure(args.proof_receipt)
     verify_standard_gate_includes_guardrail(args.verify_sh)
     verify_worklist_closeout(args.worklist)
