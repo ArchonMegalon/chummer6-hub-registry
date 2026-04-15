@@ -28,7 +28,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "b6c7af1"
+VERIFIED_GUARDRAIL_COMMIT = "dd55d5b"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -244,7 +244,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "status: complete",
     "owner: chummer6-hub-registry",
     "landed_commit: a4e47da",
-    "verified_guardrail_commit: b6c7af1",
+    "verified_guardrail_commit: dd55d5b",
     "successor_frontier_id: 3017689961",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
@@ -267,7 +267,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "scripts/verify_next90_m101_registry_promotion_discipline.py",
     "scripts/ai/verify.sh",
     "the landed commit a4e47da no longer resolves in this repo",
-    "the verified guardrail commit b6c7af1 no longer resolves in this repo",
+    "the verified guardrail commit dd55d5b no longer resolves in this repo",
 )
 
 EXPECTED_PROOF_RECEIPT_SCALARS = {
