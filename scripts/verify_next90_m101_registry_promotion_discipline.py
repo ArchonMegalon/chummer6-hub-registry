@@ -28,7 +28,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "8391bdb"
+VERIFIED_GUARDRAIL_COMMIT = "dcf6d28"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -221,7 +221,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 canonical proof hygiene",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 closeout guardrail proof",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -253,6 +253,8 @@ STALE_CLOSEOUT_CURRENT_CLAIMS = (
     "now records `verified_guardrail_commit: e88ac6c`",
     "Verified guardrail commit: e88ac6c,",
     "Repo-local guardrail commit `e88ac6c` is now pinned",
+    "Verified guardrail commit: 8391bdb,",
+    "Repo-local guardrail commit `8391bdb` is now pinned",
 )
 
 DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
@@ -271,7 +273,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "status: complete",
     "owner: chummer6-hub-registry",
     "landed_commit: a4e47da",
-    "verified_guardrail_commit: 8391bdb",
+    f"verified_guardrail_commit: {VERIFIED_GUARDRAIL_COMMIT}",
     "successor_frontier_id: 3017689961",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
@@ -294,7 +296,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "scripts/verify_next90_m101_registry_promotion_discipline.py",
     "scripts/ai/verify.sh",
     "the landed commit a4e47da no longer resolves in this repo",
-    "the verified guardrail commit 8391bdb no longer resolves in this repo",
+    f"the verified guardrail commit {VERIFIED_GUARDRAIL_COMMIT} no longer resolves in this repo",
 )
 
 EXPECTED_PROOF_RECEIPT_SCALARS = {
