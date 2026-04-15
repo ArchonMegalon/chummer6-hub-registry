@@ -10,6 +10,8 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 DEFAULT_RELEASE_CHANNEL = REPO_ROOT / ".codex-studio/published/RELEASE_CHANNEL.generated.json"
+DEFAULT_PIPELINE_DOC = REPO_ROOT / "docs/RELEASE_CHANNEL_PIPELINE.md"
+DEFAULT_CLOSEOUT_DOC = REPO_ROOT / "docs/next90-m101-registry-promotion-discipline.closeout.md"
 DEFAULT_SUCCESSOR_REGISTRY = Path(
     "/docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_PRODUCT_ADVANCE_REGISTRY.yaml"
 )
@@ -77,6 +79,28 @@ RATIONALE_FIELDS = (
     "rollbackReason",
     "revokeReason",
     "installPostureReason",
+)
+
+PIPELINE_DOC_SNIPPETS = (
+    "desktopTupleCoverage.desktopRouteTruth",
+    "avalonia` primary",
+    "blazor-desktop` fallback",
+    "promotion state and reason",
+    "rollback state and reason",
+    "revoke state and reason",
+    "active revocation must be represented by explicit revoke state and reason",
+    "tuple-specific artifact `revokeReason`",
+)
+
+CLOSEOUT_DOC_SNIPPETS = (
+    "Status: complete",
+    "Package: next90-m101-registry-promotion-discipline",
+    "release_channel_truth:desktop",
+    "rollback_and_revoke_reasoning",
+    ".codex-studio/published/RELEASE_CHANNEL.generated.json",
+    "scripts/verify_public_release_channel.py",
+    "scripts/verify_next90_m101_registry_promotion_discipline.py",
+    "Do not reopen this package unless one of these facts changes",
 )
 
 
@@ -176,9 +200,18 @@ def verify_release_channel_route_truth(path: Path) -> None:
                 fail(f"{tuple_id}.{key} must be nonblank")
 
 
+def verify_doc(path: Path, *, label: str, snippets: tuple[str, ...]) -> None:
+    text = read_text(path)
+    for snippet in snippets:
+        if snippet not in text:
+            fail(f"{label} is missing proof snippet: {snippet}")
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Verify next90 M101 registry promotion discipline closeout.")
     parser.add_argument("--release-channel", type=Path, default=DEFAULT_RELEASE_CHANNEL)
+    parser.add_argument("--pipeline-doc", type=Path, default=DEFAULT_PIPELINE_DOC)
+    parser.add_argument("--closeout-doc", type=Path, default=DEFAULT_CLOSEOUT_DOC)
     parser.add_argument("--successor-registry", type=Path, default=DEFAULT_SUCCESSOR_REGISTRY)
     parser.add_argument("--queue-staging", type=Path, default=DEFAULT_QUEUE_STAGING)
     return parser.parse_args()
@@ -190,6 +223,8 @@ def main() -> int:
     verify_queue_staging(args.queue_staging)
     run_release_channel_verifier(args.release_channel)
     verify_release_channel_route_truth(args.release_channel)
+    verify_doc(args.pipeline_doc, label="release channel pipeline doc", snippets=PIPELINE_DOC_SNIPPETS)
+    verify_doc(args.closeout_doc, label="M101 closeout doc", snippets=CLOSEOUT_DOC_SNIPPETS)
     print(f"verified next90 M101 registry promotion discipline: {PACKAGE_ID}")
     return 0
 

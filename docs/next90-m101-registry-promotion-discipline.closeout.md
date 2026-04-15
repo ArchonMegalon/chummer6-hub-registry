@@ -61,7 +61,7 @@ The row contract carries nonblank rationale fields for:
 
 The verifier recomputes canonical route-truth rows and fail-closes if generated truth omits rows, carries unexpected keys, has blank rationale, drifts from expected primary/fallback posture, or fails to block revoked channel/artifact routes. Artifact-level revoke reasons are preferred over channel-level known-issue text for individually revoked tuples, so a revoked fallback installer can explain its own rollback block without making the whole channel look revoked.
 
-`scripts/verify_next90_m101_registry_promotion_discipline.py` is the no-pytest closeout guardrail for future shards. It verifies canonical successor registry status, Fleet queue staging status, the release-channel verifier, and the expected six desktop route-truth rows with nonblank rationale fields.
+`scripts/verify_next90_m101_registry_promotion_discipline.py` is the no-pytest closeout guardrail for future shards. It verifies canonical successor registry status, Fleet queue staging status, the release-channel verifier, the expected six desktop route-truth rows with nonblank rationale fields, and the human-facing pipeline and closeout docs that tell future shards when not to reopen this package.
 
 ## Verification
 
@@ -84,6 +84,15 @@ Build succeeded. 0 Warning(s), 0 Error(s)
 `python3 -m pytest scripts/test_verify_public_release_channel.py scripts/test_materialize_public_release_channel.py -q` could not run in this worker environment because the `pytest` module is not installed and the repo has no Python dependency manifest to restore from. The route-truth helper tests are present in `scripts/test_verify_public_release_channel.py` and `scripts/test_materialize_public_release_channel.py`, and the files compile cleanly.
 
 No operator telemetry or active-run helper commands were used for this closeout.
+
+Additional successor-wave proof tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+That guardrail now also fail-closes if `docs/RELEASE_CHANNEL_PIPELINE.md` stops documenting `desktopTupleCoverage.desktopRouteTruth`, primary/fallback route-role rationale, promotion/fallback/rollback/revoke reasoning, or tuple-specific artifact revoke precedence.
 
 ## Future-shard rule
 
