@@ -717,6 +717,17 @@ def run_self_test(proof_receipt: Path) -> None:
             lambda: verify_proof_receipt_structure(temp_path),
             "successor_frontier_id expected",
         )
+        release_path = Path(temp_dir) / "release-channel.json"
+        release_payload = json.loads(DEFAULT_RELEASE_CHANNEL.read_text(encoding="utf-8"))
+        release_payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["rollbackReason"] = (
+            "Generic rollback copy that no longer matches per-tuple channel truth."
+        )
+        release_path.write_text(json.dumps(release_payload, indent=2) + "\n", encoding="utf-8")
+        expect_self_test_failure(
+            "route-truth-rationale-drift",
+            lambda: verify_release_channel_route_truth(release_path),
+            "rollbackReason expected",
+        )
     print(f"verified next90 M101 registry promotion discipline self-test: {PACKAGE_ID}")
 
 

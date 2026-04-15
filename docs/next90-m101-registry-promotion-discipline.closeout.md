@@ -256,6 +256,18 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 The package-specific verifier now carries a no-pytest `--self-test` mode that mutates a temporary copy of `docs/next90-m101-registry-promotion-discipline.proof.yaml` and proves missing or wrong `successor_frontier_id` is rejected. `scripts/ai/verify.sh` runs that self-test immediately after the normal M101 closeout verifier, so the completed successor package cannot silently lose frontier `3017689961` while still passing standard verification.
 
+Successor-wave route-truth self-test tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The no-pytest self-test now also mutates a temporary copy of `.codex-studio/published/RELEASE_CHANNEL.generated.json` and proves per-tuple route-truth rationale drift is rejected by the package-specific closeout verifier itself. That keeps repeat-prevention proof tied to the owned surface, not only to the public release-channel verifier's standard-gate negative case.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
