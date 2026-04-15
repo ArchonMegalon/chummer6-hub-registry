@@ -444,6 +444,18 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 The machine-readable proof receipt now records `verified_guardrail_commit: e88ac6c`, and the package-specific verifier requires the successor registry plus Fleet and design queue staging rows to cite that current guardrail-commit self-test. That keeps future shards from repeating this completed package when the repo already contains the latest repeat-prevention guardrail.
 
+Successor-wave canonical proof hygiene tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The package-specific verifier now applies the active-run helper proof exclusion to the canonical successor registry, Fleet queue staging, and design queue staging before trusting those completed-package rows. The self-test mutates a temporary queue row with helper-receipt proof text and proves the guard rejects it, so future closure evidence must stay repo-local instead of depending on operator-owned run artifacts.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
@@ -457,6 +469,7 @@ Do not reopen this package unless one of these facts changes:
 * `.codex-studio/published/releases.json` loses matching verifier-bound `desktopRouteTruth`,
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, or non-canonical primary/fallback/rollback/revoke rationale,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` stops applying canonical registry and queue staging active-run helper proof exclusion,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `e88ac6c`,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail, successor-frontier proof self-test, or hand-edited `desktopRouteTruth` negative-case verifier,

@@ -235,6 +235,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "tuple-set self-test",
     "queue-authority self-test",
     "guardrail-commit self-test",
+    "canonical registry and queue staging active-run helper proof exclusion",
     "WORKLIST.md",
     "exact assigned allowed paths `Chummer.Hub.Registry`, `scripts`, and `docs`",
     "Do not reopen this package unless one of these facts changes",
@@ -835,6 +836,19 @@ def run_self_test(proof_receipt: Path) -> None:
             lambda: verify_queue_staging(queue_path),
             "status: complete",
         )
+        queue_path.write_text(
+            replace_queue_package_block(
+                queue_source_text,
+                "rollback_and_revoke_reasoning",
+                "rollback_and_revoke_reasoning\n      - ACTIVE_RUN_HELPER_RECEIPT evidence",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "queue-active-run-helper-proof",
+            lambda: verify_no_active_run_helper_evidence(queue_path, label="temporary M101 queue staging"),
+            "active-run helper or telemetry evidence",
+        )
         release_path = Path(temp_dir) / "release-channel.json"
         release_payload = json.loads(DEFAULT_RELEASE_CHANNEL.read_text(encoding="utf-8"))
         release_payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["rollbackReason"] = (
@@ -896,6 +910,9 @@ def main() -> int:
     verify_canonical_successor_registry(args.successor_registry)
     verify_queue_staging(args.queue_staging)
     verify_queue_staging(args.source_queue_staging)
+    verify_no_active_run_helper_evidence(args.successor_registry, label="successor registry")
+    verify_no_active_run_helper_evidence(args.queue_staging, label="Fleet queue staging")
+    verify_no_active_run_helper_evidence(args.source_queue_staging, label="design queue staging")
     run_release_channel_verifier(args.release_channel)
     run_release_channel_verifier(args.releases_manifest)
     verify_release_channel_route_truth(args.release_channel)
