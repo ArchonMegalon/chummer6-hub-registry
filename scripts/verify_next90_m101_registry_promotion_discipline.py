@@ -747,6 +747,19 @@ def expect_self_test_failure(label: str, action, expected_snippet: str) -> None:
     fail(f"self-test {label} unexpectedly passed")
 
 
+def replace_queue_package_block(text: str, old: str, new: str) -> str:
+    marker = f"package_id: {PACKAGE_ID}"
+    start = text.find(marker)
+    if start < 0:
+        fail(f"self-test fixture is missing queue package marker: {PACKAGE_ID}")
+    next_item = text.find("\n  - title:", start + len(marker))
+    end = next_item if next_item >= 0 else len(text)
+    block = text[start:end]
+    if old not in block:
+        fail(f"self-test queue package block is missing fixture text: {old}")
+    return text[:start] + block.replace(old, new, 1) + text[end:]
+
+
 def run_self_test(proof_receipt: Path) -> None:
     source_text = read_text(proof_receipt)
     with tempfile.TemporaryDirectory(prefix="next90-m101-registry-proof-") as temp_dir:
@@ -779,6 +792,26 @@ def run_self_test(proof_receipt: Path) -> None:
             "active-run-helper-proof",
             lambda: verify_no_active_run_helper_evidence(temp_path, label="temporary M101 proof receipt"),
             "active-run helper or telemetry evidence",
+        )
+        queue_path = Path(temp_dir) / "queue-staging.yaml"
+        queue_source_text = DEFAULT_QUEUE_STAGING.read_text(encoding="utf-8")
+        queue_path.write_text(
+            replace_queue_package_block(queue_source_text, "frontier_id: 3017689961", "frontier_id: 9999999999"),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "queue-frontier-drift",
+            lambda: verify_queue_staging(queue_path),
+            "frontier_id: 3017689961",
+        )
+        queue_path.write_text(
+            replace_queue_package_block(queue_source_text, "status: complete", "status: in_progress"),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "queue-status-drift",
+            lambda: verify_queue_staging(queue_path),
+            "status: complete",
         )
         release_path = Path(temp_dir) / "release-channel.json"
         release_payload = json.loads(DEFAULT_RELEASE_CHANNEL.read_text(encoding="utf-8"))
