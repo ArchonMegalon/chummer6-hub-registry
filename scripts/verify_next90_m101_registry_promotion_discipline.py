@@ -28,7 +28,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "6609726"
+VERIFIED_GUARDRAIL_COMMIT = "87cfff0"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -260,6 +260,9 @@ STALE_CLOSEOUT_CURRENT_CLAIMS = (
     "now records `verified_guardrail_commit: 868f85b`",
     "Verified guardrail commit: 868f85b,",
     "Repo-local guardrail commit `868f85b` is now pinned",
+    "Verified guardrail commit: 6609726,",
+    "Repo-local guardrail commit `6609726` is now pinned",
+    "now records `verified_guardrail_commit: 6609726`",
 )
 
 DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
@@ -461,7 +464,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit e88ac6c tightens the M101 guardrail commit self-test",
         "commit 8391bdb tightens M101 canonical proof hygiene",
         "commit 868f85b pins the M101 closeout headline guard",
-        "commit 6609726 pins the M101 registry proof floor",
+        "commit 87cfff0 pins the current M101 registry proof floor",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -490,7 +493,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit e88ac6c tightens the M101 guardrail commit self-test",
         "commit 8391bdb tightens M101 canonical proof hygiene",
         "commit 868f85b pins the M101 closeout headline guard",
-        "commit 6609726 pins the M101 registry proof floor",
+        "commit 87cfff0 pins the current M101 registry proof floor",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
