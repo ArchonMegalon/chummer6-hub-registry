@@ -127,6 +127,74 @@ EXPECTED_ROUTE_TRUTH = {
     },
 }
 
+EXPECTED_ROUTE_TRUTH_METADATA = {
+    "avalonia:linux:linux-x64": {
+        "head": "avalonia",
+        "platform": "linux",
+        "rid": "linux-x64",
+        "arch": "x64",
+        "artifactId": "avalonia-linux-x64-installer",
+    },
+    "blazor-desktop:linux:linux-x64": {
+        "head": "blazor-desktop",
+        "platform": "linux",
+        "rid": "linux-x64",
+        "arch": "x64",
+        "artifactId": "blazor-desktop-linux-x64-installer",
+    },
+    "avalonia:windows:win-x64": {
+        "head": "avalonia",
+        "platform": "windows",
+        "rid": "win-x64",
+        "arch": "x64",
+        "artifactId": "avalonia-win-x64-installer",
+    },
+    "blazor-desktop:windows:win-x64": {
+        "head": "blazor-desktop",
+        "platform": "windows",
+        "rid": "win-x64",
+        "arch": "x64",
+        "artifactId": "",
+    },
+    "avalonia:macos:osx-arm64": {
+        "head": "avalonia",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "arch": "arm64",
+        "artifactId": "avalonia-osx-arm64-installer",
+    },
+    "blazor-desktop:macos:osx-arm64": {
+        "head": "blazor-desktop",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "arch": "arm64",
+        "artifactId": "",
+    },
+}
+
+EXPECTED_ROUTE_TRUTH_ROW_KEYS = [
+    "tupleId",
+    "head",
+    "platform",
+    "rid",
+    "arch",
+    "artifactId",
+    "routeRole",
+    "routeRoleReason",
+    "promotionState",
+    "promotionReason",
+    "parityPosture",
+    "updateEligibility",
+    "updateEligibilityReason",
+    "rollbackState",
+    "rollbackReason",
+    "revokeState",
+    "revokeReason",
+    "installPosture",
+    "installPostureReason",
+    "publicInstallRoute",
+]
+
 RATIONALE_FIELDS = (
     "routeRoleReason",
     "promotionReason",
@@ -158,6 +226,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "docs/next90-m101-registry-promotion-discipline.proof.yaml",
     "scripts/verify_public_release_channel.py",
     "scripts/verify_next90_m101_registry_promotion_discipline.py",
+    "row-shape",
     "WORKLIST.md",
     "assigned `Chummer.Hub.Registry` package path label",
     "Do not reopen this package unless one of these facts changes",
@@ -413,6 +482,15 @@ def verify_release_channel_route_truth(path: Path) -> None:
         )
     for tuple_id, expected in EXPECTED_ROUTE_TRUTH.items():
         row = by_tuple[tuple_id]
+        actual_keys = list(row)
+        if actual_keys != EXPECTED_ROUTE_TRUTH_ROW_KEYS:
+            fail(f"{tuple_id} row keys expected {EXPECTED_ROUTE_TRUTH_ROW_KEYS!r}, actual {actual_keys!r}")
+        if str(row.get("tupleId") or "").strip() != tuple_id:
+            fail(f"{tuple_id}.tupleId must match its desktopRouteTruth tuple id")
+        for key, expected_value in EXPECTED_ROUTE_TRUTH_METADATA[tuple_id].items():
+            actual = str(row.get(key) or "").strip()
+            if actual != expected_value:
+                fail(f"{tuple_id}.{key} expected {expected_value!r}, actual {actual!r}")
         for key, expected_value in expected.items():
             actual = str(row.get(key) or "").strip()
             if actual != expected_value:

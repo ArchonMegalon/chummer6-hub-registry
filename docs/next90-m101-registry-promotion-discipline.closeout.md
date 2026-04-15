@@ -220,6 +220,18 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 The package-specific verifier now treats `docs/next90-m101-registry-promotion-discipline.proof.yaml` as a closed receipt schema. It fail-closes unexpected top-level proof keys or unexpected `canonical_authority` / `release_truth` map keys, so future proof extensions must be intentional verifier changes instead of silently accepted receipt drift.
 
+Successor-wave route-truth row-shape tightening on 2026-04-15:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+
+./scripts/ai/verify.sh
+exit 0
+```
+
+The package-specific verifier now checks each generated `desktopTupleCoverage.desktopRouteTruth` row as a closed row-shape contract in both `RELEASE_CHANNEL.generated.json` and `releases.json`. It fail-closes unexpected route-truth fields and drift in tuple metadata (`head`, `platform`, `rid`, `arch`, and `artifactId`) before checking the per-tuple primary/fallback, promotion, update, rollback, revoke, install-posture, and public install route rationale.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
@@ -232,7 +244,7 @@ Do not reopen this package unless one of these facts changes:
 * `RELEASE_CHANNEL.generated.json` loses verifier-bound `desktopRouteTruth`,
 * `.codex-studio/published/releases.json` loses matching verifier-bound `desktopRouteTruth`,
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, or non-canonical primary/fallback/rollback/revoke rationale,
-* `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the exact per-tuple rationale and public install route for both generated projections,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail or the hand-edited `desktopRouteTruth` negative-case verifier,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.
