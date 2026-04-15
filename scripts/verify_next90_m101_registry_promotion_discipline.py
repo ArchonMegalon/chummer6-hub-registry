@@ -202,6 +202,24 @@ EXPECTED_PROOF_RECEIPT_SCALARS = {
     "successor_frontier_id": "3017689961",
 }
 
+EXPECTED_PROOF_RECEIPT_TOP_LEVEL_KEYS = [
+    "package_id",
+    "milestone_id",
+    "task_id",
+    "status",
+    "owner",
+    "landed_commit",
+    "successor_frontier_id",
+    "owned_surfaces",
+    "assigned_allowed_paths",
+    "repo_local_path_expansion",
+    "allowed_paths",
+    "canonical_authority",
+    "release_truth",
+    "guardrails",
+    "do_not_reopen_unless",
+]
+
 EXPECTED_PROOF_RECEIPT_LISTS = {
     "owned_surfaces": [
         "release_channel_truth:desktop",
@@ -244,6 +262,21 @@ EXPECTED_PROOF_RECEIPT_MAPS = {
         "route_truth_path": "desktopTupleCoverage.desktopRouteTruth",
         "required_tuple_count": "6",
     },
+}
+
+EXPECTED_PROOF_RECEIPT_MAP_KEYS = {
+    "canonical_authority": [
+        "successor_registry",
+        "fleet_queue_staging",
+        "design_queue_staging",
+    ],
+    "release_truth": [
+        "release_channel",
+        "compatibility_shelf",
+        "route_truth_path",
+        "required_tuple_count",
+        "required_tuple_ids",
+    ],
 }
 
 EXPECTED_REPO_LOCAL_PATH_EXPANSION = {
@@ -428,6 +461,16 @@ def parse_top_level_scalars(lines: list[str]) -> dict[str, str]:
     return scalars
 
 
+def parse_top_level_keys(lines: list[str]) -> list[str]:
+    keys: list[str] = []
+    for line in lines:
+        if line.startswith(" ") or ":" not in line:
+            continue
+        key, _value = line.split(":", 1)
+        keys.append(key)
+    return keys
+
+
 def parse_list_section(lines: list[str], section: str) -> list[str]:
     values: list[str] = []
     for line in indented_block(lines, section):
@@ -448,6 +491,18 @@ def parse_map_section(lines: list[str], section: str) -> dict[str, str]:
         if value.strip():
             values[key] = normalize_yaml_scalar(value)
     return values
+
+
+def parse_map_declared_keys(lines: list[str], section: str) -> list[str]:
+    keys: list[str] = []
+    for line in indented_block(lines, section):
+        if line.startswith("  ") and not line.startswith("    "):
+            stripped = line.strip()
+            if ":" not in stripped or stripped.startswith("- "):
+                fail(f"M101 proof receipt section {section} has malformed map row: {stripped}")
+            key, _value = stripped.split(":", 1)
+            keys.append(key)
+    return keys
 
 
 def parse_release_truth_tuple_ids(lines: list[str]) -> list[str]:
@@ -487,6 +542,12 @@ def parse_repo_local_path_expansion(lines: list[str]) -> dict[str, list[str]]:
 def verify_proof_receipt_structure(path: Path) -> None:
     text = read_text(path)
     lines = text.splitlines()
+    top_level_keys = parse_top_level_keys(lines)
+    if top_level_keys != EXPECTED_PROOF_RECEIPT_TOP_LEVEL_KEYS:
+        fail(
+            "M101 proof receipt top-level keys expected "
+            f"{EXPECTED_PROOF_RECEIPT_TOP_LEVEL_KEYS!r}, actual {top_level_keys!r}"
+        )
     scalars = parse_top_level_scalars(lines)
     for key, expected in EXPECTED_PROOF_RECEIPT_SCALARS.items():
         actual = scalars.get(key)
@@ -498,6 +559,10 @@ def verify_proof_receipt_structure(path: Path) -> None:
             fail(f"M101 proof receipt {section} expected {expected!r}, actual {actual!r}")
     for section, expected in EXPECTED_PROOF_RECEIPT_MAPS.items():
         actual = parse_map_section(lines, section)
+        actual_keys = parse_map_declared_keys(lines, section)
+        expected_keys = EXPECTED_PROOF_RECEIPT_MAP_KEYS[section]
+        if actual_keys != expected_keys:
+            fail(f"M101 proof receipt {section} keys expected {expected_keys!r}, actual {actual_keys!r}")
         for key, expected_value in expected.items():
             actual_value = actual.get(key)
             if actual_value != expected_value:
