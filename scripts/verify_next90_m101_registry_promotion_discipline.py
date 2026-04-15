@@ -28,7 +28,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "2cd1872"
+VERIFIED_GUARDRAIL_COMMIT = "d8f3911"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -221,7 +221,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Pin M101 authority helper proof guard",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Pin M101 authority helper proof floor",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -269,6 +269,9 @@ STALE_CLOSEOUT_CURRENT_CLAIMS = (
     "Verified guardrail commit: df3587f,",
     "Repo-local guardrail commit `df3587f` is now pinned",
     "now records `verified_guardrail_commit: df3587f`",
+    "Verified guardrail commit: 2cd1872,",
+    "Repo-local guardrail commit `2cd1872` is now pinned",
+    "now records `verified_guardrail_commit: 2cd1872`",
 )
 
 DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
@@ -472,6 +475,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit 868f85b pins the M101 closeout headline guard",
         "commit df3587f tightens M101 authority helper proof self-test",
         "commit 2cd1872 pins the M101 authority helper proof guard",
+        "commit d8f3911 pins the M101 authority helper proof floor",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -502,6 +506,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit 868f85b pins the M101 closeout headline guard",
         "commit df3587f tightens M101 authority helper proof self-test",
         "commit 2cd1872 pins the M101 authority helper proof guard",
+        "commit d8f3911 pins the M101 authority helper proof floor",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
