@@ -28,7 +28,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "d8f3911"
+VERIFIED_GUARDRAIL_COMMIT = "061cc27"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -221,7 +221,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Pin M101 authority helper proof floor",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 helper proof casing guard",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -272,6 +272,9 @@ STALE_CLOSEOUT_CURRENT_CLAIMS = (
     "Verified guardrail commit: 2cd1872,",
     "Repo-local guardrail commit `2cd1872` is now pinned",
     "now records `verified_guardrail_commit: 2cd1872`",
+    "Verified guardrail commit: d8f3911,",
+    "Repo-local guardrail commit `d8f3911` is now pinned",
+    "now records `verified_guardrail_commit: d8f3911`",
 )
 
 DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
