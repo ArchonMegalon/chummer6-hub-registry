@@ -1047,7 +1047,21 @@ def desktop_route_revoke_posture(artifact: dict[str, Any] | None, payload: dict)
         reason = rollout_reason or known_issue_summary or "The release channel is revoked for this desktop tuple."
         return "revoked", reason
     if artifact is not None and normalized_token(artifact.get("compatibilityState")) == "revoked":
-        reason = known_issue_summary or "The artifact compatibility state is revoked for this desktop tuple."
+        reason = (
+            str(
+                artifact.get("revokeReason")
+                or artifact.get("revoke_reason")
+                or artifact.get("compatibilityReason")
+                or artifact.get("compatibility_reason")
+                or artifact.get("knownIssueSummary")
+                or artifact.get("known_issue_summary")
+                or artifact.get("rolloutReason")
+                or artifact.get("rollout_reason")
+                or ""
+            ).strip()
+            or known_issue_summary
+            or "The artifact compatibility state is revoked for this desktop tuple."
+        )
         return "revoked", reason
     return "not_revoked", "No registry revoke marker is active for this channel tuple."
 

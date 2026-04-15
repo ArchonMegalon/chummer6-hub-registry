@@ -503,6 +503,7 @@ def test_desktop_route_truth_does_not_offer_revoked_fallback_for_primary_rollbac
                 "arch": "x64",
                 "kind": "installer",
                 "compatibilityState": "revoked",
+                "compatibilityReason": "Blazor fallback startup smoke regressed on this tuple.",
             },
         ],
         required_platforms=["linux"],
@@ -515,7 +516,7 @@ def test_desktop_route_truth_does_not_offer_revoked_fallback_for_primary_rollbac
     assert primary["rollbackReason"] == "No promoted fallback desktop head exists on this platform tuple."
     assert fallback["promotionState"] == "revoked"
     assert fallback["updateEligibility"] == "blocked_revoked"
-    assert fallback["revokeReason"] == "Fallback installer signature was revoked."
+    assert fallback["revokeReason"] == "Blazor fallback startup smoke regressed on this tuple."
 
 
 def test_load_startup_smoke_receipts_rejects_operating_system_platform_mismatch() -> None:

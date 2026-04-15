@@ -493,6 +493,7 @@ def test_expected_desktop_route_truth_rows_does_not_offer_revoked_fallback_for_p
                 "arch": "x64",
                 "kind": "installer",
                 "compatibilityState": "revoked",
+                "revokeReason": "Tuple-specific fallback signature was revoked.",
             },
         ],
     }
@@ -505,4 +506,4 @@ def test_expected_desktop_route_truth_rows_does_not_offer_revoked_fallback_for_p
     assert primary["rollbackReason"] == "No promoted fallback desktop head exists on this platform tuple."
     assert fallback["promotionState"] == "revoked"
     assert fallback["updateEligibility"] == "blocked_revoked"
-    assert fallback["revokeReason"] == "Fallback installer signature was revoked."
+    assert fallback["revokeReason"] == "Tuple-specific fallback signature was revoked."
