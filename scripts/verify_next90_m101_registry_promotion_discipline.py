@@ -28,7 +28,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "bdced56"
+VERIFIED_GUARDRAIL_COMMIT = "e91fe39"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -233,6 +233,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "successor-frontier proof self-test",
     "compatibility-shelf route-truth self-test",
     "tuple-set self-test",
+    "queue-authority self-test",
     "WORKLIST.md",
     "exact assigned allowed paths `Chummer.Hub.Registry`, `scripts`, and `docs`",
     "Do not reopen this package unless one of these facts changes",
@@ -262,7 +263,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "status: complete",
     "owner: chummer6-hub-registry",
     "landed_commit: a4e47da",
-    "verified_guardrail_commit: bdced56",
+    "verified_guardrail_commit: e91fe39",
     "successor_frontier_id: 3017689961",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
@@ -285,7 +286,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "scripts/verify_next90_m101_registry_promotion_discipline.py",
     "scripts/ai/verify.sh",
     "the landed commit a4e47da no longer resolves in this repo",
-    "the verified guardrail commit bdced56 no longer resolves in this repo",
+    "the verified guardrail commit e91fe39 no longer resolves in this repo",
 )
 
 EXPECTED_PROOF_RECEIPT_SCALARS = {
