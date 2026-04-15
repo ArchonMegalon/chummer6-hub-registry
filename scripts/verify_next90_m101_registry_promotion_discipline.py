@@ -791,6 +791,23 @@ def replace_queue_package_block(text: str, old: str, new: str) -> str:
     return text[:start] + block.replace(old, new, 1) + text[end:]
 
 
+def replace_registry_task_block(text: str, old: str, new: str) -> str:
+    marker = f"id: {TASK_ID}"
+    start = text.find(marker)
+    if start < 0:
+        fail(f"self-test fixture is missing registry task marker: {TASK_ID}")
+    end_markers = [
+        index
+        for marker in ("\n      - id: 101.3", "\n      - id: 102.")
+        if (index := text.find(marker, start + len(marker))) >= 0
+    ]
+    end = min(end_markers) if end_markers else len(text)
+    block = text[start:end]
+    if old not in block:
+        fail(f"self-test registry task block is missing fixture text: {old}")
+    return text[:start] + block.replace(old, new, 1) + text[end:]
+
+
 def run_self_test(proof_receipt: Path) -> None:
     source_text = read_text(proof_receipt)
     with tempfile.TemporaryDirectory(prefix="next90-m101-registry-proof-") as temp_dir:
@@ -867,6 +884,42 @@ def run_self_test(proof_receipt: Path) -> None:
         expect_self_test_failure(
             "queue-active-run-helper-proof",
             lambda: verify_no_active_run_helper_evidence(queue_path, label="temporary M101 queue staging"),
+            "active-run helper or telemetry evidence",
+        )
+        source_queue_path = Path(temp_dir) / "design-queue-staging.yaml"
+        source_queue_text = DEFAULT_SOURCE_QUEUE_STAGING.read_text(encoding="utf-8")
+        source_queue_path.write_text(
+            replace_queue_package_block(
+                source_queue_text,
+                "rollback_and_revoke_reasoning",
+                "rollback_and_revoke_reasoning\n      - ACTIVE_RUN_HELPER_RECEIPT evidence",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "design-queue-active-run-helper-proof",
+            lambda: verify_no_active_run_helper_evidence(
+                source_queue_path,
+                label="temporary M101 design queue staging",
+            ),
+            "active-run helper or telemetry evidence",
+        )
+        registry_path = Path(temp_dir) / "successor-registry.yaml"
+        registry_text = DEFAULT_SUCCESSOR_REGISTRY.read_text(encoding="utf-8")
+        registry_path.write_text(
+            replace_registry_task_block(
+                registry_text,
+                "commit 87cfff0 pins the current M101 registry proof floor",
+                "commit 87cfff0 pins the current M101 registry proof floor; ACTIVE_RUN_HELPER_RECEIPT evidence",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "registry-active-run-helper-proof",
+            lambda: verify_no_active_run_helper_evidence(
+                registry_path,
+                label="temporary M101 successor registry",
+            ),
             "active-run helper or telemetry evidence",
         )
         release_path = Path(temp_dir) / "release-channel.json"
