@@ -237,6 +237,11 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Do not reopen this package unless one of these facts changes",
 )
 
+STALE_CLOSEOUT_CURRENT_CLAIMS = (
+    "now records `verified_guardrail_commit: dd55d5b`",
+    "current repeat-prevention proof.\n\nSuccessor-wave latest guardrail floor tightening",
+)
+
 PROOF_RECEIPT_SNIPPETS = (
     "package_id: next90-m101-registry-promotion-discipline",
     "milestone_id: 101",
@@ -531,6 +536,16 @@ def verify_doc(path: Path, *, label: str, snippets: tuple[str, ...]) -> None:
             fail(f"{label} is missing proof snippet: {snippet}")
 
 
+def verify_closeout_doc(path: Path) -> None:
+    text = read_text(path)
+    for snippet in CLOSEOUT_DOC_SNIPPETS:
+        if snippet not in text:
+            fail(f"M101 closeout doc is missing proof snippet: {snippet}")
+    for stale_claim in STALE_CLOSEOUT_CURRENT_CLAIMS:
+        if stale_claim in text:
+            fail(f"M101 closeout doc still presents stale guardrail proof as current: {stale_claim}")
+
+
 def normalize_yaml_scalar(value: str) -> str:
     value = value.strip()
     if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
@@ -790,7 +805,7 @@ def main() -> int:
     verify_release_channel_route_truth(args.release_channel)
     verify_release_channel_route_truth(args.releases_manifest)
     verify_doc(args.pipeline_doc, label="release channel pipeline doc", snippets=PIPELINE_DOC_SNIPPETS)
-    verify_doc(args.closeout_doc, label="M101 closeout doc", snippets=CLOSEOUT_DOC_SNIPPETS)
+    verify_closeout_doc(args.closeout_doc)
     verify_doc(args.proof_receipt, label="M101 proof receipt", snippets=PROOF_RECEIPT_SNIPPETS)
     verify_proof_receipt_structure(args.proof_receipt)
     verify_standard_gate_includes_guardrail(args.verify_sh)

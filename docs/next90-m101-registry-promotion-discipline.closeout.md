@@ -217,7 +217,7 @@ python3 scripts/verify_next90_m101_registry_promotion_discipline.py
 verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
 ```
 
-The machine-readable proof receipt now records `verified_guardrail_commit: dd55d5b`, and the package-specific verifier requires that guardrail commit to resolve locally before trusting the completed package row. That prevents a checkout with only the original implementation commit, or only the earlier assigned-path guard, from silently claiming the current repeat-prevention proof.
+At this point in the closeout sequence, the machine-readable proof receipt recorded `verified_guardrail_commit: dd55d5b`, and the package-specific verifier required that guardrail commit to resolve locally before trusting the completed package row. That prevented a checkout with only the original implementation commit, or only the earlier assigned-path guard, from silently claiming the then-current repeat-prevention proof. The current verified guardrail floor is superseded below by `d36a5ba`.
 
 Successor-wave latest guardrail floor tightening on 2026-04-15:
 
