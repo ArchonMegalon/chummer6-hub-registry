@@ -806,6 +806,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit 63a5583 tightens M101 desktop rollback route truth",
         "commit 0b52f5f tightens M101 sibling fallback rollback rationale",
         "commit 98f8b88 pins the M101 fallback rollback proof floor",
+        "commit 1cf64e1 pins M101 current fallback rollback proof floor",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -869,6 +870,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit 63a5583 tightens M101 desktop rollback route truth",
         "commit 0b52f5f tightens M101 sibling fallback rollback rationale",
         "commit 98f8b88 pins the M101 fallback rollback proof floor",
+        "commit 1cf64e1 pins M101 current fallback rollback proof floor",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
