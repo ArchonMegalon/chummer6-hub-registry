@@ -48,6 +48,7 @@ Repo-local guardrail commit `2f7a422` is now pinned in the machine-readable proo
 Repo-local proof-floor commit `cfb928b` is now cited by the canonical successor registry plus Fleet and design queue staging rows, and the package verifier requires those citations before trusting the completed package row.
 
 Fleet queue staging also marks package `next90-m101-registry-promotion-discipline` complete with the same proof paths and landed commit.
+Fleet and design queue staging now also require `completion_action: verify_closed_package_only` and a package-specific `do_not_reopen_reason`, so future shards get an explicit closed-package instruction in queue truth instead of inferring it from proof prose.
 
 ## Release channel truth
 

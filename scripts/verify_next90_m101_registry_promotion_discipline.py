@@ -242,6 +242,13 @@ EXPECTED_OWNED_SURFACES = [
     "rollback_and_revoke_reasoning",
 ]
 
+EXPECTED_QUEUE_COMPLETION_ACTION = "verify_closed_package_only"
+EXPECTED_QUEUE_DO_NOT_REOPEN_REASON = (
+    "M101 chummer6-hub-registry promotion discipline is complete; future shards must verify "
+    "the release-channel truth receipt, registry row, queue row, and design-queue row instead "
+    "of reopening the desktop route rationale package."
+)
+
 RATIONALE_FIELDS = (
     "routeRoleReasonCode",
     "routeRoleReason",
@@ -673,6 +680,8 @@ def verify_queue_staging(path: Path) -> None:
         "repo: chummer6-hub-registry",
         "status: complete",
         f"landed_commit: {LANDED_COMMIT}",
+        f"completion_action: {EXPECTED_QUEUE_COMPLETION_ACTION}",
+        f"do_not_reopen_reason: {EXPECTED_QUEUE_DO_NOT_REOPEN_REASON}",
         ".codex-studio/published/RELEASE_CHANNEL.generated.json",
         ".codex-studio/published/releases.json",
         "scripts/verify_public_release_channel.py",
@@ -1140,6 +1149,32 @@ def run_self_test(proof_receipt: Path) -> None:
         queue_path.write_text(
             replace_queue_package_block(
                 queue_source_text,
+                f"completion_action: {EXPECTED_QUEUE_COMPLETION_ACTION}",
+                "completion_action: reopen_package",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "queue-completion-action-drift",
+            lambda: verify_queue_staging(queue_path),
+            f"completion_action: {EXPECTED_QUEUE_COMPLETION_ACTION}",
+        )
+        queue_path.write_text(
+            replace_queue_package_block(
+                queue_source_text,
+                f"do_not_reopen_reason: {EXPECTED_QUEUE_DO_NOT_REOPEN_REASON}",
+                "do_not_reopen_reason: stale copied closure prose",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "queue-do-not-reopen-reason-drift",
+            lambda: verify_queue_staging(queue_path),
+            f"do_not_reopen_reason: {EXPECTED_QUEUE_DO_NOT_REOPEN_REASON}",
+        )
+        queue_path.write_text(
+            replace_queue_package_block(
+                queue_source_text,
                 "      - docs",
                 "      - docs\n      - Chummer.Run.Registry",
             ),
@@ -1195,6 +1230,32 @@ def run_self_test(proof_receipt: Path) -> None:
             "design-queue-status-drift",
             lambda: verify_queue_staging(source_queue_path),
             "status: complete",
+        )
+        source_queue_path.write_text(
+            replace_queue_package_block(
+                source_queue_text,
+                f"completion_action: {EXPECTED_QUEUE_COMPLETION_ACTION}",
+                "completion_action: reopen_package",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "design-queue-completion-action-drift",
+            lambda: verify_queue_staging(source_queue_path),
+            f"completion_action: {EXPECTED_QUEUE_COMPLETION_ACTION}",
+        )
+        source_queue_path.write_text(
+            replace_queue_package_block(
+                source_queue_text,
+                f"do_not_reopen_reason: {EXPECTED_QUEUE_DO_NOT_REOPEN_REASON}",
+                "do_not_reopen_reason: stale copied closure prose",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "design-queue-do-not-reopen-reason-drift",
+            lambda: verify_queue_staging(source_queue_path),
+            f"do_not_reopen_reason: {EXPECTED_QUEUE_DO_NOT_REOPEN_REASON}",
         )
         source_queue_path.write_text(
             replace_queue_package_block(
