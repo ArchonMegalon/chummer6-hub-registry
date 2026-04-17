@@ -5,7 +5,7 @@ Milestone: 101, Native-host desktop release train and promotion discipline
 Package: next90-m101-registry-promotion-discipline
 Owner: chummer6-hub-registry
 Landed commit: a4e47da, Publish desktop route rationale in release channel truth
-Verified guardrail commit: 63a5583, Tighten M101 desktop rollback route truth
+Verified guardrail commit: 0b52f5f, Tighten M101 sibling fallback rollback rationale
 
 ## Scope
 
@@ -51,6 +51,7 @@ Repo-local guardrail commit `75a248f` previously pinned queue identity proof so 
 Repo-local guardrail commit `3c95af1` superseded that queue-identity floor in the machine-readable proof receipt and verifier so future shards proved the external proof command-shape repair and route-proof command guard before trusting the closed package.
 Repo-local guardrail commit `d767fba` supersedes that route-proof command floor in the machine-readable proof receipt, verifier, canonical registry row, and queue staging rows so future shards verify the latest completed-package proof floor instead of repeating the route-rationale package.
 Repo-local guardrail commit `63a5583` supersedes that route-proof command floor in the machine-readable proof receipt, verifier, canonical registry row, and queue staging rows so future shards prove the primary rollback route-truth guard before trusting the closed package.
+Repo-local guardrail commit `0b52f5f` supersedes that desktop rollback route-truth floor in the machine-readable proof receipt, verifier, canonical registry row, and queue staging rows so future shards prove primary rollback rationale names the exact sibling fallback route before trusting the closed package.
 
 Fleet queue staging also marks package `next90-m101-registry-promotion-discipline` complete with the same proof paths and landed commit.
 Fleet and design queue staging now also require `completion_action: verify_closed_package_only` and a package-specific `do_not_reopen_reason`, so future shards get an explicit closed-package instruction in queue truth instead of inferring it from proof prose.
@@ -956,6 +957,8 @@ python3 -m pytest scripts/test_verify_public_release_channel.py -q
 python3 scripts/verify_next90_m101_registry_promotion_discipline.py
 
 python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+
+./scripts/ai/verify.sh
 ```
 
 The public release-channel verifier now rejects desktop route-truth rationale that names only the platform tuple while omitting the desktop head. For route-role, promotion, update, rollback, install-posture, and revoke rationale, each row must identify the head through the exact route tuple id, head id, or product label in addition to the platform/rid tuple context. `scripts/test_verify_public_release_channel.py` carries direct headless-rationale regression cases for promotion and rollback copy, and the package-specific verifier checks that source and test wiring so future shards cannot keep the completed M101 package closed with ambiguous headless tuple prose.
@@ -996,6 +999,6 @@ Do not reopen this package unless one of these facts changes:
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` stops applying canonical registry and queue staging active-run helper proof exclusion,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
-* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `63a5583`,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `0b52f5f`,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail, successor-frontier proof self-test, or hand-edited `desktopRouteTruth` negative-case verifier,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.
