@@ -700,6 +700,28 @@ def test_verify_desktop_tuple_coverage_rejects_generic_route_truth_rationale() -
         MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
+def test_verify_desktop_tuple_coverage_rejects_headless_route_truth_rationale() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["promotionReason"] = (
+        "The linux/linux-x64 installer tuple is present on the registry shelf and passed the current gates."
+    )
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="promotionReason must name desktop head context"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_headless_rollback_rationale() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["rollbackReason"] = "A promoted fallback desktop head exists for linux/linux-x64."
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="rollbackReason must name desktop head context"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
 def test_verify_desktop_tuple_coverage_rejects_route_role_reason_drift() -> None:
     payload = {
         "channelId": "docker",
@@ -812,6 +834,58 @@ def test_verify_desktop_route_role_parity_rejects_primary_fallback_drift() -> No
             index=1,
             source="release-channel.json",
         )
+
+
+def test_verify_desktop_tuple_coverage_rejects_primary_rollback_without_promoted_fallback_row() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["rollbackState"] = "fallback_available"
+    rows[0]["rollbackReasonCode"] = "promoted_fallback_available"
+    rows[0]["rollbackReason"] = (
+        "A promoted fallback desktop head exists for primary route "
+        "avalonia:linux:linux-x64 on linux/linux-x64."
+    )
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(
+        SystemExit,
+        match=(
+            "rollbackState must be manual_recovery_required because fallback route truth "
+            "for linux/linux-x64 is not promoted"
+        ),
+    ):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_primary_manual_rollback_when_fallback_row_is_promoted() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["artifacts"].append(
+        {
+            "artifactId": "blazor-desktop-linux-x64-installer",
+            "head": "blazor-desktop",
+            "rid": "linux-x64",
+            "platform": "linux",
+            "arch": "x64",
+            "kind": "installer",
+        }
+    )
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["rollbackState"] = "manual_recovery_required"
+    rows[0]["rollbackReasonCode"] = "no_promoted_fallback_for_tuple"
+    rows[0]["rollbackReason"] = (
+        "No promoted fallback desktop head exists for primary route "
+        "avalonia:linux:linux-x64 on linux/linux-x64."
+    )
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(
+        SystemExit,
+        match=(
+            "rollbackState must be fallback_available because fallback route truth "
+            "for linux/linux-x64 is promoted"
+        ),
+    ):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
 def test_verify_desktop_tuple_coverage_rejects_non_revoked_row_with_revoked_reason_code() -> None:
@@ -1306,7 +1380,9 @@ def test_expected_desktop_route_truth_rows_does_not_offer_revoked_fallback_for_p
     fallback = next(row for row in rows if row["head"] == "blazor-desktop")
 
     assert primary["rollbackState"] == "manual_recovery_required"
-    assert primary["rollbackReason"] == "No promoted fallback desktop head exists for linux/linux-x64."
+    assert primary["rollbackReason"] == (
+        "No promoted fallback desktop head exists for primary route avalonia:linux:linux-x64 on linux/linux-x64."
+    )
     assert fallback["promotionState"] == "revoked"
     assert fallback["promotionReason"].endswith("Tuple-specific fallback signature was revoked.")
     assert fallback["updateEligibility"] == "blocked_revoked"

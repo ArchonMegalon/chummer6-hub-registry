@@ -46,6 +46,82 @@ public static class ReleaseSupportabilityStates
     public const string Unpublished = "unpublished";
 }
 
+public static class ReleaseDesktopRouteRoles
+{
+    public const string Primary = "primary";
+    public const string Fallback = "fallback";
+}
+
+public static class ReleaseDesktopRouteReasonCodes
+{
+    public const string PrimaryFlagshipHead = "primary_flagship_head";
+    public const string FallbackRecoveryHead = "fallback_recovery_head";
+}
+
+public static class ReleaseDesktopPromotionStates
+{
+    public const string Promoted = "promoted";
+    public const string ProofRequired = "proof_required";
+    public const string Revoked = "revoked";
+}
+
+public static class ReleaseDesktopPromotionReasonCodes
+{
+    public const string InstallerSmokeAndReleaseProofPassed = "installer_smoke_and_release_proof_passed";
+    public const string MissingArtifactOrStartupSmokeProof = "missing_artifact_or_startup_smoke_proof";
+    public const string RegistryRevokeMarkerActive = "registry_revoke_marker_active";
+}
+
+public static class ReleaseDesktopUpdateEligibilities
+{
+    public const string Eligible = "eligible";
+    public const string ManualFallback = "manual_fallback";
+    public const string BlockedMissingProof = "blocked_missing_proof";
+    public const string BlockedRevoked = "blocked_revoked";
+}
+
+public static class ReleaseDesktopRollbackStates
+{
+    public const string FallbackAvailable = "fallback_available";
+    public const string ManualRecoveryRequired = "manual_recovery_required";
+    public const string FallbackNotPromoted = "fallback_not_promoted";
+    public const string Revoked = "revoked";
+}
+
+public static class ReleaseDesktopRollbackReasonCodes
+{
+    public const string PromotedFallbackAvailable = "promoted_fallback_available";
+    public const string FallbackPromotedForRecovery = "fallback_promoted_for_recovery";
+    public const string NoPromotedFallbackForTuple = "no_promoted_fallback_for_tuple";
+    public const string FallbackMissingArtifactOrStartupSmokeProof = "fallback_missing_artifact_or_startup_smoke_proof";
+    public const string RegistryRevokeMarkerActive = "registry_revoke_marker_active";
+}
+
+public static class ReleaseDesktopRevokeStates
+{
+    public const string NotRevoked = "not_revoked";
+    public const string Revoked = "revoked";
+}
+
+public static class ReleaseDesktopRevokeReasonCodes
+{
+    public const string NoRegistryRevokeMarker = "no_registry_revoke_marker";
+    public const string RegistryRevokeMarkerActive = "registry_revoke_marker_active";
+}
+
+public static class ReleaseDesktopInstallPostures
+{
+    public const string InstallerFirst = "installer_first";
+    public const string ProofCaptureRequired = "proof_capture_required";
+    public const string Revoked = "revoked";
+}
+
+public static class ReleaseDesktopParityPostures
+{
+    public const string FlagshipPrimary = "flagship_primary";
+    public const string ExplicitFallback = "explicit_fallback";
+}
+
 public sealed record ReleaseRuntimeBundleHeadReference(
     string HeadId,
     string HeadKind,

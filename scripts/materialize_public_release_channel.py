@@ -1759,11 +1759,17 @@ def desktop_route_truth(
                     if fallback_promoted_by_platform_rid.get((platform, rid)):
                         rollback_state = "fallback_available"
                         rollback_reason_code = "promoted_fallback_available"
-                        rollback_reason = f"A promoted fallback desktop head exists for {tuple_label}."
+                        rollback_reason = (
+                            f"A promoted fallback desktop head exists for primary route "
+                            f"{route_tuple_label} on {tuple_label}."
+                        )
                     else:
                         rollback_state = "manual_recovery_required"
                         rollback_reason_code = "no_promoted_fallback_for_tuple"
-                        rollback_reason = f"No promoted fallback desktop head exists for {tuple_label}."
+                        rollback_reason = (
+                            f"No promoted fallback desktop head exists for primary route "
+                            f"{route_tuple_label} on {tuple_label}."
+                        )
                 else:
                     parity_posture = "explicit_fallback"
                     if promoted:

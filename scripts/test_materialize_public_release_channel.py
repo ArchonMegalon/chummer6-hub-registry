@@ -513,7 +513,9 @@ def test_desktop_route_truth_does_not_offer_revoked_fallback_for_primary_rollbac
     fallback = next(row for row in rows if row["head"] == "blazor-desktop")
 
     assert primary["rollbackState"] == "manual_recovery_required"
-    assert primary["rollbackReason"] == "No promoted fallback desktop head exists for linux/linux-x64."
+    assert primary["rollbackReason"] == (
+        "No promoted fallback desktop head exists for primary route avalonia:linux:linux-x64 on linux/linux-x64."
+    )
     assert fallback["promotionState"] == "revoked"
     assert fallback["promotionReason"].endswith("Blazor fallback startup smoke regressed on this tuple.")
     assert fallback["updateEligibility"] == "blocked_revoked"

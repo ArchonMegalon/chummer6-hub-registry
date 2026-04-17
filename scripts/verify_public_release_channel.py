@@ -1135,6 +1135,27 @@ def verify_desktop_route_rationale_context(
                 f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].{field_name} "
                 "must name desktop tuple context"
             )
+    head_token = normalized_row["head"]
+    head_label = APP_LABELS.get(head_token, head_token)
+    for field_name in (
+        "routeRoleReason",
+        "promotionReason",
+        "updateEligibilityReason",
+        "rollbackReason",
+        "installPostureReason",
+        "revokeReason",
+    ):
+        rationale = normalized_row[field_name]
+        if route_tuple_label in rationale:
+            continue
+        if head_label and head_label in rationale:
+            continue
+        if head_token and head_token in rationale:
+            continue
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].{field_name} "
+            "must name desktop head context"
+        )
 
 
 def verify_desktop_route_role_parity(
@@ -1234,6 +1255,47 @@ def verify_desktop_route_state_matrix(
             )
 
 
+def verify_primary_rollback_matches_fallback_route_truth(
+    normalized_rows: list[dict[str, str]],
+    *,
+    source: str,
+) -> None:
+    fallback_rows_by_tuple = {
+        (row["platform"], row["rid"]): row
+        for row in normalized_rows
+        if row["routeRole"] == "fallback"
+    }
+    for index, row in enumerate(normalized_rows):
+        if row["routeRole"] != "primary" or row["revokeState"] == "revoked":
+            continue
+        fallback_row = fallback_rows_by_tuple.get((row["platform"], row["rid"]))
+        fallback_promoted = (
+            fallback_row is not None
+            and fallback_row["promotionState"] == "promoted"
+            and fallback_row["revokeState"] != "revoked"
+        )
+        expected_state = "fallback_available" if fallback_promoted else "manual_recovery_required"
+        expected_reason_code = (
+            "promoted_fallback_available"
+            if fallback_promoted
+            else "no_promoted_fallback_for_tuple"
+        )
+        if row["rollbackState"] != expected_state:
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackState "
+                f"must be {expected_state} because fallback route truth for "
+                f"{row['platform']}/{row['rid']} is "
+                f"{'promoted' if fallback_promoted else 'not promoted'}"
+            )
+        if row["rollbackReasonCode"] != expected_reason_code:
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackReasonCode "
+                f"must be {expected_reason_code} because fallback route truth for "
+                f"{row['platform']}/{row['rid']} is "
+                f"{'promoted' if fallback_promoted else 'not promoted'}"
+            )
+
+
 def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
     promoted_by_platform_head_rid: dict[tuple[str, str, str], dict[str, Any]] = {}
     required_rids_by_platform: dict[str, set[str]] = {
@@ -1320,11 +1382,17 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
                     if fallback_promoted_by_platform_rid.get((platform, rid)):
                         rollback_state = "fallback_available"
                         rollback_reason_code = "promoted_fallback_available"
-                        rollback_reason = f"A promoted fallback desktop head exists for {tuple_label}."
+                        rollback_reason = (
+                            f"A promoted fallback desktop head exists for primary route "
+                            f"{route_tuple_label} on {tuple_label}."
+                        )
                     else:
                         rollback_state = "manual_recovery_required"
                         rollback_reason_code = "no_promoted_fallback_for_tuple"
-                        rollback_reason = f"No promoted fallback desktop head exists for {tuple_label}."
+                        rollback_reason = (
+                            f"No promoted fallback desktop head exists for primary route "
+                            f"{route_tuple_label} on {tuple_label}."
+                        )
                 else:
                     parity_posture = "explicit_fallback"
                     if promoted:
@@ -2106,6 +2174,10 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
                     f"{normalized_row['promotionState']}"
                 )
         normalized_desktop_route_truth.append(normalized_row)
+    verify_primary_rollback_matches_fallback_route_truth(
+        normalized_desktop_route_truth,
+        source=source,
+    )
     expected_desktop_route_truth = expected_desktop_route_truth_rows(payload)
     normalized_desktop_route_truth.sort(
         key=lambda row: (row["platform"], row["head"], row["rid"], row["tupleId"])

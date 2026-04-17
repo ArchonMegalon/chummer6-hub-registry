@@ -12,6 +12,8 @@ VerifySealedRecord(typeof(HubModerationCaseRecord));
 VerifySealedRecord(typeof(RuntimeBundleHeadProjection));
 VerifySealedRecord(typeof(ReleaseChannelArtifact));
 VerifySealedRecord(typeof(ReleaseProofProjection));
+VerifySealedRecord(typeof(ReleaseDesktopRouteTruth));
+VerifySealedRecord(typeof(ReleaseDesktopTupleCoverage));
 VerifySealedRecord(typeof(ReleaseChannelHeadProjection));
 VerifySealedRecord(typeof(DownloadReceiptDto));
 VerifySealedRecord(typeof(InstallClaimTicketDto));
@@ -38,6 +40,52 @@ Assert(ReleaseProofStatuses.Passed == "passed", "Release proof statuses must pre
 Assert(ReleaseRolloutStates.LocalDockerPreview == "local_docker_preview", "Release rollout states must preserve local_docker_preview.");
 Assert(ReleaseRolloutStates.CoverageIncomplete == "coverage_incomplete", "Release rollout states must preserve coverage_incomplete.");
 Assert(ReleaseSupportabilityStates.LocalDockerProven == "local_docker_proven", "Release supportability states must preserve local_docker_proven.");
+Assert(ReleaseDesktopRouteRoles.Primary == "primary", "Desktop route roles must expose primary.");
+Assert(ReleaseDesktopRouteRoles.Fallback == "fallback", "Desktop route roles must expose fallback.");
+Assert(ReleaseDesktopRouteReasonCodes.PrimaryFlagshipHead == "primary_flagship_head", "Desktop route reason codes must expose primary_flagship_head.");
+Assert(ReleaseDesktopRouteReasonCodes.FallbackRecoveryHead == "fallback_recovery_head", "Desktop route reason codes must expose fallback_recovery_head.");
+Assert(ReleaseDesktopPromotionStates.Promoted == "promoted", "Desktop promotion states must expose promoted.");
+Assert(ReleaseDesktopPromotionStates.ProofRequired == "proof_required", "Desktop promotion states must expose proof_required.");
+Assert(ReleaseDesktopPromotionStates.Revoked == "revoked", "Desktop promotion states must expose revoked.");
+Assert(ReleaseDesktopPromotionReasonCodes.InstallerSmokeAndReleaseProofPassed == "installer_smoke_and_release_proof_passed",
+    "Desktop promotion reason codes must expose installer_smoke_and_release_proof_passed.");
+Assert(ReleaseDesktopPromotionReasonCodes.MissingArtifactOrStartupSmokeProof == "missing_artifact_or_startup_smoke_proof",
+    "Desktop promotion reason codes must expose missing_artifact_or_startup_smoke_proof.");
+Assert(ReleaseDesktopPromotionReasonCodes.RegistryRevokeMarkerActive == "registry_revoke_marker_active",
+    "Desktop promotion reason codes must expose registry_revoke_marker_active.");
+Assert(ReleaseDesktopUpdateEligibilities.Eligible == "eligible", "Desktop update eligibility must expose eligible.");
+Assert(ReleaseDesktopUpdateEligibilities.ManualFallback == "manual_fallback", "Desktop update eligibility must expose manual_fallback.");
+Assert(ReleaseDesktopUpdateEligibilities.BlockedMissingProof == "blocked_missing_proof",
+    "Desktop update eligibility must expose blocked_missing_proof.");
+Assert(ReleaseDesktopUpdateEligibilities.BlockedRevoked == "blocked_revoked", "Desktop update eligibility must expose blocked_revoked.");
+Assert(ReleaseDesktopRollbackStates.FallbackAvailable == "fallback_available", "Desktop rollback states must expose fallback_available.");
+Assert(ReleaseDesktopRollbackStates.ManualRecoveryRequired == "manual_recovery_required",
+    "Desktop rollback states must expose manual_recovery_required.");
+Assert(ReleaseDesktopRollbackStates.FallbackNotPromoted == "fallback_not_promoted",
+    "Desktop rollback states must expose fallback_not_promoted.");
+Assert(ReleaseDesktopRollbackStates.Revoked == "revoked", "Desktop rollback states must expose revoked.");
+Assert(ReleaseDesktopRollbackReasonCodes.PromotedFallbackAvailable == "promoted_fallback_available",
+    "Desktop rollback reason codes must expose promoted_fallback_available.");
+Assert(ReleaseDesktopRollbackReasonCodes.FallbackPromotedForRecovery == "fallback_promoted_for_recovery",
+    "Desktop rollback reason codes must expose fallback_promoted_for_recovery.");
+Assert(ReleaseDesktopRollbackReasonCodes.NoPromotedFallbackForTuple == "no_promoted_fallback_for_tuple",
+    "Desktop rollback reason codes must expose no_promoted_fallback_for_tuple.");
+Assert(ReleaseDesktopRollbackReasonCodes.FallbackMissingArtifactOrStartupSmokeProof == "fallback_missing_artifact_or_startup_smoke_proof",
+    "Desktop rollback reason codes must expose fallback_missing_artifact_or_startup_smoke_proof.");
+Assert(ReleaseDesktopRollbackReasonCodes.RegistryRevokeMarkerActive == "registry_revoke_marker_active",
+    "Desktop rollback reason codes must expose registry_revoke_marker_active.");
+Assert(ReleaseDesktopRevokeStates.NotRevoked == "not_revoked", "Desktop revoke states must expose not_revoked.");
+Assert(ReleaseDesktopRevokeStates.Revoked == "revoked", "Desktop revoke states must expose revoked.");
+Assert(ReleaseDesktopRevokeReasonCodes.NoRegistryRevokeMarker == "no_registry_revoke_marker",
+    "Desktop revoke reason codes must expose no_registry_revoke_marker.");
+Assert(ReleaseDesktopRevokeReasonCodes.RegistryRevokeMarkerActive == "registry_revoke_marker_active",
+    "Desktop revoke reason codes must expose registry_revoke_marker_active.");
+Assert(ReleaseDesktopInstallPostures.InstallerFirst == "installer_first", "Desktop install postures must expose installer_first.");
+Assert(ReleaseDesktopInstallPostures.ProofCaptureRequired == "proof_capture_required",
+    "Desktop install postures must expose proof_capture_required.");
+Assert(ReleaseDesktopInstallPostures.Revoked == "revoked", "Desktop install postures must expose revoked.");
+Assert(ReleaseDesktopParityPostures.FlagshipPrimary == "flagship_primary", "Desktop parity postures must expose flagship_primary.");
+Assert(ReleaseDesktopParityPostures.ExplicitFallback == "explicit_fallback", "Desktop parity postures must expose explicit_fallback.");
 
 ArtifactInstallState install = new(
     State: ArtifactInstallStates.Pinned,
@@ -148,6 +196,32 @@ ReleaseChannelArtifact releaseArtifact = new(
     KnownIssueSummary: "This artifact tuple is not safe for rollback or install.",
     InstallAccessClass: "open_public");
 
+ReleaseDesktopRouteTruth routeTruth = new(
+    TupleId: "avalonia:windows:win-x64",
+    Head: "avalonia",
+    Platform: "windows",
+    Rid: "win-x64",
+    Arch: "x64",
+    ArtifactId: releaseArtifact.ArtifactId,
+    RouteRole: ReleaseDesktopRouteRoles.Primary,
+    RouteRoleReasonCode: ReleaseDesktopRouteReasonCodes.PrimaryFlagshipHead,
+    RouteRoleReason: "Avalonia Desktop is the flagship desktop route for windows/win-x64 and must carry independent startup-smoke proof before promotion.",
+    PromotionState: ReleaseDesktopPromotionStates.Revoked,
+    PromotionReasonCode: ReleaseDesktopPromotionReasonCodes.RegistryRevokeMarkerActive,
+    PromotionReason: "Registry revoke truth blocks promotion for avalonia:windows:win-x64: Tuple-specific revoke receipt blocked this desktop route.",
+    ParityPosture: ReleaseDesktopParityPostures.FlagshipPrimary,
+    UpdateEligibility: ReleaseDesktopUpdateEligibilities.BlockedRevoked,
+    UpdateEligibilityReason: "Updates are blocked because avalonia:windows:win-x64 is revoked in registry truth: Tuple-specific revoke receipt blocked this desktop route.",
+    RollbackState: ReleaseDesktopRollbackStates.Revoked,
+    RollbackReasonCode: ReleaseDesktopRollbackReasonCodes.RegistryRevokeMarkerActive,
+    RollbackReason: "Do not use avalonia:windows:win-x64 for rollback while its registry revoke marker is active: Tuple-specific revoke receipt blocked this desktop route.",
+    RevokeState: ReleaseDesktopRevokeStates.Revoked,
+    RevokeReasonCode: ReleaseDesktopRevokeReasonCodes.RegistryRevokeMarkerActive,
+    RevokeReason: "Tuple-specific revoke receipt blocked this desktop route.",
+    InstallPosture: ReleaseDesktopInstallPostures.Revoked,
+    InstallPostureReason: "Do not present avalonia:windows:win-x64 as installable while revoked: Tuple-specific revoke receipt blocked this desktop route.",
+    PublicInstallRoute: "/downloads/install/avalonia-win-x64-installer");
+
 ReleaseChannelHeadProjection releaseChannel = new(
     Product: "chummer6",
     ChannelId: "preview",
@@ -177,7 +251,13 @@ ReleaseChannelHeadProjection releaseChannel = new(
         GeneratedAtUtc: DateTimeOffset.UnixEpoch,
         BaseUrl: "http://127.0.0.1:8091",
         JourneysPassed: ["install_claim_restore_continue", "build_explain_publish", "campaign_session_recover_recap", "report_cluster_release_notify", "organize_community_and_close_loop"],
-        ProofRoutes: ["/downloads/install/avalonia-linux-x64-installer", "/home/access", "/home/work", "/account/work", "/account/support", "/contact"]));
+        ProofRoutes: ["/downloads/install/avalonia-linux-x64-installer", "/home/access", "/home/work", "/account/work", "/account/support", "/contact"]),
+    DesktopTupleCoverage: new ReleaseDesktopTupleCoverage(
+        RequiredDesktopPlatforms: ["linux", "windows", "macos"],
+        RequiredDesktopHeads: ["avalonia"],
+        DesktopRouteTruth: [routeTruth],
+        MissingRequiredPlatformHeadRidTuples: ["avalonia:linux:linux-x64", "avalonia:macos:osx-arm64"],
+        Complete: false));
 
 HubPublicationResult<RuntimeBundleHeadProjection> implemented = HubPublicationResult<RuntimeBundleHeadProjection>.Implemented(head);
 Assert(implemented.IsImplemented, "Implemented result wrappers must report IsImplemented.");
@@ -223,6 +303,37 @@ Assert(
     "Release channel projections must retain canonical flagship proof route ordering.");
 Assert(string.Equals(releaseProof.Status, ReleaseProofStatuses.Passed, StringComparison.Ordinal),
     "Release channel projections must retain release-proof posture.");
+ReleaseDesktopTupleCoverage desktopTupleCoverage = releaseChannel.DesktopTupleCoverage
+    ?? throw new InvalidOperationException("Release channel projections must retain desktop tuple coverage.");
+ReleaseDesktopRouteTruth desktopRouteTruth = desktopTupleCoverage.DesktopRouteTruth.Single();
+Assert(string.Equals(desktopRouteTruth.RouteRole, ReleaseDesktopRouteRoles.Primary, StringComparison.Ordinal),
+    "Desktop route truth must retain primary/fallback role.");
+Assert(string.Equals(desktopRouteTruth.RouteRoleReasonCode, ReleaseDesktopRouteReasonCodes.PrimaryFlagshipHead, StringComparison.Ordinal),
+    "Desktop route truth must retain route-role reason code.");
+Assert(string.Equals(desktopRouteTruth.PromotionState, ReleaseDesktopPromotionStates.Revoked, StringComparison.Ordinal),
+    "Desktop route truth must retain promotion state.");
+Assert(string.Equals(desktopRouteTruth.PromotionReasonCode, ReleaseDesktopPromotionReasonCodes.RegistryRevokeMarkerActive, StringComparison.Ordinal),
+    "Desktop route truth must retain promotion reason code.");
+Assert(desktopRouteTruth.PromotionReason.Contains(desktopRouteTruth.RevokeReason, StringComparison.Ordinal),
+    "Desktop route truth must echo revoke rationale inside blocked promotion rationale.");
+Assert(string.Equals(desktopRouteTruth.UpdateEligibility, ReleaseDesktopUpdateEligibilities.BlockedRevoked, StringComparison.Ordinal),
+    "Desktop route truth must retain update eligibility.");
+Assert(desktopRouteTruth.UpdateEligibilityReason.Contains(desktopRouteTruth.RevokeReason, StringComparison.Ordinal),
+    "Desktop route truth must echo revoke rationale inside update rationale.");
+Assert(string.Equals(desktopRouteTruth.RollbackState, ReleaseDesktopRollbackStates.Revoked, StringComparison.Ordinal),
+    "Desktop route truth must retain rollback state.");
+Assert(string.Equals(desktopRouteTruth.RollbackReasonCode, ReleaseDesktopRollbackReasonCodes.RegistryRevokeMarkerActive, StringComparison.Ordinal),
+    "Desktop route truth must retain rollback reason code.");
+Assert(desktopRouteTruth.RollbackReason.Contains(desktopRouteTruth.RevokeReason, StringComparison.Ordinal),
+    "Desktop route truth must echo revoke rationale inside rollback rationale.");
+Assert(string.Equals(desktopRouteTruth.RevokeState, ReleaseDesktopRevokeStates.Revoked, StringComparison.Ordinal),
+    "Desktop route truth must retain revoke state.");
+Assert(string.Equals(desktopRouteTruth.RevokeReasonCode, ReleaseDesktopRevokeReasonCodes.RegistryRevokeMarkerActive, StringComparison.Ordinal),
+    "Desktop route truth must retain revoke reason code.");
+Assert(string.Equals(desktopRouteTruth.InstallPosture, ReleaseDesktopInstallPostures.Revoked, StringComparison.Ordinal),
+    "Desktop route truth must retain install posture.");
+Assert(desktopRouteTruth.InstallPostureReason.Contains(desktopRouteTruth.RevokeReason, StringComparison.Ordinal),
+    "Desktop route truth must echo revoke rationale inside install rationale.");
 
 DownloadReceiptDto receipt = new(
     ReceiptId: "receipt-1",
