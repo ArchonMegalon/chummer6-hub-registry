@@ -154,6 +154,21 @@ ALLOWED_LOCALIZATION_LOCALE_SUMMARY_ROW_KEYS = (
 DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
 DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME = "Chummer.Hub.Registry.Contracts"
 UTC = dt.timezone.utc
+ARTIFACT_REVOKE_TRUTH_FIELDS = (
+    "status",
+    "rolloutState",
+    "rollout_state",
+    "rolloutReason",
+    "rollout_reason",
+    "revokeReason",
+    "revoke_reason",
+    "compatibilityState",
+    "compatibility_state",
+    "compatibilityReason",
+    "compatibility_reason",
+    "knownIssueSummary",
+    "known_issue_summary",
+)
 
 
 def normalize_token(value: Any) -> str:
@@ -630,7 +645,9 @@ def refresh_artifacts_from_downloads_dir(
             continue
         refreshed["updateFeedUrl"] = item.get("updateFeedUrl")
         refreshed["embeddedRuntimeBundleHeadId"] = item.get("embeddedRuntimeBundleHeadId")
-        refreshed["compatibilityState"] = item.get("compatibilityState")
+        for field_name in ARTIFACT_REVOKE_TRUTH_FIELDS:
+            if field_name in item:
+                refreshed[field_name] = item.get(field_name)
         refreshed["installAccessClass"] = effective_install_access_class(
             str(refreshed.get("platform") or ""),
             str(refreshed.get("kind") or ""),
@@ -832,7 +849,7 @@ def parse_download_row(item: dict[str, Any]) -> dict[str, Any]:
         rid = match.group("rid")
         platform, arch = RID_TO_PLATFORM_ARCH.get(rid, ("unknown", "unknown"))
         kind = artifact_kind(match.group("ext"), bool(match.group("installer")))
-    return {
+    row = {
         "artifactId": str(item.get("id") or item.get("artifactId") or file_name).strip() or file_name,
         "head": head,
         "rid": str(item.get("rid") or rid).strip() or rid,
@@ -846,7 +863,6 @@ def parse_download_row(item: dict[str, Any]) -> dict[str, Any]:
         "platformLabel": str(item.get("platformLabel") or item.get("platform") or platform_label(head, platform, arch, kind)).strip(),
         "updateFeedUrl": item.get("updateFeedUrl"),
         "embeddedRuntimeBundleHeadId": item.get("embeddedRuntimeBundleHeadId"),
-        "compatibilityState": item.get("compatibilityState"),
         "channelId": normalize_optional_string(item.get("channelId")),
         "channel": normalize_optional_string(item.get("channel")),
         "version": normalize_optional_string(item.get("version")),
@@ -857,6 +873,10 @@ def parse_download_row(item: dict[str, Any]) -> dict[str, Any]:
             item.get("installAccessClass") or item.get("accessClass"),
         ),
     }
+    for field_name in ARTIFACT_REVOKE_TRUTH_FIELDS:
+        if field_name in item:
+            row[field_name] = item.get(field_name)
+    return row
 
 
 def load_input_payload(args: argparse.Namespace) -> dict[str, Any]:
@@ -1552,7 +1572,7 @@ def verify_required_desktop_heads(required_heads: list[str], *, source: str) -> 
 
 
 def is_desktop_install_media(platform: Any, kind: Any) -> bool:
-    platform_token = normalized_token(platform)
+    platform_token = normalize_platform_token(platform)
     kind_token = normalized_token(kind)
     if platform_token == "macos":
         return kind_token in {"installer", "dmg", "pkg"}
@@ -1568,18 +1588,27 @@ def expected_installer_extension_for_platform(platform: str) -> str:
     return "deb"
 
 
-def desktop_route_role_reason(head: str, platform: str) -> str:
+def desktop_route_role_reason(head: str, platform: str, rid: str) -> str:
     head_token = normalized_token(head)
-    platform_token = normalized_token(platform)
+    platform_token = normalize_platform_token(platform)
+    rid_token = normalized_token(rid)
+    tuple_label = f"{platform_token}/{rid_token}" if rid_token else platform_token
     if DESKTOP_ROUTE_ROLES.get(head_token) == "primary":
         return (
             f"{APP_LABELS.get(head_token, head_token)} is the flagship desktop route for "
-            f"{platform_token} and must carry independent startup-smoke proof before promotion."
+            f"{tuple_label} and must carry independent startup-smoke proof before promotion."
         )
     return (
         f"{APP_LABELS.get(head_token, head_token)} is retained as an explicit fallback route for "
-        f"{platform_token}; it cannot satisfy the primary-route promise."
+        f"{tuple_label}; it cannot satisfy the primary-route promise."
     )
+
+
+def desktop_route_role_reason_code(head: str) -> str:
+    head_token = normalized_token(head)
+    if DESKTOP_ROUTE_ROLES.get(head_token) == "primary":
+        return "primary_flagship_head"
+    return "fallback_recovery_head"
 
 
 def desktop_route_revoke_posture(
@@ -1622,6 +1651,13 @@ def desktop_route_artifact_is_revoked(artifact: dict[str, Any] | None) -> bool:
     )
 
 
+def desktop_route_artifact_selection_key(artifact: dict[str, Any]) -> tuple[int, str]:
+    return (
+        1 if desktop_route_artifact_is_revoked(artifact) else 0,
+        normalized_token(artifact.get("artifactId") or artifact.get("id")),
+    )
+
+
 def desktop_route_truth(
     artifacts: list[dict[str, Any]],
     *,
@@ -1639,9 +1675,11 @@ def desktop_route_truth(
     for item in artifacts:
         if not isinstance(item, dict):
             continue
-        platform = normalized_token(item.get("platform"))
         head = normalized_token(item.get("head"))
         rid = normalized_token(item.get("rid"))
+        platform = normalize_platform_token(item.get("platform"))
+        if platform not in required_platforms and rid:
+            platform = RID_TO_PLATFORM_ARCH.get(rid, ("", ""))[0]
         if (
             platform not in required_platforms
             or head not in DESKTOP_ROUTE_TRUTH_HEADS
@@ -1651,7 +1689,7 @@ def desktop_route_truth(
             continue
         required_rids_by_platform.setdefault(platform, set()).add(rid)
         current = promoted_by_platform_head_rid.get((platform, head, rid))
-        if current is None or normalized_token(item.get("artifactId")) < normalized_token(current.get("artifactId")):
+        if current is None or desktop_route_artifact_selection_key(item) < desktop_route_artifact_selection_key(current):
             promoted_by_platform_head_rid[(platform, head, rid)] = item
         if DESKTOP_ROUTE_ROLES.get(head) == "fallback" and not desktop_route_artifact_is_revoked(item):
             fallback_promoted_by_platform_rid[(platform, rid)] = True
@@ -1670,6 +1708,9 @@ def desktop_route_truth(
                 artifact_id = normalized_token((artifact or {}).get("artifactId") or (artifact or {}).get("id"))
                 promoted = artifact is not None
                 public_install_route = f"/downloads/install/{head}-{rid}-installer" if rid else ""
+                head_label = APP_LABELS.get(head, head)
+                tuple_label = f"{platform}/{rid}" if rid else platform
+                route_tuple_label = f"{head}:{platform}:{rid}" if rid else f"{head}:{platform}"
                 revoke_state, revoke_reason = desktop_route_revoke_posture(
                     artifact,
                     channel_status=channel_status,
@@ -1677,63 +1718,92 @@ def desktop_route_truth(
                     rollout_reason=rollout_reason,
                     known_issue_summary=known_issue_summary,
                 )
+                if revoke_state != "revoked":
+                    revoke_reason = f"No registry revoke marker is active for {route_tuple_label}."
                 if promoted:
                     promotion_state = "promoted"
+                    promotion_reason_code = "installer_smoke_and_release_proof_passed"
                     promotion_reason = (
-                        "Installer tuple is present on the registry shelf and passed the current "
-                        "startup-smoke and release-proof gates for this channel."
+                        f"{head_label} {tuple_label} installer tuple is present on the registry shelf "
+                        "and passed the current startup-smoke and release-proof gates for this channel."
                     )
                     install_posture = "installer_first"
-                    install_posture_reason = "Promoted installer media is present for this platform tuple."
+                    install_posture_reason = (
+                        f"Promoted installer media is present for {head_label} on {tuple_label}."
+                    )
                 else:
                     promotion_state = "proof_required"
+                    promotion_reason_code = "missing_artifact_or_startup_smoke_proof"
                     promotion_reason = (
-                        "Installer tuple is not promoted until matching artifact bytes and fresh "
-                        "startup-smoke proof are present for this platform tuple."
+                        f"{head_label} {tuple_label} installer tuple is not promoted until matching "
+                        "artifact bytes and fresh startup-smoke proof are present."
                     )
                     install_posture = "proof_capture_required"
                     install_posture_reason = (
-                        "Do not present this route as installable until the missing tuple proof is captured."
+                        f"Do not present {route_tuple_label} as installable until the missing tuple proof is captured."
                     )
 
                 if route_role == "primary":
                     parity_posture = "flagship_primary"
                     if promoted:
                         update_eligibility = "eligible"
-                        update_reason = "Primary-route installer is promoted for this channel tuple."
+                        update_reason = f"Primary-route {head_label} installer is promoted for {tuple_label}."
                     else:
                         update_eligibility = "blocked_missing_proof"
-                        update_reason = "Primary-route updates are blocked until this tuple is promoted."
+                        update_reason = f"Primary-route updates are blocked until {route_tuple_label} is promoted."
                     if fallback_promoted_by_platform_rid.get((platform, rid)):
                         rollback_state = "fallback_available"
-                        rollback_reason = "A promoted fallback desktop head exists on this platform tuple."
+                        rollback_reason_code = "promoted_fallback_available"
+                        rollback_reason = f"A promoted fallback desktop head exists for {tuple_label}."
                     else:
                         rollback_state = "manual_recovery_required"
-                        rollback_reason = "No promoted fallback desktop head exists on this platform tuple."
+                        rollback_reason_code = "no_promoted_fallback_for_tuple"
+                        rollback_reason = f"No promoted fallback desktop head exists for {tuple_label}."
                 else:
                     parity_posture = "explicit_fallback"
                     if promoted:
                         update_eligibility = "manual_fallback"
                         update_reason = (
-                            "Fallback installer is promoted for recovery/manual selection, not automatic primary updates."
+                            f"Fallback {head_label} installer is promoted for {tuple_label} recovery/manual selection, "
+                            "not automatic primary updates."
                         )
                         rollback_state = "fallback_available"
-                        rollback_reason = "Fallback head is promoted and can be used for rollback or recovery routing."
+                        rollback_reason_code = "fallback_promoted_for_recovery"
+                        rollback_reason = (
+                            f"Fallback {head_label} is promoted for {tuple_label} rollback or recovery routing."
+                        )
                     else:
                         update_eligibility = "blocked_missing_proof"
-                        update_reason = "Fallback route is not update-eligible until this tuple is promoted."
+                        update_reason = f"Fallback route {route_tuple_label} is not update-eligible until promoted."
                         rollback_state = "fallback_not_promoted"
-                        rollback_reason = "Fallback route needs artifact and startup-smoke proof before rollback use."
+                        rollback_reason_code = "fallback_missing_artifact_or_startup_smoke_proof"
+                        rollback_reason = (
+                            f"Fallback route {route_tuple_label} needs artifact and startup-smoke proof before rollback use."
+                        )
 
                 if revoke_state == "revoked":
                     promotion_state = "revoked"
-                    promotion_reason = "Registry revoke truth blocks promotion for this channel tuple."
+                    promotion_reason_code = "registry_revoke_marker_active"
+                    promotion_reason = (
+                        f"Registry revoke truth blocks promotion for {route_tuple_label}: "
+                        f"{revoke_reason}"
+                    )
                     update_eligibility = "blocked_revoked"
-                    update_reason = "Updates are blocked because this desktop route is revoked in registry truth."
+                    update_reason = (
+                        f"Updates are blocked because {route_tuple_label} is revoked in registry truth: "
+                        f"{revoke_reason}"
+                    )
                     rollback_state = "revoked"
-                    rollback_reason = "Do not use this route for rollback while its registry revoke marker is active."
+                    rollback_reason_code = "registry_revoke_marker_active"
+                    rollback_reason = (
+                        f"Do not use {route_tuple_label} for rollback while its registry revoke marker is active: "
+                        f"{revoke_reason}"
+                    )
                     install_posture = "revoked"
-                    install_posture_reason = "Do not present this route as installable while revoked."
+                    install_posture_reason = (
+                        f"Do not present {route_tuple_label} as installable while revoked: "
+                        f"{revoke_reason}"
+                    )
 
                 rows.append(
                     {
@@ -1744,15 +1814,23 @@ def desktop_route_truth(
                         "arch": arch,
                         "artifactId": artifact_id,
                         "routeRole": route_role,
-                        "routeRoleReason": desktop_route_role_reason(head, platform),
+                        "routeRoleReasonCode": desktop_route_role_reason_code(head),
+                        "routeRoleReason": desktop_route_role_reason(head, platform, rid),
                         "promotionState": promotion_state,
+                        "promotionReasonCode": promotion_reason_code,
                         "promotionReason": promotion_reason,
                         "parityPosture": parity_posture,
                         "updateEligibility": update_eligibility,
                         "updateEligibilityReason": update_reason,
                         "rollbackState": rollback_state,
+                        "rollbackReasonCode": rollback_reason_code,
                         "rollbackReason": rollback_reason,
                         "revokeState": revoke_state,
+                        "revokeReasonCode": (
+                            "registry_revoke_marker_active"
+                            if revoke_state == "revoked"
+                            else "no_registry_revoke_marker"
+                        ),
                         "revokeReason": revoke_reason,
                         "installPosture": install_posture,
                         "installPostureReason": install_posture_reason,

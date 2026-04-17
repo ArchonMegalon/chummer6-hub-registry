@@ -30,6 +30,7 @@ Assert(Enum.GetNames<HubArtifactKind>().Contains(nameof(HubArtifactKind.ReplayPa
 Assert(Enum.GetNames<HubArtifactKind>().Contains(nameof(HubArtifactKind.RecapPackage)), "Artifact kinds must include RecapPackage.");
 Assert(Enum.GetNames<RuntimeBundleHeadKind>().SequenceEqual(["Session", "Mobile", "Offline"]), "Runtime bundle heads must stay Session/Mobile/Offline.");
 Assert(ReleaseChannelStatuses.Published == "published", "Release channel statuses must preserve published.");
+Assert(ReleaseChannelStatuses.Revoked == "revoked", "Release channel statuses must expose revoked.");
 Assert(ReleaseArtifactKinds.Installer == "installer", "Release artifact kinds must preserve installer.");
 Assert(ReleaseArtifactKinds.Portable == "portable", "Release artifact kinds must preserve portable.");
 Assert(ReleaseArtifactKinds.Archive == "archive", "Release artifact kinds must preserve archive.");
@@ -139,6 +140,12 @@ ReleaseChannelArtifact releaseArtifact = new(
     UpdateFeedUrl: "/downloads/updates/preview.json",
     EmbeddedRuntimeBundleHeadId: "runtime-head-preview-sr5",
     CompatibilityState: ArtifactCompatibilityStates.Compatible,
+    Status: ReleaseChannelStatuses.Published,
+    RolloutState: ReleaseRolloutStates.Revoked,
+    RolloutReason: "Tuple rollout revoked after startup smoke regressed.",
+    RevokeReason: "Tuple-specific revoke receipt blocked this desktop route.",
+    CompatibilityReason: "Signature proof no longer matches the promoted artifact bytes.",
+    KnownIssueSummary: "This artifact tuple is not safe for rollback or install.",
     InstallAccessClass: "open_public");
 
 ReleaseChannelHeadProjection releaseChannel = new(
@@ -184,6 +191,18 @@ Assert(string.Equals(releaseChannel.Artifacts[0].EmbeddedRuntimeBundleHeadId, "r
     "Release channel projections must retain embedded runtime bundle references.");
 Assert(string.Equals(releaseChannel.Artifacts[0].InstallAccessClass, "open_public", StringComparison.Ordinal),
     "Release channel projections must retain install access posture.");
+Assert(string.Equals(releaseChannel.Artifacts[0].Status, ReleaseChannelStatuses.Published, StringComparison.Ordinal),
+    "Release channel artifacts must retain artifact status posture.");
+Assert(string.Equals(releaseChannel.Artifacts[0].RolloutState, ReleaseRolloutStates.Revoked, StringComparison.Ordinal),
+    "Release channel artifacts must retain tuple rollout posture.");
+Assert(string.Equals(releaseChannel.Artifacts[0].RolloutReason, "Tuple rollout revoked after startup smoke regressed.", StringComparison.Ordinal),
+    "Release channel artifacts must retain tuple rollout rationale.");
+Assert(string.Equals(releaseChannel.Artifacts[0].RevokeReason, "Tuple-specific revoke receipt blocked this desktop route.", StringComparison.Ordinal),
+    "Release channel artifacts must retain tuple revoke rationale.");
+Assert(string.Equals(releaseChannel.Artifacts[0].CompatibilityReason, "Signature proof no longer matches the promoted artifact bytes.", StringComparison.Ordinal),
+    "Release channel artifacts must retain compatibility rationale.");
+Assert(string.Equals(releaseChannel.Artifacts[0].KnownIssueSummary, "This artifact tuple is not safe for rollback or install.", StringComparison.Ordinal),
+    "Release channel artifacts must retain tuple known-issue rationale.");
 Assert(string.Equals(releaseChannel.RolloutState, ReleaseRolloutStates.CoverageIncomplete, StringComparison.Ordinal),
     "Release channel projections must retain coverage_incomplete rollout posture.");
 Assert(string.Equals(releaseChannel.SupportabilityState, ReleaseSupportabilityStates.ReviewRequired, StringComparison.Ordinal),

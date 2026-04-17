@@ -48,6 +48,10 @@ do_not_reopen_unless:
   - release channel or compatibility shelf loses exact desktop route-truth rows
   - release channel or compatibility shelf carries duplicate desktop route-truth tuple rows
   - promotion, fallback, rollback, revoke, update, or install-posture rationale drifts
+  - route-role, promotion, update, rollback, revoke, or install-posture rationale stops naming the head or platform/rid tuple, such as avalonia:windows:win-x64 or linux/linux-x64
+  - route-role, promotion, rollback, or revoke reason-code fields disappear or drift from canonical tuple truth
+  - tuple selection stops preferring non-revoked artifact truth over revoked artifact rows for the same head/platform/rid
+  - canonical registry, queue, proof, or closeout evidence cites active-run helper markers directly or through encoded helper-token strings
   - the landed commit a4e47da no longer resolves in this repo
   - the verified guardrail commit 2f7a422 no longer resolves in this repo
   - standard verification stops running the package-specific closeout guardrail

@@ -6,6 +6,7 @@ public static class ReleaseChannelStatuses
     public const string Unpublished = "unpublished";
     public const string ManifestEmpty = "manifest-empty";
     public const string ManifestError = "manifest-error";
+    public const string Revoked = "revoked";
 }
 
 public static class ReleaseArtifactKinds
@@ -74,6 +75,12 @@ public sealed record ReleaseChannelArtifact(
     string? UpdateFeedUrl = null,
     string? EmbeddedRuntimeBundleHeadId = null,
     string? CompatibilityState = null,
+    string? Status = null,
+    string? RolloutState = null,
+    string? RolloutReason = null,
+    string? RevokeReason = null,
+    string? CompatibilityReason = null,
+    string? KnownIssueSummary = null,
     string? InstallAccessClass = null);
 
 public sealed record ReleaseDesktopRouteTruth(
@@ -84,15 +91,19 @@ public sealed record ReleaseDesktopRouteTruth(
     string Arch,
     string? ArtifactId,
     string RouteRole,
+    string RouteRoleReasonCode,
     string RouteRoleReason,
     string PromotionState,
+    string PromotionReasonCode,
     string PromotionReason,
     string ParityPosture,
     string UpdateEligibility,
     string UpdateEligibilityReason,
     string RollbackState,
+    string RollbackReasonCode,
     string RollbackReason,
     string RevokeState,
+    string RevokeReasonCode,
     string RevokeReason,
     string InstallPosture,
     string InstallPostureReason,

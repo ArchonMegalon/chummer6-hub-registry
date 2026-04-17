@@ -434,6 +434,276 @@ def test_verify_desktop_tuple_coverage_rejects_missing_route_truth_rationale() -
         MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
+def test_verify_desktop_tuple_coverage_rejects_missing_route_truth_reason_code() -> None:
+    payload = {
+        "channelId": "docker",
+        "version": "run-20260414-1836",
+        "desktopTupleCoverage": {
+            "requiredDesktopPlatforms": ["linux", "windows", "macos"],
+            "requiredDesktopHeads": ["avalonia"],
+            "promotedInstallerTuples": [
+                {
+                    "tupleId": "avalonia:linux:linux-x64",
+                    "head": "avalonia",
+                    "platform": "linux",
+                    "rid": "linux-x64",
+                    "arch": "x64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-linux-x64-installer",
+                },
+                {
+                    "tupleId": "avalonia:windows:win-x64",
+                    "head": "avalonia",
+                    "platform": "windows",
+                    "rid": "win-x64",
+                    "arch": "x64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-win-x64-installer",
+                },
+                {
+                    "tupleId": "avalonia:macos:osx-arm64",
+                    "head": "avalonia",
+                    "platform": "macos",
+                    "rid": "osx-arm64",
+                    "arch": "arm64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-osx-arm64-installer",
+                },
+            ],
+            "promotedPlatformHeads": {"linux": ["avalonia"], "windows": ["avalonia"], "macos": ["avalonia"]},
+            "requiredDesktopPlatformHeadRidTuples": [
+                "avalonia:linux-x64:linux",
+                "avalonia:win-x64:windows",
+                "avalonia:osx-arm64:macos",
+            ],
+            "promotedPlatformHeadRidTuples": [
+                "avalonia:linux-x64:linux",
+                "avalonia:win-x64:windows",
+                "avalonia:osx-arm64:macos",
+            ],
+            "missingRequiredPlatforms": [],
+            "missingRequiredHeads": [],
+            "missingRequiredPlatformHeadPairs": [],
+            "missingRequiredPlatformHeadRidTuples": [],
+            "externalProofRequests": [],
+            "desktopRouteTruth": [],
+            "complete": True,
+        },
+        "artifacts": [
+            {
+                "artifactId": "avalonia-linux-x64-installer",
+                "head": "avalonia",
+                "rid": "linux-x64",
+                "platform": "linux",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "rid": "win-x64",
+                "platform": "windows",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "avalonia-osx-arm64-installer",
+                "head": "avalonia",
+                "rid": "osx-arm64",
+                "platform": "macos",
+                "arch": "arm64",
+                "kind": "installer",
+            },
+        ],
+    }
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["promotionReasonCode"] = ""
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="promotionReasonCode must not be blank"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_non_revoked_row_with_revoked_reason_code() -> None:
+    payload = {
+        "channelId": "docker",
+        "version": "run-20260414-1836",
+        "desktopTupleCoverage": {
+            "requiredDesktopPlatforms": ["linux", "windows", "macos"],
+            "requiredDesktopHeads": ["avalonia"],
+            "promotedInstallerTuples": [
+                {
+                    "tupleId": "avalonia:linux:linux-x64",
+                    "head": "avalonia",
+                    "platform": "linux",
+                    "rid": "linux-x64",
+                    "arch": "x64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-linux-x64-installer",
+                },
+                {
+                    "tupleId": "avalonia:windows:win-x64",
+                    "head": "avalonia",
+                    "platform": "windows",
+                    "rid": "win-x64",
+                    "arch": "x64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-win-x64-installer",
+                },
+                {
+                    "tupleId": "avalonia:macos:osx-arm64",
+                    "head": "avalonia",
+                    "platform": "macos",
+                    "rid": "osx-arm64",
+                    "arch": "arm64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-osx-arm64-installer",
+                },
+            ],
+            "promotedPlatformHeads": {"linux": ["avalonia"], "windows": ["avalonia"], "macos": ["avalonia"]},
+            "requiredDesktopPlatformHeadRidTuples": [
+                "avalonia:linux-x64:linux",
+                "avalonia:win-x64:windows",
+                "avalonia:osx-arm64:macos",
+            ],
+            "promotedPlatformHeadRidTuples": [
+                "avalonia:linux-x64:linux",
+                "avalonia:win-x64:windows",
+                "avalonia:osx-arm64:macos",
+            ],
+            "missingRequiredPlatforms": [],
+            "missingRequiredHeads": [],
+            "missingRequiredPlatformHeadPairs": [],
+            "missingRequiredPlatformHeadRidTuples": [],
+            "externalProofRequests": [],
+            "desktopRouteTruth": [],
+            "complete": True,
+        },
+        "artifacts": [
+            {
+                "artifactId": "avalonia-linux-x64-installer",
+                "head": "avalonia",
+                "rid": "linux-x64",
+                "platform": "linux",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "rid": "win-x64",
+                "platform": "windows",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "avalonia-osx-arm64-installer",
+                "head": "avalonia",
+                "rid": "osx-arm64",
+                "platform": "macos",
+                "arch": "arm64",
+                "kind": "installer",
+            },
+        ],
+    }
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["revokeReasonCode"] = "registry_revoke_marker_active"
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="revokeReasonCode must be no_registry_revoke_marker"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_duplicate_route_truth_tuple_ids() -> None:
+    payload = {
+        "channelId": "docker",
+        "version": "run-20260414-1836",
+        "desktopTupleCoverage": {
+            "requiredDesktopPlatforms": ["linux", "windows", "macos"],
+            "requiredDesktopHeads": ["avalonia"],
+            "promotedInstallerTuples": [
+                {
+                    "tupleId": "avalonia:linux:linux-x64",
+                    "head": "avalonia",
+                    "platform": "linux",
+                    "rid": "linux-x64",
+                    "arch": "x64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-linux-x64-installer",
+                },
+                {
+                    "tupleId": "avalonia:windows:win-x64",
+                    "head": "avalonia",
+                    "platform": "windows",
+                    "rid": "win-x64",
+                    "arch": "x64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-win-x64-installer",
+                },
+                {
+                    "tupleId": "avalonia:macos:osx-arm64",
+                    "head": "avalonia",
+                    "platform": "macos",
+                    "rid": "osx-arm64",
+                    "arch": "arm64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-osx-arm64-installer",
+                },
+            ],
+            "promotedPlatformHeads": {"linux": ["avalonia"], "windows": ["avalonia"], "macos": ["avalonia"]},
+            "requiredDesktopPlatformHeadRidTuples": [
+                "avalonia:linux-x64:linux",
+                "avalonia:win-x64:windows",
+                "avalonia:osx-arm64:macos",
+            ],
+            "promotedPlatformHeadRidTuples": [
+                "avalonia:linux-x64:linux",
+                "avalonia:win-x64:windows",
+                "avalonia:osx-arm64:macos",
+            ],
+            "missingRequiredPlatforms": [],
+            "missingRequiredHeads": [],
+            "missingRequiredPlatformHeadPairs": [],
+            "missingRequiredPlatformHeadRidTuples": [],
+            "externalProofRequests": [],
+            "desktopRouteTruth": [],
+            "complete": True,
+        },
+        "artifacts": [
+            {
+                "artifactId": "avalonia-linux-x64-installer",
+                "head": "avalonia",
+                "rid": "linux-x64",
+                "platform": "linux",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "rid": "win-x64",
+                "platform": "windows",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "avalonia-osx-arm64-installer",
+                "head": "avalonia",
+                "rid": "osx-arm64",
+                "platform": "macos",
+                "arch": "arm64",
+                "kind": "installer",
+            },
+        ],
+    }
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows.append(dict(rows[0]))
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="desktopRouteTruth must not contain duplicate tupleId values"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
 def test_expected_desktop_route_truth_rows_marks_revoked_channel_routes() -> None:
     payload = {
         "channelId": "docker",
@@ -464,10 +734,202 @@ def test_expected_desktop_route_truth_rows_marks_revoked_channel_routes() -> Non
 
     assert rows
     assert {row["revokeState"] for row in rows} == {"revoked"}
+    assert {row["revokeReasonCode"] for row in rows} == {"registry_revoke_marker_active"}
     assert {row["promotionState"] for row in rows} == {"revoked"}
+    assert {row["promotionReasonCode"] for row in rows} == {"registry_revoke_marker_active"}
+    assert {
+        row["promotionReason"] for row in rows
+    } == {
+        "Registry revoke truth blocks promotion for avalonia:linux:linux-x64: "
+        "Signature receipt was revoked after publication."
+    }
     assert {row["updateEligibility"] for row in rows} == {"blocked_revoked"}
     assert {row["installPosture"] for row in rows} == {"revoked"}
     assert {row["revokeReason"] for row in rows} == {"Signature receipt was revoked after publication."}
+
+
+def test_verify_desktop_tuple_coverage_rejects_revoked_rows_without_embedded_revoke_reason() -> None:
+    payload = {
+        "channelId": "docker",
+        "version": "run-20260414-1836",
+        "status": "revoked",
+        "rolloutReason": "Signature receipt was revoked after publication.",
+        "desktopTupleCoverage": {
+            "requiredDesktopPlatforms": ["linux", "windows", "macos"],
+            "requiredDesktopHeads": ["avalonia"],
+            "promotedInstallerTuples": [
+                {
+                    "tupleId": "avalonia:linux:linux-x64",
+                    "head": "avalonia",
+                    "platform": "linux",
+                    "rid": "linux-x64",
+                    "arch": "x64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-linux-x64-installer",
+                },
+                {
+                    "tupleId": "avalonia:windows:win-x64",
+                    "head": "avalonia",
+                    "platform": "windows",
+                    "rid": "win-x64",
+                    "arch": "x64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-win-x64-installer",
+                },
+                {
+                    "tupleId": "avalonia:macos:osx-arm64",
+                    "head": "avalonia",
+                    "platform": "macos",
+                    "rid": "osx-arm64",
+                    "arch": "arm64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-osx-arm64-installer",
+                },
+            ],
+            "promotedPlatformHeads": {"linux": ["avalonia"], "windows": ["avalonia"], "macos": ["avalonia"]},
+            "requiredDesktopPlatformHeadRidTuples": [
+                "avalonia:linux-x64:linux",
+                "avalonia:win-x64:windows",
+                "avalonia:osx-arm64:macos",
+            ],
+            "promotedPlatformHeadRidTuples": [
+                "avalonia:linux-x64:linux",
+                "avalonia:win-x64:windows",
+                "avalonia:osx-arm64:macos",
+            ],
+            "missingRequiredPlatforms": [],
+            "missingRequiredHeads": [],
+            "missingRequiredPlatformHeadPairs": [],
+            "missingRequiredPlatformHeadRidTuples": [],
+            "externalProofRequests": [],
+            "desktopRouteTruth": [],
+            "complete": True,
+        },
+        "artifacts": [
+            {
+                "artifactId": "avalonia-linux-x64-installer",
+                "head": "avalonia",
+                "rid": "linux-x64",
+                "platform": "linux",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "rid": "win-x64",
+                "platform": "windows",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "avalonia-osx-arm64-installer",
+                "head": "avalonia",
+                "rid": "osx-arm64",
+                "platform": "macos",
+                "arch": "arm64",
+                "kind": "installer",
+            },
+        ],
+    }
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["promotionReason"] = "Registry revoke truth blocks promotion for avalonia:linux:linux-x64."
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="promotionReason must include revokeReason"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_revoked_row_reason_code_drift() -> None:
+    payload = {
+        "channelId": "docker",
+        "version": "run-20260414-1836",
+        "status": "revoked",
+        "rolloutReason": "Signature receipt was revoked after publication.",
+        "desktopTupleCoverage": {
+            "requiredDesktopPlatforms": ["linux", "windows", "macos"],
+            "requiredDesktopHeads": ["avalonia"],
+            "promotedInstallerTuples": [
+                {
+                    "tupleId": "avalonia:linux:linux-x64",
+                    "head": "avalonia",
+                    "platform": "linux",
+                    "rid": "linux-x64",
+                    "arch": "x64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-linux-x64-installer",
+                },
+                {
+                    "tupleId": "avalonia:windows:win-x64",
+                    "head": "avalonia",
+                    "platform": "windows",
+                    "rid": "win-x64",
+                    "arch": "x64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-win-x64-installer",
+                },
+                {
+                    "tupleId": "avalonia:macos:osx-arm64",
+                    "head": "avalonia",
+                    "platform": "macos",
+                    "rid": "osx-arm64",
+                    "arch": "arm64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-osx-arm64-installer",
+                },
+            ],
+            "promotedPlatformHeads": {"linux": ["avalonia"], "windows": ["avalonia"], "macos": ["avalonia"]},
+            "requiredDesktopPlatformHeadRidTuples": [
+                "avalonia:linux-x64:linux",
+                "avalonia:win-x64:windows",
+                "avalonia:osx-arm64:macos",
+            ],
+            "promotedPlatformHeadRidTuples": [
+                "avalonia:linux-x64:linux",
+                "avalonia:win-x64:windows",
+                "avalonia:osx-arm64:macos",
+            ],
+            "missingRequiredPlatforms": [],
+            "missingRequiredHeads": [],
+            "missingRequiredPlatformHeadPairs": [],
+            "missingRequiredPlatformHeadRidTuples": [],
+            "externalProofRequests": [],
+            "desktopRouteTruth": [],
+            "complete": True,
+        },
+        "artifacts": [
+            {
+                "artifactId": "avalonia-linux-x64-installer",
+                "head": "avalonia",
+                "rid": "linux-x64",
+                "platform": "linux",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "rid": "win-x64",
+                "platform": "windows",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "avalonia-osx-arm64-installer",
+                "head": "avalonia",
+                "rid": "osx-arm64",
+                "platform": "macos",
+                "arch": "arm64",
+                "kind": "installer",
+            },
+        ],
+    }
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["revokeReasonCode"] = "no_registry_revoke_marker"
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="revokeReasonCode must be registry_revoke_marker_active"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
 def test_expected_desktop_route_truth_rows_does_not_offer_revoked_fallback_for_primary_rollback() -> None:
@@ -503,10 +965,58 @@ def test_expected_desktop_route_truth_rows_does_not_offer_revoked_fallback_for_p
     fallback = next(row for row in rows if row["head"] == "blazor-desktop")
 
     assert primary["rollbackState"] == "manual_recovery_required"
-    assert primary["rollbackReason"] == "No promoted fallback desktop head exists on this platform tuple."
+    assert primary["rollbackReason"] == "No promoted fallback desktop head exists for linux/linux-x64."
     assert fallback["promotionState"] == "revoked"
+    assert fallback["promotionReason"].endswith("Tuple-specific fallback signature was revoked.")
     assert fallback["updateEligibility"] == "blocked_revoked"
+    assert fallback["updateEligibilityReason"].endswith("Tuple-specific fallback signature was revoked.")
     assert fallback["revokeReason"] == "Tuple-specific fallback signature was revoked."
+
+
+def test_expected_desktop_route_truth_rows_prefers_non_revoked_tuple_artifact() -> None:
+    payload = {
+        "channelId": "docker",
+        "version": "run-20260414-1836",
+        "artifacts": [
+            {
+                "artifactId": "avalonia-linux-x64-installer",
+                "head": "avalonia",
+                "rid": "linux-x64",
+                "platform": "linux",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "a-blazor-desktop-linux-x64-installer",
+                "head": "blazor-desktop",
+                "rid": "linux-x64",
+                "platform": "linux",
+                "arch": "x64",
+                "kind": "installer",
+                "compatibilityState": "revoked",
+                "revokeReason": "Older fallback tuple was revoked after smoke failed.",
+            },
+            {
+                "artifactId": "z-blazor-desktop-linux-x64-installer",
+                "head": "blazor-desktop",
+                "rid": "linux-x64",
+                "platform": "linux",
+                "arch": "x64",
+                "kind": "installer",
+                "compatibilityState": "compatible",
+            },
+        ],
+    }
+
+    rows = [row for row in MODULE.expected_desktop_route_truth_rows(payload) if row["platform"] == "linux"]
+    primary = next(row for row in rows if row["head"] == "avalonia")
+    fallback = next(row for row in rows if row["head"] == "blazor-desktop")
+
+    assert primary["rollbackState"] == "fallback_available"
+    assert fallback["artifactId"] == "z-blazor-desktop-linux-x64-installer"
+    assert fallback["promotionState"] == "promoted"
+    assert fallback["revokeState"] == "not_revoked"
+    assert fallback["revokeReason"] == "No registry revoke marker is active for blazor-desktop:linux:linux-x64."
 
 
 def test_expected_desktop_route_truth_rows_treat_artifact_rollout_state_as_tuple_revoke() -> None:
@@ -541,6 +1051,9 @@ def test_expected_desktop_route_truth_rows_treat_artifact_rollout_state_as_tuple
 
     assert primary["rollbackState"] == "manual_recovery_required"
     assert fallback["promotionState"] == "revoked"
+    assert fallback["promotionReason"].endswith("Fallback rollout was revoked after tuple smoke failed.")
     assert fallback["rollbackState"] == "revoked"
+    assert fallback["rollbackReason"].endswith("Fallback rollout was revoked after tuple smoke failed.")
     assert fallback["installPosture"] == "revoked"
+    assert fallback["installPostureReason"].endswith("Fallback rollout was revoked after tuple smoke failed.")
     assert fallback["revokeReason"] == "Fallback rollout was revoked after tuple smoke failed."
