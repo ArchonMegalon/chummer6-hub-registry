@@ -71,7 +71,7 @@ The row contract carries nonblank rationale fields for:
 * `revokeReason`
 * `installPostureReason`
 
-The verifier recomputes canonical route-truth rows and fail-closes if generated truth omits rows, carries unexpected keys, has blank rationale, drifts from expected primary/fallback posture, or fails to block revoked channel/artifact routes. Artifact-level revoke reasons are preferred over channel-level known-issue text for individually revoked tuples, so a revoked fallback installer can explain its own rollback block without making the whole channel look revoked.
+The verifier recomputes canonical route-truth rows and fail-closes if generated truth omits rows, carries unexpected keys, has blank rationale, drifts from expected primary/fallback posture, or fails to block revoked channel/artifact routes. Artifact-level `status`, `rolloutState`, and `compatibilityState` revoke markers all block only the affected tuple, and artifact-level revoke reasons are preferred over channel-level known-issue text for individually revoked tuples, so a revoked fallback installer can explain its own rollback block without making the whole channel look revoked.
 
 `scripts/verify_next90_m101_registry_promotion_discipline.py` is the no-pytest closeout guardrail for future shards. It verifies canonical successor registry status, Fleet queue staging status, the release-channel verifier, the expected six desktop route-truth rows with nonblank rationale fields in both `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `.codex-studio/published/releases.json`, the human-facing pipeline and closeout docs that tell future shards when not to reopen this package, the repo-local `WORKLIST.md` done entry, and the repo standard `scripts/ai/verify.sh` integration so the closeout check cannot silently fall out of full verification.
 
@@ -706,6 +706,18 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 Canonical successor registry, Fleet queue staging, and design-owned queue staging now cite repo-local commit `cfb928b` as the current queue proof-citation floor for this completed package. The package-specific verifier requires those citations, so future shards cannot stop at the older `d1c9a12` queue-scope floor when the current proof receipt and closeout already pin the `d7bf07e` citation guard.
 
+Successor-wave duplicate tuple row tightening on 2026-04-17:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The package-specific verifier now rejects duplicate `desktopTupleCoverage.desktopRouteTruth` tuple ids before canonical row comparison in both release-channel projections. Its no-pytest self-test appends a duplicate route-truth row to a temporary release-channel artifact and proves the verifier fails closed, so duplicate primary/fallback rationale cannot hide behind a correct tuple set.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
@@ -718,6 +730,7 @@ Do not reopen this package unless one of these facts changes:
 * `docs/next90-m101-registry-promotion-discipline.proof.yaml` loses or structurally drifts its package identity, successor frontier id, landed commit, exact assigned allowed paths (`Chummer.Hub.Registry`, `scripts`, and `docs`), repo-local path expansion, exact tuple list, guardrails, do-not-reopen conditions, or closed receipt schema,
 * `RELEASE_CHANNEL.generated.json` loses verifier-bound `desktopRouteTruth`,
 * `.codex-studio/published/releases.json` loses matching verifier-bound `desktopRouteTruth`,
+* either generated projection carries duplicate `desktopRouteTruth` tuple ids,
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, or non-canonical primary/fallback/rollback/revoke rationale,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` stops applying canonical registry and queue staging active-run helper proof exclusion,

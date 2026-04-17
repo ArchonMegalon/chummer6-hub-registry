@@ -519,6 +519,40 @@ def test_desktop_route_truth_does_not_offer_revoked_fallback_for_primary_rollbac
     assert fallback["revokeReason"] == "Blazor fallback startup smoke regressed on this tuple."
 
 
+def test_desktop_route_truth_treats_artifact_rollout_state_as_tuple_revoke() -> None:
+    rows = MODULE.desktop_route_truth(
+        [
+            {
+                "artifactId": "avalonia-linux-x64-installer",
+                "head": "avalonia",
+                "rid": "linux-x64",
+                "platform": "linux",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "blazor-desktop-linux-x64-installer",
+                "head": "blazor-desktop",
+                "rid": "linux-x64",
+                "platform": "linux",
+                "arch": "x64",
+                "kind": "installer",
+                "rolloutState": "revoked",
+                "rolloutReason": "Fallback rollout was revoked after tuple smoke failed.",
+            },
+        ],
+        required_platforms=["linux"],
+    )
+    primary = next(row for row in rows if row["head"] == "avalonia")
+    fallback = next(row for row in rows if row["head"] == "blazor-desktop")
+
+    assert primary["rollbackState"] == "manual_recovery_required"
+    assert fallback["promotionState"] == "revoked"
+    assert fallback["rollbackState"] == "revoked"
+    assert fallback["installPosture"] == "revoked"
+    assert fallback["revokeReason"] == "Fallback rollout was revoked after tuple smoke failed."
+
+
 def test_load_startup_smoke_receipts_rejects_operating_system_platform_mismatch() -> None:
     now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
     with tempfile.TemporaryDirectory() as tmp:
@@ -682,6 +716,45 @@ def test_desktop_tuple_coverage_marks_unpromoted_fallback_as_proof_required() ->
     assert fallback["promotionState"] == "proof_required"
     assert fallback["rollbackState"] == "fallback_not_promoted"
     assert fallback["installPosture"] == "proof_capture_required"
+
+
+def test_desktop_tuple_coverage_keeps_fallback_rollback_tuple_specific() -> None:
+    coverage = MODULE.desktop_tuple_coverage(
+        [
+            {
+                "artifactId": "avalonia-linux-x64-installer",
+                "head": "avalonia",
+                "platform": "linux",
+                "rid": "linux-x64",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "avalonia-linux-arm64-installer",
+                "head": "avalonia",
+                "platform": "linux",
+                "rid": "linux-arm64",
+                "arch": "arm64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "blazor-desktop-linux-x64-installer",
+                "head": "blazor-desktop",
+                "platform": "linux",
+                "rid": "linux-x64",
+                "arch": "x64",
+                "kind": "installer",
+            },
+        ],
+        required_heads=["avalonia"],
+        required_platforms=["linux"],
+        channel_id="preview",
+    )
+
+    by_tuple = {row["tupleId"]: row for row in coverage["desktopRouteTruth"]}
+    assert by_tuple["avalonia:linux:linux-x64"]["rollbackState"] == "fallback_available"
+    assert by_tuple["avalonia:linux:linux-arm64"]["rollbackState"] == "manual_recovery_required"
+    assert by_tuple["blazor-desktop:linux:linux-arm64"]["promotionState"] == "proof_required"
 
 
 def test_desktop_tuple_coverage_marks_channel_revoked_routes_as_revoked() -> None:

@@ -312,6 +312,27 @@ if ! rg -F "desktopTupleCoverage.desktopRouteTruth rows have unexpected keys" "$
 fi
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.route-truth.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
 
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.route-truth.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+rows = payload["desktopTupleCoverage"]["desktopRouteTruth"]
+rows.append(dict(rows[0]))
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject duplicate desktop route truth tuple ids." >&2
+  exit 1
+fi
+if ! rg -F "desktopTupleCoverage.desktopRouteTruth must not contain duplicate tupleId values" "$release_proof_shape_log" >/dev/null; then
+  echo "verify gate failed: expected desktopRouteTruth duplicate tupleId fail-close marker from verifier." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.route-truth.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+
 cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.shape.backup.json
 python3 - <<'PY'
 import json

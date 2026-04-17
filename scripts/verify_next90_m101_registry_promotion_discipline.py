@@ -40,7 +40,7 @@ EXPECTED_ROUTE_TRUTH = {
         "updateEligibility": "eligible",
         "updateEligibilityReason": "Primary-route installer is promoted for this channel tuple.",
         "rollbackState": "fallback_available",
-        "rollbackReason": "A promoted fallback desktop head exists on this platform.",
+        "rollbackReason": "A promoted fallback desktop head exists on this platform tuple.",
         "revokeState": "not_revoked",
         "revokeReason": "No registry revoke marker is active for this channel tuple.",
         "installPosture": "installer_first",
@@ -225,6 +225,7 @@ PIPELINE_DOC_SNIPPETS = (
     "rollback state and reason",
     "revoke state and reason",
     "active revocation must be represented by explicit revoke state and reason",
+    "artifact's `status`, `rolloutState`, or `compatibilityState` is `revoked`",
     "tuple-specific artifact `revokeReason`",
 )
 
@@ -251,6 +252,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "canonical registry and queue staging active-run helper proof exclusion",
     "WORKLIST.md",
     "exact assigned allowed paths `Chummer.Hub.Registry`, `scripts`, and `docs`",
+    "Artifact-level `status`, `rolloutState`, and `compatibilityState` revoke markers",
     "Do not reopen this package unless one of these facts changes",
 )
 
@@ -337,6 +339,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "scripts/verify_public_release_channel.py",
     "scripts/verify_next90_m101_registry_promotion_discipline.py",
     "scripts/ai/verify.sh",
+    "release channel or compatibility shelf carries duplicate desktop route-truth tuple rows",
     "the landed commit a4e47da no longer resolves in this repo",
     f"the verified guardrail commit {VERIFIED_GUARDRAIL_COMMIT} no longer resolves in this repo",
 )
@@ -390,6 +393,7 @@ EXPECTED_PROOF_RECEIPT_LISTS = {
         "canonical successor registry task 101.2 stops being complete",
         "Fleet or design queue staging stops carrying the completed package row",
         "release channel or compatibility shelf loses exact desktop route-truth rows",
+        "release channel or compatibility shelf carries duplicate desktop route-truth tuple rows",
         "promotion, fallback, rollback, revoke, update, or install-posture rationale drifts",
         f"the landed commit {LANDED_COMMIT} no longer resolves in this repo",
         f"the verified guardrail commit {VERIFIED_GUARDRAIL_COMMIT} no longer resolves in this repo",
@@ -441,6 +445,8 @@ VERIFY_SH_SNIPPETS = (
     "desktopRouteTruth canonical-drift fail-close marker",
     "unexpected desktop route truth row fields",
     "desktopRouteTruth row-shape fail-close marker",
+    "duplicate desktop route truth tuple ids",
+    "desktopRouteTruth duplicate tupleId fail-close marker",
 )
 
 WORKLIST_SNIPPETS = (
@@ -608,6 +614,10 @@ def verify_release_channel_route_truth(path: Path) -> None:
     rows = coverage.get("desktopRouteTruth")
     if not isinstance(rows, list):
         fail("release channel is missing desktopTupleCoverage.desktopRouteTruth")
+    tuple_ids = [str(row.get("tupleId") or "") for row in rows if isinstance(row, dict)]
+    duplicate_tuple_ids = sorted({tuple_id for tuple_id in tuple_ids if tuple_ids.count(tuple_id) > 1})
+    if duplicate_tuple_ids:
+        fail(f"desktopRouteTruth duplicate tuple ids: {duplicate_tuple_ids}")
     by_tuple = {str(row.get("tupleId") or ""): row for row in rows if isinstance(row, dict)}
     if set(by_tuple) != set(EXPECTED_ROUTE_TRUTH):
         fail(
@@ -1112,6 +1122,16 @@ def run_self_test(proof_receipt: Path) -> None:
             "missing-fallback-platform-route-truth-row",
             lambda: verify_release_channel_route_truth(release_path),
             "desktopRouteTruth tuple set drifted",
+        )
+        duplicate_payload = json.loads(DEFAULT_RELEASE_CHANNEL.read_text(encoding="utf-8"))
+        duplicate_payload["desktopTupleCoverage"]["desktopRouteTruth"].append(
+            dict(duplicate_payload["desktopTupleCoverage"]["desktopRouteTruth"][0])
+        )
+        release_path.write_text(json.dumps(duplicate_payload, indent=2) + "\n", encoding="utf-8")
+        expect_self_test_failure(
+            "duplicate-platform-route-truth-row",
+            lambda: verify_release_channel_route_truth(release_path),
+            "desktopRouteTruth duplicate tuple ids",
         )
     print(f"verified next90 M101 registry promotion discipline self-test: {PACKAGE_ID}")
 

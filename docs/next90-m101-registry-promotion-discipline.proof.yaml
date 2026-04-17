@@ -46,6 +46,7 @@ do_not_reopen_unless:
   - canonical successor registry task 101.2 stops being complete
   - Fleet or design queue staging stops carrying the completed package row
   - release channel or compatibility shelf loses exact desktop route-truth rows
+  - release channel or compatibility shelf carries duplicate desktop route-truth tuple rows
   - promotion, fallback, rollback, revoke, update, or install-posture rationale drifts
   - the landed commit a4e47da no longer resolves in this repo
   - the verified guardrail commit d7bf07e no longer resolves in this repo

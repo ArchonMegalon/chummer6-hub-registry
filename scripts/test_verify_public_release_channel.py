@@ -507,3 +507,40 @@ def test_expected_desktop_route_truth_rows_does_not_offer_revoked_fallback_for_p
     assert fallback["promotionState"] == "revoked"
     assert fallback["updateEligibility"] == "blocked_revoked"
     assert fallback["revokeReason"] == "Tuple-specific fallback signature was revoked."
+
+
+def test_expected_desktop_route_truth_rows_treat_artifact_rollout_state_as_tuple_revoke() -> None:
+    payload = {
+        "channelId": "docker",
+        "version": "run-20260414-1836",
+        "artifacts": [
+            {
+                "artifactId": "avalonia-linux-x64-installer",
+                "head": "avalonia",
+                "rid": "linux-x64",
+                "platform": "linux",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "blazor-desktop-linux-x64-installer",
+                "head": "blazor-desktop",
+                "rid": "linux-x64",
+                "platform": "linux",
+                "arch": "x64",
+                "kind": "installer",
+                "rolloutState": "revoked",
+                "rolloutReason": "Fallback rollout was revoked after tuple smoke failed.",
+            },
+        ],
+    }
+
+    rows = [row for row in MODULE.expected_desktop_route_truth_rows(payload) if row["platform"] == "linux"]
+    primary = next(row for row in rows if row["head"] == "avalonia")
+    fallback = next(row for row in rows if row["head"] == "blazor-desktop")
+
+    assert primary["rollbackState"] == "manual_recovery_required"
+    assert fallback["promotionState"] == "revoked"
+    assert fallback["rollbackState"] == "revoked"
+    assert fallback["installPosture"] == "revoked"
+    assert fallback["revokeReason"] == "Fallback rollout was revoked after tuple smoke failed."

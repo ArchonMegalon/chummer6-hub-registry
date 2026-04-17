@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-04-15T08:11:58Z",
-  "generatedAt": "2026-04-15T08:11:58Z",
+  "generated_at": "2026-04-16T15:51:59Z",
+  "generatedAt": "2026-04-16T15:51:59Z",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "version": "run-20260414-1836",
   "channel": "docker",
-  "publishedAt": "2026-04-15T02:00:00Z",
+  "publishedAt": "2026-04-16T15:51:58Z",
   "downloads": [
     {
       "id": "avalonia-linux-x64-installer",
@@ -79,7 +79,7 @@
   "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
   "releaseProof": {
     "status": "passed",
-    "generatedAt": "2026-04-12T14:13:32Z",
+    "generatedAt": "2026-04-16T04:49:37Z",
     "baseUrl": "https://chummer.run",
     "journeysPassed": [
       "install_claim_restore_continue",
@@ -101,7 +101,7 @@
     ],
     "uiLocalizationReleaseGate": {
       "status": "pass",
-      "generatedAt": "2026-04-11T14:14:24Z",
+      "generatedAt": "2026-04-16T04:48:28Z",
       "defaultKeyCount": 383,
       "explicitFallbackRuntime": "pass",
       "signoffSmokeRunnerStatus": "pass",
@@ -328,7 +328,7 @@
         "updateEligibility": "eligible",
         "updateEligibilityReason": "Primary-route installer is promoted for this channel tuple.",
         "rollbackState": "fallback_available",
-        "rollbackReason": "A promoted fallback desktop head exists on this platform.",
+        "rollbackReason": "A promoted fallback desktop head exists on this platform tuple.",
         "revokeState": "not_revoked",
         "revokeReason": "No registry revoke marker is active for this channel tuple.",
         "installPosture": "installer_first",
