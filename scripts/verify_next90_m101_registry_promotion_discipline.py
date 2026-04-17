@@ -664,6 +664,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit cfb928b pins the M101 queue proof citation floor",
         "commit 2f7a422 tightens the M101 duplicate route-truth guard",
         "commit b3a945b tightens the M101 tuple rationale and encoded helper proof floor",
+        "commit c8829ac tightens the M101 closed queue proof",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -708,6 +709,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit cfb928b pins the M101 queue proof citation floor",
         "commit 2f7a422 tightens the M101 duplicate route-truth guard",
         "commit b3a945b tightens the M101 tuple rationale and encoded helper proof floor",
+        "commit c8829ac tightens the M101 closed queue proof",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
