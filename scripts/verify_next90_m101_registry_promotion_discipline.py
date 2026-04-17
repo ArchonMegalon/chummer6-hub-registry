@@ -243,6 +243,12 @@ EXPECTED_OWNED_SURFACES = [
 ]
 
 EXPECTED_QUEUE_COMPLETION_ACTION = "verify_closed_package_only"
+EXPECTED_QUEUE_TITLE = "Publish explicit promotion, fallback, and rollback rationale in registry truth"
+EXPECTED_QUEUE_TASK = (
+    "Make channel truth explain why each desktop head is primary, fallback, promoted, or revoked "
+    "on each platform tuple."
+)
+EXPECTED_QUEUE_WAVE = "W6"
 EXPECTED_QUEUE_DO_NOT_REOPEN_REASON = (
     "M101 chummer6-hub-registry promotion discipline is complete; future shards must verify "
     "the release-channel truth receipt, registry row, queue row, and design-queue row instead "
@@ -685,9 +691,17 @@ def verify_queue_staging(path: Path) -> None:
     package_count = text.count(package_marker)
     if package_count != 1:
         fail(f"queue staging package {PACKAGE_ID} must appear exactly once, found {package_count}")
-    block = block_after_marker(text, f"package_id: {PACKAGE_ID}", stop_markers=("\n  - title:",))
+    package_start = text.find(package_marker)
+    item_start = text.rfind("\n  - title:", 0, package_start)
+    if item_start < 0:
+        fail(f"queue staging package {PACKAGE_ID} is missing item title row")
+    next_item = text.find("\n  - title:", package_start + len(package_marker))
+    block = text[item_start : next_item if next_item >= 0 else len(text)]
     required_snippets = (
+        f"title: {EXPECTED_QUEUE_TITLE}",
+        f"task: {EXPECTED_QUEUE_TASK}",
         "milestone_id: 101",
+        f"wave: {EXPECTED_QUEUE_WAVE}",
         "frontier_id: 3017689961",
         "repo: chummer6-hub-registry",
         "status: complete",
@@ -1032,10 +1046,13 @@ def expect_self_test_failure(label: str, action, expected_snippet: str) -> None:
 
 def replace_queue_package_block(text: str, old: str, new: str) -> str:
     marker = f"package_id: {PACKAGE_ID}"
-    start = text.find(marker)
-    if start < 0:
+    package_start = text.find(marker)
+    if package_start < 0:
         fail(f"self-test fixture is missing queue package marker: {PACKAGE_ID}")
-    next_item = text.find("\n  - title:", start + len(marker))
+    start = text.rfind("\n  - title:", 0, package_start)
+    if start < 0:
+        fail(f"self-test fixture is missing queue package item start: {PACKAGE_ID}")
+    next_item = text.find("\n  - title:", package_start + len(marker))
     end = next_item if next_item >= 0 else len(text)
     block = text[start:end]
     if old not in block:
@@ -1177,6 +1194,41 @@ def run_self_test(proof_receipt: Path) -> None:
         queue_path.write_text(
             replace_queue_package_block(
                 queue_source_text,
+                f"title: {EXPECTED_QUEUE_TITLE}",
+                "title: Reopen registry promotion discipline under a copied row",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "queue-title-drift",
+            lambda: verify_queue_staging(queue_path),
+            f"title: {EXPECTED_QUEUE_TITLE}",
+        )
+        queue_path.write_text(
+            replace_queue_package_block(
+                queue_source_text,
+                f"task: {EXPECTED_QUEUE_TASK}",
+                "task: Re-explore desktop route truth without the assigned tuple rationale.",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "queue-task-drift",
+            lambda: verify_queue_staging(queue_path),
+            f"task: {EXPECTED_QUEUE_TASK}",
+        )
+        queue_path.write_text(
+            replace_queue_package_block(queue_source_text, f"wave: {EXPECTED_QUEUE_WAVE}", "wave: W9"),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "queue-wave-drift",
+            lambda: verify_queue_staging(queue_path),
+            f"wave: {EXPECTED_QUEUE_WAVE}",
+        )
+        queue_path.write_text(
+            replace_queue_package_block(
+                queue_source_text,
                 f"completion_action: {EXPECTED_QUEUE_COMPLETION_ACTION}",
                 "completion_action: reopen_package",
             ),
@@ -1264,6 +1316,41 @@ def run_self_test(proof_receipt: Path) -> None:
             "design-queue-status-drift",
             lambda: verify_queue_staging(source_queue_path),
             "status: complete",
+        )
+        source_queue_path.write_text(
+            replace_queue_package_block(
+                source_queue_text,
+                f"title: {EXPECTED_QUEUE_TITLE}",
+                "title: Reopen registry promotion discipline under a copied row",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "design-queue-title-drift",
+            lambda: verify_queue_staging(source_queue_path),
+            f"title: {EXPECTED_QUEUE_TITLE}",
+        )
+        source_queue_path.write_text(
+            replace_queue_package_block(
+                source_queue_text,
+                f"task: {EXPECTED_QUEUE_TASK}",
+                "task: Re-explore desktop route truth without the assigned tuple rationale.",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "design-queue-task-drift",
+            lambda: verify_queue_staging(source_queue_path),
+            f"task: {EXPECTED_QUEUE_TASK}",
+        )
+        source_queue_path.write_text(
+            replace_queue_package_block(source_queue_text, f"wave: {EXPECTED_QUEUE_WAVE}", "wave: W9"),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "design-queue-wave-drift",
+            lambda: verify_queue_staging(source_queue_path),
+            f"wave: {EXPECTED_QUEUE_WAVE}",
         )
         source_queue_path.write_text(
             replace_queue_package_block(
