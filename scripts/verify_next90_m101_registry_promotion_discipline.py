@@ -34,7 +34,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "b3a945b"
+VERIFIED_GUARDRAIL_COMMIT = "2dbbd5e"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -281,7 +281,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 desktop route truth proof",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 duplicate queue row guard",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -352,6 +352,9 @@ STALE_CLOSEOUT_CURRENT_CLAIMS = (
     "Verified guardrail commit: f2b4ef6,",
     "Repo-local guardrail commit `f2b4ef6` is now pinned",
     "now records `verified_guardrail_commit: f2b4ef6`",
+    "Verified guardrail commit: b3a945b,",
+    "Repo-local guardrail commit `b3a945b` is now pinned",
+    "now records `verified_guardrail_commit: b3a945b`",
 )
 
 DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
@@ -668,6 +671,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit 2f7a422 tightens the M101 duplicate route-truth guard",
         "commit b3a945b tightens the M101 tuple rationale and encoded helper proof floor",
         "commit c8829ac tightens the M101 closed queue proof",
+        "commit 2dbbd5e tightens the M101 duplicate closed queue row guard",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -717,6 +721,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit 2f7a422 tightens the M101 duplicate route-truth guard",
         "commit b3a945b tightens the M101 tuple rationale and encoded helper proof floor",
         "commit c8829ac tightens the M101 closed queue proof",
+        "commit 2dbbd5e tightens the M101 duplicate closed queue row guard",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
