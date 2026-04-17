@@ -5,7 +5,7 @@ Milestone: 101, Native-host desktop release train and promotion discipline
 Package: next90-m101-registry-promotion-discipline
 Owner: chummer6-hub-registry
 Landed commit: a4e47da, Publish desktop route rationale in release channel truth
-Verified guardrail commit: 2dbbd5e, Tighten M101 duplicate queue row guard
+Verified guardrail commit: 75a248f, Tighten M101 queue identity guard
 
 ## Scope
 
@@ -47,6 +47,7 @@ Repo-local follow-up guardrail `875671c` tightened artifact-level revoke rationa
 Repo-local guardrail commit `2f7a422` is now pinned in the machine-readable proof receipt and verifier so future shards prove the current M101 repeat-prevention guardrail floor includes exact queue allowed-path and owned-surface scope proof citations and duplicate route-truth tuple rejection, not only the original implementation commit.
 Repo-local proof-floor commit `cfb928b` is now cited by the canonical successor registry plus Fleet and design queue staging rows, and the package verifier requires those citations before trusting the completed package row.
 Repo-local guardrail commit `2dbbd5e` is now pinned in the machine-readable proof receipt and verifier so future shards prove the current M101 repeat-prevention guardrail floor includes duplicate completed-package row rejection across both queue staging projections.
+Repo-local guardrail commit `75a248f` is now pinned in the machine-readable proof receipt and verifier so future shards prove the current M101 repeat-prevention guardrail floor includes exact title, task, and wave identity for the completed queue row in both Fleet and design queue staging.
 
 Fleet queue staging also marks package `next90-m101-registry-promotion-discipline` complete with the same proof paths and landed commit.
 Fleet and design queue staging now also require `completion_action: verify_closed_package_only` and a package-specific `do_not_reopen_reason`, so future shards get an explicit closed-package instruction in queue truth instead of inferring it from proof prose.
@@ -865,6 +866,18 @@ The package-specific verifier now rejects direct active-run helper markers and e
 
 At this point in the closeout sequence, the machine-readable proof receipt recorded `verified_guardrail_commit: b3a945b`, and the package-specific verifier required canonical successor registry, Fleet queue staging, design queue staging, and this closeout headline to cite that tuple-rationale and encoded-helper proof floor. The previous duplicate route-truth guard `2f7a422` was superseded by `b3a945b`; the current verified guardrail floor is superseded above by `2dbbd5e`.
 
+Successor-wave queue identity proof tightening on 2026-04-17:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The package-specific verifier now checks the full completed queue item in both Fleet and design queue staging, including the assigned title, task, and wave fields above `package_id`. Its no-pytest self-test mutates each of those queue identity fields in both projections and proves the package fails closed, so copied or retitled queue rows cannot make future shards reopen the completed M101 registry-promotion slice under the same package id.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
@@ -873,6 +886,7 @@ Do not reopen this package unless one of these facts changes:
 * Fleet queue staging no longer marks `next90-m101-registry-promotion-discipline` complete for frontier `3017689961`,
 * design-owned queue staging no longer marks `next90-m101-registry-promotion-discipline` complete for frontier `3017689961`,
 * Fleet or design queue staging stops carrying exactly the assigned allowed paths (`Chummer.Hub.Registry`, `scripts`, and `docs`) and owned surfaces (`release_channel_truth:desktop` and `rollback_and_revoke_reasoning`),
+* Fleet or design queue staging stops carrying the assigned title, task, or wave for `next90-m101-registry-promotion-discipline`,
 * repo-local `WORKLIST.md` no longer records the successor M101 route-truth slice as done,
 * `docs/next90-m101-registry-promotion-discipline.proof.yaml` loses or structurally drifts its package identity, successor frontier id, landed commit, exact assigned allowed paths (`Chummer.Hub.Registry`, `scripts`, and `docs`), repo-local path expansion, exact tuple list, guardrails, do-not-reopen conditions, or closed receipt schema,
 * `RELEASE_CHANNEL.generated.json` loses verifier-bound `desktopRouteTruth`,
@@ -885,6 +899,6 @@ Do not reopen this package unless one of these facts changes:
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` stops applying canonical registry and queue staging active-run helper proof exclusion,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
-* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `2dbbd5e`,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `75a248f`,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail, successor-frontier proof self-test, or hand-edited `desktopRouteTruth` negative-case verifier,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.
