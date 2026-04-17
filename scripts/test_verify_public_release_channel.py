@@ -722,6 +722,22 @@ def test_verify_desktop_tuple_coverage_rejects_headless_rollback_rationale() -> 
         MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
+def test_verify_desktop_tuple_coverage_rejects_primary_rollback_without_sibling_fallback_route() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["rollbackReason"] = (
+        "No promoted fallback route exists for primary route avalonia:linux:linux-x64 "
+        "on linux/linux-x64."
+    )
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(
+        SystemExit,
+        match="rollbackReason must name sibling fallback route blazor-desktop:linux:linux-x64",
+    ):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
 def test_verify_desktop_tuple_coverage_rejects_route_role_reason_drift() -> None:
     payload = {
         "channelId": "docker",
@@ -842,7 +858,7 @@ def test_verify_desktop_tuple_coverage_rejects_primary_rollback_without_promoted
     rows[0]["rollbackState"] = "fallback_available"
     rows[0]["rollbackReasonCode"] = "promoted_fallback_available"
     rows[0]["rollbackReason"] = (
-        "A promoted fallback desktop head exists for primary route "
+        "A promoted fallback route blazor-desktop:linux:linux-x64 exists for primary route "
         "avalonia:linux:linux-x64 on linux/linux-x64."
     )
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
@@ -873,7 +889,7 @@ def test_verify_desktop_tuple_coverage_rejects_primary_manual_rollback_when_fall
     rows[0]["rollbackState"] = "manual_recovery_required"
     rows[0]["rollbackReasonCode"] = "no_promoted_fallback_for_tuple"
     rows[0]["rollbackReason"] = (
-        "No promoted fallback desktop head exists for primary route "
+        "No promoted fallback route blazor-desktop:linux:linux-x64 exists for primary route "
         "avalonia:linux:linux-x64 on linux/linux-x64."
     )
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
@@ -1381,7 +1397,8 @@ def test_expected_desktop_route_truth_rows_does_not_offer_revoked_fallback_for_p
 
     assert primary["rollbackState"] == "manual_recovery_required"
     assert primary["rollbackReason"] == (
-        "No promoted fallback desktop head exists for primary route avalonia:linux:linux-x64 on linux/linux-x64."
+        "No promoted fallback route blazor-desktop:linux:linux-x64 exists for primary route "
+        "avalonia:linux:linux-x64 on linux/linux-x64."
     )
     assert fallback["promotionState"] == "revoked"
     assert fallback["promotionReason"].endswith("Tuple-specific fallback signature was revoked.")

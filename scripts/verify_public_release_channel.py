@@ -1294,6 +1294,12 @@ def verify_primary_rollback_matches_fallback_route_truth(
                 f"{row['platform']}/{row['rid']} is "
                 f"{'promoted' if fallback_promoted else 'not promoted'}"
             )
+        fallback_tuple_id = f"blazor-desktop:{row['platform']}:{row['rid']}"
+        if fallback_tuple_id not in row["rollbackReason"]:
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackReason "
+                f"must name sibling fallback route {fallback_tuple_id}"
+            )
 
 
 def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
@@ -1340,6 +1346,9 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
                 head_label = APP_LABELS.get(head, head)
                 tuple_label = f"{platform}/{rid}" if rid else platform
                 route_tuple_label = f"{head}:{platform}:{rid}" if rid else f"{head}:{platform}"
+                fallback_route_tuple_label = (
+                    f"blazor-desktop:{platform}:{rid}" if rid else f"blazor-desktop:{platform}"
+                )
                 revoke_state, revoke_reason = desktop_route_revoke_posture(artifact, payload)
                 if revoke_state != "revoked":
                     revoke_reason = f"No registry revoke marker is active for {route_tuple_label}."
@@ -1383,14 +1392,14 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
                         rollback_state = "fallback_available"
                         rollback_reason_code = "promoted_fallback_available"
                         rollback_reason = (
-                            f"A promoted fallback desktop head exists for primary route "
+                            f"A promoted fallback route {fallback_route_tuple_label} exists for primary route "
                             f"{route_tuple_label} on {tuple_label}."
                         )
                     else:
                         rollback_state = "manual_recovery_required"
                         rollback_reason_code = "no_promoted_fallback_for_tuple"
                         rollback_reason = (
-                            f"No promoted fallback desktop head exists for primary route "
+                            f"No promoted fallback route {fallback_route_tuple_label} exists for primary route "
                             f"{route_tuple_label} on {tuple_label}."
                         )
                 else:

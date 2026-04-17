@@ -52,6 +52,7 @@ do_not_reopen_unless:
   - route-role, promotion, update, rollback, revoke, or install-posture rationale stops naming the head and platform/rid tuple, such as avalonia:windows:win-x64 plus linux/linux-x64
   - route-role parity posture stops matching primary=flagship_primary or fallback=explicit_fallback
   - primary rollback posture stops matching sibling fallback route truth for the same platform/rid
+  - primary rollback rationale stops naming the exact sibling fallback route id, such as blazor-desktop:windows:win-x64
   - route-role, promotion, rollback, or revoke reason-code fields disappear or drift from canonical tuple truth
   - tuple selection stops preferring non-revoked artifact truth over revoked artifact rows for the same head/platform/rid
   - canonical registry, queue, proof, or closeout evidence cites active-run helper markers directly or through encoded helper-token strings

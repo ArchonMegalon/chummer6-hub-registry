@@ -960,6 +960,20 @@ python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
 
 The public release-channel verifier now rejects desktop route-truth rationale that names only the platform tuple while omitting the desktop head. For route-role, promotion, update, rollback, install-posture, and revoke rationale, each row must identify the head through the exact route tuple id, head id, or product label in addition to the platform/rid tuple context. `scripts/test_verify_public_release_channel.py` carries direct headless-rationale regression cases for promotion and rollback copy, and the package-specific verifier checks that source and test wiring so future shards cannot keep the completed M101 package closed with ambiguous headless tuple prose.
 
+Successor-wave sibling fallback rollback rationale tightening on 2026-04-17:
+
+```text
+python3 -m py_compile scripts/materialize_public_release_channel.py scripts/verify_public_release_channel.py scripts/test_materialize_public_release_channel.py scripts/test_verify_public_release_channel.py scripts/verify_next90_m101_registry_promotion_discipline.py
+
+python3 scripts/verify_public_release_channel.py .codex-studio/published/RELEASE_CHANNEL.generated.json
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+```
+
+Primary rollback rationale must name the exact sibling fallback route id, such as `blazor-desktop:windows:win-x64`, in addition to the primary route and platform/rid tuple. In other words, primary rollback rationale must name the exact sibling fallback route id before the completed M101 package stays closed. The materializer now writes that sibling fallback route into generated primary rollback reasons, the public verifier fail-closes primary rollback rows that omit it, and the package-specific verifier pins the source, tests, generated release-channel projection, compatibility shelf projection, proof receipt, and pipeline doc to that requirement.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
@@ -975,6 +989,7 @@ Do not reopen this package unless one of these facts changes:
 * `.codex-studio/published/releases.json` loses matching verifier-bound `desktopRouteTruth`,
 * either generated projection carries duplicate `desktopRouteTruth` tuple ids,
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, headless, or non-canonical primary/fallback/promotion/rollback/revoke/install-posture rationale,
+* primary rollback rationale stops naming the exact sibling fallback route id, such as `blazor-desktop:windows:win-x64`,
 * revoked route rows stop echoing the resolved revoke rationale in blocked promotion, update, rollback, and install-posture reason fields,
 * duplicate artifact rows for the same desktop head/platform/rid can make a revoked row win over a non-revoked tuple candidate,
 * canonical registry, queue staging, proof receipt, or closeout evidence can cite active-run helper markers directly or through encoded helper-token strings,

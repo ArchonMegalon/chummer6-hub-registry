@@ -50,7 +50,7 @@ EXPECTED_ROUTE_TRUTH = {
         "rollbackState": "fallback_available",
         "rollbackReasonCode": "promoted_fallback_available",
         "rollbackReason": (
-            "A promoted fallback desktop head exists for primary route "
+            "A promoted fallback route blazor-desktop:linux:linux-x64 exists for primary route "
             "avalonia:linux:linux-x64 on linux/linux-x64."
         ),
         "revokeState": "not_revoked",
@@ -93,7 +93,7 @@ EXPECTED_ROUTE_TRUTH = {
         "rollbackState": "manual_recovery_required",
         "rollbackReasonCode": "no_promoted_fallback_for_tuple",
         "rollbackReason": (
-            "No promoted fallback desktop head exists for primary route "
+            "No promoted fallback route blazor-desktop:windows:win-x64 exists for primary route "
             "avalonia:windows:win-x64 on windows/win-x64."
         ),
         "revokeState": "not_revoked",
@@ -136,7 +136,7 @@ EXPECTED_ROUTE_TRUTH = {
         "rollbackState": "manual_recovery_required",
         "rollbackReasonCode": "no_promoted_fallback_for_tuple",
         "rollbackReason": (
-            "No promoted fallback desktop head exists for primary route "
+            "No promoted fallback route blazor-desktop:macos:osx-arm64 exists for primary route "
             "avalonia:macos:osx-arm64 on macos/osx-arm64."
         ),
         "revokeState": "not_revoked",
@@ -287,6 +287,7 @@ PIPELINE_DOC_SNIPPETS = (
     "`parityPosture` is also canonical route-role truth",
     "primary rows must stay `flagship_primary`, and fallback rows must stay `explicit_fallback`",
     "Primary rollback truth is cross-row checked against the sibling fallback row",
+    "Primary rollback rationale must name the exact sibling fallback route id",
     "reason-code fields",
     "rollback state and reason",
     "revoke state and reason",
@@ -325,6 +326,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Revoked rows now echo the resolved revoke rationale inside `promotionReason`, `updateEligibilityReason`, `rollbackReason`, and `installPostureReason`",
     "route-role parity posture",
     "primary rollback posture against the sibling fallback route row",
+    "primary rollback rationale must name the exact sibling fallback route id",
     "fail-closes role-rationale drift directly",
     "Successor-wave head-context rationale tightening on 2026-04-17",
     "ambiguous headless tuple prose",
@@ -434,6 +436,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "route-role, promotion, update, rollback, revoke, or install-posture rationale stops naming the head and platform/rid tuple",
     "route-role parity posture stops matching primary=flagship_primary or fallback=explicit_fallback",
     "primary rollback posture stops matching sibling fallback route truth for the same platform/rid",
+    "primary rollback rationale stops naming the exact sibling fallback route id",
     "the landed commit a4e47da no longer resolves in this repo",
     f"the verified guardrail commit {VERIFIED_GUARDRAIL_COMMIT} no longer resolves in this repo",
 )
@@ -493,6 +496,7 @@ EXPECTED_PROOF_RECEIPT_LISTS = {
         "route-role, promotion, update, rollback, revoke, or install-posture rationale stops naming the head and platform/rid tuple, such as avalonia:windows:win-x64 plus linux/linux-x64",
         "route-role parity posture stops matching primary=flagship_primary or fallback=explicit_fallback",
         "primary rollback posture stops matching sibling fallback route truth for the same platform/rid",
+        "primary rollback rationale stops naming the exact sibling fallback route id, such as blazor-desktop:windows:win-x64",
         "route-role, promotion, rollback, or revoke reason-code fields disappear or drift from canonical tuple truth",
         "tuple selection stops preferring non-revoked artifact truth over revoked artifact rows for the same head/platform/rid",
         "canonical registry, queue, proof, or closeout evidence cites active-run helper markers directly or through encoded helper-token strings",
@@ -578,6 +582,9 @@ MATERIALIZER_SOURCE_SNIPPETS = (
     "Updates are blocked because {route_tuple_label} is revoked in registry truth: ",
     "Do not use {route_tuple_label} for rollback while its registry revoke marker is active: ",
     "Do not present {route_tuple_label} as installable while revoked: ",
+    "fallback_route_tuple_label = (",
+    "A promoted fallback route {fallback_route_tuple_label} exists for primary route",
+    "No promoted fallback route {fallback_route_tuple_label} exists for primary route",
 )
 
 PUBLIC_VERIFIER_SOURCE_SNIPPETS = (
@@ -590,6 +597,7 @@ PUBLIC_VERIFIER_SOURCE_SNIPPETS = (
     "must be {expected_parity} for {normalized_row['routeRole']} desktop route",
     "verify_desktop_route_state_matrix",
     "verify_primary_rollback_matches_fallback_route_truth",
+    "must name sibling fallback route {fallback_tuple_id}",
     "expected_update_eligibility",
     "expected_install_posture",
     "expected_rollback_reason_code",
@@ -604,6 +612,9 @@ PUBLIC_VERIFIER_SOURCE_SNIPPETS = (
     "Updates are blocked because {route_tuple_label} is revoked in registry truth: ",
     "Do not use {route_tuple_label} for rollback while its registry revoke marker is active: ",
     "Do not present {route_tuple_label} as installable while revoked: ",
+    "fallback_route_tuple_label = (",
+    "A promoted fallback route {fallback_route_tuple_label} exists for primary route",
+    "No promoted fallback route {fallback_route_tuple_label} exists for primary route",
     "must include revokeReason when revokeState is revoked",
     "must be registry_revoke_marker_active when revokeState is revoked",
     "must be no_registry_revoke_marker when revokeState is not revoked",
@@ -615,6 +626,7 @@ PUBLIC_VERIFIER_TEST_SNIPPETS = (
     "test_verify_desktop_tuple_coverage_rejects_generic_route_truth_rationale",
     "test_verify_desktop_tuple_coverage_rejects_headless_route_truth_rationale",
     "test_verify_desktop_tuple_coverage_rejects_headless_rollback_rationale",
+    "test_verify_desktop_tuple_coverage_rejects_primary_rollback_without_sibling_fallback_route",
     "test_verify_desktop_tuple_coverage_rejects_route_role_reason_drift",
     "test_verify_desktop_route_role_parity_rejects_primary_fallback_drift",
     "test_verify_desktop_tuple_coverage_rejects_primary_rollback_without_promoted_fallback_row",
@@ -632,7 +644,10 @@ PUBLIC_VERIFIER_TEST_SNIPPETS = (
     "promotionReason must name desktop tuple context",
     "promotionReason must name desktop head context",
     "rollbackReason must name desktop head context",
-    "primary route avalonia:linux:linux-x64 on linux/linux-x64",
+    "rollbackReason must name sibling fallback route blazor-desktop:linux:linux-x64",
+    "No promoted fallback route blazor-desktop:linux:linux-x64 exists for primary route",
+    "A promoted fallback route blazor-desktop:linux:linux-x64 exists for primary route",
+    "No promoted fallback route blazor-desktop:linux:linux-x64 exists for primary route",
     "promotionReasonCode must not be blank",
     "routeRoleReason must match canonical primary/fallback tuple rationale",
     "parityPosture must be flagship_primary for primary desktop route",
@@ -652,7 +667,7 @@ MATERIALIZER_TEST_SNIPPETS = (
     "test_parse_download_row_preserves_tuple_revoke_rationale",
     "test_refresh_artifacts_from_downloads_dir_preserves_tuple_revoke_rationale",
     "test_desktop_route_truth_prefers_non_revoked_tuple_artifact",
-    "primary route avalonia:linux:linux-x64 on linux/linux-x64",
+    "No promoted fallback route blazor-desktop:linux:linux-x64 exists for primary route",
     "Fallback signature failed Linux smoke after publication.",
     "Tuple-specific fallback revoke receipt.",
     '["routeRoleReasonCode"] == "primary_flagship_head"',

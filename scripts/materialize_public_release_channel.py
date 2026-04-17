@@ -1711,6 +1711,9 @@ def desktop_route_truth(
                 head_label = APP_LABELS.get(head, head)
                 tuple_label = f"{platform}/{rid}" if rid else platform
                 route_tuple_label = f"{head}:{platform}:{rid}" if rid else f"{head}:{platform}"
+                fallback_route_tuple_label = (
+                    f"blazor-desktop:{platform}:{rid}" if rid else f"blazor-desktop:{platform}"
+                )
                 revoke_state, revoke_reason = desktop_route_revoke_posture(
                     artifact,
                     channel_status=channel_status,
@@ -1760,14 +1763,14 @@ def desktop_route_truth(
                         rollback_state = "fallback_available"
                         rollback_reason_code = "promoted_fallback_available"
                         rollback_reason = (
-                            f"A promoted fallback desktop head exists for primary route "
+                            f"A promoted fallback route {fallback_route_tuple_label} exists for primary route "
                             f"{route_tuple_label} on {tuple_label}."
                         )
                     else:
                         rollback_state = "manual_recovery_required"
                         rollback_reason_code = "no_promoted_fallback_for_tuple"
                         rollback_reason = (
-                            f"No promoted fallback desktop head exists for primary route "
+                            f"No promoted fallback route {fallback_route_tuple_label} exists for primary route "
                             f"{route_tuple_label} on {tuple_label}."
                         )
                 else:
