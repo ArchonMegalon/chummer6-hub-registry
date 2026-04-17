@@ -28,7 +28,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "d7bf07e"
+VERIFIED_GUARDRAIL_COMMIT = "2f7a422"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -509,6 +509,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit f2b4ef6 tightens M101 queue scope guard",
         "commit d1c9a12 pins the M101 queue-scope proof floor",
         "commit cfb928b pins the M101 queue proof citation floor",
+        "commit 2f7a422 tightens the M101 duplicate route-truth guard",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -549,6 +550,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit f2b4ef6 tightens M101 queue scope guard",
         "commit d1c9a12 pins the M101 queue-scope proof floor",
         "commit cfb928b pins the M101 queue proof citation floor",
+        "commit 2f7a422 tightens the M101 duplicate route-truth guard",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
