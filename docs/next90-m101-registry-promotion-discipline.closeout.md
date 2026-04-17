@@ -5,7 +5,7 @@ Milestone: 101, Native-host desktop release train and promotion discipline
 Package: next90-m101-registry-promotion-discipline
 Owner: chummer6-hub-registry
 Landed commit: a4e47da, Publish desktop route rationale in release channel truth
-Verified guardrail commit: 2f7a422, Require M101 queue scope proof citation
+Verified guardrail commit: b3a945b, Tighten M101 desktop route truth proof
 
 ## Scope
 
@@ -859,6 +859,8 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 The package-specific verifier now rejects direct active-run helper markers and encoded helper-token strings in canonical registry, queue staging, proof receipt, and closeout evidence. Its no-pytest self-test writes an encoded worker-handoff filename marker into a temporary proof receipt and proves the package fails closed, so future shards cannot close this already-complete package by smuggling worker-only telemetry or helper output into proof text.
 
+The machine-readable proof receipt now records `verified_guardrail_commit: b3a945b`, and the package-specific verifier requires canonical successor registry, Fleet queue staging, design queue staging, and this closeout headline to cite that tuple-rationale and encoded-helper proof floor. The previous duplicate route-truth guard `2f7a422` is superseded by `b3a945b`.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
@@ -879,6 +881,6 @@ Do not reopen this package unless one of these facts changes:
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` stops applying canonical registry and queue staging active-run helper proof exclusion,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
-* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `2f7a422`,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `b3a945b`,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail, successor-frontier proof self-test, or hand-edited `desktopRouteTruth` negative-case verifier,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.

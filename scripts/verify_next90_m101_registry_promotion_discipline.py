@@ -34,7 +34,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "2f7a422"
+VERIFIED_GUARDRAIL_COMMIT = "b3a945b"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -274,7 +274,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Require M101 queue scope proof citation",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 desktop route truth proof",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -656,6 +656,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit d1c9a12 pins the M101 queue-scope proof floor",
         "commit cfb928b pins the M101 queue proof citation floor",
         "commit 2f7a422 tightens the M101 duplicate route-truth guard",
+        "commit b3a945b tightens the M101 tuple rationale and encoded helper proof floor",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -697,6 +698,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit d1c9a12 pins the M101 queue-scope proof floor",
         "commit cfb928b pins the M101 queue proof citation floor",
         "commit 2f7a422 tightens the M101 duplicate route-truth guard",
+        "commit b3a945b tightens the M101 tuple rationale and encoded helper proof floor",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
