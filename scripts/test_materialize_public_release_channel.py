@@ -518,7 +518,10 @@ def test_desktop_route_truth_does_not_offer_revoked_fallback_for_primary_rollbac
     assert fallback["promotionReason"].endswith("Blazor fallback startup smoke regressed on this tuple.")
     assert fallback["updateEligibility"] == "blocked_revoked"
     assert fallback["updateEligibilityReason"].endswith("Blazor fallback startup smoke regressed on this tuple.")
-    assert fallback["revokeReason"] == "Blazor fallback startup smoke regressed on this tuple."
+    assert fallback["revokeReason"] == (
+        "Registry revoke marker is active for blazor-desktop:linux:linux-x64: "
+        "Blazor fallback startup smoke regressed on this tuple."
+    )
 
 
 def test_desktop_route_truth_prefers_non_revoked_tuple_artifact() -> None:
@@ -599,7 +602,10 @@ def test_desktop_route_truth_treats_artifact_rollout_state_as_tuple_revoke() -> 
     assert fallback["rollbackReason"].endswith("Fallback rollout was revoked after tuple smoke failed.")
     assert fallback["installPosture"] == "revoked"
     assert fallback["installPostureReason"].endswith("Fallback rollout was revoked after tuple smoke failed.")
-    assert fallback["revokeReason"] == "Fallback rollout was revoked after tuple smoke failed."
+    assert fallback["revokeReason"] == (
+        "Registry revoke marker is active for blazor-desktop:linux:linux-x64: "
+        "Fallback rollout was revoked after tuple smoke failed."
+    )
 
 
 def test_parse_download_row_preserves_tuple_revoke_rationale() -> None:
@@ -931,7 +937,10 @@ def test_desktop_tuple_coverage_marks_channel_revoked_routes_as_revoked() -> Non
         assert row["rollbackReason"].endswith("Signature receipt was revoked after publication.")
         assert row["revokeState"] == "revoked"
         assert row["revokeReasonCode"] == "registry_revoke_marker_active"
-        assert row["revokeReason"] == "Signature receipt was revoked after publication."
+        assert row["revokeReason"].startswith(
+            f"Registry revoke marker is active for {row['tupleId']}: "
+        )
+        assert row["revokeReason"].endswith("Signature receipt was revoked after publication.")
         assert row["installPosture"] == "revoked"
         assert row["installPostureReason"].endswith("Signature receipt was revoked after publication.")
 

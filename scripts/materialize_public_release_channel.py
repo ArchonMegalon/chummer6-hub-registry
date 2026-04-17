@@ -1720,6 +1720,11 @@ def desktop_route_truth(
                 )
                 if revoke_state != "revoked":
                     revoke_reason = f"No registry revoke marker is active for {route_tuple_label}."
+                else:
+                    revoke_reason = (
+                        f"Registry revoke marker is active for {route_tuple_label}: "
+                        f"{revoke_reason}"
+                    )
                 if promoted:
                     promotion_state = "promoted"
                     promotion_reason_code = "installer_smoke_and_release_proof_passed"
@@ -1890,9 +1895,12 @@ def external_proof_request_capture_commands(
 
     required_host_token = normalized_token(required_host) or platform_token
     operating_system_hint = startup_smoke_operating_system_hint(required_host_token) or startup_smoke_operating_system_hint(platform_token)
-    repo_root = "/docker/chummercomplete/chummer6-ui"
+    repo_root = "/docker/chummercomplete/chummer6-ui-finish"
+    repo_root_setup = (
+        f'REPO_ROOT="${{CHUMMER_UI_REPO_ROOT:-{repo_root}}}" && '
+        "export REPO_ROOT && "
+    )
     installer_relative_path = f"files/{installer_name}"
-    installer_path = Path(repo_root) / "Docker" / "Downloads" / installer_relative_path
     expected_public_install_route = f"/downloads/install/{head_token}-{rid_token}-installer"
     installer_sha256 = str(expected_installer_sha256 or "").strip().lower()
     expected_magic = ""
@@ -1902,13 +1910,18 @@ def external_proof_request_capture_commands(
         expected_magic = "!<arch>\\n"
 
     fetch_installer = (
-        f"cd {repo_root} && "
-        f"mkdir -p {shlex.quote(str(installer_path.parent))} && "
+        repo_root_setup +
+        f'INSTALLER_PATH="$REPO_ROOT/Docker/Downloads/{installer_relative_path}" && '
+        f"EXPECTED_INSTALLER_SHA256={shlex.quote(installer_sha256)} && "
+        f"EXPECTED_INSTALLER_MAGIC={shlex.quote(expected_magic)} && "
+        'export INSTALLER_PATH EXPECTED_INSTALLER_SHA256 EXPECTED_INSTALLER_MAGIC && '
+        'cd "$REPO_ROOT" && '
+        'mkdir -p "$(dirname "$INSTALLER_PATH")" && '
         "python3 -c "
         + shlex.quote(
-            "import hashlib, pathlib; "
-            f"p=pathlib.Path({str(installer_path)!r}); "
-            f"expected={installer_sha256!r}; "
+            "import hashlib, os, pathlib; "
+            "p=pathlib.Path(os.environ['INSTALLER_PATH']); "
+            "expected=os.environ['EXPECTED_INSTALLER_SHA256']; "
             "import sys; "
             "sys.exit(0) if (not p.is_file()) else None; "
             "digest=hashlib.sha256(p.read_bytes()).hexdigest().lower(); "
@@ -1916,7 +1929,7 @@ def external_proof_request_capture_commands(
             "f'installer-preflight-sha256-mismatch:{p}:digest={digest}:expected={expected}') or p.unlink()"
         )
         + " && "
-        f"if [ ! -s {shlex.quote(str(installer_path))} ]; then "
+        'if [ ! -s "$INSTALLER_PATH" ]; then '
         f"if [ -z \"{DEFAULT_EXTERNAL_PROOF_AUTH_HEADER_EXPR}\" ] && "
         f"[ -z \"{DEFAULT_EXTERNAL_PROOF_COOKIE_HEADER_EXPR}\" ] && "
         f"[ -z \"{DEFAULT_EXTERNAL_PROOF_COOKIE_JAR_EXPR}\" ] && "
@@ -1939,13 +1952,13 @@ def external_proof_request_capture_commands(
         "curl -fL --retry 3 --retry-delay 2 "
         "${curl_auth_args[@]} "
         f"\"{DEFAULT_EXTERNAL_PROOF_BASE_URL_EXPR}{expected_public_install_route}\" "
-        f"-o {shlex.quote(str(installer_path))}; "
+        '-o "$INSTALLER_PATH"; '
         "fi; "
         "python3 -c "
         + shlex.quote(
             "import os, pathlib, sys; "
-            f"p=pathlib.Path({str(installer_path)!r}); "
-            f"expected_magic={expected_magic!r}; "
+            "p=pathlib.Path(os.environ['INSTALLER_PATH']); "
+            "expected_magic=os.environ['EXPECTED_INSTALLER_MAGIC']; "
             "sys.exit(f'installer-download-missing:{p}') if (not p.is_file()) else None; "
             "probe=p.read_bytes()[:8192]; "
             "probe_text=probe.decode('latin-1', errors='ignore').lower(); "
@@ -1964,8 +1977,8 @@ def external_proof_request_capture_commands(
         + "; python3 -c "
         + shlex.quote(
             "import hashlib, os, pathlib, sys; "
-            f"p=pathlib.Path({str(installer_path)!r}); "
-            f"expected={installer_sha256!r}; "
+            "p=pathlib.Path(os.environ['INSTALLER_PATH']); "
+            "expected=os.environ['EXPECTED_INSTALLER_SHA256']; "
             "sys.exit(f'installer-download-missing:{p}') if (not p.is_file()) else None; "
             "digest=hashlib.sha256(p.read_bytes()).hexdigest().lower(); "
             "auth_header_set=bool(str(os.environ.get('CHUMMER_EXTERNAL_PROOF_AUTH_HEADER','')).strip()); "
@@ -1983,19 +1996,23 @@ def external_proof_request_capture_commands(
         else ""
     )
     run_smoke = (
-        f"cd {repo_root} && "
+        repo_root_setup +
+        f'INSTALLER_PATH="$REPO_ROOT/Docker/Downloads/{installer_relative_path}" && '
+        'STARTUP_SMOKE_DIR="$REPO_ROOT/Docker/Downloads/startup-smoke" && '
+        'cd "$REPO_ROOT" && '
         f"CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS={required_host_token}-host "
         f"{operating_system_env}"
         "./scripts/run-desktop-startup-smoke.sh "
-        f"{repo_root}/Docker/Downloads/files/{installer_name} "
-        f"{head_token} "
-        f"{rid_token} "
-        f"{expected_startup_smoke_launch_target(head_token, platform_token)} "
-        f"{repo_root}/Docker/Downloads/startup-smoke "
-        f"{release_version}"
+        '"$INSTALLER_PATH" '
+        f"{shlex.quote(head_token)} "
+        f"{shlex.quote(rid_token)} "
+        f"{shlex.quote(expected_startup_smoke_launch_target(head_token, platform_token))} "
+        '"$STARTUP_SMOKE_DIR" '
+        f"{shlex.quote(release_version)}"
     )
     refresh_manifest = (
-        f"cd {repo_root} && "
+        repo_root_setup +
+        'cd "$REPO_ROOT" && '
         "./scripts/generate-releases-manifest.sh"
     )
     return [fetch_installer, run_smoke, refresh_manifest]

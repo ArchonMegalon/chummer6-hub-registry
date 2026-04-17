@@ -79,9 +79,9 @@ The row contract carries nonblank rationale fields for:
 * `revokeReasonCode`
 * `installPostureReason`
 
-Route, promotion, update, rollback, revoke, and install-posture rationale are tuple-qualified, not just channel-qualified. The canonical and compatibility projections say, for example, `linux/linux-x64`, `windows/win-x64`, `macos/osx-arm64`, and exact route tuple ids such as `blazor-desktop:windows:win-x64` inside the rationale fields, so registry truth explains why the head is primary, fallback, promoted, proof-required, rollback-eligible, or not revoked on the exact desktop platform tuple being offered.
+Route, promotion, update, rollback, revoke, and install-posture rationale are tuple-qualified, not just channel-qualified. The canonical and compatibility projections say, for example, `linux/linux-x64`, `windows/win-x64`, `macos/osx-arm64`, and exact route tuple ids such as `blazor-desktop:windows:win-x64` inside the rationale fields, so registry truth explains why the head is primary, fallback, promoted, proof-required, rollback-eligible, or not revoked on the exact desktop platform tuple being offered. The public verifier now fail-closes `parityPosture` drift directly as route-role truth: primary rows must remain `flagship_primary`, and fallback rows must remain `explicit_fallback`.
 
-The verifier recomputes canonical route-truth rows and fail-closes if generated truth omits rows, carries unexpected keys, has blank rationale or reason-code fields, drifts from expected primary/fallback posture, or fails to block revoked channel/artifact routes. Artifact-level `status`, `rolloutState`, and `compatibilityState` revoke markers all block only the affected tuple, and artifact-level revoke reasons are preferred over channel-level known-issue text for individually revoked tuples, so a revoked fallback installer can explain its own rollback block without making the whole channel look revoked. Revoked rows now echo the resolved revoke rationale inside `promotionReason`, `updateEligibilityReason`, `rollbackReason`, and `installPostureReason`, not only in `revokeReason`, so desktop update, rollback, support, and public shelf consumers can explain why a tuple is blocked from whichever posture field they read. Stable `routeRoleReasonCode`, `promotionReasonCode`, `rollbackReasonCode`, and `revokeReasonCode` values give those consumers a machine-readable decision surface without parsing prose.
+The verifier recomputes canonical route-truth rows and fail-closes if generated truth omits rows, carries unexpected keys, has blank rationale or reason-code fields, drifts from expected primary/fallback posture or route-role parity posture, or fails to block revoked channel/artifact routes. Artifact-level `status`, `rolloutState`, and `compatibilityState` revoke markers all block only the affected tuple, and artifact-level revoke reasons are preferred over channel-level known-issue text for individually revoked tuples, so a revoked fallback installer can explain its own rollback block without making the whole channel look revoked. Revoked rows now echo the resolved revoke rationale inside `promotionReason`, `updateEligibilityReason`, `rollbackReason`, and `installPostureReason`, not only in `revokeReason`, so desktop update, rollback, support, and public shelf consumers can explain why a tuple is blocked from whichever posture field they read. Stable `routeRoleReasonCode`, `promotionReasonCode`, `rollbackReasonCode`, and `revokeReasonCode` values give those consumers a machine-readable decision surface without parsing prose.
 The typed registry contract also exposes `ReleaseChannelStatuses.Revoked`, matching the verifier's channel-level revoke handling, so typed support, rollback, and update consumers do not need a string literal to branch on whole-channel revocation.
 
 `scripts/verify_next90_m101_registry_promotion_discipline.py` is the no-pytest closeout guardrail for future shards. It verifies canonical successor registry status, Fleet queue staging status, the release-channel verifier, the expected six desktop route-truth rows with nonblank rationale fields in both `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `.codex-studio/published/releases.json`, the human-facing pipeline and closeout docs that tell future shards when not to reopen this package, the repo-local `WORKLIST.md` done entry, and the repo standard `scripts/ai/verify.sh` integration so the closeout check cannot silently fall out of full verification.
@@ -144,6 +144,31 @@ verified next90 M101 registry promotion discipline self-test: next90-m101-regist
 ```
 
 The materializer, public verifier, generated canonical release channel, generated compatibility shelf, and package-specific exact-row guard now require `routeRoleReason` to name the platform/rid tuple for each primary and fallback row instead of stopping at platform-level prose.
+The public verifier now also fail-closes role-rationale drift directly: a row cannot keep a valid `routeRoleReasonCode` while replacing the canonical primary flagship rationale or fallback recovery rationale with operator prose.
+
+Successor-wave route-role parity tightening on 2026-04-17:
+
+```text
+python3 -m py_compile scripts/materialize_public_release_channel.py scripts/verify_public_release_channel.py scripts/verify_next90_m101_registry_promotion_discipline.py scripts/test_materialize_public_release_channel.py scripts/test_verify_public_release_channel.py
+exit 0
+
+python3 scripts/verify_public_release_channel.py .codex-studio/published/RELEASE_CHANNEL.generated.json
+verified public release manifest: .codex-studio/published/RELEASE_CHANNEL.generated.json
+
+python3 scripts/verify_public_release_channel.py .codex-studio/published/releases.json
+verified public release manifest: .codex-studio/published/releases.json
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+
+./scripts/ai/verify.sh
+exit 0
+```
+
+The public verifier now fail-closes route-role parity drift before canonical row comparison: primary route rows must carry `parityPosture=flagship_primary`, and fallback route rows must carry `parityPosture=explicit_fallback`. The package proof receipt records this as a do-not-reopen condition so future shards verify the completed channel-truth guard instead of relabeling fallback heads through hand-edited shelf copy.
 
 Successor-wave all-rationale tuple qualification on 2026-04-17:
 
@@ -877,6 +902,44 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 ```
 
 The package-specific verifier now checks the full completed queue item in both Fleet and design queue staging, including the assigned title, task, and wave fields above `package_id`. Its no-pytest self-test mutates each of those queue identity fields in both projections and proves the package fails closed, so copied or retitled queue rows cannot make future shards reopen the completed M101 registry-promotion slice under the same package id.
+
+Successor-wave tuple-context rationale tightening on 2026-04-17:
+
+```text
+python3 -m py_compile scripts/verify_public_release_channel.py scripts/verify_next90_m101_registry_promotion_discipline.py scripts/test_verify_public_release_channel.py
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+
+./scripts/ai/verify.sh
+```
+
+The public release-channel verifier now rejects generic desktop route-truth rationale before canonical row comparison: route-role, promotion, update, rollback, install-posture, and non-revoked revoke rationale must name either the exact route tuple id or the platform/rid tuple. `scripts/test_verify_public_release_channel.py` carries a direct regression case for generic promotion copy, `scripts/ai/verify.sh` expects the explicit tuple-context fail-close marker, and the package-specific verifier checks both source and test wiring so the completed package cannot drift back to non-explanatory channel-level prose.
+
+Successor-wave external proof command-shape repair on 2026-04-17:
+
+```text
+python3 -m py_compile scripts/materialize_public_release_channel.py scripts/verify_public_release_channel.py scripts/test_materialize_public_release_channel.py scripts/test_verify_public_release_channel.py scripts/verify_next90_m101_registry_promotion_discipline.py
+
+python3 scripts/verify_public_release_channel.py .codex-studio/published/RELEASE_CHANNEL.generated.json
+verified public release manifest: .codex-studio/published/RELEASE_CHANNEL.generated.json
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+
+dotnet run --project Chummer.Hub.Registry.Contracts.Verify/Chummer.Hub.Registry.Contracts.Verify.csproj --no-restore
+Registry contract verification passed.
+
+./scripts/ai/verify.sh
+```
+
+The release-channel materializer's external proof command builder now compiles after the `CHUMMER_UI_REPO_ROOT` override was added, and the public verifier's expected command builder matches that configurable repo-root shape. This keeps generated `desktopTupleCoverage.externalProofRequests` comparable to verifier truth while preserving the closed M101 route-rationale guard; standard verification again proves the tuple-context negative case, manifest verification, contract verification, and package-specific no-pytest self-test without invoking operator telemetry helpers.
 
 ## Future-shard rule
 

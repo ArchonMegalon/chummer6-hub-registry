@@ -337,9 +337,12 @@ def expected_external_proof_capture_commands(
 
     required_host_token = normalized_platform_token(required_host) or platform_token
     operating_system_hint = expected_external_proof_operating_system_hint(required_host_token) or expected_external_proof_operating_system_hint(platform_token)
-    repo_root = "/docker/chummercomplete/chummer6-ui"
+    repo_root = "/docker/chummercomplete/chummer6-ui-finish"
+    repo_root_setup = (
+        f'REPO_ROOT="${{CHUMMER_UI_REPO_ROOT:-{repo_root}}}" && '
+        "export REPO_ROOT && "
+    )
     installer_relative_path = f"files/{installer_name}"
-    installer_path = Path(repo_root) / "Docker" / "Downloads" / installer_relative_path
     expected_public_install_route = f"/downloads/install/{head_token}-{rid_token}-installer"
     installer_sha256 = str(expected_installer_sha256 or "").strip().lower()
     expected_magic = ""
@@ -349,13 +352,19 @@ def expected_external_proof_capture_commands(
         expected_magic = "!<arch>\\n"
 
     fetch_installer = (
-        f"cd {repo_root} && "
-        f"mkdir -p {shlex.quote(str(installer_path.parent))} && "
+        repo_root_setup
+        +
+        f'INSTALLER_PATH="$REPO_ROOT/Docker/Downloads/{installer_relative_path}" && '
+        f"EXPECTED_INSTALLER_SHA256={shlex.quote(installer_sha256)} && "
+        f"EXPECTED_INSTALLER_MAGIC={shlex.quote(expected_magic)} && "
+        'export INSTALLER_PATH EXPECTED_INSTALLER_SHA256 EXPECTED_INSTALLER_MAGIC && '
+        'cd "$REPO_ROOT" && '
+        'mkdir -p "$(dirname "$INSTALLER_PATH")" && '
         "python3 -c "
         + shlex.quote(
-            "import hashlib, pathlib; "
-            f"p=pathlib.Path({str(installer_path)!r}); "
-            f"expected={installer_sha256!r}; "
+            "import hashlib, os, pathlib; "
+            "p=pathlib.Path(os.environ['INSTALLER_PATH']); "
+            "expected=os.environ['EXPECTED_INSTALLER_SHA256']; "
             "import sys; "
             "sys.exit(0) if (not p.is_file()) else None; "
             "digest=hashlib.sha256(p.read_bytes()).hexdigest().lower(); "
@@ -363,7 +372,7 @@ def expected_external_proof_capture_commands(
             "f'installer-preflight-sha256-mismatch:{p}:digest={digest}:expected={expected}') or p.unlink()"
         )
         + " && "
-        f"if [ ! -s {shlex.quote(str(installer_path))} ]; then "
+        'if [ ! -s "$INSTALLER_PATH" ]; then '
         f"if [ -z \"{DEFAULT_EXTERNAL_PROOF_AUTH_HEADER_EXPR}\" ] && "
         f"[ -z \"{DEFAULT_EXTERNAL_PROOF_COOKIE_HEADER_EXPR}\" ] && "
         f"[ -z \"{DEFAULT_EXTERNAL_PROOF_COOKIE_JAR_EXPR}\" ] && "
@@ -386,13 +395,13 @@ def expected_external_proof_capture_commands(
         "curl -fL --retry 3 --retry-delay 2 "
         "${curl_auth_args[@]} "
         f"\"{DEFAULT_EXTERNAL_PROOF_BASE_URL_EXPR}{expected_public_install_route}\" "
-        f"-o {shlex.quote(str(installer_path))}; "
+        '-o "$INSTALLER_PATH"; '
         "fi; "
         "python3 -c "
         + shlex.quote(
             "import os, pathlib, sys; "
-            f"p=pathlib.Path({str(installer_path)!r}); "
-            f"expected_magic={expected_magic!r}; "
+            "p=pathlib.Path(os.environ['INSTALLER_PATH']); "
+            "expected_magic=os.environ['EXPECTED_INSTALLER_MAGIC']; "
             "sys.exit(f'installer-download-missing:{p}') if (not p.is_file()) else None; "
             "probe=p.read_bytes()[:8192]; "
             "probe_text=probe.decode('latin-1', errors='ignore').lower(); "
@@ -411,8 +420,8 @@ def expected_external_proof_capture_commands(
         + "; python3 -c "
         + shlex.quote(
             "import hashlib, os, pathlib, sys; "
-            f"p=pathlib.Path({str(installer_path)!r}); "
-            f"expected={installer_sha256!r}; "
+            "p=pathlib.Path(os.environ['INSTALLER_PATH']); "
+            "expected=os.environ['EXPECTED_INSTALLER_SHA256']; "
             "sys.exit(f'installer-download-missing:{p}') if (not p.is_file()) else None; "
             "digest=hashlib.sha256(p.read_bytes()).hexdigest().lower(); "
             "auth_header_set=bool(str(os.environ.get('CHUMMER_EXTERNAL_PROOF_AUTH_HEADER','')).strip()); "
@@ -430,19 +439,25 @@ def expected_external_proof_capture_commands(
         else ""
     )
     run_smoke = (
-        f"cd {repo_root} && "
+        repo_root_setup
+        +
+        f'INSTALLER_PATH="$REPO_ROOT/Docker/Downloads/{installer_relative_path}" && '
+        'STARTUP_SMOKE_DIR="$REPO_ROOT/Docker/Downloads/startup-smoke" && '
+        'cd "$REPO_ROOT" && '
         f"CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS={required_host_token}-host "
         f"{operating_system_env}"
         "./scripts/run-desktop-startup-smoke.sh "
-        f"{repo_root}/Docker/Downloads/files/{installer_name} "
-        f"{head_token} "
-        f"{rid_token} "
-        f"{expected_external_proof_launch_target(head_token, platform_token)} "
-        f"{repo_root}/Docker/Downloads/startup-smoke "
-        f"{release_version}"
+        '"$INSTALLER_PATH" '
+        f"{shlex.quote(head_token)} "
+        f"{shlex.quote(rid_token)} "
+        f"{shlex.quote(expected_external_proof_launch_target(head_token, platform_token))} "
+        '"$STARTUP_SMOKE_DIR" '
+        f"{shlex.quote(release_version)}"
     )
     refresh_manifest = (
-        f"cd {repo_root} && "
+        repo_root_setup
+        +
+        'cd "$REPO_ROOT" && '
         "./scripts/generate-releases-manifest.sh"
     )
     return [fetch_installer, run_smoke, refresh_manifest]
@@ -1093,6 +1108,132 @@ def desktop_route_artifact_selection_key(artifact: dict[str, Any]) -> tuple[int,
     )
 
 
+def verify_desktop_route_rationale_context(
+    normalized_row: dict[str, str],
+    *,
+    index: int,
+    source: str,
+) -> None:
+    tuple_label = (
+        f"{normalized_row['platform']}/{normalized_row['rid']}"
+        if normalized_row["rid"]
+        else normalized_row["platform"]
+    )
+    route_tuple_label = normalized_row["tupleId"]
+    rationale_fields = (
+        "routeRoleReason",
+        "promotionReason",
+        "updateEligibilityReason",
+        "rollbackReason",
+        "installPostureReason",
+    )
+    rationale_fields = rationale_fields + ("revokeReason",)
+    for field_name in rationale_fields:
+        rationale = normalized_row[field_name]
+        if tuple_label not in rationale and route_tuple_label not in rationale:
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].{field_name} "
+                "must name desktop tuple context"
+            )
+
+
+def verify_desktop_route_role_parity(
+    normalized_row: dict[str, str],
+    *,
+    index: int,
+    source: str,
+) -> None:
+    expected_parity_by_role = {
+        "primary": "flagship_primary",
+        "fallback": "explicit_fallback",
+    }
+    expected_parity = expected_parity_by_role.get(normalized_row["routeRole"])
+    if expected_parity is None:
+        return
+    if normalized_row["parityPosture"] != expected_parity:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].parityPosture "
+            f"must be {expected_parity} for {normalized_row['routeRole']} desktop route"
+        )
+
+
+def verify_desktop_route_state_matrix(
+    normalized_row: dict[str, str],
+    *,
+    index: int,
+    source: str,
+) -> None:
+    route_role = normalized_row["routeRole"]
+    promotion_state = normalized_row["promotionState"]
+    if normalized_row["revokeState"] == "revoked":
+        return
+
+    expected_update_eligibility = {
+        ("primary", "promoted"): "eligible",
+        ("primary", "proof_required"): "blocked_missing_proof",
+        ("fallback", "promoted"): "manual_fallback",
+        ("fallback", "proof_required"): "blocked_missing_proof",
+    }.get((route_role, promotion_state))
+    if expected_update_eligibility is not None and normalized_row["updateEligibility"] != expected_update_eligibility:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].updateEligibility "
+            f"must be {expected_update_eligibility} when routeRole is {route_role} "
+            f"and promotionState is {promotion_state}"
+        )
+
+    expected_install_posture = {
+        "promoted": "installer_first",
+        "proof_required": "proof_capture_required",
+    }.get(promotion_state)
+    if expected_install_posture is not None and normalized_row["installPosture"] != expected_install_posture:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].installPosture "
+            f"must be {expected_install_posture} when promotionState is {promotion_state}"
+        )
+
+    if route_role == "primary":
+        expected_reason_by_state = {
+            "fallback_available": "promoted_fallback_available",
+            "manual_recovery_required": "no_promoted_fallback_for_tuple",
+        }
+        expected_rollback_reason = expected_reason_by_state.get(normalized_row["rollbackState"])
+        if expected_rollback_reason is None:
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackState "
+                "must be fallback_available or manual_recovery_required for primary routes"
+            )
+        if normalized_row["rollbackReasonCode"] != expected_rollback_reason:
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackReasonCode "
+                f"must be {expected_rollback_reason} when rollbackState is "
+                f"{normalized_row['rollbackState']}"
+            )
+        return
+
+    if route_role == "fallback":
+        expected_fallback_rollback = {
+            "promoted": ("fallback_available", "fallback_promoted_for_recovery"),
+            "proof_required": (
+                "fallback_not_promoted",
+                "fallback_missing_artifact_or_startup_smoke_proof",
+            ),
+        }.get(promotion_state)
+        if expected_fallback_rollback is None:
+            return
+        expected_rollback_state, expected_rollback_reason_code = expected_fallback_rollback
+        if normalized_row["rollbackState"] != expected_rollback_state:
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackState "
+                f"must be {expected_rollback_state} when fallback promotionState is {promotion_state}"
+            )
+        if normalized_row["rollbackReasonCode"] != expected_rollback_reason_code:
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackReasonCode "
+                f"must be {expected_rollback_reason_code} when fallback promotionState is "
+                f"{promotion_state}"
+            )
+
+
 def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
     promoted_by_platform_head_rid: dict[tuple[str, str, str], dict[str, Any]] = {}
     required_rids_by_platform: dict[str, set[str]] = {
@@ -1140,6 +1281,11 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
                 revoke_state, revoke_reason = desktop_route_revoke_posture(artifact, payload)
                 if revoke_state != "revoked":
                     revoke_reason = f"No registry revoke marker is active for {route_tuple_label}."
+                else:
+                    revoke_reason = (
+                        f"Registry revoke marker is active for {route_tuple_label}: "
+                        f"{revoke_reason}"
+                    )
                 if promoted:
                     promotion_state = "promoted"
                     promotion_reason_code = "installer_smoke_and_release_proof_passed"
@@ -1868,12 +2014,25 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
                 f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].routeRole "
                 "must match the canonical desktop head role"
             )
+        verify_desktop_route_role_parity(normalized_row, index=index, source=source)
+        verify_desktop_route_state_matrix(normalized_row, index=index, source=source)
         expected_route_role_reason_code = desktop_route_role_reason_code(normalized_row["head"])
         if normalized_row["routeRoleReasonCode"] != expected_route_role_reason_code:
             raise SystemExit(
                 f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].routeRoleReasonCode "
                 f"must be {expected_route_role_reason_code}"
             )
+        expected_route_role_reason = desktop_route_role_reason(
+            normalized_row["head"],
+            normalized_row["platform"],
+            normalized_row["rid"],
+        )
+        if normalized_row["routeRoleReason"] != expected_route_role_reason:
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].routeRoleReason "
+                "must match canonical primary/fallback tuple rationale"
+            )
+        verify_desktop_route_rationale_context(normalized_row, index=index, source=source)
         if normalized_row["revokeState"] == "revoked":
             if normalized_row["revokeReasonCode"] != "registry_revoke_marker_active":
                 raise SystemExit(
