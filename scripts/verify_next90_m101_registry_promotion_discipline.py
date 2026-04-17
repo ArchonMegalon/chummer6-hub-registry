@@ -34,7 +34,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "3c95af1"
+VERIFIED_GUARDRAIL_COMMIT = "d767fba"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -290,7 +290,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 release route proof commands",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Pin M101 route proof command floor",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -366,6 +366,9 @@ STALE_CLOSEOUT_CURRENT_CLAIMS = (
     "Verified guardrail commit: b3a945b,",
     "Repo-local guardrail commit `b3a945b` is now pinned",
     "now records `verified_guardrail_commit: b3a945b`",
+    "Verified guardrail commit: 3c95af1,",
+    "Repo-local guardrail commit `3c95af1` supersedes",
+    "recorded verified guardrail commit `3c95af1`",
     "Verified guardrail commit: 75a248f,",
     "Repo-local guardrail commit `75a248f` is now pinned",
     "recorded verified guardrail commit `75a248f`",
@@ -751,6 +754,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit c8829ac tightens the M101 closed queue proof",
         "commit 2dbbd5e tightens the M101 duplicate closed queue row guard",
         "commit 75a248f tightens the M101 queue identity guard",
+        "commit d767fba pins M101 route proof command floor",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -810,6 +814,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit c8829ac tightens the M101 closed queue proof",
         "commit 2dbbd5e tightens the M101 duplicate closed queue row guard",
         "commit 75a248f tightens the M101 queue identity guard",
+        "commit d767fba pins M101 route proof command floor",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
