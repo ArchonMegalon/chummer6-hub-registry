@@ -34,7 +34,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "d767fba"
+VERIFIED_GUARDRAIL_COMMIT = "63a5583"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -301,7 +301,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Pin M101 route proof command floor",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 desktop rollback route truth",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -786,6 +786,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit 2dbbd5e tightens the M101 duplicate closed queue row guard",
         "commit 75a248f tightens the M101 queue identity guard",
         "commit d767fba pins M101 route proof command floor",
+        "commit 63a5583 tightens M101 desktop rollback route truth",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -846,6 +847,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit 2dbbd5e tightens the M101 duplicate closed queue row guard",
         "commit 75a248f tightens the M101 queue identity guard",
         "commit d767fba pins M101 route proof command floor",
+        "commit 63a5583 tightens M101 desktop rollback route truth",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
