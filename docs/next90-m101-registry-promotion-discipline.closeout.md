@@ -49,6 +49,7 @@ Repo-local proof-floor commit `cfb928b` is now cited by the canonical successor 
 
 Fleet queue staging also marks package `next90-m101-registry-promotion-discipline` complete with the same proof paths and landed commit.
 Fleet and design queue staging now also require `completion_action: verify_closed_package_only` and a package-specific `do_not_reopen_reason`, so future shards get an explicit closed-package instruction in queue truth instead of inferring it from proof prose.
+The package verifier now also rejects duplicate completed package rows in both Fleet and design queue staging, so a copied successor-queue item cannot reopen or fork the closed M101 registry-promotion slice while the first row still looks valid.
 
 ## Release channel truth
 
@@ -85,6 +86,7 @@ The typed registry contract also exposes `ReleaseChannelStatuses.Revoked`, match
 
 `docs/next90-m101-registry-promotion-discipline.proof.yaml` is the source-controlled proof receipt for the closed package. It records the successor frontier id, canonical authority files, owned surfaces, allowed implementation roots, six required desktop route-truth tuples, guardrails, and do-not-reopen conditions in a machine-readable file so future shards do not have to infer package state from prose alone.
 It also preserves the exact assigned allowed paths `Chummer.Hub.Registry`, `scripts`, and `docs`, and maps `Chummer.Hub.Registry` to the repo-local `Chummer.Hub.Registry.Contracts` and `Chummer.Run.Registry` roots used by the landed implementation, so future shards do not treat the canonical path label as evidence of path drift.
+Its do-not-reopen conditions now include duplicate Fleet or design queue package rows, matching the executable verifier's closed-queue uniqueness guard.
 
 ## Verification
 

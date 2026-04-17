@@ -298,6 +298,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "queue-scope self-test",
     "guardrail-commit self-test",
     "canonical registry and queue staging active-run helper proof exclusion",
+    "duplicate completed package rows in both Fleet and design queue staging",
     "WORKLIST.md",
     "exact assigned allowed paths `Chummer.Hub.Registry`, `scripts`, and `docs`",
     "Artifact-level `status`, `rolloutState`, and `compatibilityState` revoke markers",
@@ -395,6 +396,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "scripts/verify_next90_m101_registry_promotion_discipline.py",
     "scripts/ai/verify.sh",
     "release channel or compatibility shelf carries duplicate desktop route-truth tuple rows",
+    "Fleet or design queue staging carries duplicate completed package rows",
     "the landed commit a4e47da no longer resolves in this repo",
     f"the verified guardrail commit {VERIFIED_GUARDRAIL_COMMIT} no longer resolves in this repo",
 )
@@ -447,6 +449,7 @@ EXPECTED_PROOF_RECEIPT_LISTS = {
     "do_not_reopen_unless": [
         "canonical successor registry task 101.2 stops being complete",
         "Fleet or design queue staging stops carrying the completed package row",
+        "Fleet or design queue staging carries duplicate completed package rows",
         "release channel or compatibility shelf loses exact desktop route-truth rows",
         "release channel or compatibility shelf carries duplicate desktop route-truth tuple rows",
         "promotion, fallback, rollback, revoke, update, or install-posture rationale drifts",
@@ -674,6 +677,10 @@ def verify_canonical_successor_registry(path: Path) -> None:
 
 def verify_queue_staging(path: Path) -> None:
     text = read_text(path)
+    package_marker = f"package_id: {PACKAGE_ID}"
+    package_count = text.count(package_marker)
+    if package_count != 1:
+        fail(f"queue staging package {PACKAGE_ID} must appear exactly once, found {package_count}")
     block = block_after_marker(text, f"package_id: {PACKAGE_ID}", stop_markers=("\n  - title:",))
     required_snippets = (
         "milestone_id: 101",
@@ -1031,6 +1038,20 @@ def replace_queue_package_block(text: str, old: str, new: str) -> str:
     return text[:start] + block.replace(old, new, 1) + text[end:]
 
 
+def duplicate_queue_package_block(text: str) -> str:
+    marker = f"package_id: {PACKAGE_ID}"
+    start = text.find(marker)
+    if start < 0:
+        fail(f"self-test fixture is missing queue package marker: {PACKAGE_ID}")
+    item_start = text.rfind("\n  - title:", 0, start)
+    if item_start < 0:
+        fail(f"self-test fixture is missing queue package item start: {PACKAGE_ID}")
+    next_item = text.find("\n  - title:", start + len(marker))
+    end = next_item if next_item >= 0 else len(text)
+    block = text[item_start:end]
+    return text[:end] + block + text[end:]
+
+
 def replace_registry_task_block(text: str, old: str, new: str) -> str:
     marker = f"id: {TASK_ID}"
     start = text.find(marker)
@@ -1200,6 +1221,12 @@ def run_self_test(proof_receipt: Path) -> None:
             lambda: verify_queue_staging(queue_path),
             "owned_surfaces expected",
         )
+        queue_path.write_text(duplicate_queue_package_block(queue_source_text), encoding="utf-8")
+        expect_self_test_failure(
+            "queue-duplicate-package-row",
+            lambda: verify_queue_staging(queue_path),
+            f"queue staging package {PACKAGE_ID} must appear exactly once",
+        )
         queue_path.write_text(
             replace_queue_package_block(
                 queue_source_text,
@@ -1284,6 +1311,12 @@ def run_self_test(proof_receipt: Path) -> None:
             "design-queue-owned-surface-scope-drift",
             lambda: verify_queue_staging(source_queue_path),
             "owned_surfaces expected",
+        )
+        source_queue_path.write_text(duplicate_queue_package_block(source_queue_text), encoding="utf-8")
+        expect_self_test_failure(
+            "design-queue-duplicate-package-row",
+            lambda: verify_queue_staging(source_queue_path),
+            f"queue staging package {PACKAGE_ID} must appear exactly once",
         )
         source_queue_path.write_text(
             replace_queue_package_block(
