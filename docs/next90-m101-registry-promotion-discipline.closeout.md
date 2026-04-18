@@ -5,7 +5,7 @@ Milestone: 101, Native-host desktop release train and promotion discipline
 Package: next90-m101-registry-promotion-discipline
 Owner: chummer6-hub-registry
 Landed commit: a4e47da, Publish desktop route rationale in release channel truth
-Verified guardrail commit: 1cf64e1, Pin M101 current fallback rollback proof floor
+Verified guardrail commit: 88b058e, Pin M101 current desktop route truth rationale proof floor
 
 ## Scope
 
@@ -54,6 +54,7 @@ Repo-local guardrail commit `63a5583` supersedes that route-proof command floor 
 Repo-local guardrail commit `0b52f5f` supersedes that desktop rollback route-truth floor in the machine-readable proof receipt, verifier, canonical registry row, and queue staging rows so future shards prove primary rollback rationale names the exact sibling fallback route before trusting the closed package.
 Repo-local proof-floor commit `98f8b88` supersedes that sibling fallback rollback guard in the machine-readable proof receipt and verifier.
 Repo-local proof-floor commit `1cf64e1` now pins the current fallback rollback proof floor into the package verifier and closeout receipt, and the verifier requires canonical registry plus both queue projections to cite it before trusting the completed package row.
+Repo-local proof-floor commit `88b058e` now pins the current desktop route truth rationale proof floor into the package verifier and closeout receipt, and the verifier requires canonical registry plus both queue projections to cite it before trusting the completed package row. That floor captures the role-explicit promotion rationale, fallback-revoked rollback reason-code split, tuple-specific revoke rationale reuse, and contract-level rationale-context assertions landed in the package repo. The previous verified guardrail floor `1cf64e1` is superseded by `88b058e`.
 
 Fleet queue staging also marks package `next90-m101-registry-promotion-discipline` complete with the same proof paths and landed commit.
 Fleet and design queue staging now also require `completion_action: verify_closed_package_only` and a package-specific `do_not_reopen_reason`, so future shards get an explicit closed-package instruction in queue truth instead of inferring it from proof prose.
@@ -1011,6 +1012,6 @@ Do not reopen this package unless one of these facts changes:
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` stops applying canonical registry and queue staging active-run helper proof exclusion,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
-* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `1cf64e1`,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `88b058e`,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail, successor-frontier proof self-test, or hand-edited `desktopRouteTruth` negative-case verifier,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.

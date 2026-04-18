@@ -4,7 +4,7 @@ task_id: "101.2"
 status: complete
 owner: chummer6-hub-registry
 landed_commit: a4e47da
-verified_guardrail_commit: 1cf64e1
+verified_guardrail_commit: 88b058e
 successor_frontier_id: 3017689961
 owned_surfaces:
   - release_channel_truth:desktop
@@ -59,5 +59,5 @@ do_not_reopen_unless:
   - tuple selection stops preferring non-revoked artifact truth over revoked artifact rows for the same head/platform/rid
   - canonical registry, queue, proof, or closeout evidence cites active-run helper markers directly or through encoded helper-token strings
   - the landed commit a4e47da no longer resolves in this repo
-  - the verified guardrail commit 1cf64e1 no longer resolves in this repo
+  - the verified guardrail commit 88b058e no longer resolves in this repo
   - standard verification stops running the package-specific closeout guardrail
