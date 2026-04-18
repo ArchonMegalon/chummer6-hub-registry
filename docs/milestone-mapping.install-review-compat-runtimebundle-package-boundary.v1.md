@@ -102,3 +102,13 @@ Result:
 - Confirmed both newly unread feedback files are repeat `audit-task-11712` design-mirror publications, so they do not widen or alter this install/review/compatibility/runtime-bundle-head milestone mapping.
 - Reconfirmed the canonical executable coverage for this slice remains the existing mapping plus `docs/runnable-backlog.install-review-compat-runtimebundle-package-boundary.v1.md`; the separate design-mirror refresh stays out of scope to avoid cross-slice duplication.
 - Replayed `./scripts/ai/verify.sh`; verify exits `0` after registry contract/runtime checks pass, while release-channel fixture tracebacks continue to appear only as non-fatal negative-case coverage in the verifier script.
+
+Date: 2026-04-18 (`/fast` system re-entry replay, repo-state inspection refresh)
+Audit source: required disk/context reload set, `git status --short`, unread feedback replay in order (`feedback/2026-04-15-061125-audit-task-11712.md`, `feedback/2026-04-18-204611-audit-task-11712.md`), canonical milestone/backlog artifacts, and fresh `./scripts/ai/verify.sh`
+
+Result:
+
+- Revalidated this milestone mapping after explicit repo-state inspection confirmed the worktree is dirty in unrelated design-mirror and contract files, so this slice remains evidence-only unless verification exposes a new package-boundary gap.
+- Confirmed the two unread feedback files are still repeat `audit-task-11712` design-mirror publications and therefore remain outside this install/review/compatibility/runtime-bundle-head package-boundary slice.
+- Reconfirmed the existing milestone mapping already covers the package-owned desktop route/channel truth follow-on work closed under successor wave M101, so no additional milestone rows or executable scope were appended.
+- Replayed `./scripts/ai/verify.sh` for this run; verify still exits `0`, but the out-of-slice release-channel negative-case coverage now emits stricter release-proof and UI-localization fixture validation errors around canonical ordering, duplicate normalization, alias drift, and missing required route/journey/domain coverage. The canonical mapping artifact itself remains unchanged apart from this replay evidence.

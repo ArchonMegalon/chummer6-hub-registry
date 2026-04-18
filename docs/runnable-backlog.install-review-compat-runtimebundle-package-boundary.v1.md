@@ -188,3 +188,13 @@ Result:
 - Tightened `desktopTupleCoverage.desktopRouteTruth` so registry-owned channel or artifact revocation now blocks promotion, update, rollback, and install posture on each affected desktop tuple instead of leaving `revokeState` hard-coded to `not_revoked`.
 - The materializer and verifier now derive revoked route rows from channel `status=revoked`, `rolloutState=revoked`, or artifact `compatibilityState=revoked`, with nonblank rationale from `rolloutReason`, `knownIssueSummary`, or the default revoke explanation.
 - Verification: `python3 scripts/verify_public_release_channel.py .codex-studio/published/RELEASE_CHANNEL.generated.json`, temp materialize-plus-verify against the current release-channel manifest, `python3 -m py_compile scripts/materialize_public_release_channel.py scripts/verify_public_release_channel.py scripts/test_materialize_public_release_channel.py scripts/test_verify_public_release_channel.py`, direct revoked-route helper assertions, `dotnet build Chummer.Hub.Registry.slnx -v q`, and `./scripts/ai/verify.sh` all exit `0`; `pytest` is unavailable in this environment (`No module named pytest`).
+
+Date: 2026-04-18 (`/fast` system re-entry replay, repo-state inspection refresh)
+Audit source: required disk/context reload set, `git status --short`, unread feedback replay in order (`feedback/2026-04-15-061125-audit-task-11712.md`, `feedback/2026-04-18-204611-audit-task-11712.md`), canonical backlog/mapping artifacts, and fresh `./scripts/ai/verify.sh`
+
+Result:
+
+- Revalidated this file as the canonical runnable backlog artifact for the install/review/compatibility/runtime-bundle-head package-boundary queue item with no duplicate backlog work appended.
+- Confirmed the only newly unread feedback is repeat `audit-task-11712` design-mirror publication traffic, which remains a separate slice and does not add runnable package-boundary work here.
+- Reconfirmed the package-owned desktop route/channel truth follow-up is already executable and closed through the successor-wave M101 route-truth implementation, so this backlog stays current without new ordered items.
+- Replayed `./scripts/ai/verify.sh` for this run; verify exits `0` after registry contract/runtime checks while the out-of-slice release-channel negative-case coverage now reports stricter release-proof and UI-localization fixture validation errors around canonical ordering, duplicate normalization, alias drift, and missing required coverage. This backlog remains unchanged apart from replay evidence.
