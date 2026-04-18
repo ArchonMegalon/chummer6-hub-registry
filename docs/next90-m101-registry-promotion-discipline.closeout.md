@@ -208,6 +208,15 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 
 That guardrail now also fail-closes if `docs/RELEASE_CHANNEL_PIPELINE.md` stops documenting `desktopTupleCoverage.desktopRouteTruth`, primary/fallback route-role rationale, promotion/fallback/rollback/revoke reasoning, or tuple-specific artifact revoke precedence.
 
+Successor-wave compatibility-shelf duplicate-tuple self-test tightening on 2026-04-18:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+```
+
+The package self-test now mutates `.codex-studio/published/releases.json` as well as `RELEASE_CHANNEL.generated.json` so the closed-package guard fail-closes missing fallback rows and duplicate `desktopRouteTruth` tuple ids on the compatibility shelf, not just on the canonical release-channel projection.
+
 Successor-wave successor pass on 2026-04-15:
 
 ```text

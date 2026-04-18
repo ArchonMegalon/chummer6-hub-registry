@@ -1630,6 +1630,28 @@ def run_self_test(proof_receipt: Path) -> None:
             lambda: verify_release_channel_route_truth(releases_path),
             "promotionReason expected",
         )
+        releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+        releases_payload["desktopTupleCoverage"]["desktopRouteTruth"] = [
+            row
+            for row in releases_payload["desktopTupleCoverage"]["desktopRouteTruth"]
+            if row.get("tupleId") != "blazor-desktop:macos:osx-arm64"
+        ]
+        releases_path.write_text(json.dumps(releases_payload, indent=2) + "\n", encoding="utf-8")
+        expect_self_test_failure(
+            "compatibility-shelf-missing-fallback-platform-route-truth-row",
+            lambda: verify_release_channel_route_truth(releases_path),
+            "desktopRouteTruth tuple set drifted",
+        )
+        duplicate_releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+        duplicate_releases_payload["desktopTupleCoverage"]["desktopRouteTruth"].append(
+            dict(duplicate_releases_payload["desktopTupleCoverage"]["desktopRouteTruth"][0])
+        )
+        releases_path.write_text(json.dumps(duplicate_releases_payload, indent=2) + "\n", encoding="utf-8")
+        expect_self_test_failure(
+            "compatibility-shelf-duplicate-platform-route-truth-row",
+            lambda: verify_release_channel_route_truth(releases_path),
+            "desktopRouteTruth duplicate tuple ids",
+        )
         release_payload["desktopTupleCoverage"]["desktopRouteTruth"] = [
             row
             for row in release_payload["desktopTupleCoverage"]["desktopRouteTruth"]
