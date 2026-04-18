@@ -92,3 +92,13 @@ Result:
 - Closed executable queue work items 5-7 for the M101 registry-owned surface by implementing `desktopTupleCoverage.desktopRouteTruth` as the shared channel-truth payload for public shelf and desktop in-app consumers.
 - The mapping now has executable proof that package-owned release truth declares primary/fallback head role, platform promotion state, update eligibility, rollback/revoke posture, route rationale, and installer posture per desktop platform tuple.
 - Verification: `python3 scripts/verify_public_release_channel.py .codex-studio/published/RELEASE_CHANNEL.generated.json`, `dotnet build Chummer.Hub.Registry.slnx -v q`, and `./scripts/ai/verify.sh` all exit `0`.
+
+Date: 2026-04-18 (`/fast` system re-entry replay, cross-repo-contract lane, feedback refresh)
+Audit source: required disk/context reload set, `.codex-studio/published/QUEUE.generated.yaml`, unread feedback replay in order (`feedback/2026-04-15-061125-audit-task-11712.md`, `feedback/2026-04-18-204611-audit-task-11712.md`), existing canonical milestone/backlog artifacts, and fresh `./scripts/ai/verify.sh`
+
+Result:
+
+- Revalidated for queue item "Add milestone mapping or executable queue work for Install, review, compatibility, and runtime-bundle head seams are not yet a package-only registry boundary.." without creating a duplicate milestone artifact.
+- Confirmed both newly unread feedback files are repeat `audit-task-11712` design-mirror publications, so they do not widen or alter this install/review/compatibility/runtime-bundle-head milestone mapping.
+- Reconfirmed the canonical executable coverage for this slice remains the existing mapping plus `docs/runnable-backlog.install-review-compat-runtimebundle-package-boundary.v1.md`; the separate design-mirror refresh stays out of scope to avoid cross-slice duplication.
+- Replayed `./scripts/ai/verify.sh`; verify exits `0` after registry contract/runtime checks pass, while release-channel fixture tracebacks continue to appear only as non-fatal negative-case coverage in the verifier script.
