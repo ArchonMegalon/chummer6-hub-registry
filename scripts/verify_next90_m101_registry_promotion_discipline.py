@@ -34,7 +34,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "88b058e"
+VERIFIED_GUARDRAIL_COMMIT = "49dd07a"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -304,7 +304,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Pin M101 current desktop route truth rationale proof floor",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 route truth row type guard",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -396,6 +396,9 @@ STALE_CLOSEOUT_CURRENT_CLAIMS = (
     "recorded verified guardrail commit `75a248f`",
     "Verified guardrail commit: 63a5583,",
     "Verified guardrail commit: 0b52f5f,",
+    "Verified guardrail commit: 88b058e,",
+    "Repo-local proof-floor commit `88b058e` now pins",
+    "now records `verified_guardrail_commit: 88b058e`",
 )
 
 DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
@@ -513,6 +516,7 @@ EXPECTED_PROOF_RECEIPT_LISTS = {
         "canonical registry, queue, proof, or closeout evidence cites active-run helper markers directly or through encoded helper-token strings",
         f"the landed commit {LANDED_COMMIT} no longer resolves in this repo",
         f"the verified guardrail commit {VERIFIED_GUARDRAIL_COMMIT} no longer resolves in this repo",
+        "release channel or compatibility shelf carries non-object desktop route-truth rows",
         "standard verification stops running the package-specific closeout guardrail",
     ],
 }
@@ -834,7 +838,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit 0b52f5f tightens M101 sibling fallback rollback rationale",
         "commit 98f8b88 pins the M101 fallback rollback proof floor",
         "commit 1cf64e1 pins M101 current fallback rollback proof floor",
-        "commit 88b058e pins M101 current desktop route truth rationale proof floor",
+        "commit 49dd07a tightens the M101 route-truth row-shape guard",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -899,7 +903,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit 0b52f5f tightens M101 sibling fallback rollback rationale",
         "commit 98f8b88 pins the M101 fallback rollback proof floor",
         "commit 1cf64e1 pins M101 current fallback rollback proof floor",
-        "commit 88b058e pins M101 current desktop route truth rationale proof floor",
+        "commit 49dd07a tightens the M101 route-truth row-shape guard",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
