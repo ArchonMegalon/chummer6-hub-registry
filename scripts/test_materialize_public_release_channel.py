@@ -513,9 +513,11 @@ def test_desktop_route_truth_does_not_offer_revoked_fallback_for_primary_rollbac
     fallback = next(row for row in rows if row["head"] == "blazor-desktop")
 
     assert primary["rollbackState"] == "manual_recovery_required"
+    assert primary["rollbackReasonCode"] == "fallback_revoked_for_tuple"
     assert primary["rollbackReason"] == (
-        "No promoted fallback route blazor-desktop:linux:linux-x64 exists for primary route "
-        "avalonia:linux:linux-x64 on linux/linux-x64."
+        "Fallback route blazor-desktop:linux:linux-x64 is revoked for linux/linux-x64, so primary route "
+        "avalonia:linux:linux-x64 requires manual recovery: Registry revoke marker is active for "
+        "blazor-desktop:linux:linux-x64: Fallback signature failed Linux smoke after publication."
     )
     assert fallback["promotionState"] == "revoked"
     assert fallback["promotionReason"].endswith("Blazor fallback startup smoke regressed on this tuple.")
@@ -792,6 +794,11 @@ def test_desktop_tuple_coverage_emits_route_truth_for_primary_and_fallback_heads
     assert "linux/linux-x64" in route_truth["avalonia"]["routeRoleReason"]
     assert route_truth["avalonia"]["promotionState"] == "promoted"
     assert route_truth["avalonia"]["promotionReasonCode"] == "installer_smoke_and_release_proof_passed"
+    assert route_truth["avalonia"]["promotionReason"] == (
+        "Primary-route Avalonia Desktop linux/linux-x64 installer tuple is promoted because the "
+        "flagship head is present on the registry shelf and passed independent startup-smoke and "
+        "release-proof gates for this channel."
+    )
     assert route_truth["avalonia"]["updateEligibility"] == "eligible"
     assert route_truth["avalonia"]["rollbackState"] == "fallback_available"
     assert route_truth["avalonia"]["rollbackReasonCode"] == "promoted_fallback_available"
@@ -801,6 +808,11 @@ def test_desktop_tuple_coverage_emits_route_truth_for_primary_and_fallback_heads
     assert "linux/linux-x64" in route_truth["blazor-desktop"]["routeRoleReason"]
     assert route_truth["blazor-desktop"]["promotionState"] == "promoted"
     assert route_truth["blazor-desktop"]["promotionReasonCode"] == "installer_smoke_and_release_proof_passed"
+    assert route_truth["blazor-desktop"]["promotionReason"] == (
+        "Fallback Blazor Desktop linux/linux-x64 installer tuple is promoted for "
+        "recovery/manual routing because it is present on the registry shelf and passed the "
+        "current startup-smoke and release-proof gates for this channel."
+    )
     assert route_truth["blazor-desktop"]["updateEligibility"] == "manual_fallback"
     assert route_truth["blazor-desktop"]["revokeState"] == "not_revoked"
 
@@ -828,10 +840,20 @@ def test_desktop_tuple_coverage_normalizes_macos_alias_before_route_truth() -> N
     assert primary["tupleId"] == "avalonia:macos:osx-arm64"
     assert primary["promotionState"] == "promoted"
     assert primary["promotionReasonCode"] == "installer_smoke_and_release_proof_passed"
+    assert primary["promotionReason"] == (
+        "Primary-route Avalonia Desktop macos/osx-arm64 installer tuple is promoted because the "
+        "flagship head is present on the registry shelf and passed independent startup-smoke and "
+        "release-proof gates for this channel."
+    )
     assert primary["publicInstallRoute"] == "/downloads/install/avalonia-osx-arm64-installer"
     assert "macos/osx-arm64" in primary["routeRoleReason"]
     assert fallback["tupleId"] == "blazor-desktop:macos:osx-arm64"
     assert fallback["promotionState"] == "proof_required"
+    assert fallback["promotionReason"] == (
+        "Fallback Blazor Desktop macos/osx-arm64 installer tuple is retained for recovery/manual "
+        "routing on macos/osx-arm64 but is not promoted until matching artifact bytes and fresh "
+        "startup-smoke proof are present."
+    )
     assert fallback["rollbackReasonCode"] == "fallback_missing_artifact_or_startup_smoke_proof"
 
 
@@ -855,12 +877,80 @@ def test_desktop_tuple_coverage_marks_unpromoted_fallback_as_proof_required() ->
     fallback = next(row for row in coverage["desktopRouteTruth"] if row["head"] == "blazor-desktop")
     primary = next(row for row in coverage["desktopRouteTruth"] if row["head"] == "avalonia")
     assert primary["rollbackState"] == "manual_recovery_required"
-    assert primary["rollbackReasonCode"] == "no_promoted_fallback_for_tuple"
+    assert primary["rollbackReasonCode"] == "fallback_missing_artifact_or_startup_smoke_proof"
+    assert "matching artifact bytes and fresh startup-smoke proof are still required" in primary["rollbackReason"]
     assert fallback["promotionState"] == "proof_required"
     assert fallback["promotionReasonCode"] == "missing_artifact_or_startup_smoke_proof"
+    assert fallback["promotionReason"] == (
+        "Fallback Blazor Desktop windows/win-x64 installer tuple is retained for recovery/manual "
+        "routing on windows/win-x64 but is not promoted until matching artifact bytes and fresh "
+        "startup-smoke proof are present."
+    )
     assert fallback["rollbackState"] == "fallback_not_promoted"
     assert fallback["rollbackReasonCode"] == "fallback_missing_artifact_or_startup_smoke_proof"
     assert fallback["installPosture"] == "proof_capture_required"
+
+
+def test_desktop_tuple_coverage_marks_primary_manual_recovery_when_fallback_is_revoked() -> None:
+    coverage = MODULE.desktop_tuple_coverage(
+        [
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "platform": "windows",
+                "rid": "win-x64",
+                "arch": "x64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "blazor-desktop-win-x64-installer",
+                "head": "blazor-desktop",
+                "platform": "windows",
+                "rid": "win-x64",
+                "arch": "x64",
+                "kind": "installer",
+                "status": "revoked",
+                "revokeReason": "Fallback signature failed Windows smoke after publication.",
+            },
+        ],
+        required_heads=["avalonia"],
+        required_platforms=["windows"],
+        channel_id="preview",
+    )
+
+    primary = next(row for row in coverage["desktopRouteTruth"] if row["head"] == "avalonia")
+    fallback = next(row for row in coverage["desktopRouteTruth"] if row["head"] == "blazor-desktop")
+    assert primary["rollbackState"] == "manual_recovery_required"
+    assert primary["rollbackReasonCode"] == "fallback_revoked_for_tuple"
+    assert "Fallback signature failed Windows smoke after publication." in primary["rollbackReason"]
+    assert fallback["revokeState"] == "revoked"
+
+
+def test_desktop_tuple_coverage_marks_primary_manual_recovery_when_fallback_is_missing_linux_proof() -> None:
+    coverage = MODULE.desktop_tuple_coverage(
+        [
+            {
+                "artifactId": "avalonia-linux-x64-installer",
+                "head": "avalonia",
+                "platform": "linux",
+                "rid": "linux-x64",
+                "arch": "x64",
+                "kind": "installer",
+            },
+        ],
+        required_heads=["avalonia"],
+        required_platforms=["linux"],
+        channel_id="preview",
+    )
+
+    primary = next(row for row in coverage["desktopRouteTruth"] if row["head"] == "avalonia")
+    assert primary["rollbackState"] == "manual_recovery_required"
+    assert primary["rollbackReasonCode"] == "fallback_missing_artifact_or_startup_smoke_proof"
+    assert primary["rollbackReason"] == (
+        "Fallback route blazor-desktop:linux:linux-x64 is not promoted for linux/linux-x64 because "
+        "matching artifact bytes and fresh startup-smoke proof are still required; primary route "
+        "avalonia:linux:linux-x64 therefore requires manual recovery."
+    )
 
 
 def test_desktop_tuple_coverage_keeps_fallback_rollback_tuple_specific() -> None:

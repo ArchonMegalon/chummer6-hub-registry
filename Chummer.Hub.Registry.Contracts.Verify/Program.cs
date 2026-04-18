@@ -72,6 +72,8 @@ Assert(ReleaseDesktopRollbackReasonCodes.NoPromotedFallbackForTuple == "no_promo
     "Desktop rollback reason codes must expose no_promoted_fallback_for_tuple.");
 Assert(ReleaseDesktopRollbackReasonCodes.FallbackMissingArtifactOrStartupSmokeProof == "fallback_missing_artifact_or_startup_smoke_proof",
     "Desktop rollback reason codes must expose fallback_missing_artifact_or_startup_smoke_proof.");
+Assert(ReleaseDesktopRollbackReasonCodes.FallbackRevokedForTuple == "fallback_revoked_for_tuple",
+    "Desktop rollback reason codes must expose fallback_revoked_for_tuple.");
 Assert(ReleaseDesktopRollbackReasonCodes.RegistryRevokeMarkerActive == "registry_revoke_marker_active",
     "Desktop rollback reason codes must expose registry_revoke_marker_active.");
 Assert(ReleaseDesktopRevokeStates.NotRevoked == "not_revoked", "Desktop revoke states must expose not_revoked.");
@@ -174,6 +176,9 @@ RuntimeBundleHeadProjection head = new(
     IssuedAtUtc: DateTimeOffset.UnixEpoch,
     PreviousArtifactId: null);
 
+const string TupleRevokeReason =
+    "Registry revoke marker is active for avalonia:windows:win-x64: Tuple-specific revoke receipt blocked this desktop route.";
+
 ReleaseChannelArtifact releaseArtifact = new(
     ArtifactId: "avalonia-win-x64-installer",
     Head: "avalonia",
@@ -191,7 +196,7 @@ ReleaseChannelArtifact releaseArtifact = new(
     Status: ReleaseChannelStatuses.Published,
     RolloutState: ReleaseRolloutStates.Revoked,
     RolloutReason: "Tuple rollout revoked after startup smoke regressed.",
-    RevokeReason: "Tuple-specific revoke receipt blocked this desktop route.",
+    RevokeReason: TupleRevokeReason,
     CompatibilityReason: "Signature proof no longer matches the promoted artifact bytes.",
     KnownIssueSummary: "This artifact tuple is not safe for rollback or install.",
     InstallAccessClass: "open_public");
@@ -208,18 +213,18 @@ ReleaseDesktopRouteTruth routeTruth = new(
     RouteRoleReason: "Avalonia Desktop is the flagship desktop route for windows/win-x64 and must carry independent startup-smoke proof before promotion.",
     PromotionState: ReleaseDesktopPromotionStates.Revoked,
     PromotionReasonCode: ReleaseDesktopPromotionReasonCodes.RegistryRevokeMarkerActive,
-    PromotionReason: "Registry revoke truth blocks promotion for avalonia:windows:win-x64: Tuple-specific revoke receipt blocked this desktop route.",
+    PromotionReason: $"Registry revoke truth blocks promotion for avalonia:windows:win-x64: {TupleRevokeReason}",
     ParityPosture: ReleaseDesktopParityPostures.FlagshipPrimary,
     UpdateEligibility: ReleaseDesktopUpdateEligibilities.BlockedRevoked,
-    UpdateEligibilityReason: "Updates are blocked because avalonia:windows:win-x64 is revoked in registry truth: Tuple-specific revoke receipt blocked this desktop route.",
+    UpdateEligibilityReason: $"Updates are blocked because avalonia:windows:win-x64 is revoked in registry truth: {TupleRevokeReason}",
     RollbackState: ReleaseDesktopRollbackStates.Revoked,
     RollbackReasonCode: ReleaseDesktopRollbackReasonCodes.RegistryRevokeMarkerActive,
-    RollbackReason: "Do not use avalonia:windows:win-x64 for rollback while its registry revoke marker is active: Tuple-specific revoke receipt blocked this desktop route.",
+    RollbackReason: $"Do not use avalonia:windows:win-x64 for rollback while its registry revoke marker is active: {TupleRevokeReason}",
     RevokeState: ReleaseDesktopRevokeStates.Revoked,
     RevokeReasonCode: ReleaseDesktopRevokeReasonCodes.RegistryRevokeMarkerActive,
-    RevokeReason: "Tuple-specific revoke receipt blocked this desktop route.",
+    RevokeReason: TupleRevokeReason,
     InstallPosture: ReleaseDesktopInstallPostures.Revoked,
-    InstallPostureReason: "Do not present avalonia:windows:win-x64 as installable while revoked: Tuple-specific revoke receipt blocked this desktop route.",
+    InstallPostureReason: $"Do not present avalonia:windows:win-x64 as installable while revoked: {TupleRevokeReason}",
     PublicInstallRoute: "/downloads/install/avalonia-win-x64-installer");
 
 ReleaseChannelHeadProjection releaseChannel = new(
@@ -277,7 +282,10 @@ Assert(string.Equals(releaseChannel.Artifacts[0].RolloutState, ReleaseRolloutSta
     "Release channel artifacts must retain tuple rollout posture.");
 Assert(string.Equals(releaseChannel.Artifacts[0].RolloutReason, "Tuple rollout revoked after startup smoke regressed.", StringComparison.Ordinal),
     "Release channel artifacts must retain tuple rollout rationale.");
-Assert(string.Equals(releaseChannel.Artifacts[0].RevokeReason, "Tuple-specific revoke receipt blocked this desktop route.", StringComparison.Ordinal),
+Assert(string.Equals(
+        releaseChannel.Artifacts[0].RevokeReason,
+        TupleRevokeReason,
+        StringComparison.Ordinal),
     "Release channel artifacts must retain tuple revoke rationale.");
 Assert(string.Equals(releaseChannel.Artifacts[0].CompatibilityReason, "Signature proof no longer matches the promoted artifact bytes.", StringComparison.Ordinal),
     "Release channel artifacts must retain compatibility rationale.");
@@ -310,6 +318,7 @@ Assert(string.Equals(desktopRouteTruth.RouteRole, ReleaseDesktopRouteRoles.Prima
     "Desktop route truth must retain primary/fallback role.");
 Assert(string.Equals(desktopRouteTruth.RouteRoleReasonCode, ReleaseDesktopRouteReasonCodes.PrimaryFlagshipHead, StringComparison.Ordinal),
     "Desktop route truth must retain route-role reason code.");
+AssertRouteTruthRationaleContext(desktopRouteTruth);
 Assert(string.Equals(desktopRouteTruth.PromotionState, ReleaseDesktopPromotionStates.Revoked, StringComparison.Ordinal),
     "Desktop route truth must retain promotion state.");
 Assert(string.Equals(desktopRouteTruth.PromotionReasonCode, ReleaseDesktopPromotionReasonCodes.RegistryRevokeMarkerActive, StringComparison.Ordinal),
@@ -425,6 +434,40 @@ static void Assert(bool condition, string message)
     if (!condition)
     {
         throw new InvalidOperationException(message);
+    }
+}
+
+static void AssertRouteTruthRationaleContext(ReleaseDesktopRouteTruth routeTruth)
+{
+    string tupleLabel = $"{routeTruth.Platform}/{routeTruth.Rid}";
+    string routeTupleId = routeTruth.TupleId;
+    string headLabel = routeTruth.Head switch
+    {
+        "avalonia" => "Avalonia Desktop",
+        "blazor-desktop" => "Blazor Desktop",
+        _ => routeTruth.Head
+    };
+
+    (string Name, string Value)[] rationaleFields =
+    [
+        (nameof(routeTruth.RouteRoleReason), routeTruth.RouteRoleReason),
+        (nameof(routeTruth.PromotionReason), routeTruth.PromotionReason),
+        (nameof(routeTruth.UpdateEligibilityReason), routeTruth.UpdateEligibilityReason),
+        (nameof(routeTruth.RollbackReason), routeTruth.RollbackReason),
+        (nameof(routeTruth.RevokeReason), routeTruth.RevokeReason),
+        (nameof(routeTruth.InstallPostureReason), routeTruth.InstallPostureReason),
+    ];
+
+    foreach ((string name, string value) in rationaleFields)
+    {
+        Assert(
+            value.Contains(tupleLabel, StringComparison.Ordinal) || value.Contains(routeTupleId, StringComparison.Ordinal),
+            $"Desktop route truth {name} must name the platform/rid tuple or exact route tuple id.");
+        Assert(
+            value.Contains(routeTupleId, StringComparison.Ordinal)
+                || value.Contains(routeTruth.Head, StringComparison.Ordinal)
+                || value.Contains(headLabel, StringComparison.Ordinal),
+            $"Desktop route truth {name} must name the desktop head.");
     }
 }
 

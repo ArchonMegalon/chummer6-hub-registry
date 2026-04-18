@@ -1066,6 +1066,14 @@ def desktop_route_role_reason_code(head: str) -> str:
     return "fallback_recovery_head"
 
 
+def desktop_route_promotion_subject(head: str) -> str:
+    head_token = normalized_token(head)
+    head_label = APP_LABELS.get(head_token, head_token)
+    if DESKTOP_ROUTE_ROLES.get(head_token) == "primary":
+        return f"Primary-route {head_label}"
+    return f"Fallback {head_label}"
+
+
 def desktop_route_revoke_posture(artifact: dict[str, Any] | None, payload: dict) -> tuple[str, str]:
     channel_status = normalized_token(payload.get("status"))
     rollout_state = normalized_token(payload.get("rolloutState") or payload.get("rollout_state"))
@@ -1215,7 +1223,11 @@ def verify_desktop_route_state_matrix(
     if route_role == "primary":
         expected_reason_by_state = {
             "fallback_available": "promoted_fallback_available",
-            "manual_recovery_required": "no_promoted_fallback_for_tuple",
+            "manual_recovery_required": {
+                "no_promoted_fallback_for_tuple",
+                "fallback_missing_artifact_or_startup_smoke_proof",
+                "fallback_revoked_for_tuple",
+            },
         }
         expected_rollback_reason = expected_reason_by_state.get(normalized_row["rollbackState"])
         if expected_rollback_reason is None:
@@ -1223,6 +1235,13 @@ def verify_desktop_route_state_matrix(
                 f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackState "
                 "must be fallback_available or manual_recovery_required for primary routes"
             )
+        if isinstance(expected_rollback_reason, set):
+            if normalized_row["rollbackReasonCode"] not in expected_rollback_reason:
+                raise SystemExit(
+                    f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackReasonCode "
+                    "must explain whether primary rollback is blocked by missing fallback proof or fallback revocation"
+                )
+            return
         if normalized_row["rollbackReasonCode"] != expected_rollback_reason:
             raise SystemExit(
                 f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackReasonCode "
@@ -1275,11 +1294,14 @@ def verify_primary_rollback_matches_fallback_route_truth(
             and fallback_row["revokeState"] != "revoked"
         )
         expected_state = "fallback_available" if fallback_promoted else "manual_recovery_required"
-        expected_reason_code = (
-            "promoted_fallback_available"
-            if fallback_promoted
-            else "no_promoted_fallback_for_tuple"
-        )
+        if fallback_promoted:
+            expected_reason_code = "promoted_fallback_available"
+        elif fallback_row is None:
+            expected_reason_code = "no_promoted_fallback_for_tuple"
+        elif fallback_row["revokeState"] == "revoked":
+            expected_reason_code = "fallback_revoked_for_tuple"
+        else:
+            expected_reason_code = "fallback_missing_artifact_or_startup_smoke_proof"
         if row["rollbackState"] != expected_state:
             raise SystemExit(
                 f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackState "
@@ -1292,13 +1314,18 @@ def verify_primary_rollback_matches_fallback_route_truth(
                 f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackReasonCode "
                 f"must be {expected_reason_code} because fallback route truth for "
                 f"{row['platform']}/{row['rid']} is "
-                f"{'promoted' if fallback_promoted else 'not promoted'}"
+                f"{'promoted' if fallback_promoted else ('revoked' if fallback_row is not None and fallback_row['revokeState'] == 'revoked' else 'not promoted')}"
             )
         fallback_tuple_id = f"blazor-desktop:{row['platform']}:{row['rid']}"
         if fallback_tuple_id not in row["rollbackReason"]:
             raise SystemExit(
                 f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackReason "
                 f"must name sibling fallback route {fallback_tuple_id}"
+            )
+        if fallback_row is not None and fallback_row["revokeState"] == "revoked" and fallback_row["revokeReason"] not in row["rollbackReason"]:
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackReason "
+                "must include sibling fallback revoke rationale when fallback route truth is revoked"
             )
 
 
@@ -1308,7 +1335,6 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
         platform: set(DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS.get(platform, ()))
         for platform in REQUIRED_DESKTOP_PLATFORMS
     }
-    fallback_promoted_by_platform_rid: dict[tuple[str, str], bool] = {}
     for artifact in iter_manifest_download_entries(payload):
         if not isinstance(artifact, dict):
             continue
@@ -1324,8 +1350,6 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
         current = promoted_by_platform_head_rid.get((platform, head, rid))
         if current is None or desktop_route_artifact_selection_key(artifact) < desktop_route_artifact_selection_key(current):
             promoted_by_platform_head_rid[(platform, head, rid)] = artifact
-        if DESKTOP_ROUTE_ROLES.get(head) == "fallback" and not desktop_route_artifact_is_revoked(artifact):
-            fallback_promoted_by_platform_rid[(platform, rid)] = True
 
     rows: list[dict[str, str]] = []
     for platform in REQUIRED_DESKTOP_PLATFORMS:
@@ -1360,10 +1384,19 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
                 if promoted:
                     promotion_state = "promoted"
                     promotion_reason_code = "installer_smoke_and_release_proof_passed"
-                    promotion_reason = (
-                        f"{head_label} {tuple_label} installer tuple is present on the registry shelf "
-                        "and passed the current startup-smoke and release-proof gates for this channel."
-                    )
+                    promotion_subject = desktop_route_promotion_subject(head)
+                    if route_role == "primary":
+                        promotion_reason = (
+                            f"{promotion_subject} {tuple_label} installer tuple is promoted because the "
+                            "flagship head is present on the registry shelf and passed independent "
+                            "startup-smoke and release-proof gates for this channel."
+                        )
+                    else:
+                        promotion_reason = (
+                            f"{promotion_subject} {tuple_label} installer tuple is promoted for "
+                            "recovery/manual routing because it is present on the registry shelf and "
+                            "passed the current startup-smoke and release-proof gates for this channel."
+                        )
                     install_posture = "installer_first"
                     install_posture_reason = (
                         f"Promoted installer media is present for {head_label} on {tuple_label}."
@@ -1371,10 +1404,19 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
                 else:
                     promotion_state = "proof_required"
                     promotion_reason_code = "missing_artifact_or_startup_smoke_proof"
-                    promotion_reason = (
-                        f"{head_label} {tuple_label} installer tuple is not promoted until matching "
-                        "artifact bytes and fresh startup-smoke proof are present."
-                    )
+                    promotion_subject = desktop_route_promotion_subject(head)
+                    if route_role == "primary":
+                        promotion_reason = (
+                            f"{promotion_subject} {tuple_label} installer tuple is not promoted until "
+                            "the flagship head has matching artifact bytes and fresh startup-smoke proof "
+                            "for this channel."
+                        )
+                    else:
+                        promotion_reason = (
+                            f"{promotion_subject} {tuple_label} installer tuple is retained for "
+                            f"recovery/manual routing on {tuple_label} but is not promoted until matching "
+                            "artifact bytes and fresh startup-smoke proof are present."
+                        )
                     install_posture = "proof_capture_required"
                     install_posture_reason = (
                         f"Do not present {route_tuple_label} as installable until the missing tuple proof is captured."
@@ -1388,19 +1430,35 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
                     else:
                         update_eligibility = "blocked_missing_proof"
                         update_reason = f"Primary-route updates are blocked until {route_tuple_label} is promoted."
-                    if fallback_promoted_by_platform_rid.get((platform, rid)):
+                    fallback_artifact = promoted_by_platform_head_rid.get((platform, "blazor-desktop", rid))
+                    fallback_revoked = desktop_route_artifact_is_revoked(fallback_artifact)
+                    fallback_promoted = fallback_artifact is not None and not fallback_revoked
+                    if fallback_promoted:
                         rollback_state = "fallback_available"
                         rollback_reason_code = "promoted_fallback_available"
                         rollback_reason = (
                             f"A promoted fallback route {fallback_route_tuple_label} exists for primary route "
                             f"{route_tuple_label} on {tuple_label}."
                         )
+                    elif fallback_revoked:
+                        fallback_revoke_reason = desktop_route_revoke_posture(fallback_artifact, payload)[1]
+                        fallback_revoke_reason = (
+                            f"Registry revoke marker is active for {fallback_route_tuple_label}: "
+                            f"{fallback_revoke_reason}"
+                        )
+                        rollback_state = "manual_recovery_required"
+                        rollback_reason_code = "fallback_revoked_for_tuple"
+                        rollback_reason = (
+                            f"Fallback route {fallback_route_tuple_label} is revoked for {tuple_label}, so primary route "
+                            f"{route_tuple_label} requires manual recovery: {fallback_revoke_reason}"
+                        )
                     else:
                         rollback_state = "manual_recovery_required"
-                        rollback_reason_code = "no_promoted_fallback_for_tuple"
+                        rollback_reason_code = "fallback_missing_artifact_or_startup_smoke_proof"
                         rollback_reason = (
-                            f"No promoted fallback route {fallback_route_tuple_label} exists for primary route "
-                            f"{route_tuple_label} on {tuple_label}."
+                            f"Fallback route {fallback_route_tuple_label} is not promoted for {tuple_label} because "
+                            "matching artifact bytes and fresh startup-smoke proof are still required; "
+                            f"primary route {route_tuple_label} therefore requires manual recovery."
                         )
                 else:
                     parity_posture = "explicit_fallback"
@@ -1427,8 +1485,9 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
                 if revoke_state == "revoked":
                     promotion_state = "revoked"
                     promotion_reason_code = "registry_revoke_marker_active"
+                    route_role_label = "primary-route" if route_role == "primary" else "fallback"
                     promotion_reason = (
-                        f"Registry revoke truth blocks promotion for {route_tuple_label}: "
+                        f"Registry revoke truth blocks {route_role_label} promotion for {route_tuple_label}: "
                         f"{revoke_reason}"
                     )
                     update_eligibility = "blocked_revoked"
