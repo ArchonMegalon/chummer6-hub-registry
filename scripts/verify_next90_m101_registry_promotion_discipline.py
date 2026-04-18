@@ -965,6 +965,9 @@ def verify_release_channel_route_truth(path: Path) -> None:
     rows = coverage.get("desktopRouteTruth")
     if not isinstance(rows, list):
         fail("release channel is missing desktopTupleCoverage.desktopRouteTruth")
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            fail(f"desktopTupleCoverage.desktopRouteTruth[{index}] must contain only objects")
     tuple_ids = [str(row.get("tupleId") or "") for row in rows if isinstance(row, dict)]
     duplicate_tuple_ids = sorted({tuple_id for tuple_id in tuple_ids if tuple_ids.count(tuple_id) > 1})
     if duplicate_tuple_ids:
@@ -1652,6 +1655,14 @@ def run_self_test(proof_receipt: Path) -> None:
             lambda: verify_release_channel_route_truth(releases_path),
             "desktopRouteTruth duplicate tuple ids",
         )
+        malformed_releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+        malformed_releases_payload["desktopTupleCoverage"]["desktopRouteTruth"][0] = "stale copied tuple prose"
+        releases_path.write_text(json.dumps(malformed_releases_payload, indent=2) + "\n", encoding="utf-8")
+        expect_self_test_failure(
+            "compatibility-shelf-nonobject-route-truth-row",
+            lambda: verify_release_channel_route_truth(releases_path),
+            "desktopTupleCoverage.desktopRouteTruth[0] must contain only objects",
+        )
         release_payload["desktopTupleCoverage"]["desktopRouteTruth"] = [
             row
             for row in release_payload["desktopTupleCoverage"]["desktopRouteTruth"]
@@ -1672,6 +1683,14 @@ def run_self_test(proof_receipt: Path) -> None:
             "duplicate-platform-route-truth-row",
             lambda: verify_release_channel_route_truth(release_path),
             "desktopRouteTruth duplicate tuple ids",
+        )
+        malformed_release_payload = json.loads(DEFAULT_RELEASE_CHANNEL.read_text(encoding="utf-8"))
+        malformed_release_payload["desktopTupleCoverage"]["desktopRouteTruth"][0] = "stale copied tuple prose"
+        release_path.write_text(json.dumps(malformed_release_payload, indent=2) + "\n", encoding="utf-8")
+        expect_self_test_failure(
+            "nonobject-route-truth-row",
+            lambda: verify_release_channel_route_truth(release_path),
+            "desktopTupleCoverage.desktopRouteTruth[0] must contain only objects",
         )
         materializer_path = Path(temp_dir) / "materialize_public_release_channel.py"
         materializer_source = DEFAULT_MATERIALIZER.read_text(encoding="utf-8")
