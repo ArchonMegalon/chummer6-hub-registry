@@ -945,7 +945,7 @@ The materializer and public release-channel verifier now echo the resolved tuple
 
 Successor-wave revoked row fail-close tightening on 2026-04-17:
 
-The public release-channel verifier now checks revoked `desktopRouteTruth` rows before canonical row comparison: `promotionState`, `updateEligibility`, `rollbackState`, and `installPosture` must all be blocked for revoke, and each blocked reason field must include the row's resolved `revokeReason`. `scripts/test_verify_public_release_channel.py` carries a direct regression case that tampers a revoked row back to generic promotion copy, and the package-specific verifier now requires that test name plus the explicit `promotionReason must include revokeReason` failure text.
+The public release-channel verifier now checks revoked `desktopRouteTruth` rows before canonical row comparison: `promotionState`, `updateEligibility`, `rollbackState`, and `installPosture` must all be blocked for revoke, and each blocked reason field must include the row's resolved `revokeReason`. `scripts/test_verify_public_release_channel.py` now carries direct regression cases that tamper revoked rows back to generic promotion, update, rollback, and install-posture copy, and the package-specific verifier now requires those test names plus the explicit `promotionReason must include revokeReason`, `updateEligibilityReason must include revokeReason`, `rollbackReason must include revokeReason`, and `installPostureReason must include revokeReason` fail-close markers.
 
 Successor-wave encoded helper proof tightening on 2026-04-17:
 

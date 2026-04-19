@@ -160,6 +160,11 @@ public sealed record ReleaseChannelArtifact(
     string? KnownIssueSummary = null,
     string? InstallAccessClass = null);
 
+/// <summary>
+/// Explains the exact desktop route decision for one head/platform/rid tuple.
+/// Consumers should read the role, promotion, rollback, and revoke fields together
+/// rather than inferring tuple posture from artifact presence alone.
+/// </summary>
 public sealed record ReleaseDesktopRouteTruth(
     string TupleId,
     string Head,
@@ -186,6 +191,12 @@ public sealed record ReleaseDesktopRouteTruth(
     string InstallPostureReason,
     string PublicInstallRoute);
 
+/// <summary>
+/// Canonical desktop tuple coverage for the published release channel.
+/// <see cref="RequiredDesktopHeads"/> stays scoped to flagship completion, while
+/// <see cref="DesktopRouteTruth"/> must still carry explicit fallback and rollback
+/// rationale for every required tuple.
+/// </summary>
 public sealed record ReleaseDesktopTupleCoverage(
     IReadOnlyList<string> RequiredDesktopPlatforms,
     IReadOnlyList<string> RequiredDesktopHeads,

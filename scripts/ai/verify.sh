@@ -294,6 +294,134 @@ mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.route-tru
 
 cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.route-truth.backup.json
 python3 - <<'PY'
+import importlib.util
+import json
+from pathlib import Path
+
+script = Path("/docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py")
+spec = importlib.util.spec_from_file_location("verify_public_release_channel_module", script)
+module = importlib.util.module_from_spec(spec)
+assert spec and spec.loader
+spec.loader.exec_module(module)
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["status"] = "revoked"
+payload["rolloutReason"] = "Signature receipt was revoked after publication."
+payload["desktopTupleCoverage"]["desktopRouteTruth"] = module.expected_desktop_route_truth_rows(payload)
+payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["promotionReason"] = (
+    "Registry revoke truth blocks primary-route promotion for avalonia:linux:linux-x64."
+)
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject revoked promotion rationale that omits the embedded revoke reason." >&2
+  exit 1
+fi
+if ! rg -F "promotionReason must include revokeReason" "$release_proof_shape_log" >/dev/null; then
+  echo "verify gate failed: expected revoked promotion rationale fail-close marker from verifier." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.route-truth.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.route-truth.backup.json
+python3 - <<'PY'
+import importlib.util
+import json
+from pathlib import Path
+
+script = Path("/docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py")
+spec = importlib.util.spec_from_file_location("verify_public_release_channel_module", script)
+module = importlib.util.module_from_spec(spec)
+assert spec and spec.loader
+spec.loader.exec_module(module)
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["status"] = "revoked"
+payload["rolloutReason"] = "Signature receipt was revoked after publication."
+payload["desktopTupleCoverage"]["desktopRouteTruth"] = module.expected_desktop_route_truth_rows(payload)
+payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["updateEligibilityReason"] = (
+    "Updates are blocked for avalonia:linux:linux-x64."
+)
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject revoked update rationale that omits the embedded revoke reason." >&2
+  exit 1
+fi
+if ! rg -F "updateEligibilityReason must include revokeReason" "$release_proof_shape_log" >/dev/null; then
+  echo "verify gate failed: expected revoked update rationale fail-close marker from verifier." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.route-truth.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.route-truth.backup.json
+python3 - <<'PY'
+import importlib.util
+import json
+from pathlib import Path
+
+script = Path("/docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py")
+spec = importlib.util.spec_from_file_location("verify_public_release_channel_module", script)
+module = importlib.util.module_from_spec(spec)
+assert spec and spec.loader
+spec.loader.exec_module(module)
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["status"] = "revoked"
+payload["rolloutReason"] = "Signature receipt was revoked after publication."
+payload["desktopTupleCoverage"]["desktopRouteTruth"] = module.expected_desktop_route_truth_rows(payload)
+payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["rollbackReason"] = (
+    "Do not use avalonia:linux:linux-x64 for rollback while its registry revoke marker is active."
+)
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject revoked rollback rationale that omits the embedded revoke reason." >&2
+  exit 1
+fi
+if ! rg -F "rollbackReason must include revokeReason" "$release_proof_shape_log" >/dev/null; then
+  echo "verify gate failed: expected revoked rollback rationale fail-close marker from verifier." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.route-truth.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.route-truth.backup.json
+python3 - <<'PY'
+import importlib.util
+import json
+from pathlib import Path
+
+script = Path("/docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py")
+spec = importlib.util.spec_from_file_location("verify_public_release_channel_module", script)
+module = importlib.util.module_from_spec(spec)
+assert spec and spec.loader
+spec.loader.exec_module(module)
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+payload["status"] = "revoked"
+payload["rolloutReason"] = "Signature receipt was revoked after publication."
+payload["desktopTupleCoverage"]["desktopRouteTruth"] = module.expected_desktop_route_truth_rows(payload)
+payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["installPostureReason"] = (
+    "Do not present avalonia:linux:linux-x64 as installable while revoked."
+)
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
+if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+  echo "verify gate failed: verifier should reject revoked install-posture rationale that omits the embedded revoke reason." >&2
+  exit 1
+fi
+if ! rg -F "installPostureReason must include revokeReason" "$release_proof_shape_log" >/dev/null; then
+  echo "verify gate failed: expected revoked install-posture rationale fail-close marker from verifier." >&2
+  exit 1
+fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.route-truth.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
+
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.route-truth.backup.json
+python3 - <<'PY'
 import json
 from pathlib import Path
 
