@@ -31,6 +31,7 @@ DEFAULT_QUEUE_STAGING = Path("/docker/fleet/.codex-studio/published/NEXT_90_DAY_
 DEFAULT_SOURCE_QUEUE_STAGING = Path(
     "/docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_QUEUE_STAGING.generated.yaml"
 )
+EXPECTED_REPO_CHECKOUT_ROOT = "/docker/chummercomplete/chummer-hub-registry"
 
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
@@ -360,6 +361,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "missing or extra repo-local path expansion roots under the `Chummer.Hub.Registry` package label",
     "generatedAt`, `publishedAt`, and `version` identity fields stay aligned between",
     "Do not reopen this package unless one of these facts changes",
+    f"records `{EXPECTED_REPO_CHECKOUT_ROOT}` as the only valid repo-root prefix for canonical M101 proof citations",
 )
 
 STALE_CLOSEOUT_CURRENT_CLAIMS = (
@@ -445,6 +447,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "landed_commit: a4e47da",
     f"verified_guardrail_commit: {VERIFIED_GUARDRAIL_COMMIT}",
     "successor_frontier_id: 3017689961",
+    f"repo_checkout_root: {EXPECTED_REPO_CHECKOUT_ROOT}",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     "assigned_allowed_paths:",
@@ -490,6 +493,7 @@ EXPECTED_PROOF_RECEIPT_SCALARS = {
     "landed_commit": LANDED_COMMIT,
     "verified_guardrail_commit": VERIFIED_GUARDRAIL_COMMIT,
     "successor_frontier_id": "3017689961",
+    "repo_checkout_root": EXPECTED_REPO_CHECKOUT_ROOT,
 }
 
 EXPECTED_PROOF_RECEIPT_TOP_LEVEL_KEYS = [
@@ -501,6 +505,7 @@ EXPECTED_PROOF_RECEIPT_TOP_LEVEL_KEYS = [
     "landed_commit",
     "verified_guardrail_commit",
     "successor_frontier_id",
+    "repo_checkout_root",
     "owned_surfaces",
     "assigned_allowed_paths",
     "repo_local_path_expansion",
@@ -554,6 +559,7 @@ EXPECTED_PROOF_RECEIPT_LISTS = {
         "route-role, promotion, rollback, or revoke reason-code fields disappear or drift from canonical tuple truth",
         "tuple selection stops preferring non-revoked artifact truth over revoked artifact rows for the same head/platform/rid",
         "canonical registry, queue, proof, or closeout evidence cites active-run helper markers directly or through encoded helper-token strings",
+        f"canonical registry or queue evidence stops using the repo checkout root {EXPECTED_REPO_CHECKOUT_ROOT}",
         f"the landed commit {LANDED_COMMIT} no longer resolves in this repo",
         f"the verified guardrail commit {VERIFIED_GUARDRAIL_COMMIT} no longer resolves in this repo",
         "release channel or compatibility shelf carries non-object desktop route-truth rows",
@@ -874,12 +880,12 @@ def verify_canonical_successor_registry(path: Path) -> None:
     required_snippets = (
         "owner: chummer6-hub-registry",
         "status: complete",
-        ".codex-studio/published/RELEASE_CHANNEL.generated.json",
-        ".codex-studio/published/releases.json",
-        "scripts/verify_public_release_channel.py",
-        "scripts/verify_next90_m101_registry_promotion_discipline.py",
-        "docs/next90-m101-registry-promotion-discipline.proof.yaml",
-        "docs/next90-m101-registry-promotion-discipline.closeout.md",
+        f"{EXPECTED_REPO_CHECKOUT_ROOT}/.codex-studio/published/RELEASE_CHANNEL.generated.json",
+        f"{EXPECTED_REPO_CHECKOUT_ROOT}/.codex-studio/published/releases.json",
+        f"{EXPECTED_REPO_CHECKOUT_ROOT}/scripts/verify_public_release_channel.py",
+        f"{EXPECTED_REPO_CHECKOUT_ROOT}/scripts/verify_next90_m101_registry_promotion_discipline.py",
+        f"{EXPECTED_REPO_CHECKOUT_ROOT}/docs/next90-m101-registry-promotion-discipline.proof.yaml",
+        f"{EXPECTED_REPO_CHECKOUT_ROOT}/docs/next90-m101-registry-promotion-discipline.closeout.md",
         "successor frontier 3017689961",
         "commit 1586dfc pins the M101 queue authority guard",
         "commit f1d0763 pins the latest M101 queue authority proof",
@@ -940,13 +946,13 @@ def verify_queue_staging(path: Path) -> None:
         f"landed_commit: {LANDED_COMMIT}",
         f"completion_action: {EXPECTED_QUEUE_COMPLETION_ACTION}",
         f"do_not_reopen_reason: {EXPECTED_QUEUE_DO_NOT_REOPEN_REASON}",
-        ".codex-studio/published/RELEASE_CHANNEL.generated.json",
-        ".codex-studio/published/releases.json",
-        "scripts/verify_public_release_channel.py",
-        "scripts/verify_next90_m101_registry_promotion_discipline.py",
-        "docs/RELEASE_CHANNEL_PIPELINE.md",
-        "docs/next90-m101-registry-promotion-discipline.proof.yaml",
-        "docs/next90-m101-registry-promotion-discipline.closeout.md",
+        f"{EXPECTED_REPO_CHECKOUT_ROOT}/.codex-studio/published/RELEASE_CHANNEL.generated.json",
+        f"{EXPECTED_REPO_CHECKOUT_ROOT}/.codex-studio/published/releases.json",
+        f"{EXPECTED_REPO_CHECKOUT_ROOT}/scripts/verify_public_release_channel.py",
+        f"{EXPECTED_REPO_CHECKOUT_ROOT}/scripts/verify_next90_m101_registry_promotion_discipline.py",
+        f"{EXPECTED_REPO_CHECKOUT_ROOT}/docs/RELEASE_CHANNEL_PIPELINE.md",
+        f"{EXPECTED_REPO_CHECKOUT_ROOT}/docs/next90-m101-registry-promotion-discipline.proof.yaml",
+        f"{EXPECTED_REPO_CHECKOUT_ROOT}/docs/next90-m101-registry-promotion-discipline.closeout.md",
         "commit 1586dfc pins the M101 queue authority guard",
         "commit f1d0763 pins the latest M101 queue authority proof",
         "commit e88ac6c tightens the M101 guardrail commit self-test",
@@ -1439,6 +1445,18 @@ def run_self_test(proof_receipt: Path) -> None:
         )
         temp_path.write_text(
             source_text.replace(
+                f"repo_checkout_root: {EXPECTED_REPO_CHECKOUT_ROOT}",
+                "repo_checkout_root: /docker/chummercomplete/chummer6-hub-registry",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "wrong-repo-checkout-root",
+            lambda: verify_proof_receipt_structure(temp_path),
+            "repo_checkout_root expected",
+        )
+        temp_path.write_text(
+            source_text.replace(
                 f"verified_guardrail_commit: {VERIFIED_GUARDRAIL_COMMIT}",
                 "verified_guardrail_commit: 0000000",
             ),
@@ -1509,6 +1527,19 @@ def run_self_test(proof_receipt: Path) -> None:
             "queue-frontier-drift",
             lambda: verify_queue_staging(queue_path),
             "frontier_id: 3017689961",
+        )
+        queue_path.write_text(
+            replace_queue_package_block(
+                queue_source_text,
+                f"{EXPECTED_REPO_CHECKOUT_ROOT}/.codex-studio/published/RELEASE_CHANNEL.generated.json",
+                "/docker/chummercomplete/chummer6-hub-registry/.codex-studio/published/RELEASE_CHANNEL.generated.json",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "queue-proof-root-drift",
+            lambda: verify_queue_staging(queue_path),
+            f"{EXPECTED_REPO_CHECKOUT_ROOT}/.codex-studio/published/RELEASE_CHANNEL.generated.json",
         )
         queue_path.write_text(
             replace_queue_package_block(queue_source_text, "status: complete", "status: in_progress"),
@@ -1637,6 +1668,19 @@ def run_self_test(proof_receipt: Path) -> None:
             "frontier_id: 3017689961",
         )
         source_queue_path.write_text(
+            replace_queue_package_block(
+                source_queue_text,
+                f"{EXPECTED_REPO_CHECKOUT_ROOT}/.codex-studio/published/RELEASE_CHANNEL.generated.json",
+                "/docker/chummercomplete/chummer6-hub-registry/.codex-studio/published/RELEASE_CHANNEL.generated.json",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "design-queue-proof-root-drift",
+            lambda: verify_queue_staging(source_queue_path),
+            f"{EXPECTED_REPO_CHECKOUT_ROOT}/.codex-studio/published/RELEASE_CHANNEL.generated.json",
+        )
+        source_queue_path.write_text(
             replace_queue_package_block(source_queue_text, "status: complete", "status: in_progress"),
             encoding="utf-8",
         )
@@ -1756,6 +1800,19 @@ def run_self_test(proof_receipt: Path) -> None:
         )
         registry_path = Path(temp_dir) / "successor-registry.yaml"
         registry_text = DEFAULT_SUCCESSOR_REGISTRY.read_text(encoding="utf-8")
+        registry_path.write_text(
+            replace_registry_task_block(
+                registry_text,
+                f"{EXPECTED_REPO_CHECKOUT_ROOT}/.codex-studio/published/RELEASE_CHANNEL.generated.json",
+                "/docker/chummercomplete/chummer6-hub-registry/.codex-studio/published/RELEASE_CHANNEL.generated.json",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "registry-proof-root-drift",
+            lambda: verify_canonical_successor_registry(registry_path),
+            f"{EXPECTED_REPO_CHECKOUT_ROOT}/.codex-studio/published/RELEASE_CHANNEL.generated.json",
+        )
         registry_path.write_text(
             replace_registry_task_block(
                 registry_text,

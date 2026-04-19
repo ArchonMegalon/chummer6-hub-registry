@@ -6,6 +6,7 @@ owner: chummer6-hub-registry
 landed_commit: a4e47da
 verified_guardrail_commit: fc57464
 successor_frontier_id: 3017689961
+repo_checkout_root: /docker/chummercomplete/chummer-hub-registry
 owned_surfaces:
   - release_channel_truth:desktop
   - rollback_and_revoke_reasoning
@@ -68,6 +69,7 @@ do_not_reopen_unless:
   - route-role, promotion, rollback, or revoke reason-code fields disappear or drift from canonical tuple truth
   - tuple selection stops preferring non-revoked artifact truth over revoked artifact rows for the same head/platform/rid
   - canonical registry, queue, proof, or closeout evidence cites active-run helper markers directly or through encoded helper-token strings
+  - canonical registry or queue evidence stops using the repo checkout root /docker/chummercomplete/chummer-hub-registry
   - the landed commit a4e47da no longer resolves in this repo
   - the verified guardrail commit fc57464 no longer resolves in this repo
   - release channel or compatibility shelf carries non-object desktop route-truth rows
