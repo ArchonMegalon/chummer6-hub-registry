@@ -1033,6 +1033,61 @@ def verify_release_channel_route_truth(path: Path) -> None:
                 fail(f"{tuple_id}.{key} must be nonblank")
 
 
+def resolved_projection_scalar(
+    payload: dict[str, object],
+    *,
+    primary_key: str,
+    secondary_key: str | None = None,
+    source: Path,
+) -> str:
+    keys = [primary_key]
+    if secondary_key:
+        keys.append(secondary_key)
+    values = {key: str(payload.get(key) or "").strip() for key in keys if key in payload}
+    if not values:
+        fail(f"{source.name} is missing required projection identity field {primary_key}")
+    distinct_values = {value for value in values.values() if value}
+    if len(distinct_values) != 1:
+        fail(
+            f"{source.name} projection identity drifted between alias fields "
+            f"{'/'.join(values)}: {values}"
+        )
+    value = next(iter(distinct_values), "")
+    if not value:
+        fail(f"{source.name} projection identity field {primary_key} must be nonblank")
+    return value
+
+
+def verify_release_projection_identity(release_channel: Path, releases_manifest: Path) -> None:
+    release_payload = json.loads(read_text(release_channel))
+    releases_payload = json.loads(read_text(releases_manifest))
+
+    compared_fields = (
+        ("version", None),
+        ("publishedAt", None),
+        ("generatedAt", "generated_at"),
+    )
+    for primary_key, secondary_key in compared_fields:
+        release_value = resolved_projection_scalar(
+            release_payload,
+            primary_key=primary_key,
+            secondary_key=secondary_key,
+            source=release_channel,
+        )
+        releases_value = resolved_projection_scalar(
+            releases_payload,
+            primary_key=primary_key,
+            secondary_key=secondary_key,
+            source=releases_manifest,
+        )
+        if release_value != releases_value:
+            fail(
+                "release projection identity drifted for "
+                f"{primary_key}: {release_channel.name}={release_value!r}, "
+                f"{releases_manifest.name}={releases_value!r}"
+            )
+
+
 def verify_doc(path: Path, *, label: str, snippets: tuple[str, ...]) -> None:
     text = read_text(path)
     for snippet in snippets:
@@ -1691,6 +1746,31 @@ def run_self_test(proof_receipt: Path) -> None:
             "promotionReason expected",
         )
         releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+        releases_payload["generatedAt"] = "2026-04-18T19:54:27Z"
+        releases_payload["generated_at"] = "2026-04-18T19:54:27Z"
+        releases_path.write_text(json.dumps(releases_payload, indent=2) + "\n", encoding="utf-8")
+        expect_self_test_failure(
+            "compatibility-shelf-generated-at-identity-drift",
+            lambda: verify_release_projection_identity(DEFAULT_RELEASE_CHANNEL, releases_path),
+            "release projection identity drifted for generatedAt",
+        )
+        releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+        releases_payload["publishedAt"] = "2026-04-16T15:52:58Z"
+        releases_path.write_text(json.dumps(releases_payload, indent=2) + "\n", encoding="utf-8")
+        expect_self_test_failure(
+            "compatibility-shelf-published-at-identity-drift",
+            lambda: verify_release_projection_identity(DEFAULT_RELEASE_CHANNEL, releases_path),
+            "release projection identity drifted for publishedAt",
+        )
+        releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+        releases_payload["version"] = "run-20260414-1837"
+        releases_path.write_text(json.dumps(releases_payload, indent=2) + "\n", encoding="utf-8")
+        expect_self_test_failure(
+            "compatibility-shelf-version-identity-drift",
+            lambda: verify_release_projection_identity(DEFAULT_RELEASE_CHANNEL, releases_path),
+            "release projection identity drifted for version",
+        )
+        releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
         releases_payload["desktopTupleCoverage"]["desktopRouteTruth"] = [
             row
             for row in releases_payload["desktopTupleCoverage"]["desktopRouteTruth"]
@@ -1941,6 +2021,7 @@ def main() -> int:
     run_release_channel_verifier(args.releases_manifest)
     verify_release_channel_route_truth(args.release_channel)
     verify_release_channel_route_truth(args.releases_manifest)
+    verify_release_projection_identity(args.release_channel, args.releases_manifest)
     verify_doc(args.pipeline_doc, label="release channel pipeline doc", snippets=PIPELINE_DOC_SNIPPETS)
     verify_closeout_doc(args.closeout_doc)
     verify_doc(args.proof_receipt, label="M101 proof receipt", snippets=PROOF_RECEIPT_SNIPPETS)
