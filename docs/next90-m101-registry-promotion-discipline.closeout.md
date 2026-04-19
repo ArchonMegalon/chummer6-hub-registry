@@ -88,6 +88,8 @@ The row contract carries nonblank rationale fields for:
 * `revokeReasonCode`
 * `installPostureReason`
 
+`desktopTupleCoverage.requiredDesktopHeads` is intentionally narrower than route-truth coverage: it stays `["avalonia"]` because only the flagship head is required for promoted desktop completion, while fallback `blazor-desktop` rows remain mandatory in `desktopTupleCoverage.desktopRouteTruth` so rollback and recovery truth stays explicit per tuple without falsely widening completion requirements.
+
 Route, promotion, update, rollback, revoke, and install-posture rationale are tuple-qualified, not just channel-qualified. The canonical and compatibility projections say, for example, `linux/linux-x64`, `windows/win-x64`, `macos/osx-arm64`, and exact route tuple ids such as `blazor-desktop:windows:win-x64` inside the rationale fields, so registry truth explains why the head is primary, fallback, promoted, proof-required, rollback-eligible, or not revoked on the exact desktop platform tuple being offered. Promotion rationale is now role-explicit as well: primary rows say they are promoted because the flagship head passed independent tuple proof, promoted fallback rows say they are promoted for recovery/manual routing, and proof-required fallback rows say they are still retained for recovery/manual routing while tuple proof is missing. The public verifier now fail-closes `parityPosture` drift directly as route-role truth: primary rows must remain `flagship_primary`, and fallback rows must remain `explicit_fallback`.
 
 The verifier recomputes canonical route-truth rows and fail-closes if generated truth omits rows, carries unexpected keys, has blank rationale or reason-code fields, drifts from expected primary/fallback posture or route-role parity posture, or fails to block revoked channel/artifact routes. It now also cross-checks primary rollback posture against the sibling fallback route row for the same platform/rid before the full canonical-row comparison: primary rows may report `fallback_available` only when that fallback row is promoted and not revoked, and must report `manual_recovery_required` when the fallback row is proof-required or revoked. Primary rollback reason-code truth now distinguishes those blocked cases directly: `fallback_missing_artifact_or_startup_smoke_proof` when the sibling fallback still lacks promotion proof, and `fallback_revoked_for_tuple` when the sibling fallback is present but revoked. Artifact-level `status`, `rolloutState`, and `compatibilityState` revoke markers all block only the affected tuple, and artifact-level revoke reasons are preferred over channel-level known-issue text for individually revoked tuples, so a revoked fallback installer can explain its own rollback block without making the whole channel look revoked. Revoked rows now echo the resolved revoke rationale inside `promotionReason`, `updateEligibilityReason`, `rollbackReason`, and `installPostureReason`, not only in `revokeReason`, so desktop update, rollback, support, and public shelf consumers can explain why a tuple is blocked from whichever posture field they read. Stable `routeRoleReasonCode`, `promotionReasonCode`, `rollbackReasonCode`, and `revokeReasonCode` values give those consumers a machine-readable decision surface without parsing prose.
@@ -231,6 +233,15 @@ verified next90 M101 registry promotion discipline self-test: next90-m101-regist
 ```
 
 The materializer and verifier now require promotion, update, rollback, revoke, and install-posture rationale to name the head and/or platform-rid tuple instead of relying on generic "this channel tuple" copy. Checked-in `RELEASE_CHANNEL.generated.json` and `releases.json` were regenerated from the materializer so each of the six `desktopRouteTruth` rows carries tuple-specific primary, fallback, promoted, proof-required, rollback, non-revoked, and install-posture reasoning.
+
+Successor-wave required-head coverage clarification on 2026-04-19:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+```
+
+The pipeline doc, closeout proof, and package verifier now all pin the canonical distinction between required-head completion and route-truth coverage: `desktopTupleCoverage.requiredDesktopHeads` stays Avalonia-only, while fallback `blazor-desktop` remains mandatory in `desktopTupleCoverage.desktopRouteTruth` for each required desktop tuple. Future shards therefore fail closed if the docs drift back to treating fallback as a required promoted head instead of an explicit rollback/recovery route.
 
 Additional successor-wave proof tightening on 2026-04-15:
 

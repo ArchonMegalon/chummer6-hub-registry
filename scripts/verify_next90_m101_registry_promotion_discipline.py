@@ -282,6 +282,7 @@ RATIONALE_FIELDS = (
 
 PIPELINE_DOC_SNIPPETS = (
     "desktopTupleCoverage.desktopRouteTruth",
+    "`desktopTupleCoverage.requiredDesktopHeads` is intentionally Avalonia-only canonical coverage.",
     "avalonia` primary",
     "blazor-desktop` fallback",
     "promotion state and reason",
@@ -342,6 +343,9 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Successor-wave public release-channel duplicate tuple unit guard on 2026-04-17",
     "Successor-wave repo-local path-expansion self-test tightening on 2026-04-19",
     "Successor-wave release projection identity tightening on 2026-04-19",
+    "Successor-wave required-head coverage clarification on 2026-04-19",
+    "`desktopTupleCoverage.requiredDesktopHeads` is intentionally narrower than route-truth coverage",
+    'it stays `["avalonia"]` because only the flagship head is required for promoted desktop completion',
     "missing or extra repo-local path expansion roots under the `Chummer.Hub.Registry` package label",
     "generatedAt`, `publishedAt`, and `version` identity fields stay aligned between",
     "Do not reopen this package unless one of these facts changes",
@@ -452,6 +456,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "scripts/ai/verify.sh",
     "release channel or compatibility shelf carries duplicate desktop route-truth tuple rows",
     "release channel and compatibility shelf drift on generated, published, or version identity metadata",
+    "requiredDesktopHeads stops matching avalonia-only canonical coverage while fallback route truth remains explicit per tuple",
     "Fleet or design queue staging carries duplicate completed package rows",
     "promotion rationale stops distinguishing primary flagship promotion from fallback recovery/manual promotion on each platform tuple",
     "route-role, promotion, update, rollback, revoke, or install-posture rationale stops naming the head and platform/rid tuple",
@@ -514,6 +519,7 @@ EXPECTED_PROOF_RECEIPT_LISTS = {
         "release channel or compatibility shelf loses exact desktop route-truth rows",
         "release channel or compatibility shelf carries duplicate desktop route-truth tuple rows",
         "release channel and compatibility shelf drift on generated, published, or version identity metadata",
+        "requiredDesktopHeads stops matching avalonia-only canonical coverage while fallback route truth remains explicit per tuple",
         "promotion, fallback, rollback, revoke, update, or install-posture rationale drifts",
         "Chummer.Run.Registry stops preserving artifact-level status, rollout, revoke, compatibility, or known-issue rationale when it loads release-channel truth for typed consumers",
         "promotion rationale stops distinguishing primary flagship promotion from fallback recovery/manual promotion on each platform tuple",
