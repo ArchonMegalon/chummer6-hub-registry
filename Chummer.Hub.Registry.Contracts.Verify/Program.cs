@@ -319,12 +319,26 @@ Assert(string.Equals(releaseProof.Status, ReleaseProofStatuses.Passed, StringCom
     "Release channel projections must retain release-proof posture.");
 ReleaseDesktopTupleCoverage desktopTupleCoverage = releaseChannel.DesktopTupleCoverage
     ?? throw new InvalidOperationException("Release channel projections must retain desktop tuple coverage.");
+Assert(
+    desktopTupleCoverage.RequiredDesktopPlatforms.SequenceEqual(["linux", "windows", "macos"], StringComparer.Ordinal),
+    "Desktop tuple coverage must retain canonical required platform order.");
+Assert(
+    desktopTupleCoverage.RequiredDesktopHeads.SequenceEqual(["avalonia"], StringComparer.Ordinal),
+    "Desktop tuple coverage must preserve avalonia-only required heads while fallback route truth stays explicit.");
+Assert(
+    desktopTupleCoverage.MissingRequiredPlatformHeadRidTuples?.SequenceEqual(
+        ["avalonia:linux:linux-x64", "avalonia:macos:osx-arm64"],
+        StringComparer.Ordinal) == true,
+    "Desktop tuple coverage must retain missing required tuple proof in canonical tuple-id form.");
 ReleaseDesktopRouteTruth desktopRouteTruth = desktopTupleCoverage.DesktopRouteTruth.Single();
 Assert(string.Equals(desktopRouteTruth.RouteRole, ReleaseDesktopRouteRoles.Primary, StringComparison.Ordinal),
     "Desktop route truth must retain primary/fallback role.");
 Assert(string.Equals(desktopRouteTruth.RouteRoleReasonCode, ReleaseDesktopRouteReasonCodes.PrimaryFlagshipHead, StringComparison.Ordinal),
     "Desktop route truth must retain route-role reason code.");
 AssertRouteTruthRationaleContext(desktopRouteTruth);
+Assert(string.Equals(desktopRouteTruth.ParityPosture, ReleaseDesktopParityPostures.FlagshipPrimary, StringComparison.Ordinal),
+    "Primary desktop route truth must retain flagship-primary parity posture.");
+AssertPublicInstallRouteMatchesArtifactId(desktopRouteTruth);
 Assert(string.Equals(desktopRouteTruth.PromotionState, ReleaseDesktopPromotionStates.Revoked, StringComparison.Ordinal),
     "Desktop route truth must retain promotion state.");
 Assert(string.Equals(desktopRouteTruth.PromotionReasonCode, ReleaseDesktopPromotionReasonCodes.RegistryRevokeMarkerActive, StringComparison.Ordinal),
@@ -386,6 +400,7 @@ Assert(string.Equals(promotedFallbackRouteTruth.RouteRoleReasonCode, ReleaseDesk
     "Fallback desktop route truth must retain recovery-head route-role reason code.");
 Assert(string.Equals(promotedFallbackRouteTruth.ParityPosture, ReleaseDesktopParityPostures.ExplicitFallback, StringComparison.Ordinal),
     "Fallback desktop route truth must retain explicit fallback parity posture.");
+AssertPublicInstallRouteMatchesArtifactId(promotedFallbackRouteTruth);
 Assert(string.Equals(promotedFallbackRouteTruth.UpdateEligibility, ReleaseDesktopUpdateEligibilities.ManualFallback, StringComparison.Ordinal),
     "Promoted fallback desktop route truth must retain manual-fallback update posture.");
 Assert(string.Equals(promotedFallbackRouteTruth.RollbackState, ReleaseDesktopRollbackStates.FallbackAvailable, StringComparison.Ordinal),
@@ -428,6 +443,7 @@ Assert(primaryRouteWithRevokedSiblingFallback.RollbackReason.Contains("blazor-de
     "Primary desktop route truth must name the exact sibling fallback route id inside rollback rationale.");
 Assert(primaryRouteWithRevokedSiblingFallback.RollbackReason.Contains(FallbackTupleRevokeReason, StringComparison.Ordinal),
     "Primary desktop route truth must embed the sibling fallback revoke rationale inside rollback rationale.");
+AssertPublicInstallRouteMatchesArtifactId(primaryRouteWithRevokedSiblingFallback);
 
 DownloadReceiptDto receipt = new(
     ReceiptId: "receipt-1",
@@ -568,6 +584,24 @@ static void AssertRouteTruthRationaleContext(ReleaseDesktopRouteTruth routeTruth
                 || value.Contains(headLabel, StringComparison.Ordinal),
             $"Desktop route truth {name} must name the desktop head.");
     }
+}
+
+static void AssertPublicInstallRouteMatchesArtifactId(ReleaseDesktopRouteTruth routeTruth)
+{
+    Assert(
+        routeTruth.PublicInstallRoute.StartsWith("/downloads/install/", StringComparison.Ordinal),
+        "Desktop route truth must retain a slash-led public install route.");
+    if (string.IsNullOrWhiteSpace(routeTruth.ArtifactId))
+    {
+        return;
+    }
+
+    Assert(
+        string.Equals(
+            routeTruth.PublicInstallRoute,
+            $"/downloads/install/{routeTruth.ArtifactId}",
+            StringComparison.Ordinal),
+        "Desktop route truth public install route must stay aligned with its artifact id.");
 }
 
 static void VerifyRegistryContractsAreNotSourceOwnedInConsumers()

@@ -931,6 +931,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit 1cf64e1 pins M101 current fallback rollback proof floor",
         "commit 49dd07a tightens the M101 route-truth row-shape guard",
         "commit acb881d tightens the M101 projection alias proof guard",
+        "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -997,6 +998,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit 1cf64e1 pins M101 current fallback rollback proof floor",
         "commit 49dd07a tightens the M101 route-truth row-shape guard",
         "commit acb881d tightens the M101 projection alias proof guard",
+        "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
@@ -1638,6 +1640,19 @@ def run_self_test(proof_receipt: Path) -> None:
         queue_path.write_text(
             replace_queue_package_block(
                 queue_source_text,
+                "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
+                "commit acb881d tightens the M101 projection alias proof guard",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "queue-latest-guardrail-proof-drift",
+            lambda: verify_queue_staging(queue_path),
+            "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
+        )
+        queue_path.write_text(
+            replace_queue_package_block(
+                queue_source_text,
                 "      - docs",
                 "      - docs\n      - Chummer.Run.Registry",
             ),
@@ -1777,6 +1792,19 @@ def run_self_test(proof_receipt: Path) -> None:
         source_queue_path.write_text(
             replace_queue_package_block(
                 source_queue_text,
+                "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
+                "commit acb881d tightens the M101 projection alias proof guard",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "design-queue-latest-guardrail-proof-drift",
+            lambda: verify_queue_staging(source_queue_path),
+            "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
+        )
+        source_queue_path.write_text(
+            replace_queue_package_block(
+                source_queue_text,
                 "      - docs",
                 "      - docs\n      - Chummer.Run.Registry",
             ),
@@ -1836,6 +1864,19 @@ def run_self_test(proof_receipt: Path) -> None:
             "registry-proof-root-drift",
             lambda: verify_canonical_successor_registry(registry_path),
             f"{EXPECTED_REPO_CHECKOUT_ROOT}/.codex-studio/published/RELEASE_CHANNEL.generated.json",
+        )
+        registry_path.write_text(
+            replace_registry_task_block(
+                registry_text,
+                "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
+                "commit acb881d tightens the M101 projection alias proof guard",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "registry-latest-guardrail-proof-drift",
+            lambda: verify_canonical_successor_registry(registry_path),
+            "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
         )
         registry_path.write_text(
             replace_registry_task_block(
