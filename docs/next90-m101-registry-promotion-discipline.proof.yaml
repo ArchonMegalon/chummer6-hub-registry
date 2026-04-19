@@ -4,7 +4,7 @@ task_id: "101.2"
 status: complete
 owner: chummer6-hub-registry
 landed_commit: a4e47da
-verified_guardrail_commit: acb881d
+verified_guardrail_commit: a1da9ca
 successor_frontier_id: 3017689961
 repo_checkout_root: /docker/chummercomplete/chummer-hub-registry
 owned_surfaces:
@@ -61,7 +61,7 @@ do_not_reopen_unless:
   - promotion, fallback, rollback, revoke, update, or install-posture rationale drifts
   - Chummer.Run.Registry stops preserving artifact-level status, rollout, revoke, compatibility, or known-issue rationale when it loads release-channel truth for typed consumers
   - promotion rationale stops distinguishing primary flagship promotion from fallback recovery/manual promotion on each platform tuple
-  - route-role, promotion, update, rollback, revoke, or install-posture rationale stops naming the head and platform/rid tuple, such as avalonia:windows:win-x64 plus linux/linux-x64
+  - route-role, promotion, update, rollback, revoke, or install-posture rationale stops naming the exact route tuple id, such as avalonia:windows:win-x64
   - route-role parity posture stops matching primary=flagship_primary or fallback=explicit_fallback
   - primary rollback posture stops matching sibling fallback route truth for the same platform/rid
   - primary rollback rationale stops naming the exact sibling fallback route id, such as blazor-desktop:windows:win-x64
@@ -71,6 +71,6 @@ do_not_reopen_unless:
   - canonical registry, queue, proof, or closeout evidence cites active-run helper markers directly or through encoded helper-token strings
   - canonical registry or queue evidence stops using the repo checkout root /docker/chummercomplete/chummer-hub-registry
   - the landed commit a4e47da no longer resolves in this repo
-  - the verified guardrail commit acb881d no longer resolves in this repo
+  - the verified guardrail commit a1da9ca no longer resolves in this repo
   - release channel or compatibility shelf carries non-object desktop route-truth rows
   - standard verification stops running the package-specific closeout guardrail

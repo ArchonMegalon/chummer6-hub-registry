@@ -36,7 +36,7 @@ EXPECTED_REPO_CHECKOUT_ROOT = "/docker/chummercomplete/chummer-hub-registry"
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "acb881d"
+VERIFIED_GUARDRAIL_COMMIT = "a1da9ca"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -291,7 +291,7 @@ PIPELINE_DOC_SNIPPETS = (
     "avalonia` primary",
     "blazor-desktop` fallback",
     "promotion state and reason",
-    "head-specific rationale fields, including rollback rationale, must also name the desktop head",
+    "Every rationale field must name the exact route tuple id",
     "`routeRoleReason` is canonical",
     "`parityPosture` is also canonical route-role truth",
     "primary rows must stay `flagship_primary`, and fallback rows must stay `explicit_fallback`",
@@ -322,7 +322,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 projection alias proof guard",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 exact route-tuple rationale proof",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -490,7 +490,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "requiredDesktopHeads stops matching avalonia-only canonical coverage while fallback route truth remains explicit per tuple",
     "Fleet or design queue staging carries duplicate completed package rows",
     "promotion rationale stops distinguishing primary flagship promotion from fallback recovery/manual promotion on each platform tuple",
-    "route-role, promotion, update, rollback, revoke, or install-posture rationale stops naming the head and platform/rid tuple",
+    "route-role, promotion, update, rollback, revoke, or install-posture rationale stops naming the exact route tuple id",
     "route-role parity posture stops matching primary=flagship_primary or fallback=explicit_fallback",
     "primary rollback posture stops matching sibling fallback route truth for the same platform/rid",
     "primary rollback rationale stops naming the exact sibling fallback route id",
@@ -565,7 +565,7 @@ EXPECTED_PROOF_RECEIPT_LISTS = {
         "promotion, fallback, rollback, revoke, update, or install-posture rationale drifts",
         "Chummer.Run.Registry stops preserving artifact-level status, rollout, revoke, compatibility, or known-issue rationale when it loads release-channel truth for typed consumers",
         "promotion rationale stops distinguishing primary flagship promotion from fallback recovery/manual promotion on each platform tuple",
-        "route-role, promotion, update, rollback, revoke, or install-posture rationale stops naming the head and platform/rid tuple, such as avalonia:windows:win-x64 plus linux/linux-x64",
+        "route-role, promotion, update, rollback, revoke, or install-posture rationale stops naming the exact route tuple id, such as avalonia:windows:win-x64",
         "route-role parity posture stops matching primary=flagship_primary or fallback=explicit_fallback",
         "primary rollback posture stops matching sibling fallback route truth for the same platform/rid",
         "primary rollback rationale stops naming the exact sibling fallback route id, such as blazor-desktop:windows:win-x64",
