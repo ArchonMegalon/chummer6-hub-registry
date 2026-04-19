@@ -1593,14 +1593,15 @@ def desktop_route_role_reason(head: str, platform: str, rid: str) -> str:
     platform_token = normalize_platform_token(platform)
     rid_token = normalized_token(rid)
     tuple_label = f"{platform_token}/{rid_token}" if rid_token else platform_token
+    route_tuple_label = f"{head_token}:{platform_token}:{rid_token}" if rid_token else f"{head_token}:{platform_token}"
     if DESKTOP_ROUTE_ROLES.get(head_token) == "primary":
         return (
-            f"{APP_LABELS.get(head_token, head_token)} is the flagship desktop route for "
-            f"{tuple_label} and must carry independent startup-smoke proof before promotion."
+            f"{APP_LABELS.get(head_token, head_token)} route {route_tuple_label} is the flagship "
+            f"desktop route for {tuple_label} and must carry independent startup-smoke proof before promotion."
         )
     return (
-        f"{APP_LABELS.get(head_token, head_token)} is retained as an explicit fallback route for "
-        f"{tuple_label}; it cannot satisfy the primary-route promise."
+        f"{APP_LABELS.get(head_token, head_token)} route {route_tuple_label} is retained as an "
+        f"explicit fallback route for {tuple_label}; it cannot satisfy the primary-route promise."
     )
 
 
@@ -1739,19 +1740,19 @@ def desktop_route_truth(
                     promotion_subject = desktop_route_promotion_subject(head)
                     if route_role == "primary":
                         promotion_reason = (
-                            f"{promotion_subject} {tuple_label} installer tuple is promoted because the "
+                            f"{promotion_subject} tuple {route_tuple_label} for {tuple_label} is promoted because the "
                             "flagship head is present on the registry shelf and passed independent "
                             "startup-smoke and release-proof gates for this channel."
                         )
                     else:
                         promotion_reason = (
-                            f"{promotion_subject} {tuple_label} installer tuple is promoted for "
+                            f"{promotion_subject} tuple {route_tuple_label} for {tuple_label} is promoted for "
                             "recovery/manual routing because it is present on the registry shelf and "
                             "passed the current startup-smoke and release-proof gates for this channel."
                         )
                     install_posture = "installer_first"
                     install_posture_reason = (
-                        f"Promoted installer media is present for {head_label} on {tuple_label}."
+                        f"Promoted installer media is present for {head_label} tuple {route_tuple_label} on {tuple_label}."
                     )
                 else:
                     promotion_state = "proof_required"
@@ -1759,13 +1760,13 @@ def desktop_route_truth(
                     promotion_subject = desktop_route_promotion_subject(head)
                     if route_role == "primary":
                         promotion_reason = (
-                            f"{promotion_subject} {tuple_label} installer tuple is not promoted until "
+                            f"{promotion_subject} tuple {route_tuple_label} for {tuple_label} is not promoted until "
                             "the flagship head has matching artifact bytes and fresh startup-smoke proof "
                             "for this channel."
                         )
                     else:
                         promotion_reason = (
-                            f"{promotion_subject} {tuple_label} installer tuple is retained for "
+                            f"{promotion_subject} tuple {route_tuple_label} for {tuple_label} is retained for "
                             f"recovery/manual routing on {tuple_label} but is not promoted until matching "
                             "artifact bytes and fresh startup-smoke proof are present."
                         )
@@ -1778,7 +1779,9 @@ def desktop_route_truth(
                     parity_posture = "flagship_primary"
                     if promoted:
                         update_eligibility = "eligible"
-                        update_reason = f"Primary-route {head_label} installer is promoted for {tuple_label}."
+                        update_reason = (
+                            f"Primary-route {head_label} tuple {route_tuple_label} is promoted for {tuple_label}."
+                        )
                     else:
                         update_eligibility = "blocked_missing_proof"
                         update_reason = f"Primary-route updates are blocked until {route_tuple_label} is promoted."
@@ -1823,13 +1826,14 @@ def desktop_route_truth(
                     if promoted:
                         update_eligibility = "manual_fallback"
                         update_reason = (
-                            f"Fallback {head_label} installer is promoted for {tuple_label} recovery/manual selection, "
-                            "not automatic primary updates."
+                            f"Fallback {head_label} tuple {route_tuple_label} is promoted for {tuple_label} "
+                            "recovery/manual selection, not automatic primary updates."
                         )
                         rollback_state = "fallback_available"
                         rollback_reason_code = "fallback_promoted_for_recovery"
                         rollback_reason = (
-                            f"Fallback {head_label} is promoted for {tuple_label} rollback or recovery routing."
+                            f"Fallback {head_label} tuple {route_tuple_label} is promoted for {tuple_label} "
+                            "rollback or recovery routing."
                         )
                     else:
                         update_eligibility = "blocked_missing_proof"

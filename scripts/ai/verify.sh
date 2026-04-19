@@ -286,8 +286,8 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_re
   echo "verify gate failed: verifier should reject hand-edited desktop route truth rationale drift." >&2
   exit 1
 fi
-if ! rg -F "desktopTupleCoverage.desktopRouteTruth[0].promotionReason must name desktop tuple context" "$release_proof_shape_log" >/dev/null; then
-  echo "verify gate failed: expected desktopRouteTruth tuple-context fail-close marker from verifier." >&2
+if ! rg -F "desktopTupleCoverage.desktopRouteTruth[0].promotionReason must name exact route tuple id" "$release_proof_shape_log" >/dev/null; then
+  echo "verify gate failed: expected desktopRouteTruth exact-route-tuple fail-close marker from verifier." >&2
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.route-truth.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json

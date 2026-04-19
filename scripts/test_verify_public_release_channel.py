@@ -732,12 +732,12 @@ def test_verify_desktop_tuple_coverage_rejects_generic_route_truth_rationale() -
     }
     rows = MODULE.expected_desktop_route_truth_rows(payload)
     rows[0]["promotionReason"] = (
-        "Primary-route Avalonia Desktop installer tuple is promoted because the flagship head "
-        "passed the current gates."
+        "Primary-route Avalonia Desktop tuple for linux/linux-x64 is promoted because the flagship "
+        "head passed the current gates."
     )
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
 
-    with pytest.raises(SystemExit, match="promotionReason must name desktop tuple context"):
+    with pytest.raises(SystemExit, match="promotionReason must name exact route tuple id"):
         MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
@@ -745,12 +745,25 @@ def test_verify_desktop_tuple_coverage_rejects_headless_route_truth_rationale() 
     payload = complete_primary_desktop_tuple_payload()
     rows = MODULE.expected_desktop_route_truth_rows(payload)
     rows[0]["promotionReason"] = (
-        "Primary-route installer tuple for linux/linux-x64 is promoted because the flagship head "
-        "passed the current gates."
+        "Primary-route tuple avalonia:linux:linux-x64 for linux/linux-x64 is promoted because the "
+        "flagship head passed the current gates."
     )
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
 
-    with pytest.raises(SystemExit, match="promotionReason must name desktop head context"):
+    with pytest.raises(SystemExit, match="desktopRouteTruth does not match canonical promotion/fallback route truth"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_platform_only_route_role_rationale() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["routeRoleReason"] = (
+        "Avalonia Desktop is the flagship desktop route for linux/linux-x64 and must carry "
+        "independent startup-smoke proof before promotion."
+    )
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="routeRoleReason must match canonical primary/fallback tuple rationale"):
         MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
@@ -760,7 +773,7 @@ def test_verify_desktop_tuple_coverage_rejects_headless_rollback_rationale() -> 
     rows[0]["rollbackReason"] = "A promoted fallback desktop head exists for linux/linux-x64."
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
 
-    with pytest.raises(SystemExit, match="rollbackReason must name desktop head context"):
+    with pytest.raises(SystemExit, match="rollbackReason must name exact route tuple id"):
         MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
@@ -1660,7 +1673,7 @@ def test_verify_desktop_tuple_coverage_rejects_revoked_revoke_reason_without_tup
     rows[0]["revokeReason"] = "Signature receipt was revoked after publication."
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
 
-    with pytest.raises(SystemExit, match="revokeReason must name desktop tuple context"):
+    with pytest.raises(SystemExit, match="revokeReason must name exact route tuple id"):
         MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 

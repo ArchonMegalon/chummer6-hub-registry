@@ -42,13 +42,13 @@ EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
         "routeRole": "primary",
         "routeRoleReasonCode": "primary_flagship_head",
-        "routeRoleReason": "Avalonia Desktop is the flagship desktop route for linux/linux-x64 and must carry independent startup-smoke proof before promotion.",
+        "routeRoleReason": "Avalonia Desktop route avalonia:linux:linux-x64 is the flagship desktop route for linux/linux-x64 and must carry independent startup-smoke proof before promotion.",
         "promotionState": "promoted",
         "promotionReasonCode": "installer_smoke_and_release_proof_passed",
-        "promotionReason": "Primary-route Avalonia Desktop linux/linux-x64 installer tuple is promoted because the flagship head is present on the registry shelf and passed independent startup-smoke and release-proof gates for this channel.",
+        "promotionReason": "Primary-route Avalonia Desktop tuple avalonia:linux:linux-x64 for linux/linux-x64 is promoted because the flagship head is present on the registry shelf and passed independent startup-smoke and release-proof gates for this channel.",
         "parityPosture": "flagship_primary",
         "updateEligibility": "eligible",
-        "updateEligibilityReason": "Primary-route Avalonia Desktop installer is promoted for linux/linux-x64.",
+        "updateEligibilityReason": "Primary-route Avalonia Desktop tuple avalonia:linux:linux-x64 is promoted for linux/linux-x64.",
         "rollbackState": "fallback_available",
         "rollbackReasonCode": "promoted_fallback_available",
         "rollbackReason": (
@@ -59,39 +59,39 @@ EXPECTED_ROUTE_TRUTH = {
         "revokeReasonCode": "no_registry_revoke_marker",
         "revokeReason": "No registry revoke marker is active for avalonia:linux:linux-x64.",
         "installPosture": "installer_first",
-        "installPostureReason": "Promoted installer media is present for Avalonia Desktop on linux/linux-x64.",
+        "installPostureReason": "Promoted installer media is present for Avalonia Desktop tuple avalonia:linux:linux-x64 on linux/linux-x64.",
         "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
     },
     "blazor-desktop:linux:linux-x64": {
         "routeRole": "fallback",
         "routeRoleReasonCode": "fallback_recovery_head",
-        "routeRoleReason": "Blazor Desktop is retained as an explicit fallback route for linux/linux-x64; it cannot satisfy the primary-route promise.",
+        "routeRoleReason": "Blazor Desktop route blazor-desktop:linux:linux-x64 is retained as an explicit fallback route for linux/linux-x64; it cannot satisfy the primary-route promise.",
         "promotionState": "promoted",
         "promotionReasonCode": "installer_smoke_and_release_proof_passed",
-        "promotionReason": "Fallback Blazor Desktop linux/linux-x64 installer tuple is promoted for recovery/manual routing because it is present on the registry shelf and passed the current startup-smoke and release-proof gates for this channel.",
+        "promotionReason": "Fallback Blazor Desktop tuple blazor-desktop:linux:linux-x64 for linux/linux-x64 is promoted for recovery/manual routing because it is present on the registry shelf and passed the current startup-smoke and release-proof gates for this channel.",
         "parityPosture": "explicit_fallback",
         "updateEligibility": "manual_fallback",
-        "updateEligibilityReason": "Fallback Blazor Desktop installer is promoted for linux/linux-x64 recovery/manual selection, not automatic primary updates.",
+        "updateEligibilityReason": "Fallback Blazor Desktop tuple blazor-desktop:linux:linux-x64 is promoted for linux/linux-x64 recovery/manual selection, not automatic primary updates.",
         "rollbackState": "fallback_available",
         "rollbackReasonCode": "fallback_promoted_for_recovery",
-        "rollbackReason": "Fallback Blazor Desktop is promoted for linux/linux-x64 rollback or recovery routing.",
+        "rollbackReason": "Fallback Blazor Desktop tuple blazor-desktop:linux:linux-x64 is promoted for linux/linux-x64 rollback or recovery routing.",
         "revokeState": "not_revoked",
         "revokeReasonCode": "no_registry_revoke_marker",
         "revokeReason": "No registry revoke marker is active for blazor-desktop:linux:linux-x64.",
         "installPosture": "installer_first",
-        "installPostureReason": "Promoted installer media is present for Blazor Desktop on linux/linux-x64.",
+        "installPostureReason": "Promoted installer media is present for Blazor Desktop tuple blazor-desktop:linux:linux-x64 on linux/linux-x64.",
         "publicInstallRoute": "/downloads/install/blazor-desktop-linux-x64-installer",
     },
     "avalonia:windows:win-x64": {
         "routeRole": "primary",
         "routeRoleReasonCode": "primary_flagship_head",
-        "routeRoleReason": "Avalonia Desktop is the flagship desktop route for windows/win-x64 and must carry independent startup-smoke proof before promotion.",
+        "routeRoleReason": "Avalonia Desktop route avalonia:windows:win-x64 is the flagship desktop route for windows/win-x64 and must carry independent startup-smoke proof before promotion.",
         "promotionState": "promoted",
         "promotionReasonCode": "installer_smoke_and_release_proof_passed",
-        "promotionReason": "Primary-route Avalonia Desktop windows/win-x64 installer tuple is promoted because the flagship head is present on the registry shelf and passed independent startup-smoke and release-proof gates for this channel.",
+        "promotionReason": "Primary-route Avalonia Desktop tuple avalonia:windows:win-x64 for windows/win-x64 is promoted because the flagship head is present on the registry shelf and passed independent startup-smoke and release-proof gates for this channel.",
         "parityPosture": "flagship_primary",
         "updateEligibility": "eligible",
-        "updateEligibilityReason": "Primary-route Avalonia Desktop installer is promoted for windows/win-x64.",
+        "updateEligibilityReason": "Primary-route Avalonia Desktop tuple avalonia:windows:win-x64 is promoted for windows/win-x64.",
         "rollbackState": "manual_recovery_required",
         "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
         "rollbackReason": (
@@ -103,16 +103,16 @@ EXPECTED_ROUTE_TRUTH = {
         "revokeReasonCode": "no_registry_revoke_marker",
         "revokeReason": "No registry revoke marker is active for avalonia:windows:win-x64.",
         "installPosture": "installer_first",
-        "installPostureReason": "Promoted installer media is present for Avalonia Desktop on windows/win-x64.",
+        "installPostureReason": "Promoted installer media is present for Avalonia Desktop tuple avalonia:windows:win-x64 on windows/win-x64.",
         "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
     },
     "blazor-desktop:windows:win-x64": {
         "routeRole": "fallback",
         "routeRoleReasonCode": "fallback_recovery_head",
-        "routeRoleReason": "Blazor Desktop is retained as an explicit fallback route for windows/win-x64; it cannot satisfy the primary-route promise.",
+        "routeRoleReason": "Blazor Desktop route blazor-desktop:windows:win-x64 is retained as an explicit fallback route for windows/win-x64; it cannot satisfy the primary-route promise.",
         "promotionState": "proof_required",
         "promotionReasonCode": "missing_artifact_or_startup_smoke_proof",
-        "promotionReason": "Fallback Blazor Desktop windows/win-x64 installer tuple is retained for recovery/manual routing on windows/win-x64 but is not promoted until matching artifact bytes and fresh startup-smoke proof are present.",
+        "promotionReason": "Fallback Blazor Desktop tuple blazor-desktop:windows:win-x64 for windows/win-x64 is retained for recovery/manual routing on windows/win-x64 but is not promoted until matching artifact bytes and fresh startup-smoke proof are present.",
         "parityPosture": "explicit_fallback",
         "updateEligibility": "blocked_missing_proof",
         "updateEligibilityReason": "Fallback route blazor-desktop:windows:win-x64 is not update-eligible until promoted.",
@@ -129,13 +129,13 @@ EXPECTED_ROUTE_TRUTH = {
     "avalonia:macos:osx-arm64": {
         "routeRole": "primary",
         "routeRoleReasonCode": "primary_flagship_head",
-        "routeRoleReason": "Avalonia Desktop is the flagship desktop route for macos/osx-arm64 and must carry independent startup-smoke proof before promotion.",
+        "routeRoleReason": "Avalonia Desktop route avalonia:macos:osx-arm64 is the flagship desktop route for macos/osx-arm64 and must carry independent startup-smoke proof before promotion.",
         "promotionState": "promoted",
         "promotionReasonCode": "installer_smoke_and_release_proof_passed",
-        "promotionReason": "Primary-route Avalonia Desktop macos/osx-arm64 installer tuple is promoted because the flagship head is present on the registry shelf and passed independent startup-smoke and release-proof gates for this channel.",
+        "promotionReason": "Primary-route Avalonia Desktop tuple avalonia:macos:osx-arm64 for macos/osx-arm64 is promoted because the flagship head is present on the registry shelf and passed independent startup-smoke and release-proof gates for this channel.",
         "parityPosture": "flagship_primary",
         "updateEligibility": "eligible",
-        "updateEligibilityReason": "Primary-route Avalonia Desktop installer is promoted for macos/osx-arm64.",
+        "updateEligibilityReason": "Primary-route Avalonia Desktop tuple avalonia:macos:osx-arm64 is promoted for macos/osx-arm64.",
         "rollbackState": "manual_recovery_required",
         "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
         "rollbackReason": (
@@ -147,16 +147,16 @@ EXPECTED_ROUTE_TRUTH = {
         "revokeReasonCode": "no_registry_revoke_marker",
         "revokeReason": "No registry revoke marker is active for avalonia:macos:osx-arm64.",
         "installPosture": "installer_first",
-        "installPostureReason": "Promoted installer media is present for Avalonia Desktop on macos/osx-arm64.",
+        "installPostureReason": "Promoted installer media is present for Avalonia Desktop tuple avalonia:macos:osx-arm64 on macos/osx-arm64.",
         "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
     },
     "blazor-desktop:macos:osx-arm64": {
         "routeRole": "fallback",
         "routeRoleReasonCode": "fallback_recovery_head",
-        "routeRoleReason": "Blazor Desktop is retained as an explicit fallback route for macos/osx-arm64; it cannot satisfy the primary-route promise.",
+        "routeRoleReason": "Blazor Desktop route blazor-desktop:macos:osx-arm64 is retained as an explicit fallback route for macos/osx-arm64; it cannot satisfy the primary-route promise.",
         "promotionState": "proof_required",
         "promotionReasonCode": "missing_artifact_or_startup_smoke_proof",
-        "promotionReason": "Fallback Blazor Desktop macos/osx-arm64 installer tuple is retained for recovery/manual routing on macos/osx-arm64 but is not promoted until matching artifact bytes and fresh startup-smoke proof are present.",
+        "promotionReason": "Fallback Blazor Desktop tuple blazor-desktop:macos:osx-arm64 for macos/osx-arm64 is retained for recovery/manual routing on macos/osx-arm64 but is not promoted until matching artifact bytes and fresh startup-smoke proof are present.",
         "parityPosture": "explicit_fallback",
         "updateEligibility": "blocked_missing_proof",
         "updateEligibilityReason": "Fallback route blazor-desktop:macos:osx-arm64 is not update-eligible until promoted.",
@@ -284,6 +284,10 @@ RATIONALE_FIELDS = (
 PIPELINE_DOC_SNIPPETS = (
     "desktopTupleCoverage.desktopRouteTruth",
     "`desktopTupleCoverage.requiredDesktopHeads` is intentionally Avalonia-only canonical coverage.",
+    '"routeRoleReason": "Avalonia Desktop route avalonia:windows:win-x64 is the flagship desktop route for windows/win-x64 and must carry independent startup-smoke proof before promotion."',
+    '"promotionReason": "Primary-route Avalonia Desktop tuple avalonia:windows:win-x64 for windows/win-x64 is promoted because the flagship head is present on the registry shelf and passed independent startup-smoke and release-proof gates for this channel."',
+    '"updateEligibilityReason": "Primary-route Avalonia Desktop tuple avalonia:windows:win-x64 is promoted for windows/win-x64."',
+    '"installPostureReason": "Promoted installer media is present for Avalonia Desktop tuple avalonia:windows:win-x64 on windows/win-x64."',
     "avalonia` primary",
     "blazor-desktop` fallback",
     "promotion state and reason",
@@ -618,7 +622,7 @@ VERIFY_SH_SNIPPETS = (
     "--self-test",
     "verify_public_release_channel.py",
     "hand-edited desktop route truth rationale drift",
-    "desktopRouteTruth tuple-context fail-close marker",
+    "desktopRouteTruth exact-route-tuple fail-close marker",
     "unexpected desktop route truth row fields",
     "desktopRouteTruth row-shape fail-close marker",
     "duplicate desktop route truth tuple ids",
@@ -661,7 +665,7 @@ MATERIALIZER_SOURCE_SNIPPETS = (
 
 PUBLIC_VERIFIER_SOURCE_SNIPPETS = (
     "verify_desktop_route_rationale_context",
-    "must name desktop tuple context",
+    "must name exact route tuple id",
     "must name desktop head context",
     "head_label = APP_LABELS.get(head_token, head_token)",
     "verify_desktop_route_role_parity",
@@ -698,6 +702,7 @@ PUBLIC_VERIFIER_TEST_SNIPPETS = (
     "test_verify_desktop_tuple_coverage_rejects_duplicate_route_truth_tuple_ids",
     "test_verify_desktop_tuple_coverage_rejects_generic_route_truth_rationale",
     "test_verify_desktop_tuple_coverage_rejects_headless_route_truth_rationale",
+    "test_verify_desktop_tuple_coverage_rejects_platform_only_route_role_rationale",
     "test_verify_desktop_tuple_coverage_rejects_headless_rollback_rationale",
     "test_verify_desktop_tuple_coverage_rejects_primary_rollback_without_sibling_fallback_route",
     "test_verify_desktop_tuple_coverage_rejects_route_role_reason_drift",
@@ -720,15 +725,15 @@ PUBLIC_VERIFIER_TEST_SNIPPETS = (
     "test_verify_desktop_tuple_coverage_rejects_non_revoked_row_with_revoked_reason_code",
     "test_verify_desktop_tuple_coverage_rejects_missing_route_truth_reason_code",
     "desktopRouteTruth must not contain duplicate tupleId values",
-    "promotionReason must name desktop tuple context",
-    "promotionReason must name desktop head context",
-    "rollbackReason must name desktop head context",
+    "promotionReason must name exact route tuple id",
+    "desktopRouteTruth does not match canonical promotion/fallback route truth",
+    "routeRoleReason must match canonical primary/fallback tuple rationale",
+    "rollbackReason must name exact route tuple id",
     "rollbackReason must name sibling fallback route blazor-desktop:linux:linux-x64",
     "A promoted fallback route blazor-desktop:linux:linux-x64 exists for primary route",
     "Fallback route blazor-desktop:linux:linux-x64 is not promoted for linux/linux-x64 because",
     "Fallback route blazor-desktop:linux:linux-x64 is revoked for linux/linux-x64, so primary route",
     "promotionReasonCode must not be blank",
-    "routeRoleReason must match canonical primary/fallback tuple rationale",
     "parityPosture must be flagship_primary for primary desktop route",
     "parityPosture must be explicit_fallback for fallback desktop route",
     "updateEligibility must be eligible",
@@ -741,7 +746,7 @@ PUBLIC_VERIFIER_TEST_SNIPPETS = (
     "updateEligibilityReason must include revokeReason",
     "rollbackReason must include revokeReason",
     "installPostureReason must include revokeReason",
-    "revokeReason must name desktop tuple context",
+    "revokeReason must name exact route tuple id",
     "revokeReasonCode must be registry_revoke_marker_active",
     "revokeReasonCode must be no_registry_revoke_marker",
 )
@@ -837,7 +842,7 @@ CONTRACT_VERIFY_SNIPPETS = (
     "Desktop route truth must echo revoke rationale inside blocked promotion rationale.",
     "Desktop route truth must echo revoke rationale inside rollback rationale.",
     "Desktop route truth must echo revoke rationale inside install rationale.",
-    "Desktop route truth {name} must name the platform/rid tuple or exact route tuple id.",
+    "Desktop route truth {name} must name the exact route tuple id.",
     "Desktop route truth {name} must name the desktop head.",
     "KnownIssueSummary: \"This artifact tuple is not safe for rollback or install.\"",
     "Release channel artifacts must retain tuple revoke rationale.",
@@ -1864,8 +1869,32 @@ def run_self_test(proof_receipt: Path) -> None:
             ),
             "active-run helper or telemetry evidence",
         )
+        seeded_release_path = Path(temp_dir) / "seeded-release-channel.json"
+        seeded_releases_path = Path(temp_dir) / "seeded-releases.json"
+        seed_result = subprocess.run(
+            [
+                sys.executable,
+                str(DEFAULT_MATERIALIZER),
+                "--manifest",
+                str(DEFAULT_RELEASE_CHANNEL),
+                "--output",
+                str(seeded_release_path),
+                "--compat-output",
+                str(seeded_releases_path),
+            ],
+            cwd=str(REPO_ROOT),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+        if seed_result.returncode != 0:
+            fail(
+                "self-test canonical route-truth seed generation failed: "
+                f"{seed_result.stdout.strip()}"
+            )
         release_path = Path(temp_dir) / "release-channel.json"
-        release_payload = json.loads(DEFAULT_RELEASE_CHANNEL.read_text(encoding="utf-8"))
+        release_payload = json.loads(seeded_release_path.read_text(encoding="utf-8"))
         release_payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["rollbackReason"] = (
             "Generic rollback copy that no longer matches per-tuple channel truth."
         )
@@ -1876,7 +1905,7 @@ def run_self_test(proof_receipt: Path) -> None:
             "rollbackReason expected",
         )
         releases_path = Path(temp_dir) / "releases.json"
-        releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+        releases_payload = json.loads(seeded_releases_path.read_text(encoding="utf-8"))
         releases_payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["promotionReason"] = (
             "Generic compatibility shelf copy that no longer matches channel route truth."
         )
@@ -1886,50 +1915,50 @@ def run_self_test(proof_receipt: Path) -> None:
             lambda: verify_release_channel_route_truth(releases_path),
             "promotionReason expected",
         )
-        releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+        releases_payload = json.loads(seeded_releases_path.read_text(encoding="utf-8"))
         releases_payload["generatedAt"] = "2026-04-14T18:36:41Z"
         releases_payload["generated_at"] = "2026-04-18T19:54:27Z"
         releases_path.write_text(json.dumps(releases_payload, indent=2) + "\n", encoding="utf-8")
         expect_self_test_failure(
             "compatibility-shelf-generated-at-alias-drift",
-            lambda: verify_release_projection_identity(DEFAULT_RELEASE_CHANNEL, releases_path),
+            lambda: verify_release_projection_identity(seeded_release_path, releases_path),
             "projection identity drifted between alias fields generatedAt/generated_at",
         )
-        release_payload = json.loads(DEFAULT_RELEASE_CHANNEL.read_text(encoding="utf-8"))
+        release_payload = json.loads(seeded_release_path.read_text(encoding="utf-8"))
         release_payload["generatedAt"] = "2026-04-18T19:54:27Z"
         release_payload["generated_at"] = "2026-04-14T18:36:41Z"
         release_path.write_text(json.dumps(release_payload, indent=2) + "\n", encoding="utf-8")
         expect_self_test_failure(
             "release-channel-generated-at-alias-drift",
-            lambda: verify_release_projection_identity(release_path, DEFAULT_RELEASES_MANIFEST),
+            lambda: verify_release_projection_identity(release_path, seeded_releases_path),
             "projection identity drifted between alias fields generatedAt/generated_at",
         )
-        releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+        releases_payload = json.loads(seeded_releases_path.read_text(encoding="utf-8"))
         releases_payload["generatedAt"] = "2026-04-18T19:54:27Z"
         releases_payload["generated_at"] = "2026-04-18T19:54:27Z"
         releases_path.write_text(json.dumps(releases_payload, indent=2) + "\n", encoding="utf-8")
         expect_self_test_failure(
             "compatibility-shelf-generated-at-identity-drift",
-            lambda: verify_release_projection_identity(DEFAULT_RELEASE_CHANNEL, releases_path),
+            lambda: verify_release_projection_identity(seeded_release_path, releases_path),
             "release projection identity drifted for generatedAt",
         )
-        releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+        releases_payload = json.loads(seeded_releases_path.read_text(encoding="utf-8"))
         releases_payload["publishedAt"] = "2026-04-16T15:52:58Z"
         releases_path.write_text(json.dumps(releases_payload, indent=2) + "\n", encoding="utf-8")
         expect_self_test_failure(
             "compatibility-shelf-published-at-identity-drift",
-            lambda: verify_release_projection_identity(DEFAULT_RELEASE_CHANNEL, releases_path),
+            lambda: verify_release_projection_identity(seeded_release_path, releases_path),
             "release projection identity drifted for publishedAt",
         )
-        releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+        releases_payload = json.loads(seeded_releases_path.read_text(encoding="utf-8"))
         releases_payload["version"] = "run-20260414-1837"
         releases_path.write_text(json.dumps(releases_payload, indent=2) + "\n", encoding="utf-8")
         expect_self_test_failure(
             "compatibility-shelf-version-identity-drift",
-            lambda: verify_release_projection_identity(DEFAULT_RELEASE_CHANNEL, releases_path),
+            lambda: verify_release_projection_identity(seeded_release_path, releases_path),
             "release projection identity drifted for version",
         )
-        releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+        releases_payload = json.loads(seeded_releases_path.read_text(encoding="utf-8"))
         releases_payload["desktopTupleCoverage"]["desktopRouteTruth"] = [
             row
             for row in releases_payload["desktopTupleCoverage"]["desktopRouteTruth"]
@@ -1941,7 +1970,7 @@ def run_self_test(proof_receipt: Path) -> None:
             lambda: verify_release_channel_route_truth(releases_path),
             "desktopRouteTruth tuple set drifted",
         )
-        duplicate_releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+        duplicate_releases_payload = json.loads(seeded_releases_path.read_text(encoding="utf-8"))
         duplicate_releases_payload["desktopTupleCoverage"]["desktopRouteTruth"].append(
             dict(duplicate_releases_payload["desktopTupleCoverage"]["desktopRouteTruth"][0])
         )
@@ -1951,7 +1980,7 @@ def run_self_test(proof_receipt: Path) -> None:
             lambda: verify_release_channel_route_truth(releases_path),
             "desktopRouteTruth duplicate tuple ids",
         )
-        malformed_releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+        malformed_releases_payload = json.loads(seeded_releases_path.read_text(encoding="utf-8"))
         malformed_releases_payload["desktopTupleCoverage"]["desktopRouteTruth"][0] = "stale copied tuple prose"
         releases_path.write_text(json.dumps(malformed_releases_payload, indent=2) + "\n", encoding="utf-8")
         expect_self_test_failure(
@@ -1959,6 +1988,7 @@ def run_self_test(proof_receipt: Path) -> None:
             lambda: verify_release_channel_route_truth(releases_path),
             "desktopTupleCoverage.desktopRouteTruth[0] must contain only objects",
         )
+        release_payload = json.loads(seeded_release_path.read_text(encoding="utf-8"))
         release_payload["desktopTupleCoverage"]["desktopRouteTruth"] = [
             row
             for row in release_payload["desktopTupleCoverage"]["desktopRouteTruth"]
@@ -1970,7 +2000,7 @@ def run_self_test(proof_receipt: Path) -> None:
             lambda: verify_release_channel_route_truth(release_path),
             "desktopRouteTruth tuple set drifted",
         )
-        duplicate_payload = json.loads(DEFAULT_RELEASE_CHANNEL.read_text(encoding="utf-8"))
+        duplicate_payload = json.loads(seeded_release_path.read_text(encoding="utf-8"))
         duplicate_payload["desktopTupleCoverage"]["desktopRouteTruth"].append(
             dict(duplicate_payload["desktopTupleCoverage"]["desktopRouteTruth"][0])
         )
@@ -1980,7 +2010,7 @@ def run_self_test(proof_receipt: Path) -> None:
             lambda: verify_release_channel_route_truth(release_path),
             "desktopRouteTruth duplicate tuple ids",
         )
-        malformed_release_payload = json.loads(DEFAULT_RELEASE_CHANNEL.read_text(encoding="utf-8"))
+        malformed_release_payload = json.loads(seeded_release_path.read_text(encoding="utf-8"))
         malformed_release_payload["desktopTupleCoverage"]["desktopRouteTruth"][0] = "stale copied tuple prose"
         release_path.write_text(json.dumps(malformed_release_payload, indent=2) + "\n", encoding="utf-8")
         expect_self_test_failure(

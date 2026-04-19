@@ -795,7 +795,8 @@ def test_desktop_tuple_coverage_emits_route_truth_for_primary_and_fallback_heads
     assert route_truth["avalonia"]["promotionState"] == "promoted"
     assert route_truth["avalonia"]["promotionReasonCode"] == "installer_smoke_and_release_proof_passed"
     assert route_truth["avalonia"]["promotionReason"] == (
-        "Primary-route Avalonia Desktop linux/linux-x64 installer tuple is promoted because the "
+        "Primary-route Avalonia Desktop tuple avalonia:linux:linux-x64 for linux/linux-x64 is "
+        "promoted because the "
         "flagship head is present on the registry shelf and passed independent startup-smoke and "
         "release-proof gates for this channel."
     )
@@ -809,7 +810,7 @@ def test_desktop_tuple_coverage_emits_route_truth_for_primary_and_fallback_heads
     assert route_truth["blazor-desktop"]["promotionState"] == "promoted"
     assert route_truth["blazor-desktop"]["promotionReasonCode"] == "installer_smoke_and_release_proof_passed"
     assert route_truth["blazor-desktop"]["promotionReason"] == (
-        "Fallback Blazor Desktop linux/linux-x64 installer tuple is promoted for "
+        "Fallback Blazor Desktop tuple blazor-desktop:linux:linux-x64 for linux/linux-x64 is promoted for "
         "recovery/manual routing because it is present on the registry shelf and passed the "
         "current startup-smoke and release-proof gates for this channel."
     )
@@ -841,7 +842,8 @@ def test_desktop_tuple_coverage_normalizes_macos_alias_before_route_truth() -> N
     assert primary["promotionState"] == "promoted"
     assert primary["promotionReasonCode"] == "installer_smoke_and_release_proof_passed"
     assert primary["promotionReason"] == (
-        "Primary-route Avalonia Desktop macos/osx-arm64 installer tuple is promoted because the "
+        "Primary-route Avalonia Desktop tuple avalonia:macos:osx-arm64 for macos/osx-arm64 is "
+        "promoted because the "
         "flagship head is present on the registry shelf and passed independent startup-smoke and "
         "release-proof gates for this channel."
     )
@@ -850,9 +852,9 @@ def test_desktop_tuple_coverage_normalizes_macos_alias_before_route_truth() -> N
     assert fallback["tupleId"] == "blazor-desktop:macos:osx-arm64"
     assert fallback["promotionState"] == "proof_required"
     assert fallback["promotionReason"] == (
-        "Fallback Blazor Desktop macos/osx-arm64 installer tuple is retained for recovery/manual "
-        "routing on macos/osx-arm64 but is not promoted until matching artifact bytes and fresh "
-        "startup-smoke proof are present."
+        "Fallback Blazor Desktop tuple blazor-desktop:macos:osx-arm64 for macos/osx-arm64 is "
+        "retained for recovery/manual routing on macos/osx-arm64 but is not promoted until "
+        "matching artifact bytes and fresh startup-smoke proof are present."
     )
     assert fallback["rollbackReasonCode"] == "fallback_missing_artifact_or_startup_smoke_proof"
 
@@ -882,9 +884,9 @@ def test_desktop_tuple_coverage_marks_unpromoted_fallback_as_proof_required() ->
     assert fallback["promotionState"] == "proof_required"
     assert fallback["promotionReasonCode"] == "missing_artifact_or_startup_smoke_proof"
     assert fallback["promotionReason"] == (
-        "Fallback Blazor Desktop windows/win-x64 installer tuple is retained for recovery/manual "
-        "routing on windows/win-x64 but is not promoted until matching artifact bytes and fresh "
-        "startup-smoke proof are present."
+        "Fallback Blazor Desktop tuple blazor-desktop:windows:win-x64 for windows/win-x64 is "
+        "retained for recovery/manual routing on windows/win-x64 but is not promoted until "
+        "matching artifact bytes and fresh startup-smoke proof are present."
     )
     assert fallback["rollbackState"] == "fallback_not_promoted"
     assert fallback["rollbackReasonCode"] == "fallback_missing_artifact_or_startup_smoke_proof"

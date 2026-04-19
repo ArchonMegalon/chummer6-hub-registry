@@ -176,13 +176,13 @@ Minimum canonical payload:
         "artifactId": "avalonia-win-x64-installer",
         "routeRole": "primary",
         "routeRoleReasonCode": "primary_flagship_head",
-        "routeRoleReason": "Avalonia Desktop is the flagship desktop route for windows/win-x64 and must carry independent startup-smoke proof before promotion.",
+        "routeRoleReason": "Avalonia Desktop route avalonia:windows:win-x64 is the flagship desktop route for windows/win-x64 and must carry independent startup-smoke proof before promotion.",
         "promotionState": "promoted",
         "promotionReasonCode": "installer_smoke_and_release_proof_passed",
-        "promotionReason": "Primary-route Avalonia Desktop windows/win-x64 installer tuple is promoted because the flagship head is present on the registry shelf and passed independent startup-smoke and release-proof gates for this channel.",
+        "promotionReason": "Primary-route Avalonia Desktop tuple avalonia:windows:win-x64 for windows/win-x64 is promoted because the flagship head is present on the registry shelf and passed independent startup-smoke and release-proof gates for this channel.",
         "parityPosture": "flagship_primary",
         "updateEligibility": "eligible",
-        "updateEligibilityReason": "Primary-route Avalonia Desktop installer is promoted for windows/win-x64.",
+        "updateEligibilityReason": "Primary-route Avalonia Desktop tuple avalonia:windows:win-x64 is promoted for windows/win-x64.",
         "rollbackState": "manual_recovery_required",
         "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
         "rollbackReason": "Fallback route blazor-desktop:windows:win-x64 is not promoted for windows/win-x64 because matching artifact bytes and fresh startup-smoke proof are still required; primary route avalonia:windows:win-x64 therefore requires manual recovery.",
@@ -190,7 +190,7 @@ Minimum canonical payload:
         "revokeReasonCode": "no_registry_revoke_marker",
         "revokeReason": "No registry revoke marker is active for avalonia:windows:win-x64.",
         "installPosture": "installer_first",
-        "installPostureReason": "Promoted installer media is present for Avalonia Desktop on windows/win-x64.",
+        "installPostureReason": "Promoted installer media is present for Avalonia Desktop tuple avalonia:windows:win-x64 on windows/win-x64.",
         "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer"
       }
     ]
