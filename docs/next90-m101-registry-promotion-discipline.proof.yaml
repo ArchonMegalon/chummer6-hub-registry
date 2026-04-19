@@ -4,7 +4,7 @@ task_id: "101.2"
 status: complete
 owner: chummer6-hub-registry
 landed_commit: a4e47da
-verified_guardrail_commit: 49dd07a
+verified_guardrail_commit: fc57464
 successor_frontier_id: 3017689961
 owned_surfaces:
   - release_channel_truth:desktop
@@ -48,6 +48,7 @@ do_not_reopen_unless:
   - Fleet or design queue staging carries duplicate completed package rows
   - release channel or compatibility shelf loses exact desktop route-truth rows
   - release channel or compatibility shelf carries duplicate desktop route-truth tuple rows
+  - release channel and compatibility shelf drift on generated, published, or version identity metadata
   - promotion, fallback, rollback, revoke, update, or install-posture rationale drifts
   - Chummer.Run.Registry stops preserving artifact-level status, rollout, revoke, compatibility, or known-issue rationale when it loads release-channel truth for typed consumers
   - promotion rationale stops distinguishing primary flagship promotion from fallback recovery/manual promotion on each platform tuple
@@ -60,6 +61,6 @@ do_not_reopen_unless:
   - tuple selection stops preferring non-revoked artifact truth over revoked artifact rows for the same head/platform/rid
   - canonical registry, queue, proof, or closeout evidence cites active-run helper markers directly or through encoded helper-token strings
   - the landed commit a4e47da no longer resolves in this repo
-  - the verified guardrail commit 49dd07a no longer resolves in this repo
+  - the verified guardrail commit fc57464 no longer resolves in this repo
   - release channel or compatibility shelf carries non-object desktop route-truth rows
   - standard verification stops running the package-specific closeout guardrail

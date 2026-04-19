@@ -5,7 +5,7 @@ Milestone: 101, Native-host desktop release train and promotion discipline
 Package: next90-m101-registry-promotion-discipline
 Owner: chummer6-hub-registry
 Landed commit: a4e47da, Publish desktop route rationale in release channel truth
-Verified guardrail commit: 49dd07a, Tighten M101 route truth row type guard
+Verified guardrail commit: fc57464, Tighten M101 release projection identity guard
 
 ## Scope
 
@@ -55,7 +55,8 @@ Repo-local guardrail commit `0b52f5f` supersedes that desktop rollback route-tru
 Repo-local proof-floor commit `98f8b88` supersedes that sibling fallback rollback guard in the machine-readable proof receipt and verifier.
 Repo-local proof-floor commit `1cf64e1` now pins the current fallback rollback proof floor into the package verifier and closeout receipt, and the verifier requires canonical registry plus both queue projections to cite it before trusting the completed package row.
 Repo-local proof-floor commit `88b058e` pinned the desktop route truth rationale floor into the package verifier and closeout receipt, and the verifier required canonical registry plus both queue projections to cite it before trusting the completed package row. That floor captured the role-explicit promotion rationale, fallback-revoked rollback reason-code split, tuple-specific revoke rationale reuse, and contract-level rationale-context assertions landed in the package repo.
-Repo-local guardrail commit `49dd07a` now supersedes that floor in the package verifier, proof receipt, canonical registry row, and both queue staging rows so future shards also fail closed when `desktopTupleCoverage.desktopRouteTruth` contains copied prose or any other non-object row instead of a route-truth object. The previous verified guardrail floor `88b058e` is superseded by `49dd07a`.
+Repo-local guardrail commit `49dd07a` superseded that floor in the package verifier, proof receipt, canonical registry row, and both queue staging rows so future shards also fail closed when `desktopTupleCoverage.desktopRouteTruth` contains copied prose or any other non-object row instead of a route-truth object.
+Repo-local guardrail commit `fc57464` now supersedes `49dd07a` in the package verifier, proof receipt, canonical registry row, and both queue staging rows so future shards also fail closed when `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `.codex-studio/published/releases.json` drift on `generatedAt`, `generated_at`, `publishedAt`, or `version` identity metadata while still carrying matching desktop route-truth rows.
 
 Fleet queue staging also marks package `next90-m101-registry-promotion-discipline` complete with the same proof paths and landed commit.
 Fleet and design queue staging now also require `completion_action: verify_closed_package_only` and a package-specific `do_not_reopen_reason`, so future shards get an explicit closed-package instruction in queue truth instead of inferring it from proof prose.
@@ -90,6 +91,8 @@ The row contract carries nonblank rationale fields for:
 Route, promotion, update, rollback, revoke, and install-posture rationale are tuple-qualified, not just channel-qualified. The canonical and compatibility projections say, for example, `linux/linux-x64`, `windows/win-x64`, `macos/osx-arm64`, and exact route tuple ids such as `blazor-desktop:windows:win-x64` inside the rationale fields, so registry truth explains why the head is primary, fallback, promoted, proof-required, rollback-eligible, or not revoked on the exact desktop platform tuple being offered. Promotion rationale is now role-explicit as well: primary rows say they are promoted because the flagship head passed independent tuple proof, promoted fallback rows say they are promoted for recovery/manual routing, and proof-required fallback rows say they are still retained for recovery/manual routing while tuple proof is missing. The public verifier now fail-closes `parityPosture` drift directly as route-role truth: primary rows must remain `flagship_primary`, and fallback rows must remain `explicit_fallback`.
 
 The verifier recomputes canonical route-truth rows and fail-closes if generated truth omits rows, carries unexpected keys, has blank rationale or reason-code fields, drifts from expected primary/fallback posture or route-role parity posture, or fails to block revoked channel/artifact routes. It now also cross-checks primary rollback posture against the sibling fallback route row for the same platform/rid before the full canonical-row comparison: primary rows may report `fallback_available` only when that fallback row is promoted and not revoked, and must report `manual_recovery_required` when the fallback row is proof-required or revoked. Primary rollback reason-code truth now distinguishes those blocked cases directly: `fallback_missing_artifact_or_startup_smoke_proof` when the sibling fallback still lacks promotion proof, and `fallback_revoked_for_tuple` when the sibling fallback is present but revoked. Artifact-level `status`, `rolloutState`, and `compatibilityState` revoke markers all block only the affected tuple, and artifact-level revoke reasons are preferred over channel-level known-issue text for individually revoked tuples, so a revoked fallback installer can explain its own rollback block without making the whole channel look revoked. Revoked rows now echo the resolved revoke rationale inside `promotionReason`, `updateEligibilityReason`, `rollbackReason`, and `installPostureReason`, not only in `revokeReason`, so desktop update, rollback, support, and public shelf consumers can explain why a tuple is blocked from whichever posture field they read. Stable `routeRoleReasonCode`, `promotionReasonCode`, `rollbackReasonCode`, and `revokeReasonCode` values give those consumers a machine-readable decision surface without parsing prose.
+The package-specific verifier now also fail-closes release projection identity drift directly: `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `.codex-studio/published/releases.json` must keep the same `generatedAt`, `generated_at`, `publishedAt`, and `version` values instead of merely carrying matching tuple rationale. That closes the stale compatibility-shelf case where route truth still matches but the shelf metadata no longer identifies the same published release.
+In other words, `generatedAt`, `publishedAt`, and `version` identity fields stay aligned between the canonical release-channel projection and the compatibility shelf before this completed package remains trusted.
 The runtime registry manifest store now preserves those artifact-level `status`, `rolloutState`, `rolloutReason`, `revokeReason`, `compatibilityReason`, and `knownIssueSummary` fields when it loads `RELEASE_CHANNEL.generated.json`, so typed `Chummer.Run.Registry` consumers do not lose rollback/revoke rationale that is already present in canonical registry truth.
 The typed registry contract also exposes `ReleaseChannelStatuses.Revoked`, matching the verifier's channel-level revoke handling, so typed support, rollback, and update consumers do not need a string literal to branch on whole-channel revocation.
 
@@ -99,6 +102,7 @@ The typed registry contract also exposes `ReleaseChannelStatuses.Revoked`, match
 It also preserves the exact assigned allowed paths `Chummer.Hub.Registry`, `scripts`, and `docs`, and maps `Chummer.Hub.Registry` to the repo-local `Chummer.Hub.Registry.Contracts` and `Chummer.Run.Registry` roots used by the landed implementation, so future shards do not treat the canonical path label as evidence of path drift.
 Its do-not-reopen conditions now include duplicate Fleet or design queue package rows, matching the executable verifier's closed-queue uniqueness guard.
 They also include primary rollback posture drift from sibling fallback route truth, matching the executable verifier's cross-row fallback availability guard.
+They now also include release projection identity drift on generated/published/version metadata, matching the executable verifier's cross-projection identity guard.
 
 ## Verification
 
@@ -116,6 +120,18 @@ verified next90 M101 registry promotion discipline self-test: next90-m101-regist
 ```
 
 The package-specific verifier now fail-closes non-object `desktopTupleCoverage.desktopRouteTruth` rows in both the canonical release-channel receipt and the compatibility shelf self-test, so copied prose or malformed row payloads cannot satisfy the completed-package proof.
+
+Successor-wave release projection identity tightening on 2026-04-19:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+```
+
+The package-specific verifier now fail-closes generated release-channel versus compatibility-shelf identity drift on `generatedAt`, `generated_at`, `publishedAt`, and `version`, so future shards cannot trust a stale download shelf merely because the six route-truth rows still match.
 
 Fresh verification on 2026-04-15:
 
@@ -1037,6 +1053,7 @@ Do not reopen this package unless one of these facts changes:
 * `RELEASE_CHANNEL.generated.json` loses verifier-bound `desktopRouteTruth`,
 * `.codex-studio/published/releases.json` loses matching verifier-bound `desktopRouteTruth`,
 * either generated projection carries duplicate `desktopRouteTruth` tuple ids,
+* the release-channel and compatibility-shelf projections drift on `generatedAt`, `generated_at`, `publishedAt`, or `version` identity metadata,
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, headless, or non-canonical primary/fallback/promotion/rollback/revoke/install-posture rationale,
 * `Chummer.Hub.Registry.Contracts.Verify` stops asserting tuple and head context for typed `ReleaseDesktopRouteTruth` rationale fields,
 * primary rollback rationale stops naming the exact sibling fallback route id, such as `blazor-desktop:windows:win-x64`,
@@ -1047,6 +1064,6 @@ Do not reopen this package unless one of these facts changes:
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` stops applying canonical registry and queue staging active-run helper proof exclusion,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
-* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `49dd07a`,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `fc57464`,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail, successor-frontier proof self-test, or hand-edited `desktopRouteTruth` negative-case verifier,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.

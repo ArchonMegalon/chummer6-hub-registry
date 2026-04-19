@@ -35,7 +35,7 @@ DEFAULT_SOURCE_QUEUE_STAGING = Path(
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "49dd07a"
+VERIFIED_GUARDRAIL_COMMIT = "fc57464"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -305,7 +305,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 route truth row type guard",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 release projection identity guard",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -341,7 +341,9 @@ CLOSEOUT_DOC_SNIPPETS = (
     "`Chummer.Hub.Registry.Contracts.Verify` stops asserting tuple and head context for typed `ReleaseDesktopRouteTruth` rationale fields",
     "Successor-wave public release-channel duplicate tuple unit guard on 2026-04-17",
     "Successor-wave repo-local path-expansion self-test tightening on 2026-04-19",
+    "Successor-wave release projection identity tightening on 2026-04-19",
     "missing or extra repo-local path expansion roots under the `Chummer.Hub.Registry` package label",
+    "generatedAt`, `publishedAt`, and `version` identity fields stay aligned between",
     "Do not reopen this package unless one of these facts changes",
 )
 
@@ -402,6 +404,9 @@ STALE_CLOSEOUT_CURRENT_CLAIMS = (
     "Verified guardrail commit: 88b058e,",
     "Repo-local proof-floor commit `88b058e` now pins",
     "now records `verified_guardrail_commit: 88b058e`",
+    "Verified guardrail commit: 49dd07a,",
+    "Repo-local guardrail commit `49dd07a` now supersedes",
+    "now records `verified_guardrail_commit: 49dd07a`",
 )
 
 DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
@@ -446,6 +451,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "scripts/verify_next90_m101_registry_promotion_discipline.py",
     "scripts/ai/verify.sh",
     "release channel or compatibility shelf carries duplicate desktop route-truth tuple rows",
+    "release channel and compatibility shelf drift on generated, published, or version identity metadata",
     "Fleet or design queue staging carries duplicate completed package rows",
     "promotion rationale stops distinguishing primary flagship promotion from fallback recovery/manual promotion on each platform tuple",
     "route-role, promotion, update, rollback, revoke, or install-posture rationale stops naming the head and platform/rid tuple",
@@ -507,6 +513,7 @@ EXPECTED_PROOF_RECEIPT_LISTS = {
         "Fleet or design queue staging carries duplicate completed package rows",
         "release channel or compatibility shelf loses exact desktop route-truth rows",
         "release channel or compatibility shelf carries duplicate desktop route-truth tuple rows",
+        "release channel and compatibility shelf drift on generated, published, or version identity metadata",
         "promotion, fallback, rollback, revoke, update, or install-posture rationale drifts",
         "Chummer.Run.Registry stops preserving artifact-level status, rollout, revoke, compatibility, or known-issue rationale when it loads release-channel truth for typed consumers",
         "promotion rationale stops distinguishing primary flagship promotion from fallback recovery/manual promotion on each platform tuple",
@@ -862,6 +869,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit 98f8b88 pins the M101 fallback rollback proof floor",
         "commit 1cf64e1 pins M101 current fallback rollback proof floor",
         "commit 49dd07a tightens the M101 route-truth row-shape guard",
+        "commit fc57464 tightens the M101 release projection identity guard",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -927,6 +935,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit 98f8b88 pins the M101 fallback rollback proof floor",
         "commit 1cf64e1 pins M101 current fallback rollback proof floor",
         "commit 49dd07a tightens the M101 route-truth row-shape guard",
+        "commit fc57464 tightens the M101 release projection identity guard",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
