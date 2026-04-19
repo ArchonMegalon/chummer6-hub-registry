@@ -257,6 +257,18 @@ verified next90 M101 registry promotion discipline self-test: next90-m101-regist
 
 The package-specific verifier now mutates each published projection independently so future shards fail closed when either `.codex-studio/published/RELEASE_CHANNEL.generated.json` or `.codex-studio/published/releases.json` keeps matching route-truth rows but drifts only on the `generatedAt` versus `generated_at` alias pair. The pinned pipeline proof also records the exact six canonical successor tuples beside the Avalonia-only `requiredDesktopHeads` rule, so documentation drift cannot silently blur fallback route truth back into completion truth.
 
+Successor-wave blocked supervisor-helper wording hardening on 2026-04-19:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+```
+
+The package-specific verifier now rejects blocked supervisor-helper or operator-telemetry-helper wording alongside the older active-run handoff, task-local telemetry, and encoded helper markers. Its self-test mutates temporary proof and authority files with that wording and proves the closeout still fails closed, so future shards cannot reopen this completed package by citing worker-unsafe run-control output instead of repo-local channel truth.
+
 Additional successor-wave proof tightening on 2026-04-15:
 
 ```text

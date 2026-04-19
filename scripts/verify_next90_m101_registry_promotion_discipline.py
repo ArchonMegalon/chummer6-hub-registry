@@ -356,6 +356,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Successor-wave repo-local path-expansion self-test tightening on 2026-04-19",
     "Successor-wave release projection identity tightening on 2026-04-19",
     "Successor-wave required-head coverage clarification on 2026-04-19",
+    "Successor-wave blocked supervisor-helper wording hardening on 2026-04-19",
     "`desktopTupleCoverage.requiredDesktopHeads` is intentionally narrower than route-truth coverage",
     'it stays `["avalonia"]` because only the flagship head is required for promoted desktop completion',
     "missing or extra repo-local path expansion roots under the `Chummer.Hub.Registry` package label",
@@ -436,6 +437,12 @@ DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
     "codexea telemetry",
     "operator/OODA telemetry",
     "ACTIVE_RUN_HELPER_RECEIPT",
+    "operator telemetry helper output",
+    "supervisor status helper output",
+    "supervisor eta helper output",
+    "query supervisor status",
+    "query supervisor eta",
+    "poll the supervisor",
     "QUNUSVZFX1JVTl9IQU5ET0ZGLmdlbmVyYXRlZC5tZA==",
     "VEFTS19MT0NBTF9URUxFTUVUUlk=",
     "QUNUSVZFX1JVTl9IRUxQRVJfUkVDRUlQVA==",
@@ -1512,6 +1519,15 @@ def run_self_test(proof_receipt: Path) -> None:
             "active-run helper or telemetry evidence",
         )
         temp_path.write_text(
+            source_text + "Operator telemetry helper output was copied into this proof receipt.\n",
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "operator-telemetry-helper-proof",
+            lambda: verify_no_active_run_helper_evidence(temp_path, label="temporary M101 proof receipt"),
+            "active-run helper or telemetry evidence",
+        )
+        temp_path.write_text(
             source_text + "QUNUSVZFX1JVTl9IQU5ET0ZGLmdlbmVyYXRlZC5tZA== encoded helper evidence\n",
             encoding="utf-8",
         )
@@ -1826,6 +1842,22 @@ def run_self_test(proof_receipt: Path) -> None:
         )
         expect_self_test_failure(
             "registry-active-run-helper-proof",
+            lambda: verify_no_active_run_helper_evidence(
+                registry_path,
+                label="temporary M101 successor registry",
+            ),
+            "active-run helper or telemetry evidence",
+        )
+        registry_path.write_text(
+            replace_registry_task_block(
+                registry_text,
+                "commit 87cfff0 pins the current M101 registry proof floor",
+                "commit 87cfff0 pins the current M101 registry proof floor; supervisor status helper output",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "registry-supervisor-helper-proof",
             lambda: verify_no_active_run_helper_evidence(
                 registry_path,
                 label="temporary M101 successor registry",
