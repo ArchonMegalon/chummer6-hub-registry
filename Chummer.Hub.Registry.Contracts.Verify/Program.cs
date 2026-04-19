@@ -350,6 +350,85 @@ Assert(string.Equals(desktopRouteTruth.InstallPosture, ReleaseDesktopInstallPost
 Assert(desktopRouteTruth.InstallPostureReason.Contains(desktopRouteTruth.RevokeReason, StringComparison.Ordinal),
     "Desktop route truth must echo revoke rationale inside install rationale.");
 
+const string FallbackTupleRevokeReason =
+    "Registry revoke marker is active for blazor-desktop:windows:win-x64: Fallback desktop tuple failed tuple-specific startup smoke after promotion.";
+
+ReleaseDesktopRouteTruth promotedFallbackRouteTruth = new(
+    TupleId: "blazor-desktop:linux:linux-x64",
+    Head: "blazor-desktop",
+    Platform: "linux",
+    Rid: "linux-x64",
+    Arch: "x64",
+    ArtifactId: "blazor-desktop-linux-x64-installer",
+    RouteRole: ReleaseDesktopRouteRoles.Fallback,
+    RouteRoleReasonCode: ReleaseDesktopRouteReasonCodes.FallbackRecoveryHead,
+    RouteRoleReason: "Blazor Desktop is retained as an explicit fallback route for linux/linux-x64; it cannot satisfy the primary-route promise.",
+    PromotionState: ReleaseDesktopPromotionStates.Promoted,
+    PromotionReasonCode: ReleaseDesktopPromotionReasonCodes.InstallerSmokeAndReleaseProofPassed,
+    PromotionReason: "Fallback Blazor Desktop linux/linux-x64 installer tuple is promoted for recovery/manual routing because it is present on the registry shelf and passed the current startup-smoke and release-proof gates for this channel.",
+    ParityPosture: ReleaseDesktopParityPostures.ExplicitFallback,
+    UpdateEligibility: ReleaseDesktopUpdateEligibilities.ManualFallback,
+    UpdateEligibilityReason: "Fallback Blazor Desktop installer is promoted for linux/linux-x64 recovery/manual selection, not automatic primary updates.",
+    RollbackState: ReleaseDesktopRollbackStates.FallbackAvailable,
+    RollbackReasonCode: ReleaseDesktopRollbackReasonCodes.FallbackPromotedForRecovery,
+    RollbackReason: "Fallback Blazor Desktop is promoted for linux/linux-x64 rollback or recovery routing.",
+    RevokeState: ReleaseDesktopRevokeStates.NotRevoked,
+    RevokeReasonCode: ReleaseDesktopRevokeReasonCodes.NoRegistryRevokeMarker,
+    RevokeReason: "No registry revoke marker is active for blazor-desktop:linux:linux-x64.",
+    InstallPosture: ReleaseDesktopInstallPostures.InstallerFirst,
+    InstallPostureReason: "Promoted installer media is present for Blazor Desktop on linux/linux-x64.",
+    PublicInstallRoute: "/downloads/install/blazor-desktop-linux-x64-installer");
+
+AssertRouteTruthRationaleContext(promotedFallbackRouteTruth);
+Assert(string.Equals(promotedFallbackRouteTruth.RouteRole, ReleaseDesktopRouteRoles.Fallback, StringComparison.Ordinal),
+    "Desktop route truth must retain fallback route role.");
+Assert(string.Equals(promotedFallbackRouteTruth.RouteRoleReasonCode, ReleaseDesktopRouteReasonCodes.FallbackRecoveryHead, StringComparison.Ordinal),
+    "Fallback desktop route truth must retain recovery-head route-role reason code.");
+Assert(string.Equals(promotedFallbackRouteTruth.ParityPosture, ReleaseDesktopParityPostures.ExplicitFallback, StringComparison.Ordinal),
+    "Fallback desktop route truth must retain explicit fallback parity posture.");
+Assert(string.Equals(promotedFallbackRouteTruth.UpdateEligibility, ReleaseDesktopUpdateEligibilities.ManualFallback, StringComparison.Ordinal),
+    "Promoted fallback desktop route truth must retain manual-fallback update posture.");
+Assert(string.Equals(promotedFallbackRouteTruth.RollbackState, ReleaseDesktopRollbackStates.FallbackAvailable, StringComparison.Ordinal),
+    "Promoted fallback desktop route truth must retain fallback-available rollback posture.");
+Assert(string.Equals(promotedFallbackRouteTruth.RollbackReasonCode, ReleaseDesktopRollbackReasonCodes.FallbackPromotedForRecovery, StringComparison.Ordinal),
+    "Promoted fallback desktop route truth must retain promoted-for-recovery rollback reason code.");
+
+ReleaseDesktopRouteTruth primaryRouteWithRevokedSiblingFallback = new(
+    TupleId: "avalonia:windows:win-x64",
+    Head: "avalonia",
+    Platform: "windows",
+    Rid: "win-x64",
+    Arch: "x64",
+    ArtifactId: "avalonia-win-x64-installer",
+    RouteRole: ReleaseDesktopRouteRoles.Primary,
+    RouteRoleReasonCode: ReleaseDesktopRouteReasonCodes.PrimaryFlagshipHead,
+    RouteRoleReason: "Avalonia Desktop is the flagship desktop route for windows/win-x64 and must carry independent startup-smoke proof before promotion.",
+    PromotionState: ReleaseDesktopPromotionStates.Promoted,
+    PromotionReasonCode: ReleaseDesktopPromotionReasonCodes.InstallerSmokeAndReleaseProofPassed,
+    PromotionReason: "Primary-route Avalonia Desktop windows/win-x64 installer tuple is promoted because the flagship head is present on the registry shelf and passed independent startup-smoke and release-proof gates for this channel.",
+    ParityPosture: ReleaseDesktopParityPostures.FlagshipPrimary,
+    UpdateEligibility: ReleaseDesktopUpdateEligibilities.Eligible,
+    UpdateEligibilityReason: "Primary-route Avalonia Desktop installer is promoted for windows/win-x64.",
+    RollbackState: ReleaseDesktopRollbackStates.ManualRecoveryRequired,
+    RollbackReasonCode: ReleaseDesktopRollbackReasonCodes.FallbackRevokedForTuple,
+    RollbackReason: $"Fallback route blazor-desktop:windows:win-x64 is revoked for windows/win-x64, so primary route avalonia:windows:win-x64 requires manual recovery: {FallbackTupleRevokeReason}",
+    RevokeState: ReleaseDesktopRevokeStates.NotRevoked,
+    RevokeReasonCode: ReleaseDesktopRevokeReasonCodes.NoRegistryRevokeMarker,
+    RevokeReason: "No registry revoke marker is active for avalonia:windows:win-x64.",
+    InstallPosture: ReleaseDesktopInstallPostures.InstallerFirst,
+    InstallPostureReason: "Promoted installer media is present for Avalonia Desktop on windows/win-x64.",
+    PublicInstallRoute: "/downloads/install/avalonia-win-x64-installer");
+
+AssertRouteTruthRationaleContext(primaryRouteWithRevokedSiblingFallback);
+Assert(string.Equals(primaryRouteWithRevokedSiblingFallback.RollbackState, ReleaseDesktopRollbackStates.ManualRecoveryRequired, StringComparison.Ordinal),
+    "Primary desktop route truth must retain manual recovery posture when the sibling fallback route is revoked.");
+Assert(string.Equals(primaryRouteWithRevokedSiblingFallback.RollbackReasonCode, ReleaseDesktopRollbackReasonCodes.FallbackRevokedForTuple, StringComparison.Ordinal),
+    "Primary desktop route truth must retain sibling-fallback-revoked rollback reason code.");
+Assert(primaryRouteWithRevokedSiblingFallback.RollbackReason.Contains("blazor-desktop:windows:win-x64", StringComparison.Ordinal),
+    "Primary desktop route truth must name the exact sibling fallback route id inside rollback rationale.");
+Assert(primaryRouteWithRevokedSiblingFallback.RollbackReason.Contains(FallbackTupleRevokeReason, StringComparison.Ordinal),
+    "Primary desktop route truth must embed the sibling fallback revoke rationale inside rollback rationale.");
+
 DownloadReceiptDto receipt = new(
     ReceiptId: "receipt-1",
     ArtifactId: "avalonia-win-x64-installer",

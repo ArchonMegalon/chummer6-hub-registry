@@ -5,7 +5,7 @@ Milestone: 101, Native-host desktop release train and promotion discipline
 Package: next90-m101-registry-promotion-discipline
 Owner: chummer6-hub-registry
 Landed commit: a4e47da, Publish desktop route rationale in release channel truth
-Verified guardrail commit: fc57464, Tighten M101 release projection identity guard
+Verified guardrail commit: acb881d, Tighten M101 projection alias proof guard
 
 ## Scope
 
@@ -56,7 +56,8 @@ Repo-local proof-floor commit `98f8b88` supersedes that sibling fallback rollbac
 Repo-local proof-floor commit `1cf64e1` now pins the current fallback rollback proof floor into the package verifier and closeout receipt, and the verifier requires canonical registry plus both queue projections to cite it before trusting the completed package row.
 Repo-local proof-floor commit `88b058e` pinned the desktop route truth rationale floor into the package verifier and closeout receipt, and the verifier required canonical registry plus both queue projections to cite it before trusting the completed package row. That floor captured the role-explicit promotion rationale, fallback-revoked rollback reason-code split, tuple-specific revoke rationale reuse, and contract-level rationale-context assertions landed in the package repo.
 Repo-local guardrail commit `49dd07a` superseded that floor in the package verifier, proof receipt, canonical registry row, and both queue staging rows so future shards also fail closed when `desktopTupleCoverage.desktopRouteTruth` contains copied prose or any other non-object row instead of a route-truth object.
-Repo-local guardrail commit `fc57464` now supersedes `49dd07a` in the package verifier, proof receipt, canonical registry row, and both queue staging rows so future shards also fail closed when `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `.codex-studio/published/releases.json` drift on `generatedAt`, `generated_at`, `publishedAt`, or `version` identity metadata while still carrying matching desktop route-truth rows.
+Repo-local guardrail commit `fc57464` superseded `49dd07a` in the package verifier, proof receipt, canonical registry row, and both queue staging rows so future shards fail closed when `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `.codex-studio/published/releases.json` drift on `generatedAt`, `generated_at`, `publishedAt`, or `version` identity metadata while still carrying matching desktop route-truth rows.
+Repo-local guardrail commit `acb881d` now supersedes `fc57464` in the package verifier, proof receipt, canonical registry row, and both queue staging rows so future shards also fail closed when those two projections drift only across the `generatedAt` versus `generated_at` alias fields, and so the pinned pipeline proof keeps the current six-tuple successor matrix plus the Avalonia-only required-head coverage explanation in sync with executable guardrails.
 
 Fleet queue staging also marks package `next90-m101-registry-promotion-discipline` complete with the same proof paths and landed commit.
 Fleet and design queue staging now also require `completion_action: verify_closed_package_only` and a package-specific `do_not_reopen_reason`, so future shards get an explicit closed-package instruction in queue truth instead of inferring it from proof prose.
@@ -243,6 +244,18 @@ verified next90 M101 registry promotion discipline: next90-m101-registry-promoti
 ```
 
 The pipeline doc, closeout proof, and package verifier now all pin the canonical distinction between required-head completion and route-truth coverage: `desktopTupleCoverage.requiredDesktopHeads` stays Avalonia-only, while fallback `blazor-desktop` remains mandatory in `desktopTupleCoverage.desktopRouteTruth` for each required desktop tuple. Future shards therefore fail closed if the docs drift back to treating fallback as a required promoted head instead of an explicit rollback/recovery route.
+
+Successor-wave projection alias proof tightening on 2026-04-19:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+```
+
+The package-specific verifier now mutates each published projection independently so future shards fail closed when either `.codex-studio/published/RELEASE_CHANNEL.generated.json` or `.codex-studio/published/releases.json` keeps matching route-truth rows but drifts only on the `generatedAt` versus `generated_at` alias pair. The pinned pipeline proof also records the exact six canonical successor tuples beside the Avalonia-only `requiredDesktopHeads` rule, so documentation drift cannot silently blur fallback route truth back into completion truth.
 
 Additional successor-wave proof tightening on 2026-04-15:
 
@@ -1076,6 +1089,6 @@ Do not reopen this package unless one of these facts changes:
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` stops applying canonical registry and queue staging active-run helper proof exclusion,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
-* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `fc57464`,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `acb881d`,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail, successor-frontier proof self-test, or hand-edited `desktopRouteTruth` negative-case verifier,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.

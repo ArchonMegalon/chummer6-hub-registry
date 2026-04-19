@@ -4,7 +4,7 @@ task_id: "101.2"
 status: complete
 owner: chummer6-hub-registry
 landed_commit: a4e47da
-verified_guardrail_commit: fc57464
+verified_guardrail_commit: acb881d
 successor_frontier_id: 3017689961
 repo_checkout_root: /docker/chummercomplete/chummer-hub-registry
 owned_surfaces:
@@ -71,6 +71,6 @@ do_not_reopen_unless:
   - canonical registry, queue, proof, or closeout evidence cites active-run helper markers directly or through encoded helper-token strings
   - canonical registry or queue evidence stops using the repo checkout root /docker/chummercomplete/chummer-hub-registry
   - the landed commit a4e47da no longer resolves in this repo
-  - the verified guardrail commit fc57464 no longer resolves in this repo
+  - the verified guardrail commit acb881d no longer resolves in this repo
   - release channel or compatibility shelf carries non-object desktop route-truth rows
   - standard verification stops running the package-specific closeout guardrail

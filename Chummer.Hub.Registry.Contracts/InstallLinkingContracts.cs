@@ -28,6 +28,14 @@ public static class ClaimedInstallationStates
     public const string Revoked = "revoked";
 }
 
+public static class InstallBrowserCallbackStates
+{
+    public const string Pending = "pending";
+    public const string Redeemed = "redeemed";
+    public const string Expired = "expired";
+    public const string Revoked = "revoked";
+}
+
 public sealed record DownloadReceiptDto(
     string ReceiptId,
     string ArtifactId,
@@ -93,11 +101,32 @@ public sealed record InstallationGrantDto(
     string? UserId = null,
     string? SubjectId = null);
 
+public sealed record InstallBrowserCallbackDto(
+    string CallbackId,
+    string CallbackCode,
+    string InstallationId,
+    string ArtifactId,
+    string Channel,
+    string Version,
+    string InstallAccessClass,
+    string Status,
+    DateTimeOffset CreatedAtUtc,
+    DateTimeOffset ExpiresAtUtc,
+    string? UserId = null,
+    string? SubjectId = null,
+    string? PublicKey = null,
+    string? HeadId = null,
+    string? Platform = null,
+    string? Arch = null,
+    string? HostLabel = null,
+    string? CallbackUri = null);
+
 public sealed record InstallLinkingSummaryDto(
     IReadOnlyList<DownloadReceiptDto> RecentReceipts,
     IReadOnlyList<InstallClaimTicketDto> PendingClaimTickets,
     IReadOnlyList<ClaimedInstallationDto>? ClaimedInstallations = null,
-    IReadOnlyList<InstallationGrantDto>? ActiveGrants = null);
+    IReadOnlyList<InstallationGrantDto>? ActiveGrants = null,
+    IReadOnlyList<InstallBrowserCallbackDto>? PendingBrowserCallbacks = null);
 
 public sealed record RedeemInstallClaimRequestDto(
     string ClaimCode,
@@ -131,3 +160,38 @@ public sealed record RefreshInstallationGrantResponseDto(
     ClaimedInstallationDto Installation,
     InstallationGrantDto Grant,
     bool Rotated);
+
+public sealed record IssueInstallBrowserCallbackRequestDto(
+    string InstallationId,
+    string ArtifactId,
+    string ApplicationVersion,
+    string ChannelId,
+    string HeadId,
+    string Platform,
+    string Arch,
+    string CallbackUri,
+    string? PublicKey = null,
+    string? HostLabel = null,
+    string? InstallAccessClass = null);
+
+public sealed record IssueInstallBrowserCallbackResponseDto(
+    InstallBrowserCallbackDto Callback,
+    bool AlreadyClaimed,
+    ClaimedInstallationDto? Installation = null);
+
+public sealed record ExchangeInstallBrowserCallbackRequestDto(
+    string CallbackCode,
+    string InstallationId,
+    string HeadId,
+    string ApplicationVersion,
+    string ChannelId,
+    string Platform,
+    string Arch,
+    string? PublicKey = null,
+    string? HostLabel = null);
+
+public sealed record ExchangeInstallBrowserCallbackResponseDto(
+    InstallBrowserCallbackDto Callback,
+    ClaimedInstallationDto Installation,
+    InstallationGrantDto Grant,
+    bool AlreadyClaimed);
