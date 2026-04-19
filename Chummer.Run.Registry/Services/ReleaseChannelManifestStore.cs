@@ -63,6 +63,12 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
                     UpdateFeedUrl: item.UpdateFeedUrl,
                     EmbeddedRuntimeBundleHeadId: item.EmbeddedRuntimeBundleHeadId,
                     CompatibilityState: item.CompatibilityState,
+                    Status: item.Status,
+                    RolloutState: item.RolloutState,
+                    RolloutReason: item.RolloutReason,
+                    RevokeReason: item.RevokeReason,
+                    CompatibilityReason: item.CompatibilityReason,
+                    KnownIssueSummary: item.KnownIssueSummary,
                     InstallAccessClass: item.InstallAccessClass))
                 .ToArray(),
             RuntimeBundleHeads: (parsed.RuntimeBundleHeads ?? [])
@@ -170,6 +176,12 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
         string? UpdateFeedUrl,
         string? EmbeddedRuntimeBundleHeadId,
         string? CompatibilityState,
+        string? Status,
+        string? RolloutState,
+        string? RolloutReason,
+        string? RevokeReason,
+        string? CompatibilityReason,
+        string? KnownIssueSummary,
         string? InstallAccessClass);
 
     private sealed record RegistryDesktopTupleCoverage(

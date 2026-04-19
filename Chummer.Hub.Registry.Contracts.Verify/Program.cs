@@ -19,6 +19,11 @@ VerifySealedRecord(typeof(DownloadReceiptDto));
 VerifySealedRecord(typeof(InstallClaimTicketDto));
 VerifySealedRecord(typeof(ClaimedInstallationDto));
 VerifySealedRecord(typeof(InstallationGrantDto));
+VerifySealedRecord(typeof(InstallBrowserCallbackDto));
+VerifySealedRecord(typeof(IssueInstallBrowserCallbackRequestDto));
+VerifySealedRecord(typeof(IssueInstallBrowserCallbackResponseDto));
+VerifySealedRecord(typeof(ExchangeInstallBrowserCallbackRequestDto));
+VerifySealedRecord(typeof(ExchangeInstallBrowserCallbackResponseDto));
 
 Assert(HubPublicationOperations.SubmitProject == "submit-project", "Publication operation constants must match the existing workflow vocabulary.");
 Assert(HubModerationStates.PendingReview == "pending-review", "Moderation states must preserve pending-review.");
@@ -27,6 +32,7 @@ Assert(ArtifactCompatibilityStates.CompatibleWithWarnings == "compatible-with-wa
 Assert(InstallAccessClasses.OpenPublic == "open_public", "Install access classes must preserve open_public.");
 Assert(InstallClaimTicketStates.Pending == "pending", "Install claim ticket states must preserve pending.");
 Assert(InstallationGrantStates.Active == "active", "Installation grant states must preserve active.");
+Assert(InstallBrowserCallbackStates.Pending == "pending", "Install browser callback states must preserve pending.");
 Assert(Enum.GetNames<HubArtifactKind>().Contains(nameof(HubArtifactKind.RuntimeBundle)), "Artifact kinds must include RuntimeBundle.");
 Assert(Enum.GetNames<HubArtifactKind>().Contains(nameof(HubArtifactKind.ReplayPackage)), "Artifact kinds must include ReplayPackage.");
 Assert(Enum.GetNames<HubArtifactKind>().Contains(nameof(HubArtifactKind.RecapPackage)), "Artifact kinds must include RecapPackage.");
@@ -403,10 +409,25 @@ InstallationGrantDto grant = new(
     ExpiresAtUtc: DateTimeOffset.UnixEpoch.AddHours(6),
     UserId: "user-1",
     SubjectId: "subject-1");
-InstallLinkingSummaryDto installLinking = new([receipt], [claim], [installation], [grant]);
+InstallBrowserCallbackDto callback = new(
+    CallbackId: "callback-1",
+    CallbackCode: "callback-code",
+    InstallationId: installation.InstallationId,
+    ArtifactId: installation.ArtifactId,
+    Channel: installation.Channel,
+    Version: installation.Version,
+    InstallAccessClass: installation.InstallAccessClass,
+    Status: InstallBrowserCallbackStates.Pending,
+    CreatedAtUtc: DateTimeOffset.UnixEpoch,
+    ExpiresAtUtc: DateTimeOffset.UnixEpoch.AddMinutes(15),
+    UserId: "user-1",
+    SubjectId: "subject-1");
+InstallLinkingSummaryDto installLinking = new([receipt], [claim], [installation], [grant], [callback]);
 Assert(installLinking.RecentReceipts.Count == 1, "Install-linking summaries must retain receipts.");
 Assert(string.Equals(installLinking.ActiveGrants![0].InstallationId, installation.InstallationId, StringComparison.Ordinal),
     "Install-linking summaries must retain active grant linkage.");
+Assert(string.Equals(installLinking.PendingBrowserCallbacks![0].CallbackId, callback.CallbackId, StringComparison.Ordinal),
+    "Install-linking summaries must retain pending browser callback linkage.");
 
 HubPublicationResult<RuntimeBundleHeadProjection> notImplemented = HubPublicationResult<RuntimeBundleHeadProjection>.FromNotImplemented(
     new HubPublicationNotImplementedReceipt("not-implemented", HubPublicationOperations.ListModerationQueue, "queued"));

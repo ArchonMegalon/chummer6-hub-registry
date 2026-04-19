@@ -23,6 +23,7 @@ DEFAULT_MATERIALIZER_TEST = REPO_ROOT / "scripts/test_materialize_public_release
 DEFAULT_PUBLIC_VERIFIER_TEST = REPO_ROOT / "scripts/test_verify_public_release_channel.py"
 DEFAULT_RELEASE_CONTRACT = REPO_ROOT / "Chummer.Hub.Registry.Contracts/ReleaseChannelContracts.cs"
 DEFAULT_CONTRACT_VERIFY = REPO_ROOT / "Chummer.Hub.Registry.Contracts.Verify/Program.cs"
+DEFAULT_MANIFEST_STORE = REPO_ROOT / "Chummer.Run.Registry/Services/ReleaseChannelManifestStore.cs"
 DEFAULT_SUCCESSOR_REGISTRY = Path(
     "/docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_PRODUCT_ADVANCE_REGISTRY.yaml"
 )
@@ -339,6 +340,8 @@ CLOSEOUT_DOC_SNIPPETS = (
     "The seeded revoked-route contract sample now keeps the full registry revoke rationale in `RevokeReason`",
     "`Chummer.Hub.Registry.Contracts.Verify` stops asserting tuple and head context for typed `ReleaseDesktopRouteTruth` rationale fields",
     "Successor-wave public release-channel duplicate tuple unit guard on 2026-04-17",
+    "Successor-wave repo-local path-expansion self-test tightening on 2026-04-19",
+    "missing or extra repo-local path expansion roots under the `Chummer.Hub.Registry` package label",
     "Do not reopen this package unless one of these facts changes",
 )
 
@@ -505,6 +508,7 @@ EXPECTED_PROOF_RECEIPT_LISTS = {
         "release channel or compatibility shelf loses exact desktop route-truth rows",
         "release channel or compatibility shelf carries duplicate desktop route-truth tuple rows",
         "promotion, fallback, rollback, revoke, update, or install-posture rationale drifts",
+        "Chummer.Run.Registry stops preserving artifact-level status, rollout, revoke, compatibility, or known-issue rationale when it loads release-channel truth for typed consumers",
         "promotion rationale stops distinguishing primary flagship promotion from fallback recovery/manual promotion on each platform tuple",
         "route-role, promotion, update, rollback, revoke, or install-posture rationale stops naming the head and platform/rid tuple, such as avalonia:windows:win-x64 plus linux/linux-x64",
         "route-role parity posture stops matching primary=flagship_primary or fallback=explicit_fallback",
@@ -777,6 +781,25 @@ CONTRACT_VERIFY_SNIPPETS = (
     "Release channel artifacts must retain compatibility rationale.",
 )
 
+MANIFEST_STORE_SNIPPETS = (
+    "new ReleaseChannelArtifact(",
+    "CompatibilityState: item.CompatibilityState,",
+    "Status: item.Status,",
+    "RolloutState: item.RolloutState,",
+    "RolloutReason: item.RolloutReason,",
+    "RevokeReason: item.RevokeReason,",
+    "CompatibilityReason: item.CompatibilityReason,",
+    "KnownIssueSummary: item.KnownIssueSummary,",
+    "private sealed record RegistryReleaseArtifact(",
+    "string? CompatibilityState,",
+    "string? Status,",
+    "string? RolloutState,",
+    "string? RolloutReason,",
+    "string? RevokeReason,",
+    "string? CompatibilityReason,",
+    "string? KnownIssueSummary,",
+)
+
 
 def fail(message: str) -> None:
     raise SystemExit(f"next90 m101 registry promotion discipline failed: {message}")
@@ -957,6 +980,14 @@ def verify_commit_exists(commit: str, *, label: str) -> None:
 def verify_required_commits_exist() -> None:
     verify_commit_exists(LANDED_COMMIT, label="landed")
     verify_commit_exists(VERIFIED_GUARDRAIL_COMMIT, label="verified guardrail")
+
+
+def verify_manifest_store_source(path: Path) -> None:
+    verify_source_snippets(
+        path,
+        label="release-channel manifest store",
+        snippets=MANIFEST_STORE_SNIPPETS,
+    )
 
 
 def verify_release_channel_route_truth(path: Path) -> None:
@@ -1313,6 +1344,28 @@ def run_self_test(proof_receipt: Path) -> None:
             "wrong-verified-guardrail-commit",
             lambda: verify_proof_receipt_structure(temp_path),
             "verified_guardrail_commit expected",
+        )
+        temp_path.write_text(
+            source_text.replace("    - Chummer.Run.Registry\n", "", 1),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "missing-repo-local-path-expansion-entry",
+            lambda: verify_proof_receipt_structure(temp_path),
+            "repo_local_path_expansion expected",
+        )
+        temp_path.write_text(
+            source_text.replace(
+                "    - Chummer.Run.Registry\n",
+                "    - Chummer.Run.Registry\n    - Chummer.Experimental.Registry\n",
+                1,
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "extra-repo-local-path-expansion-entry",
+            lambda: verify_proof_receipt_structure(temp_path),
+            "repo_local_path_expansion expected",
         )
         temp_path.write_text(
             source_text
@@ -1827,6 +1880,25 @@ def run_self_test(proof_receipt: Path) -> None:
             ),
             "Desktop route truth must echo revoke rationale inside blocked promotion rationale.",
         )
+        manifest_store_path = Path(temp_dir) / "ReleaseChannelManifestStore.cs"
+        manifest_store_source = DEFAULT_MANIFEST_STORE.read_text(encoding="utf-8")
+        manifest_store_path.write_text(
+            manifest_store_source.replace(
+                "                    RevokeReason: item.RevokeReason,\n",
+                "",
+                1,
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "manifest-store-revoke-rationale-drift",
+            lambda: verify_source_snippets(
+                manifest_store_path,
+                label="temporary release-channel manifest store",
+                snippets=MANIFEST_STORE_SNIPPETS,
+            ),
+            "RevokeReason: item.RevokeReason,",
+        )
     print(f"verified next90 M101 registry promotion discipline self-test: {PACKAGE_ID}")
 
 
@@ -1845,6 +1917,7 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--public-verifier-test", type=Path, default=DEFAULT_PUBLIC_VERIFIER_TEST)
     parser.add_argument("--release-contract", type=Path, default=DEFAULT_RELEASE_CONTRACT)
     parser.add_argument("--contract-verify", type=Path, default=DEFAULT_CONTRACT_VERIFY)
+    parser.add_argument("--manifest-store", type=Path, default=DEFAULT_MANIFEST_STORE)
     parser.add_argument("--successor-registry", type=Path, default=DEFAULT_SUCCESSOR_REGISTRY)
     parser.add_argument("--queue-staging", type=Path, default=DEFAULT_QUEUE_STAGING)
     parser.add_argument("--source-queue-staging", type=Path, default=DEFAULT_SOURCE_QUEUE_STAGING)
@@ -1906,6 +1979,7 @@ def main() -> int:
         label="contract verifier",
         snippets=CONTRACT_VERIFY_SNIPPETS,
     )
+    verify_manifest_store_source(args.manifest_store)
     print(f"verified next90 M101 registry promotion discipline: {PACKAGE_ID}")
     return 0
 
