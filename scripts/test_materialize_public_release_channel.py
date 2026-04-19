@@ -517,7 +517,7 @@ def test_desktop_route_truth_does_not_offer_revoked_fallback_for_primary_rollbac
     assert primary["rollbackReason"] == (
         "Fallback route blazor-desktop:linux:linux-x64 is revoked for linux/linux-x64, so primary route "
         "avalonia:linux:linux-x64 requires manual recovery: Registry revoke marker is active for "
-        "blazor-desktop:linux:linux-x64: Fallback signature failed Linux smoke after publication."
+        "blazor-desktop:linux:linux-x64: Blazor fallback startup smoke regressed on this tuple."
     )
     assert fallback["promotionState"] == "revoked"
     assert fallback["promotionReason"].endswith("Blazor fallback startup smoke regressed on this tuple.")
@@ -1197,8 +1197,10 @@ def test_external_proof_request_capture_commands_include_operating_system_hint()
     assert "installer-postdownload-sha256-mismatch" in commands[0]
     assert "CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=windows-host" in commands[1]
     assert "CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=Windows" in commands[1]
-    assert commands[1].endswith("/docker/chummercomplete/chummer6-ui/Docker/Downloads/startup-smoke run-20260414-1836")
-    assert commands[2] == "cd /docker/chummercomplete/chummer6-ui && ./scripts/generate-releases-manifest.sh"
+    assert 'STARTUP_SMOKE_DIR="$REPO_ROOT/Docker/Downloads/startup-smoke"' in commands[1]
+    assert commands[1].endswith('"$STARTUP_SMOKE_DIR" run-20260414-1836')
+    assert commands[2].endswith('cd "$REPO_ROOT" && ./scripts/generate-releases-manifest.sh')
+    assert 'REPO_ROOT="${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui-finish}"' in commands[2]
 
 
 def test_external_proof_request_capture_commands_include_macos_operating_system_hint() -> None:
@@ -1218,5 +1220,7 @@ def test_external_proof_request_capture_commands_include_macos_operating_system_
     assert "installer-download-html-response" in commands[0]
     assert "CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=macos-host" in commands[1]
     assert "CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=macOS" in commands[1]
-    assert commands[1].endswith("/docker/chummercomplete/chummer6-ui/Docker/Downloads/startup-smoke run-20260414-1836")
-    assert commands[2] == "cd /docker/chummercomplete/chummer6-ui && ./scripts/generate-releases-manifest.sh"
+    assert 'STARTUP_SMOKE_DIR="$REPO_ROOT/Docker/Downloads/startup-smoke"' in commands[1]
+    assert commands[1].endswith('"$STARTUP_SMOKE_DIR" run-20260414-1836')
+    assert commands[2].endswith('cd "$REPO_ROOT" && ./scripts/generate-releases-manifest.sh')
+    assert 'REPO_ROOT="${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui-finish}"' in commands[2]

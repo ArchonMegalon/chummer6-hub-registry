@@ -1852,6 +1852,24 @@ def run_self_test(proof_receipt: Path) -> None:
             "promotionReason expected",
         )
         releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+        releases_payload["generatedAt"] = "2026-04-14T18:36:41Z"
+        releases_payload["generated_at"] = "2026-04-18T19:54:27Z"
+        releases_path.write_text(json.dumps(releases_payload, indent=2) + "\n", encoding="utf-8")
+        expect_self_test_failure(
+            "compatibility-shelf-generated-at-alias-drift",
+            lambda: verify_release_projection_identity(DEFAULT_RELEASE_CHANNEL, releases_path),
+            "projection identity drifted between alias fields generatedAt/generated_at",
+        )
+        release_payload = json.loads(DEFAULT_RELEASE_CHANNEL.read_text(encoding="utf-8"))
+        release_payload["generatedAt"] = "2026-04-18T19:54:27Z"
+        release_payload["generated_at"] = "2026-04-14T18:36:41Z"
+        release_path.write_text(json.dumps(release_payload, indent=2) + "\n", encoding="utf-8")
+        expect_self_test_failure(
+            "release-channel-generated-at-alias-drift",
+            lambda: verify_release_projection_identity(release_path, DEFAULT_RELEASES_MANIFEST),
+            "projection identity drifted between alias fields generatedAt/generated_at",
+        )
+        releases_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
         releases_payload["generatedAt"] = "2026-04-18T19:54:27Z"
         releases_payload["generated_at"] = "2026-04-18T19:54:27Z"
         releases_path.write_text(json.dumps(releases_payload, indent=2) + "\n", encoding="utf-8")
