@@ -1,11 +1,11 @@
 # Hub Registry Milestone Coverage Model
 
 Date: 2026-03-11
-Scope: complete milestone coverage modeling for `chummer-hub-registry` so ETA and completion truth are explicit instead of partial.
+Scope: complete milestone coverage modeling for `chummer-hub-registry` so ETA and completion truth are explicit across the full approved `H0`-`H9` spine instead of partial.
 
 ## Coverage contract
 
-- Milestone spine source: `.codex-design/repo/IMPLEMENTATION_SCOPE.md` (`H0` through `H8`).
+- Milestone spine source: `.codex-design/repo/IMPLEMENTATION_SCOPE.md` (`H0` through `H9`).
 - Program alignment: `.codex-design/product/PROGRAM_MILESTONES.yaml` (`C0`, `E2`).
 - Boundary guardrails: no provider adapters, approval bridges, docs/help vendor execution, or render execution in this repo.
 
@@ -20,8 +20,9 @@ Scope: complete milestone coverage modeling for `chummer-hub-registry` so ETA an
 | `H4` | Search/discovery/reviews | `E2` | in_progress | 2026-Q3 | Review/discovery contracts exist, package-boundary backlog is explicit, and moderation/publication projection read-model ownership is now mapped into executable queue work. | `Chummer.Hub.Registry.Contracts/ArtifactContracts.cs`, `docs/milestone-mapping.install-review-compat-runtimebundle-package-boundary.v1.md`, `docs/runnable-backlog.install-review-compat-runtimebundle-package-boundary.v1.md`, `docs/milestone-mapping.moderation-publication-projections-readmodels.v1.md`, `docs/runnable-backlog.moderation-publication-projections-readmodels.v1.md` |
 | `H5` | Style/template publication | `E2` | planned | 2026-Q3 | Repo may reference promoted help/template/style/preview artifacts as registry truth; no execution ownership is modeled here. | boundary rules in `.codex-design/repo/IMPLEMENTATION_SCOPE.md` |
 | `H6` | Federation/org channels | `E2` | planned | 2026-Q4 | No active implementation in this repo yet; reserved for governed org/channel publication and install policies. | this registry model (current file) |
-| `H7` | Hardening | `E2`, `F1` | in_progress | 2026-Q3 to Q4 | Verify harness now includes explicit backup/restore and runtime-bundle-head continuity proof, but broader downstream restore/runbook coverage is still open. | `scripts/ai/verify.sh`, `Chummer.Hub.Registry.Contracts.Verify/Program.cs`, `Chummer.Run.Registry.Verify/Program.cs`, `docs/REGISTRY_RESTORE_RUNBOOK.md` |
-| `H8` | Finished registry | `E2` | planned | 2027+ | End-to-end publication/install/review/discovery/compatibility truth is not yet complete across repos. | program/design mirror refs in `.codex-design/product/*` |
+| `H7` | Desktop release heads | `C0`, `E2` | in_progress | 2026-Q2 to Q3 | Registry-owned desktop route/channel truth is modeled with promoted head, update, rollback, revoke, and installer-posture evidence, but whole-product consumers and promotion discipline still rely on broader cross-repo release truth. | `Chummer.Hub.Registry.Contracts/ReleaseChannelContracts.cs`, `docs/milestone-mapping.install-review-compat-runtimebundle-package-boundary.v1.md`, `docs/next90-m101-registry-promotion-discipline.proof.yaml`, `.codex-studio/published/RELEASE_CHANNEL.generated.json` |
+| `H8` | Hardening | `E2`, `F1` | in_progress | 2026-Q3 to Q4 | Verify harness includes explicit restore/runbook and runtime-bundle-head continuity proof, but broader release-pipeline negative-case drift and downstream hardening coverage are still being exercised outside this slice. | `scripts/ai/verify.sh`, `Chummer.Hub.Registry.Contracts.Verify/Program.cs`, `Chummer.Run.Registry.Verify/Program.cs`, `docs/REGISTRY_RESTORE_RUNBOOK.md` |
+| `H9` | Finished registry | `E2` | planned | 2027+ | End-to-end publication/install/review/discovery/compatibility/desktop-release truth is not yet complete across repos. | program/design mirror refs in `.codex-design/product/*` |
 
 ## Audit finding to milestone mapping
 
@@ -30,7 +31,7 @@ Mapped from 2026-03-11 auditor publications (`487877`-`487883`):
 1. Metadata/publication still effectively owned in `run-services` -> `H1`, `H2`, `C0`
 2. Install/review/compatibility/runtime-bundle seams not yet package-only registry boundary -> `H3`, `H4`, `C0`, `E2`
 3. Moderation/publication projections need explicit registry-owned read models -> `H2`, `H4`, `E2`
-4. Milestone coverage incomplete -> resolved by this complete `H0`-`H8` registry model
+4. Milestone coverage incomplete -> resolved by this complete `H0`-`H9` registry model
 
 ## Executable next queue slices by milestone
 
@@ -55,5 +56,15 @@ Audit source: `feedback/2026-03-13-095500-audit-task-487883.md` (prepend queue p
 
 Result:
 
-- This milestone coverage model already provides explicit `H0`-`H8` status, ETA bands, completion truth, and evidence paths for `hub-registry`.
+- This milestone coverage model already provides explicit `H0`-`H9` status, ETA bands, completion truth, and evidence paths for `hub-registry`.
 - No duplicate milestone-coverage artifact was created; this document remains the canonical completion-truth model for the slice.
+
+Date: 2026-04-19 (`/fast` system re-entry replay, repo-state inspection refresh)
+Audit source: required disk/context reload set, `git status --short`, canonical milestone-coverage artifact review, and fresh `./scripts/ai/verify.sh`
+
+Result:
+
+- Revalidated this milestone coverage model after explicit repo-state inspection confirmed the worktree is dirty in unrelated design-mirror and contract files, so this slice remains evidence-only and does not duplicate completed milestone work.
+- Corrected the milestone spine to the approved `H0`-`H9` sequence from `.codex-design/repo/IMPLEMENTATION_SCOPE.md`, restoring the missing `H7` desktop-release-heads row and shifting hardening/finished-registry to `H8`/`H9`.
+- Revalidated that the corrected `H0`-`H9` rows now provide explicit status, ETA bands, completion truth, and evidence paths for `hub-registry`; no duplicate queue artifacts were required.
+- Replayed `./scripts/ai/verify.sh`; it still exits `0` for this run with registry contract/runtime verification passing while the out-of-slice release-channel proof, route-ordering, alias-drift, UI-localization, and startup-smoke fixture failures continue to appear only as non-fatal negative-case validation coverage in the verifier pipeline.
