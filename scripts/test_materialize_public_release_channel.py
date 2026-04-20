@@ -1156,6 +1156,53 @@ def test_desktop_tuple_coverage_uses_quarantine_sha_without_windows_payload_mark
     assert requests[0]["expectedInstallerSha256"] == expected_sha
 
 
+def test_desktop_tuple_coverage_uses_sibling_presentation_manifest_sha_for_missing_tuple_request() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        workspace_root = Path(tmp)
+        registry_root = workspace_root / "chummer-hub-registry"
+        downloads_dir = registry_root / "Docker" / "Downloads" / "files"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+
+        presentation_downloads = (
+            workspace_root
+            / "chummer-presentation"
+            / "Chummer.Portal"
+            / "downloads"
+        )
+        presentation_downloads.mkdir(parents=True, exist_ok=True)
+        expected_sha = "c" * 64
+        (presentation_downloads / "RELEASE_CHANNEL.generated.json").write_text(
+            json.dumps(
+                {
+                    "artifacts": [
+                        {
+                            "artifactId": "avalonia-win-x64-installer",
+                            "head": "avalonia",
+                            "platform": "windows",
+                            "rid": "win-x64",
+                            "kind": "installer",
+                            "sha256": expected_sha,
+                        }
+                    ]
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        coverage = MODULE.desktop_tuple_coverage(
+            [],
+            required_heads=["avalonia"],
+            required_platforms=["windows"],
+            channel_id="preview",
+            downloads_dir=downloads_dir,
+        )
+
+    requests = coverage["externalProofRequests"]
+    assert len(requests) == 1
+    assert requests[0]["tupleId"] == "avalonia:win-x64:windows"
+    assert requests[0]["expectedInstallerSha256"] == expected_sha
+
+
 def test_verify_required_desktop_heads_rejects_noncanonical_head_set() -> None:
     try:
         MODULE.verify_required_desktop_heads(
@@ -1194,6 +1241,7 @@ def test_external_proof_request_capture_commands_include_operating_system_hint()
     assert len(commands) == 3
     assert "external-proof-auth-missing" in commands[0]
     assert "curl_auth_args" in commands[0]
+    assert '"${curl_auth_args[@]}"' in commands[0]
     assert "/downloads/install/avalonia-win-x64-installer" in commands[0]
     assert "installer-preflight-sha256-mismatch" in commands[0]
     assert "installer-postdownload-sha256-mismatch" in commands[0]
@@ -1202,7 +1250,7 @@ def test_external_proof_request_capture_commands_include_operating_system_hint()
     assert 'STARTUP_SMOKE_DIR="$REPO_ROOT/Docker/Downloads/startup-smoke"' in commands[1]
     assert commands[1].endswith('"$STARTUP_SMOKE_DIR" run-20260414-1836')
     assert commands[2].endswith('cd "$REPO_ROOT" && ./scripts/generate-releases-manifest.sh')
-    assert 'REPO_ROOT="${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui-finish}"' in commands[2]
+    assert 'REPO_ROOT="${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui}"' in commands[2]
 
 
 def test_external_proof_request_capture_commands_include_macos_operating_system_hint() -> None:
@@ -1225,4 +1273,4 @@ def test_external_proof_request_capture_commands_include_macos_operating_system_
     assert 'STARTUP_SMOKE_DIR="$REPO_ROOT/Docker/Downloads/startup-smoke"' in commands[1]
     assert commands[1].endswith('"$STARTUP_SMOKE_DIR" run-20260414-1836')
     assert commands[2].endswith('cd "$REPO_ROOT" && ./scripts/generate-releases-manifest.sh')
-    assert 'REPO_ROOT="${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui-finish}"' in commands[2]
+    assert 'REPO_ROOT="${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui}"' in commands[2]

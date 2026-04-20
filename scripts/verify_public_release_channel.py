@@ -337,7 +337,7 @@ def expected_external_proof_capture_commands(
 
     required_host_token = normalized_platform_token(required_host) or platform_token
     operating_system_hint = expected_external_proof_operating_system_hint(required_host_token) or expected_external_proof_operating_system_hint(platform_token)
-    repo_root = "/docker/chummercomplete/chummer6-ui-finish"
+    repo_root = "/docker/chummercomplete/chummer6-ui"
     repo_root_setup = (
         f'REPO_ROOT="${{CHUMMER_UI_REPO_ROOT:-{repo_root}}}" && '
         "export REPO_ROOT && "
@@ -393,7 +393,7 @@ def expected_external_proof_capture_commands(
         f"curl_auth_args+=( --cookie \"{DEFAULT_EXTERNAL_PROOF_COOKIE_JAR_EXPR}\" ); "
         "fi; "
         "curl -fL --retry 3 --retry-delay 2 "
-        "${curl_auth_args[@]} "
+        '"${curl_auth_args[@]}" '
         f"\"{DEFAULT_EXTERNAL_PROOF_BASE_URL_EXPR}{expected_public_install_route}\" "
         '-o "$INSTALLER_PATH"; '
         "fi; "

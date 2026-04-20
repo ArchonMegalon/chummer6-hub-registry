@@ -1954,7 +1954,7 @@ def external_proof_request_capture_commands(
 
     required_host_token = normalized_token(required_host) or platform_token
     operating_system_hint = startup_smoke_operating_system_hint(required_host_token) or startup_smoke_operating_system_hint(platform_token)
-    repo_root = "/docker/chummercomplete/chummer6-ui-finish"
+    repo_root = "/docker/chummercomplete/chummer6-ui"
     repo_root_setup = (
         f'REPO_ROOT="${{CHUMMER_UI_REPO_ROOT:-{repo_root}}}" && '
         "export REPO_ROOT && "
@@ -2009,7 +2009,7 @@ def external_proof_request_capture_commands(
         f"curl_auth_args+=( --cookie \"{DEFAULT_EXTERNAL_PROOF_COOKIE_JAR_EXPR}\" ); "
         "fi; "
         "curl -fL --retry 3 --retry-delay 2 "
-        "${curl_auth_args[@]} "
+        '"${curl_auth_args[@]}" '
         f"\"{DEFAULT_EXTERNAL_PROOF_BASE_URL_EXPR}{expected_public_install_route}\" "
         '-o "$INSTALLER_PATH"; '
         "fi; "
@@ -2188,40 +2188,77 @@ def desktop_tuple_coverage(
         platform: str,
         expected_installer_file_name: str,
     ) -> str:
-        if downloads_dir is None or not downloads_dir.exists():
-            return ""
-        candidates: list[Path] = []
-
-        primary = downloads_dir / expected_installer_file_name
-        if primary.is_file():
-            candidates.append(primary)
-
-        # Keep unresolved-proof hash truth aligned with quarantine candidates when
-        # startup-smoke gating withholds installers from the promoted downloads shelf.
-        if (
-            downloads_dir.name == "files"
-            and downloads_dir.parent.name == "Downloads"
-            and downloads_dir.parent.parent.name == "Docker"
-        ):
-            repo_root = downloads_dir.parent.parent.parent
-            quarantine_roots = (
-                repo_root / ".codex-studio" / "quarantine",
-                repo_root / "Docker" / "Downloads" / "quarantine",
-            )
-            for quarantine_root in quarantine_roots:
-                if not quarantine_root.is_dir():
+        def manifest_expected_installer_sha256(manifest_path: Path) -> str:
+            if not manifest_path.is_file():
+                return ""
+            try:
+                payload = json.loads(manifest_path.read_text(encoding="utf-8-sig"))
+            except (OSError, json.JSONDecodeError):
+                return ""
+            artifacts = payload.get("artifacts") if isinstance(payload, dict) else []
+            if not isinstance(artifacts, list):
+                return ""
+            matching_rows: list[dict[str, Any]] = []
+            expected_artifact_id = f"{head}-{rid}-installer"
+            for item in artifacts:
+                if not isinstance(item, dict):
                     continue
-                candidates.extend(
-                    sorted(
-                        (
-                            path
-                            for path in quarantine_root.rglob(expected_installer_file_name)
-                            if path.is_file()
-                        ),
-                        key=lambda path: path.stat().st_mtime,
-                        reverse=True,
-                    )
+                if (
+                    normalized_token(item.get("head")) != normalized_token(head)
+                    or normalized_token(item.get("rid")) != normalized_token(rid)
+                    or normalized_token(item.get("platform")) != normalized_token(platform)
+                    or not is_desktop_install_media(platform, item.get("kind"))
+                ):
+                    continue
+                sha256 = str(item.get("sha256") or "").strip().lower()
+                if not sha256:
+                    continue
+                matching_rows.append(item)
+                if normalized_token(item.get("artifactId")) == normalized_token(expected_artifact_id):
+                    return sha256
+            if matching_rows:
+                return str(matching_rows[0].get("sha256") or "").strip().lower()
+            return ""
+
+        candidates: list[Path] = []
+        candidate_repo_roots: list[Path] = []
+
+        if downloads_dir is not None and downloads_dir.exists():
+            primary = downloads_dir / expected_installer_file_name
+            if primary.is_file():
+                candidates.append(primary)
+
+            # Keep unresolved-proof hash truth aligned with quarantine candidates when
+            # startup-smoke gating withholds installers from the promoted downloads shelf.
+            if (
+                downloads_dir.name == "files"
+                and downloads_dir.parent.name == "Downloads"
+                and downloads_dir.parent.parent.name == "Docker"
+            ):
+                repo_root = downloads_dir.parent.parent.parent
+                candidate_repo_roots.append(repo_root)
+                quarantine_roots = (
+                    repo_root / ".codex-studio" / "quarantine",
+                    repo_root / "Docker" / "Downloads" / "quarantine",
                 )
+                for quarantine_root in quarantine_roots:
+                    if not quarantine_root.is_dir():
+                        continue
+                    candidates.extend(
+                        sorted(
+                            (
+                                path
+                                for path in quarantine_root.rglob(expected_installer_file_name)
+                                if path.is_file()
+                            ),
+                            key=lambda path: path.stat().st_mtime,
+                            reverse=True,
+                        )
+                    )
+
+        script_repo_root = Path(__file__).resolve().parent.parent
+        if script_repo_root not in candidate_repo_roots:
+            candidate_repo_roots.append(script_repo_root)
 
         for candidate in candidates:
             discovered = row_from_file(candidate, downloads_prefix="/downloads/files")
@@ -2235,6 +2272,18 @@ def desktop_tuple_coverage(
             ):
                 continue
             return str(discovered.get("sha256") or "").strip().lower()
+
+        for repo_root in candidate_repo_roots:
+            sibling_manifest_candidates = (
+                repo_root.parent / "chummer-presentation" / "Chummer.Portal" / "downloads" / "RELEASE_CHANNEL.generated.json",
+                repo_root.parent / "chummer-presentation" / "Chummer.Portal" / "downloads" / "releases.json",
+                repo_root.parent / "chummer-presentation" / "Docker" / "Downloads" / "RELEASE_CHANNEL.generated.json",
+                repo_root.parent / "chummer-presentation" / "Docker" / "Downloads" / "releases.json",
+            )
+            for manifest_path in sibling_manifest_candidates:
+                expected_sha = manifest_expected_installer_sha256(manifest_path)
+                if expected_sha:
+                    return expected_sha
         return ""
     external_proof_requests: list[dict[str, Any]] = []
     for tuple_id in missing_required_platform_head_rid_tuples:
