@@ -67,3 +67,15 @@ Result:
 
 - This backlog already materializes the requested uncovered scope and remains the runnable source of truth for metadata/publication ownership cutover.
 - No duplicate backlog file was created; this document is explicitly republished/retained for the current queue slice.
+
+## Queue refresh
+
+Date: 2026-04-22
+Audit source: required disk/context reload, `.codex-studio/published/QUEUE.generated.yaml`, local verifier replay, and `scripts/ai/verify.sh`
+
+Result:
+
+- This backlog remains the canonical runnable artifact for the queue item "Publish or append runnable backlog for The scaffold repo exists, but immutable artifact metadata and publication state are still effectively owned in run-services.."; no duplicate backlog file was created.
+- Local verification now ignores nested git checkouts inside consumer roots, preventing false-positive ownership drift when a consumer repo carries a nested `chummer-hub-registry` checkout.
+- Direct local verification passed with `CHUMMER_RUN_SERVICES_ROOT=/docker/chummercomplete/chummer.run-services CHUMMER_PRESENTATION_ROOT=/docker/chummercomplete/chummer-presentation CHUMMER_ENFORCE_CONSUMER_OWNERSHIP=1 dotnet run --project Chummer.Hub.Registry.Contracts.Verify/Chummer.Hub.Registry.Contracts.Verify.csproj` and `dotnet run --project Chummer.Run.Registry.Verify/Chummer.Run.Registry.Verify.csproj`.
+- `./scripts/ai/verify.sh` now resolves the active repo root instead of the external mirror path, and the full scripted verification pass completed successfully on 2026-04-22.
