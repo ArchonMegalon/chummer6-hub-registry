@@ -2717,13 +2717,17 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         source="source manifest",
     )
     requested_contract_name = str(args.contract_name or "").strip()
-    contract_name = (
-        requested_contract_name
-        or str(loaded_contract_name or loaded.get("contract") or "").strip()
-        or DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
-    )
-    if not contract_name:
-        raise ValueError("release-channel contract_name must not be empty")
+    source_contract_name = str(loaded_contract_name or loaded.get("contract") or "").strip()
+    for candidate, candidate_source in (
+        (requested_contract_name, "--contract-name"),
+        (source_contract_name, "source manifest"),
+    ):
+        if candidate and candidate != DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME:
+            raise ValueError(
+                "release-channel contract_name must stay canonical "
+                f"({DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME}); got {candidate!r} from {candidate_source}"
+            )
+    contract_name = DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
     message = loaded.get("message")
     release_proof = load_release_proof(args.proof) or normalize_release_proof_payload(
         loaded.get("releaseProof") or loaded.get("release_proof"),
@@ -2870,7 +2874,13 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
 
 
 def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
-    contract_name = str(canonical.get("contract_name") or canonical.get("contractName") or "").strip()
+    source_contract_name = str(canonical.get("contract_name") or canonical.get("contractName") or "").strip()
+    if source_contract_name and source_contract_name != DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME:
+        raise ValueError(
+            "release-channel compatibility payload must preserve the canonical contract name "
+            f"{DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME}, got {source_contract_name!r}"
+        )
+    contract_name = DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
     downloads = []
     for artifact in canonical.get("artifacts") or []:
         if not isinstance(artifact, dict):

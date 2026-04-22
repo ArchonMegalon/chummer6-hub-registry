@@ -131,12 +131,63 @@ public sealed record ReleaseRuntimeBundleHeadReference(
     string ProjectionFingerprint,
     string? CompatibilityState = null);
 
+public sealed record ReleaseUiLocalizationLocaleSummary(
+    string Locale,
+    int UntranslatedKeyCount,
+    int OverrideCount,
+    int MinimumOverrideCount,
+    IReadOnlyList<string>? MissingReleaseSeedKeys = null,
+    bool LegacyXmlPresent = false,
+    bool LegacyDataXmlPresent = false);
+
+public sealed record ReleaseUiLocalizationGateProjection(
+    string Status,
+    DateTimeOffset? GeneratedAtUtc = null,
+    int? DefaultKeyCount = null,
+    string? ExplicitFallbackRuntime = null,
+    string? SignoffSmokeRunnerStatus = null,
+    IReadOnlyList<string>? ShippingLocales = null,
+    IReadOnlyList<string>? AcceptanceGates = null,
+    IReadOnlyDictionary<string, string>? DomainCoverage = null,
+    IReadOnlyDictionary<string, IReadOnlyDictionary<string, string>>? LocaleDomainCoverage = null,
+    int? BlockingFindingsCount = null,
+    IReadOnlyList<string>? BlockingFindings = null,
+    int? TranslationBacklogFindingsCount = null,
+    IReadOnlyList<string>? TranslationBacklogFindings = null,
+    IReadOnlyList<ReleaseUiLocalizationLocaleSummary>? LocaleSummary = null);
+
+public sealed record ReleaseExternalProofReceiptContract(
+    IReadOnlyList<string>? StatusAnyOf = null,
+    string? ReadyCheckpoint = null,
+    string? HeadId = null,
+    string? Platform = null,
+    string? Rid = null,
+    string? HostClassContains = null);
+
+public sealed record ReleaseExternalProofRequest(
+    string TupleId,
+    string ChannelId,
+    string Head,
+    string Platform,
+    string Rid,
+    string RequiredHost,
+    IReadOnlyList<string>? RequiredProofs = null,
+    string? ExpectedArtifactId = null,
+    string? ExpectedInstallerFileName = null,
+    string? ExpectedInstallerRelativePath = null,
+    string? ExpectedInstallerSha256 = null,
+    string? ExpectedPublicInstallRoute = null,
+    string? ExpectedStartupSmokeReceiptPath = null,
+    ReleaseExternalProofReceiptContract? StartupSmokeReceiptContract = null,
+    IReadOnlyList<string>? ProofCaptureCommands = null);
+
 public sealed record ReleaseProofProjection(
     string Status,
     DateTimeOffset? GeneratedAtUtc = null,
     string? BaseUrl = null,
     IReadOnlyList<string>? JourneysPassed = null,
-    IReadOnlyList<string>? ProofRoutes = null);
+    IReadOnlyList<string>? ProofRoutes = null,
+    ReleaseUiLocalizationGateProjection? UiLocalizationReleaseGate = null);
 
 public sealed record ReleaseChannelArtifact(
     string ArtifactId,
@@ -201,6 +252,7 @@ public sealed record ReleaseDesktopTupleCoverage(
     IReadOnlyList<string> RequiredDesktopPlatforms,
     IReadOnlyList<string> RequiredDesktopHeads,
     IReadOnlyList<ReleaseDesktopRouteTruth> DesktopRouteTruth,
+    IReadOnlyList<ReleaseExternalProofRequest>? ExternalProofRequests = null,
     IReadOnlyList<string>? MissingRequiredPlatforms = null,
     IReadOnlyList<string>? MissingRequiredHeads = null,
     IReadOnlyList<string>? MissingRequiredPlatformHeadPairs = null,

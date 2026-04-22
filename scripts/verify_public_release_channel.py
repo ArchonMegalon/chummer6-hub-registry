@@ -94,6 +94,7 @@ REQUIRED_RELEASE_PROOF_ROUTES = (
     "/account/support",
     "/contact",
 )
+DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME = "Chummer.Hub.Registry.Contracts"
 RELEASE_PROOF_ARTIFACT_INSTALL_ROUTE_RE = re.compile(
     r"^/downloads/install/(?P<artifact_id>[a-z0-9][a-z0-9-]*)$"
 )
@@ -2337,7 +2338,13 @@ def verify_local_release_artifact_bytes(payload: dict, files_dir: Path, source: 
                 )
 
 
-def verify_local_download_files(payload: dict, root: Path | None, source: str) -> None:
+def verify_local_download_files(
+    payload: dict,
+    root: Path | None,
+    source: str,
+    *,
+    skip_startup_smoke_filter: bool = False,
+) -> None:
     if root is None:
         return
 
@@ -2346,7 +2353,12 @@ def verify_local_download_files(payload: dict, root: Path | None, source: str) -
         return
 
     verify_local_release_artifact_bytes(payload, files_dir, source)
-    verify_local_startup_smoke_receipts(payload, root, source)
+    verify_local_startup_smoke_receipts(
+        payload,
+        root,
+        source,
+        skip_startup_smoke_filter=skip_startup_smoke_filter,
+    )
 
     expected_file_names = manifest_file_names(payload)
     extra_artifacts = []
@@ -2456,7 +2468,13 @@ def parse_startup_smoke_receipt_timestamp(receipt: dict[str, Any]) -> datetime |
     return None
 
 
-def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) -> None:
+def verify_local_startup_smoke_receipts(
+    payload: dict,
+    root: Path,
+    source: str,
+    *,
+    skip_startup_smoke_filter: bool = False,
+) -> None:
     promoted_tuples = list(iter_promoted_desktop_installer_tuples(payload))
     if not promoted_tuples:
         return
@@ -2618,7 +2636,7 @@ def verify_local_startup_smoke_receipts(payload: dict, root: Path, source: str) 
                     f"{head}:{platform}:{rid} ({future_skew_seconds}s ahead; max {max_future_skew_seconds}s)"
                 )
             age_seconds = 0
-        if age_seconds > max_age_seconds:
+        if age_seconds > max_age_seconds and not skip_startup_smoke_filter:
             raise SystemExit(
                 f"{source} startup-smoke receipt is stale for promoted desktop installer tuple {head}:{platform}:{rid} "
                 f"({age_seconds}s old; max {max_age_seconds}s)"
@@ -2630,6 +2648,7 @@ def verify_artifacts(
     source: str,
     *,
     require_complete_desktop_coverage: bool = False,
+    skip_startup_smoke_filter: bool = False,
 ) -> dict[str, list[str]] | None:
     status = str(payload.get("status") or "").strip().lower()
     channel = normalized_token(
@@ -3519,6 +3538,11 @@ def verify_contract_identity(payload: dict, source: str) -> None:
     ).strip()
     if not contract_name:
         raise SystemExit(f"{source} is missing non-empty contract_name/contractName")
+    if contract_name != DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME:
+        raise SystemExit(
+            f"{source} must declare canonical contract_name/contractName "
+            f"{DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME}, got {contract_name!r}"
+        )
 
 
 def parse_args(argv: list[str]) -> argparse.Namespace:
@@ -3532,6 +3556,11 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         action="store_true",
         help="Fail when required desktop tuple coverage is incomplete.",
     )
+    parser.add_argument(
+        "--skip-startup-smoke-filter",
+        action="store_true",
+        help="Allow stale startup-smoke receipts while keeping tuple identity and digest checks active.",
+    )
     return parser.parse_args(argv)
 
 
@@ -3541,8 +3570,15 @@ def main() -> int:
     if not target:
         raise SystemExit("Provide a manifest path or URL.")
     require_complete_desktop_coverage = args.require_complete_desktop_coverage
+    skip_startup_smoke_filter = args.skip_startup_smoke_filter
     if str(os.environ.get("CHUMMER_VERIFY_REQUIRE_COMPLETE_DESKTOP_COVERAGE", "")).strip().lower() in {"1", "true", "yes", "on"}:
         require_complete_desktop_coverage = True
+    if str(
+        os.environ.get("CHUMMER_VERIFY_SKIP_STARTUP_SMOKE_FILTER")
+        or os.environ.get("CHUMMER_PUBLIC_SKIP_STARTUP_SMOKE_FILTER")
+        or ""
+    ).strip().lower() in {"1", "true", "yes", "on"}:
+        skip_startup_smoke_filter = True
     payload, source, local_root = load_payload(target)
     if not isinstance(payload, dict):
         raise SystemExit(f"manifest must be a JSON object: {source}")
@@ -3552,10 +3588,16 @@ def main() -> int:
         payload,
         source,
         require_complete_desktop_coverage=require_complete_desktop_coverage,
+        skip_startup_smoke_filter=skip_startup_smoke_filter,
     )
     verify_release_truth(payload, source)
     verify_desktop_tuple_honesty(payload, source, coverage)
-    verify_local_download_files(payload, local_root, source)
+    verify_local_download_files(
+        payload,
+        local_root,
+        source,
+        skip_startup_smoke_filter=skip_startup_smoke_filter,
+    )
     print(f"verified public release manifest: {source}")
     return 0
 

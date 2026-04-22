@@ -374,11 +374,11 @@ def test_load_startup_smoke_receipts_rejects_missing_artifact_identity() -> None
     assert receipts == []
 
 
-def test_compatibility_payload_preserves_contract_name_aliases() -> None:
+def test_compatibility_payload_canonicalizes_contract_name_aliases() -> None:
     payload = MODULE.compatibility_payload(
         {
             "generatedAt": "2026-04-10T11:24:43Z",
-            "contract_name": "chummer.run.desktop_release_publication",
+            "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
             "channelId": "preview",
             "version": "2026.04.10.1",
             "publishedAt": "2026-04-10T11:24:43Z",
@@ -387,8 +387,8 @@ def test_compatibility_payload_preserves_contract_name_aliases() -> None:
         }
     )
 
-    assert payload["contract_name"] == "chummer.run.desktop_release_publication"
-    assert payload["contractName"] == "chummer.run.desktop_release_publication"
+    assert payload["contract_name"] == MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
+    assert payload["contractName"] == MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
 
 
 def test_normalize_release_proof_payload_ignores_extra_metadata_keys() -> None:

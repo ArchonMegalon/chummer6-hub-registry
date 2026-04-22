@@ -1,0 +1,11 @@
+# GitHub Codex Review
+
+PR: https://github.com/ArchonMegalon/chummer6-hub-registry/pull/5
+
+Findings:
+- [high] scripts/materialize_public_release_channel.py [contracts] release-channel-contract-identity-not-canonical
+`scripts/materialize_public_release_channel.py:2712-2724` accepts `contract_name` from the source payload or CLI and only falls back to `Chummer.Hub.Registry.Contracts`, so a run-services/source-owned contract id can be republished as canonical registry truth.; `scripts/verify_public_release_channel.py:3509-3521` only checks that `contract_name/contractName` is non-empty; it never enforces the canonical registry contract identity.; `scripts/test_materialize_public_release_channel.py:377-391` explicitly locks in a foreign contract id (`chummer.run.desktop_release_publication`) as acceptable compatibility output, which preserves ownership ambiguity instead of rejecting it.
+Expected fix: Fail closed unless canonical release-channel and compatibility outputs use the registry contract identity (`Chummer.Hub.Registry.Contracts`), and update tests to reject foreign/source-owned contract names.
+- [high] Chummer.Hub.Registry.Contracts/ReleaseChannelContracts.cs [contracts] typed-release-channel-contract-drops-required-proof-surfaces
+The pipeline doc makes `releaseProof.uiLocalizationReleaseGate` required contract truth and `desktopTupleCoverage.externalProofRequests` strict verifier-bound coverage truth (`docs/RELEASE_CHANNEL_PIPELINE.md:255-265`).; `Chummer.Hub.Registry.Contracts/ReleaseChannelContracts.cs:134-139` models `ReleaseProofProjection` with only status/generatedAt/baseUrl/journeys/proofRoutes, and `:200-208` models `ReleaseDesktopTupleCoverage` without any `ExternalProofRequests` surface.; `Chummer.Run.Registry/Services/ReleaseChannelManifestStore.cs:91-98` and `:99-126` deserialize only the truncated proof/coverage models, so typed runtime consumers silently lose the required localization gate and external proof-request data even though the canonical JSON now carries them.
+Expected fix: Extend the typed release-channel contracts and manifest-store mapping to include the required `uiLocalizationReleaseGate` and `externalProofRequests` surfaces, then add verifier coverage that exercises those fields through the runtime seam.

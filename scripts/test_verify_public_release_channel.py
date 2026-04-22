@@ -1,8 +1,11 @@
 from __future__ import annotations
 
+import hashlib
 import importlib.util
+import json
 import re
 from contextlib import contextmanager
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 try:
@@ -118,6 +121,16 @@ def complete_primary_desktop_tuple_payload() -> dict:
             },
         ],
     }
+
+
+def test_verify_contract_identity_rejects_noncanonical_contract_name() -> None:
+    with pytest.raises(SystemExit, match="must declare canonical contract_name/contractName"):
+        MODULE.verify_contract_identity(
+            {
+                "contract_name": "chummer.run.desktop_release_publication",
+            },
+            "fixture payload",
+        )
 
 
 def add_promoted_linux_fallback_tuple(payload: dict) -> None:
@@ -321,6 +334,128 @@ def test_verify_startup_smoke_receipt_artifact_identity_accepts_matching_relativ
         expected_file_name="chummer-avalonia-win-x64-installer.exe",
         expected_relative_path="files/chummer-avalonia-win-x64-installer.exe",
         source="release-channel.json",
+    )
+
+
+def test_verify_local_download_files_accepts_stale_receipt_only_when_skip_enabled(tmp_path: Path) -> None:
+    manifest_root = tmp_path / "downloads"
+    files_dir = manifest_root / "files"
+    startup_smoke_dir = manifest_root / "startup-smoke"
+    files_dir.mkdir(parents=True)
+    startup_smoke_dir.mkdir(parents=True)
+
+    installer_name = "chummer-avalonia-win-x64-installer.exe"
+    installer_path = files_dir / installer_name
+    installer_bytes = b"windows-installer"
+    installer_path.write_bytes(installer_bytes)
+    installer_sha = hashlib.sha256(installer_bytes).hexdigest()
+
+    payload = {
+        "channelId": "docker",
+        "channel": "docker",
+        "version": "run-20260420-072339",
+        "status": "pass",
+        "generatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+        "downloads": [
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "platform": "windows",
+                "rid": "win-x64",
+                "arch": "x64",
+                "kind": "installer",
+                "channelId": "docker",
+                "fileName": installer_name,
+                "url": f"/downloads/files/{installer_name}",
+                "sizeBytes": len(installer_bytes),
+                "sha256": installer_sha,
+            }
+        ],
+        "desktopTupleCoverage": {
+            "requiredDesktopPlatforms": ["linux", "windows", "macos"],
+            "requiredDesktopHeads": ["avalonia"],
+            "promotedInstallerTuples": [
+                {
+                    "tupleId": "avalonia:windows:win-x64",
+                    "head": "avalonia",
+                    "platform": "windows",
+                    "rid": "win-x64",
+                    "arch": "x64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-win-x64-installer",
+                }
+            ],
+            "promotedPlatformHeads": {"linux": [], "windows": ["avalonia"], "macos": []},
+            "requiredDesktopPlatformHeadRidTuples": [
+                "avalonia:linux-x64:linux",
+                "avalonia:win-x64:windows",
+                "avalonia:osx-arm64:macos",
+            ],
+            "promotedPlatformHeadRidTuples": ["avalonia:win-x64:windows"],
+            "missingRequiredPlatforms": ["linux", "macos"],
+            "missingRequiredHeads": [],
+            "missingRequiredPlatformHeadPairs": ["avalonia:linux", "avalonia:macos"],
+            "missingRequiredPlatformHeadRidTuples": [
+                "avalonia:linux-x64:linux",
+                "avalonia:osx-arm64:macos",
+            ],
+            "externalProofRequests": [],
+            "desktopRouteTruth": [],
+            "complete": False,
+        },
+        "artifacts": [
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "platform": "windows",
+                "rid": "win-x64",
+                "arch": "x64",
+                "kind": "installer",
+                "channelId": "docker",
+                "fileName": installer_name,
+                "url": f"/downloads/files/{installer_name}",
+                "sizeBytes": len(installer_bytes),
+                "sha256": installer_sha,
+            }
+        ],
+    }
+
+    receipt_path = startup_smoke_dir / "startup-smoke-avalonia-win-x64.receipt.json"
+    receipt_path.write_text(
+        json.dumps(
+            {
+                "status": "pass",
+                "readyCheckpoint": MODULE.REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT,
+                "headId": "avalonia",
+                "platform": "windows",
+                "rid": "win-x64",
+                "arch": "x64",
+                "hostClass": "windows-host",
+                "operatingSystem": "Windows 11",
+                "artifactDigest": f"sha256:{installer_sha}",
+                "artifactId": "avalonia-win-x64-installer",
+                "artifactPath": str(installer_path),
+                "channelId": "docker",
+                "channel": "docker",
+                "completedAtUtc": (
+                    datetime.now(timezone.utc) - timedelta(days=8)
+                ).isoformat().replace("+00:00", "Z"),
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    with pytest.raises(SystemExit, match="startup-smoke receipt is stale"):
+        MODULE.verify_local_download_files(payload, manifest_root, str(manifest_root))
+
+    MODULE.verify_local_download_files(
+        payload,
+        manifest_root,
+        str(manifest_root),
+        skip_startup_smoke_filter=True,
     )
 
 

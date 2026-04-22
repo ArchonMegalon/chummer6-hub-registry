@@ -74,8 +74,8 @@ The current generated release channel publishes six verifier-bound `desktopTuple
 | `blazor-desktop:linux:linux-x64` | fallback | promoted | fallback_available | not_revoked | installer_first |
 | `avalonia:windows:win-x64` | primary | promoted | manual_recovery_required | not_revoked | installer_first |
 | `blazor-desktop:windows:win-x64` | fallback | proof_required | fallback_not_promoted | not_revoked | proof_capture_required |
-| `avalonia:macos:osx-arm64` | primary | promoted | manual_recovery_required | not_revoked | installer_first |
-| `blazor-desktop:macos:osx-arm64` | fallback | proof_required | fallback_not_promoted | not_revoked | proof_capture_required |
+| `avalonia:macos:osx-arm64` | primary | promoted | fallback_available | not_revoked | installer_first |
+| `blazor-desktop:macos:osx-arm64` | fallback | promoted | fallback_available | not_revoked | installer_first |
 
 The row contract carries nonblank rationale fields for:
 
@@ -108,6 +108,8 @@ It now also records `/docker/chummercomplete/chummer-hub-registry` as the only v
 Its do-not-reopen conditions now include duplicate Fleet or design queue package rows, matching the executable verifier's closed-queue uniqueness guard.
 They also include primary rollback posture drift from sibling fallback route truth, matching the executable verifier's cross-row fallback availability guard.
 They now also include release projection identity drift on generated/published/version metadata, matching the executable verifier's cross-projection identity guard.
+
+Fresh repo-state replay on 2026-04-21 confirmed the published macOS fallback tuple is now promoted in both `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `.codex-studio/published/releases.json`, backed by the checked-in `startup-smoke-blazor-desktop-osx-arm64.receipt.json` evidence. The pinned proof floor and exact-row verifier expectations therefore now require `fallback_available` for `avalonia:macos:osx-arm64` and a promoted/manual-fallback row for `blazor-desktop:macos:osx-arm64` instead of preserving the older proof-required/manual-recovery posture.
 
 ## Verification
 

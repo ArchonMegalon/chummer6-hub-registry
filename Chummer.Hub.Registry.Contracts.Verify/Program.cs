@@ -11,6 +11,10 @@ VerifySealedRecord(typeof(HubPublishDraftReceipt));
 VerifySealedRecord(typeof(HubModerationCaseRecord));
 VerifySealedRecord(typeof(RuntimeBundleHeadProjection));
 VerifySealedRecord(typeof(ReleaseChannelArtifact));
+VerifySealedRecord(typeof(ReleaseUiLocalizationLocaleSummary));
+VerifySealedRecord(typeof(ReleaseUiLocalizationGateProjection));
+VerifySealedRecord(typeof(ReleaseExternalProofReceiptContract));
+VerifySealedRecord(typeof(ReleaseExternalProofRequest));
 VerifySealedRecord(typeof(ReleaseProofProjection));
 VerifySealedRecord(typeof(ReleaseDesktopRouteTruth));
 VerifySealedRecord(typeof(ReleaseDesktopTupleCoverage));
@@ -233,6 +237,76 @@ ReleaseDesktopRouteTruth routeTruth = new(
     InstallPostureReason: $"Do not present avalonia:windows:win-x64 as installable while revoked: {TupleRevokeReason}",
     PublicInstallRoute: "/downloads/install/avalonia-win-x64-installer");
 
+ReleaseUiLocalizationGateProjection uiLocalizationReleaseGate = new(
+    Status: ReleaseProofStatuses.Passed,
+    GeneratedAtUtc: DateTimeOffset.UnixEpoch,
+    DefaultKeyCount: 383,
+    ExplicitFallbackRuntime: ReleaseProofStatuses.Passed,
+    SignoffSmokeRunnerStatus: ReleaseProofStatuses.Passed,
+    ShippingLocales: ["en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn"],
+    AcceptanceGates: ["pseudo_localization", "missing_key_fail_fast", "top_surface_overflow_checks"],
+    DomainCoverage: new Dictionary<string, string>
+    {
+        ["app_chrome"] = ReleaseProofStatuses.Passed,
+        ["install_update_support"] = ReleaseProofStatuses.Passed,
+        ["explain_receipts"] = ReleaseProofStatuses.Passed,
+        ["data_rules_names"] = ReleaseProofStatuses.Passed,
+        ["generated_artifacts"] = ReleaseProofStatuses.Passed,
+    },
+    LocaleDomainCoverage: new Dictionary<string, IReadOnlyDictionary<string, string>>
+    {
+        ["de-de"] = new Dictionary<string, string>
+        {
+            ["app_chrome"] = ReleaseProofStatuses.Passed,
+            ["install_update_support"] = ReleaseProofStatuses.Passed,
+            ["explain_receipts"] = ReleaseProofStatuses.Passed,
+            ["data_rules_names"] = ReleaseProofStatuses.Passed,
+            ["generated_artifacts"] = ReleaseProofStatuses.Passed,
+        }
+    },
+    BlockingFindingsCount: 0,
+    BlockingFindings: [],
+    TranslationBacklogFindingsCount: 0,
+    TranslationBacklogFindings: [],
+    LocaleSummary:
+    [
+        new ReleaseUiLocalizationLocaleSummary(
+            Locale: "en-us",
+            UntranslatedKeyCount: 0,
+            OverrideCount: 383,
+            MinimumOverrideCount: 383,
+            MissingReleaseSeedKeys: [],
+            LegacyXmlPresent: true,
+            LegacyDataXmlPresent: true)
+    ]);
+
+ReleaseExternalProofRequest externalProofRequest = new(
+    TupleId: "avalonia:linux-x64:linux",
+    ChannelId: "preview",
+    Head: "avalonia",
+    Platform: "linux",
+    Rid: "linux-x64",
+    RequiredHost: "linux",
+    RequiredProofs: ["promoted_installer_artifact", "startup_smoke_receipt"],
+    ExpectedArtifactId: "avalonia-linux-x64-installer",
+    ExpectedInstallerFileName: "chummer-avalonia-linux-x64-installer.tar.gz",
+    ExpectedInstallerRelativePath: "files/chummer-avalonia-linux-x64-installer.tar.gz",
+    ExpectedInstallerSha256: "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+    ExpectedPublicInstallRoute: "/downloads/install/avalonia-linux-x64-installer",
+    ExpectedStartupSmokeReceiptPath: "startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json",
+    StartupSmokeReceiptContract: new ReleaseExternalProofReceiptContract(
+        StatusAnyOf: ["ready", "passed"],
+        ReadyCheckpoint: "startup_smoke_completed",
+        HeadId: "avalonia",
+        Platform: "linux",
+        Rid: "linux-x64",
+        HostClassContains: "linux"),
+    ProofCaptureCommands:
+    [
+        "curl -fSLo installer.tar.gz https://chummer.run/downloads/install/avalonia-linux-x64-installer",
+        "python3 scripts/capture-startup-smoke.py --rid linux-x64",
+    ]);
+
 ReleaseChannelHeadProjection releaseChannel = new(
     Product: "chummer6",
     ChannelId: "preview",
@@ -262,11 +336,13 @@ ReleaseChannelHeadProjection releaseChannel = new(
         GeneratedAtUtc: DateTimeOffset.UnixEpoch,
         BaseUrl: "http://127.0.0.1:8091",
         JourneysPassed: ["install_claim_restore_continue", "build_explain_publish", "campaign_session_recover_recap", "report_cluster_release_notify", "organize_community_and_close_loop"],
-        ProofRoutes: ["/downloads/install/avalonia-linux-x64-installer", "/home/access", "/home/work", "/account/work", "/account/support", "/contact"]),
+        ProofRoutes: ["/downloads/install/avalonia-linux-x64-installer", "/home/access", "/home/work", "/account/work", "/account/support", "/contact"],
+        UiLocalizationReleaseGate: uiLocalizationReleaseGate),
     DesktopTupleCoverage: new ReleaseDesktopTupleCoverage(
         RequiredDesktopPlatforms: ["linux", "windows", "macos"],
         RequiredDesktopHeads: ["avalonia"],
         DesktopRouteTruth: [routeTruth],
+        ExternalProofRequests: [externalProofRequest],
         MissingRequiredPlatformHeadRidTuples: ["avalonia:linux:linux-x64", "avalonia:macos:osx-arm64"],
         Complete: false));
 
@@ -317,6 +393,14 @@ Assert(
     "Release channel projections must retain canonical flagship proof route ordering.");
 Assert(string.Equals(releaseProof.Status, ReleaseProofStatuses.Passed, StringComparison.Ordinal),
     "Release channel projections must retain release-proof posture.");
+ReleaseUiLocalizationGateProjection retainedLocalizationGate = releaseProof.UiLocalizationReleaseGate
+    ?? throw new InvalidOperationException("Release channel projections must retain ui-localization release-gate payloads.");
+Assert(string.Equals(retainedLocalizationGate.Status, ReleaseProofStatuses.Passed, StringComparison.Ordinal),
+    "Release channel projections must retain ui-localization release-gate posture.");
+Assert(retainedLocalizationGate.ShippingLocales?.SequenceEqual(["en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn"], StringComparer.Ordinal) == true,
+    "Release channel projections must retain canonical localization shipping locale ordering.");
+Assert(retainedLocalizationGate.LocaleDomainCoverage?.ContainsKey("de-de") == true,
+    "Release channel projections must retain per-locale localization domain coverage.");
 ReleaseDesktopTupleCoverage desktopTupleCoverage = releaseChannel.DesktopTupleCoverage
     ?? throw new InvalidOperationException("Release channel projections must retain desktop tuple coverage.");
 Assert(
@@ -330,6 +414,12 @@ Assert(
         ["avalonia:linux:linux-x64", "avalonia:macos:osx-arm64"],
         StringComparer.Ordinal) == true,
     "Desktop tuple coverage must retain missing required tuple proof in canonical tuple-id form.");
+ReleaseExternalProofRequest retainedExternalProofRequest = desktopTupleCoverage.ExternalProofRequests?.Single()
+    ?? throw new InvalidOperationException("Release channel projections must retain external proof-request coverage.");
+Assert(string.Equals(retainedExternalProofRequest.TupleId, "avalonia:linux-x64:linux", StringComparison.Ordinal),
+    "Desktop tuple coverage must retain canonical external proof-request tuple ids.");
+Assert(string.Equals(retainedExternalProofRequest.StartupSmokeReceiptContract?.HostClassContains, "linux", StringComparison.Ordinal),
+    "Desktop tuple coverage must retain startup-smoke receipt contract host posture.");
 ReleaseDesktopRouteTruth desktopRouteTruth = desktopTupleCoverage.DesktopRouteTruth.Single();
 Assert(string.Equals(desktopRouteTruth.RouteRole, ReleaseDesktopRouteRoles.Primary, StringComparison.Ordinal),
     "Desktop route truth must retain primary/fallback role.");

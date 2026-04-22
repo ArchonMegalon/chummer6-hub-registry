@@ -95,7 +95,41 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
                     GeneratedAtUtc: parsed.ReleaseProof.GeneratedAt,
                     BaseUrl: parsed.ReleaseProof.BaseUrl,
                     JourneysPassed: parsed.ReleaseProof.JourneysPassed ?? [],
-                    ProofRoutes: parsed.ReleaseProof.ProofRoutes ?? []),
+                    ProofRoutes: parsed.ReleaseProof.ProofRoutes ?? [],
+                    UiLocalizationReleaseGate: parsed.ReleaseProof.UiLocalizationReleaseGate is null
+                        ? null
+                        : new ReleaseUiLocalizationGateProjection(
+                            Status: parsed.ReleaseProof.UiLocalizationReleaseGate.Status ?? ReleaseProofStatuses.Missing,
+                            GeneratedAtUtc: parsed.ReleaseProof.UiLocalizationReleaseGate.GeneratedAt,
+                            DefaultKeyCount: parsed.ReleaseProof.UiLocalizationReleaseGate.DefaultKeyCount,
+                            ExplicitFallbackRuntime: parsed.ReleaseProof.UiLocalizationReleaseGate.ExplicitFallbackRuntime,
+                            SignoffSmokeRunnerStatus: parsed.ReleaseProof.UiLocalizationReleaseGate.SignoffSmokeRunnerStatus,
+                            ShippingLocales: parsed.ReleaseProof.UiLocalizationReleaseGate.ShippingLocales ?? [],
+                            AcceptanceGates: parsed.ReleaseProof.UiLocalizationReleaseGate.AcceptanceGates ?? [],
+                            DomainCoverage: parsed.ReleaseProof.UiLocalizationReleaseGate.DomainCoverage is null
+                                ? null
+                                : new Dictionary<string, string>(parsed.ReleaseProof.UiLocalizationReleaseGate.DomainCoverage, StringComparer.Ordinal),
+                            LocaleDomainCoverage: parsed.ReleaseProof.UiLocalizationReleaseGate.LocaleDomainCoverage is null
+                                ? null
+                                : parsed.ReleaseProof.UiLocalizationReleaseGate.LocaleDomainCoverage.ToDictionary(
+                                    static pair => pair.Key,
+                                    static pair => (IReadOnlyDictionary<string, string>)new Dictionary<string, string>(pair.Value, StringComparer.Ordinal),
+                                    StringComparer.Ordinal),
+                            BlockingFindingsCount: parsed.ReleaseProof.UiLocalizationReleaseGate.BlockingFindingsCount,
+                            BlockingFindings: parsed.ReleaseProof.UiLocalizationReleaseGate.BlockingFindings ?? [],
+                            TranslationBacklogFindingsCount: parsed.ReleaseProof.UiLocalizationReleaseGate.TranslationBacklogFindingsCount,
+                            TranslationBacklogFindings: parsed.ReleaseProof.UiLocalizationReleaseGate.TranslationBacklogFindings ?? [],
+                            LocaleSummary: (parsed.ReleaseProof.UiLocalizationReleaseGate.LocaleSummary ?? [])
+                                .Where(static item => !string.IsNullOrWhiteSpace(item.Locale))
+                                .Select(static item => new ReleaseUiLocalizationLocaleSummary(
+                                    Locale: item.Locale ?? string.Empty,
+                                    UntranslatedKeyCount: item.UntranslatedKeyCount ?? 0,
+                                    OverrideCount: item.OverrideCount ?? 0,
+                                    MinimumOverrideCount: item.MinimumOverrideCount ?? 0,
+                                    MissingReleaseSeedKeys: item.MissingReleaseSeedKeys ?? [],
+                                    LegacyXmlPresent: item.LegacyXmlPresent ?? false,
+                                    LegacyDataXmlPresent: item.LegacyDataXmlPresent ?? false))
+                                .ToArray())),
             DesktopTupleCoverage: parsed.DesktopTupleCoverage is null
                 ? null
                 : new ReleaseDesktopTupleCoverage(
@@ -129,6 +163,33 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
                             InstallPostureReason: item.InstallPostureReason ?? string.Empty,
                             PublicInstallRoute: item.PublicInstallRoute ?? string.Empty))
                         .ToArray(),
+                    ExternalProofRequests: (parsed.DesktopTupleCoverage.ExternalProofRequests ?? [])
+                        .Where(static item => !string.IsNullOrWhiteSpace(item.TupleId))
+                        .Select(static item => new ReleaseExternalProofRequest(
+                            TupleId: item.TupleId ?? string.Empty,
+                            ChannelId: item.ChannelId ?? string.Empty,
+                            Head: item.Head ?? string.Empty,
+                            Platform: item.Platform ?? string.Empty,
+                            Rid: item.Rid ?? string.Empty,
+                            RequiredHost: item.RequiredHost ?? string.Empty,
+                            RequiredProofs: item.RequiredProofs ?? [],
+                            ExpectedArtifactId: item.ExpectedArtifactId,
+                            ExpectedInstallerFileName: item.ExpectedInstallerFileName,
+                            ExpectedInstallerRelativePath: item.ExpectedInstallerRelativePath,
+                            ExpectedInstallerSha256: item.ExpectedInstallerSha256,
+                            ExpectedPublicInstallRoute: item.ExpectedPublicInstallRoute,
+                            ExpectedStartupSmokeReceiptPath: item.ExpectedStartupSmokeReceiptPath,
+                            StartupSmokeReceiptContract: item.StartupSmokeReceiptContract is null
+                                ? null
+                                : new ReleaseExternalProofReceiptContract(
+                                    StatusAnyOf: item.StartupSmokeReceiptContract.StatusAnyOf ?? [],
+                                    ReadyCheckpoint: item.StartupSmokeReceiptContract.ReadyCheckpoint,
+                                    HeadId: item.StartupSmokeReceiptContract.HeadId,
+                                    Platform: item.StartupSmokeReceiptContract.Platform,
+                                    Rid: item.StartupSmokeReceiptContract.Rid,
+                                    HostClassContains: item.StartupSmokeReceiptContract.HostClassContains),
+                            ProofCaptureCommands: item.ProofCaptureCommands ?? []))
+                        .ToArray(),
                     MissingRequiredPlatforms: parsed.DesktopTupleCoverage.MissingRequiredPlatforms ?? [],
                     MissingRequiredHeads: parsed.DesktopTupleCoverage.MissingRequiredHeads ?? [],
                     MissingRequiredPlatformHeadPairs: parsed.DesktopTupleCoverage.MissingRequiredPlatformHeadPairs ?? [],
@@ -160,7 +221,33 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
         DateTimeOffset? GeneratedAt,
         string? BaseUrl,
         IReadOnlyList<string>? JourneysPassed,
-        IReadOnlyList<string>? ProofRoutes);
+        IReadOnlyList<string>? ProofRoutes,
+        RegistryUiLocalizationGate? UiLocalizationReleaseGate);
+
+    private sealed record RegistryUiLocalizationGate(
+        string? Status,
+        DateTimeOffset? GeneratedAt,
+        int? DefaultKeyCount,
+        string? ExplicitFallbackRuntime,
+        string? SignoffSmokeRunnerStatus,
+        IReadOnlyList<string>? ShippingLocales,
+        IReadOnlyList<string>? AcceptanceGates,
+        Dictionary<string, string>? DomainCoverage,
+        Dictionary<string, Dictionary<string, string>>? LocaleDomainCoverage,
+        int? BlockingFindingsCount,
+        IReadOnlyList<string>? BlockingFindings,
+        int? TranslationBacklogFindingsCount,
+        IReadOnlyList<string>? TranslationBacklogFindings,
+        IReadOnlyList<RegistryUiLocalizationLocaleSummary>? LocaleSummary);
+
+    private sealed record RegistryUiLocalizationLocaleSummary(
+        string? Locale,
+        int? UntranslatedKeyCount,
+        int? OverrideCount,
+        int? MinimumOverrideCount,
+        IReadOnlyList<string>? MissingReleaseSeedKeys,
+        bool? LegacyXmlPresent,
+        bool? LegacyDataXmlPresent);
 
     private sealed record RegistryReleaseArtifact(
         string? ArtifactId,
@@ -188,11 +275,37 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
         IReadOnlyList<string>? RequiredDesktopPlatforms,
         IReadOnlyList<string>? RequiredDesktopHeads,
         IReadOnlyList<RegistryDesktopRouteTruth>? DesktopRouteTruth,
+        IReadOnlyList<RegistryExternalProofRequest>? ExternalProofRequests,
         IReadOnlyList<string>? MissingRequiredPlatforms,
         IReadOnlyList<string>? MissingRequiredHeads,
         IReadOnlyList<string>? MissingRequiredPlatformHeadPairs,
         IReadOnlyList<string>? MissingRequiredPlatformHeadRidTuples,
         bool Complete);
+
+    private sealed record RegistryExternalProofRequest(
+        string? TupleId,
+        string? ChannelId,
+        string? Head,
+        string? Platform,
+        string? Rid,
+        string? RequiredHost,
+        IReadOnlyList<string>? RequiredProofs,
+        string? ExpectedArtifactId,
+        string? ExpectedInstallerFileName,
+        string? ExpectedInstallerRelativePath,
+        string? ExpectedInstallerSha256,
+        string? ExpectedPublicInstallRoute,
+        string? ExpectedStartupSmokeReceiptPath,
+        RegistryExternalProofReceiptContract? StartupSmokeReceiptContract,
+        IReadOnlyList<string>? ProofCaptureCommands);
+
+    private sealed record RegistryExternalProofReceiptContract(
+        IReadOnlyList<string>? StatusAnyOf,
+        string? ReadyCheckpoint,
+        string? HeadId,
+        string? Platform,
+        string? Rid,
+        string? HostClassContains);
 
     private sealed record RegistryDesktopRouteTruth(
         string? TupleId,

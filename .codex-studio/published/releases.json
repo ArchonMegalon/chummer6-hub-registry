@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-04-20T09:13:20Z",
-  "generatedAt": "2026-04-20T09:13:20Z",
+  "generated_at": "2026-04-21T15:36:03Z",
+  "generatedAt": "2026-04-21T15:36:03Z",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "version": "run-20260420-072339",
-  "channel": "preview",
-  "publishedAt": "2026-04-20T07:23:39Z",
+  "channel": "docker",
+  "publishedAt": "2026-04-20T15:29:59Z",
   "downloads": [
     {
       "id": "avalonia-linux-x64-installer",
@@ -68,6 +68,21 @@
       "installAccessClass": "account_required"
     },
     {
+      "id": "avalonia-win-x64-installer",
+      "platform": "Avalonia Desktop Windows X64 Installer",
+      "url": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
+      "sha256": "cb3493c1113c23b5e496dfe8a1e6de9afc43c802d7da865adc5255497341e5c4",
+      "sizeBytes": 96466473,
+      "format": "exe",
+      "flavor": "installer",
+      "kind": "installer",
+      "head": "avalonia",
+      "platformId": "windows-x64",
+      "arch": "x64",
+      "fileName": "chummer-avalonia-win-x64-installer.exe",
+      "installAccessClass": "account_required"
+    },
+    {
       "id": "avalonia-osx-arm64-archive",
       "platform": "Avalonia Desktop macOS ARM64",
       "url": "/downloads/files/chummer-avalonia-osx-arm64.tar.gz",
@@ -101,12 +116,12 @@
   "source": "registry",
   "status": "published",
   "message": null,
-  "rolloutState": "coverage_incomplete",
-  "rolloutReason": "Current shelf is published, but promotion stays blocked because required desktop tuple coverage is incomplete (platforms: windows; pairs: avalonia:windows; tuples: avalonia:win-x64:windows).",
-  "supportabilityState": "review_required",
-  "supportabilitySummary": "Treat the current shelf as review-required because required desktop tuple coverage is incomplete (platforms: windows; pairs: avalonia:windows; tuples: avalonia:win-x64:windows).",
-  "knownIssueSummary": "Known issue: required desktop tuple coverage is incomplete (platforms: windows; pairs: avalonia:windows; tuples: avalonia:win-x64:windows).",
-  "fixAvailabilitySummary": "Do not send fixed notices until required desktop tuple coverage is complete for the promoted shelf.",
+  "rolloutState": "promoted_preview",
+  "rolloutReason": "Current release shelf was exercised by the local docker release proof harness before publication.",
+  "supportabilityState": "preview_supported",
+  "supportabilitySummary": "Local release proof passed for: install_claim_restore_continue, build_explain_publish, campaign_session_recover_recap, report_cluster_release_notify, organize_community_and_close_loop. Claimed-device restore and bounded offline prefetch stayed grounded on the current shelf. Clustered release notification stayed grounded on the current shelf. Community organizer closure stayed grounded on the current shelf.",
+  "knownIssueSummary": "Preview caveats still apply, but the current shelf has recent install, claimed-device recovery, clustered release notification, community closure, bounded offline prefetch, and support proof instead of only manifest presence.",
+  "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
   "releaseProof": {
     "status": "passed",
     "generatedAt": "2026-04-19T17:41:56Z",
@@ -126,6 +141,7 @@
       "/account/support",
       "/contact",
       "/downloads/install/avalonia-osx-arm64-installer",
+      "/downloads/install/avalonia-win-x64-installer",
       "/downloads/install/blazor-desktop-linux-x64-installer",
       "/downloads/install/blazor-desktop-osx-arm64-installer"
     ],
@@ -312,6 +328,15 @@
         "arch": "arm64",
         "kind": "installer",
         "artifactId": "blazor-desktop-osx-arm64-installer"
+      },
+      {
+        "tupleId": "avalonia:windows:win-x64",
+        "head": "avalonia",
+        "platform": "windows",
+        "rid": "win-x64",
+        "arch": "x64",
+        "kind": "installer",
+        "artifactId": "avalonia-win-x64-installer"
       }
     ],
     "promotedPlatformHeads": {
@@ -319,7 +344,9 @@
         "avalonia",
         "blazor-desktop"
       ],
-      "windows": [],
+      "windows": [
+        "avalonia"
+      ],
       "macos": [
         "avalonia",
         "blazor-desktop"
@@ -333,56 +360,15 @@
     "promotedPlatformHeadRidTuples": [
       "avalonia:linux-x64:linux",
       "avalonia:osx-arm64:macos",
+      "avalonia:win-x64:windows",
       "blazor-desktop:linux-x64:linux",
       "blazor-desktop:osx-arm64:macos"
     ],
-    "missingRequiredPlatforms": [
-      "windows"
-    ],
+    "missingRequiredPlatforms": [],
     "missingRequiredHeads": [],
-    "missingRequiredPlatformHeadPairs": [
-      "avalonia:windows"
-    ],
-    "missingRequiredPlatformHeadRidTuples": [
-      "avalonia:win-x64:windows"
-    ],
-    "externalProofRequests": [
-      {
-        "tupleId": "avalonia:win-x64:windows",
-        "channelId": "preview",
-        "head": "avalonia",
-        "platform": "windows",
-        "rid": "win-x64",
-        "requiredHost": "windows",
-        "requiredProofs": [
-          "promoted_installer_artifact",
-          "startup_smoke_receipt"
-        ],
-        "expectedArtifactId": "avalonia-win-x64-installer",
-        "expectedInstallerFileName": "chummer-avalonia-win-x64-installer.exe",
-        "expectedInstallerRelativePath": "files/chummer-avalonia-win-x64-installer.exe",
-        "expectedInstallerSha256": "cb3493c1113c23b5e496dfe8a1e6de9afc43c802d7da865adc5255497341e5c4",
-        "expectedPublicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
-        "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-avalonia-win-x64.receipt.json",
-        "startupSmokeReceiptContract": {
-          "statusAnyOf": [
-            "pass",
-            "passed",
-            "ready"
-          ],
-          "readyCheckpoint": "pre_ui_event_loop",
-          "headId": "avalonia",
-          "platform": "windows",
-          "rid": "win-x64",
-          "hostClassContains": "windows"
-        },
-        "proofCaptureCommands": [
-          "REPO_ROOT=\"${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui}\" && export REPO_ROOT && INSTALLER_PATH=\"$REPO_ROOT/Docker/Downloads/files/chummer-avalonia-win-x64-installer.exe\" && EXPECTED_INSTALLER_SHA256=cb3493c1113c23b5e496dfe8a1e6de9afc43c802d7da865adc5255497341e5c4 && EXPECTED_INSTALLER_MAGIC=MZ && export INSTALLER_PATH EXPECTED_INSTALLER_SHA256 EXPECTED_INSTALLER_MAGIC && cd \"$REPO_ROOT\" && mkdir -p \"$(dirname \"$INSTALLER_PATH\")\" && python3 -c 'import hashlib, os, pathlib; p=pathlib.Path(os.environ['\"'\"'INSTALLER_PATH'\"'\"']); expected=os.environ['\"'\"'EXPECTED_INSTALLER_SHA256'\"'\"']; import sys; sys.exit(0) if (not p.is_file()) else None; digest=hashlib.sha256(p.read_bytes()).hexdigest().lower(); sys.exit(0) if digest==expected else print(f'\"'\"'installer-preflight-sha256-mismatch:{p}:digest={digest}:expected={expected}'\"'\"') or p.unlink()' && if [ ! -s \"$INSTALLER_PATH\" ]; then if [ -z \"${CHUMMER_EXTERNAL_PROOF_AUTH_HEADER:-}\" ] && [ -z \"${CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER:-}\" ] && [ -z \"${CHUMMER_EXTERNAL_PROOF_COOKIE_JAR:-}\" ] && [ \"${CHUMMER_EXTERNAL_PROOF_ALLOW_GUEST_DOWNLOAD:-0}\" != \"1\" ]; then echo 'external-proof-auth-missing: set CHUMMER_EXTERNAL_PROOF_AUTH_HEADER, CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER, or CHUMMER_EXTERNAL_PROOF_COOKIE_JAR (or set CHUMMER_EXTERNAL_PROOF_ALLOW_GUEST_DOWNLOAD=1 to bypass)' >&2; exit 1; fi; curl_auth_args=(); if [ -n \"${CHUMMER_EXTERNAL_PROOF_AUTH_HEADER:-}\" ]; then curl_auth_args+=( -H \"${CHUMMER_EXTERNAL_PROOF_AUTH_HEADER:-}\" ); fi; if [ -n \"${CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER:-}\" ]; then curl_auth_args+=( -H \"Cookie: ${CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER:-}\" ); fi; if [ -n \"${CHUMMER_EXTERNAL_PROOF_COOKIE_JAR:-}\" ]; then curl_auth_args+=( --cookie \"${CHUMMER_EXTERNAL_PROOF_COOKIE_JAR:-}\" ); fi; curl -fL --retry 3 --retry-delay 2 \"${curl_auth_args[@]}\" \"${CHUMMER_EXTERNAL_PROOF_BASE_URL:-https://chummer.run}/downloads/install/avalonia-win-x64-installer\" -o \"$INSTALLER_PATH\"; fi; python3 -c 'import os, pathlib, sys; p=pathlib.Path(os.environ['\"'\"'INSTALLER_PATH'\"'\"']); expected_magic=os.environ['\"'\"'EXPECTED_INSTALLER_MAGIC'\"'\"']; sys.exit(f'\"'\"'installer-download-missing:{p}'\"'\"') if (not p.is_file()) else None; probe=p.read_bytes()[:8192]; probe_text=probe.decode('\"'\"'latin-1'\"'\"', errors='\"'\"'ignore'\"'\"').lower(); auth_header_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_AUTH_HEADER'\"'\"','\"'\"''\"'\"')).strip()); cookie_header_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER'\"'\"','\"'\"''\"'\"')).strip()); cookie_jar_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_COOKIE_JAR'\"'\"','\"'\"''\"'\"')).strip()); html_like=('\"'\"'<!doctype html'\"'\"' in probe_text) or ('\"'\"'<html'\"'\"' in probe_text) or ('\"'\"'<head'\"'\"' in probe_text); sys.exit(f'\"'\"'installer-download-html-response:{p}:auth_header_set={auth_header_set}:cookie_header_set={cookie_header_set}:cookie_jar_set={cookie_jar_set}:hint=signed-in-download-route-required-or-missing-auth'\"'\"') if html_like else None; sys.exit(0) if (not expected_magic or probe.startswith(expected_magic.encode('\"'\"'latin-1'\"'\"'))) else sys.exit(f'\"'\"'installer-download-signature-mismatch:{p}:expected_magic={expected_magic}:auth_header_set={auth_header_set}:cookie_header_set={cookie_header_set}:cookie_jar_set={cookie_jar_set}:hint=unexpected-binary-format-or-route-response'\"'\"')'; python3 -c 'import hashlib, os, pathlib, sys; p=pathlib.Path(os.environ['\"'\"'INSTALLER_PATH'\"'\"']); expected=os.environ['\"'\"'EXPECTED_INSTALLER_SHA256'\"'\"']; sys.exit(f'\"'\"'installer-download-missing:{p}'\"'\"') if (not p.is_file()) else None; digest=hashlib.sha256(p.read_bytes()).hexdigest().lower(); auth_header_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_AUTH_HEADER'\"'\"','\"'\"''\"'\"')).strip()); cookie_header_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER'\"'\"','\"'\"''\"'\"')).strip()); cookie_jar_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_COOKIE_JAR'\"'\"','\"'\"''\"'\"')).strip()); sys.exit(0) if digest==expected else sys.exit(f'\"'\"'installer-postdownload-sha256-mismatch:{p}:digest={digest}:expected={expected}:auth_header_set={auth_header_set}:cookie_header_set={cookie_header_set}:cookie_jar_set={cookie_jar_set}:hint=signed-in-download-route-required-or-bytes-drift'\"'\"')'",
-          "REPO_ROOT=\"${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui}\" && export REPO_ROOT && INSTALLER_PATH=\"$REPO_ROOT/Docker/Downloads/files/chummer-avalonia-win-x64-installer.exe\" && STARTUP_SMOKE_DIR=\"$REPO_ROOT/Docker/Downloads/startup-smoke\" && cd \"$REPO_ROOT\" && CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=windows-host CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=Windows ./scripts/run-desktop-startup-smoke.sh \"$INSTALLER_PATH\" avalonia win-x64 Chummer.Avalonia.exe \"$STARTUP_SMOKE_DIR\" run-20260420-072339",
-          "REPO_ROOT=\"${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui}\" && export REPO_ROOT && cd \"$REPO_ROOT\" && ./scripts/generate-releases-manifest.sh"
-        ]
-      }
-    ],
+    "missingRequiredPlatformHeadPairs": [],
+    "missingRequiredPlatformHeadRidTuples": [],
+    "externalProofRequests": [],
     "desktopRouteTruth": [
       {
         "tupleId": "avalonia:linux:linux-x64",
@@ -442,24 +428,24 @@
         "platform": "windows",
         "rid": "win-x64",
         "arch": "x64",
-        "artifactId": "",
+        "artifactId": "avalonia-win-x64-installer",
         "routeRole": "primary",
         "routeRoleReasonCode": "primary_flagship_head",
         "routeRoleReason": "Avalonia Desktop route avalonia:windows:win-x64 is the flagship desktop route for windows/win-x64 and must carry independent startup-smoke proof before promotion.",
-        "promotionState": "proof_required",
-        "promotionReasonCode": "missing_artifact_or_startup_smoke_proof",
-        "promotionReason": "Primary-route Avalonia Desktop tuple avalonia:windows:win-x64 for windows/win-x64 is not promoted until the flagship head has matching artifact bytes and fresh startup-smoke proof for this channel.",
+        "promotionState": "promoted",
+        "promotionReasonCode": "installer_smoke_and_release_proof_passed",
+        "promotionReason": "Primary-route Avalonia Desktop tuple avalonia:windows:win-x64 for windows/win-x64 is promoted because the flagship head is present on the registry shelf and passed independent startup-smoke and release-proof gates for this channel.",
         "parityPosture": "flagship_primary",
-        "updateEligibility": "blocked_missing_proof",
-        "updateEligibilityReason": "Primary-route updates are blocked until avalonia:windows:win-x64 is promoted.",
+        "updateEligibility": "eligible",
+        "updateEligibilityReason": "Primary-route Avalonia Desktop tuple avalonia:windows:win-x64 is promoted for windows/win-x64.",
         "rollbackState": "manual_recovery_required",
         "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
         "rollbackReason": "Fallback route blazor-desktop:windows:win-x64 is not promoted for windows/win-x64 because matching artifact bytes and fresh startup-smoke proof are still required; primary route avalonia:windows:win-x64 therefore requires manual recovery.",
         "revokeState": "not_revoked",
         "revokeReasonCode": "no_registry_revoke_marker",
         "revokeReason": "No registry revoke marker is active for avalonia:windows:win-x64.",
-        "installPosture": "proof_capture_required",
-        "installPostureReason": "Do not present avalonia:windows:win-x64 as installable until the missing tuple proof is captured.",
+        "installPosture": "installer_first",
+        "installPostureReason": "Promoted installer media is present for Avalonia Desktop tuple avalonia:windows:win-x64 on windows/win-x64.",
         "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer"
       },
       {
@@ -541,6 +527,6 @@
         "publicInstallRoute": "/downloads/install/blazor-desktop-osx-arm64-installer"
       }
     ],
-    "complete": false
+    "complete": true
   }
 }
