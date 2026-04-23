@@ -36,7 +36,7 @@ EXPECTED_REPO_CHECKOUT_ROOT = "/docker/chummercomplete/chummer-hub-registry"
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "a1da9ca"
+VERIFIED_GUARDRAIL_COMMIT = "9919487"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -321,7 +321,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 exact route-tuple rationale proof",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 route rollback rationale proof",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -952,6 +952,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit 49dd07a tightens the M101 route-truth row-shape guard",
         "commit acb881d tightens the M101 projection alias proof guard",
         "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
+        "commit 9919487 tightens M101 route rollback rationale proof",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -1019,6 +1020,7 @@ def verify_queue_staging(path: Path) -> None:
         "commit 49dd07a tightens the M101 route-truth row-shape guard",
         "commit acb881d tightens the M101 projection alias proof guard",
         "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
+        "commit 9919487 tightens M101 route rollback rationale proof",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
@@ -1660,15 +1662,15 @@ def run_self_test(proof_receipt: Path) -> None:
         queue_path.write_text(
             replace_queue_package_block(
                 queue_source_text,
+                "commit 9919487 tightens M101 route rollback rationale proof",
                 "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
-                "commit acb881d tightens the M101 projection alias proof guard",
             ),
             encoding="utf-8",
         )
         expect_self_test_failure(
             "queue-latest-guardrail-proof-drift",
             lambda: verify_queue_staging(queue_path),
-            "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
+            "commit 9919487 tightens M101 route rollback rationale proof",
         )
         queue_path.write_text(
             replace_queue_package_block(
@@ -1812,15 +1814,15 @@ def run_self_test(proof_receipt: Path) -> None:
         source_queue_path.write_text(
             replace_queue_package_block(
                 source_queue_text,
+                "commit 9919487 tightens M101 route rollback rationale proof",
                 "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
-                "commit acb881d tightens the M101 projection alias proof guard",
             ),
             encoding="utf-8",
         )
         expect_self_test_failure(
             "design-queue-latest-guardrail-proof-drift",
             lambda: verify_queue_staging(source_queue_path),
-            "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
+            "commit 9919487 tightens M101 route rollback rationale proof",
         )
         source_queue_path.write_text(
             replace_queue_package_block(
@@ -1888,15 +1890,15 @@ def run_self_test(proof_receipt: Path) -> None:
         registry_path.write_text(
             replace_registry_task_block(
                 registry_text,
+                "commit 9919487 tightens M101 route rollback rationale proof",
                 "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
-                "commit acb881d tightens the M101 projection alias proof guard",
             ),
             encoding="utf-8",
         )
         expect_self_test_failure(
             "registry-latest-guardrail-proof-drift",
             lambda: verify_canonical_successor_registry(registry_path),
-            "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
+            "commit 9919487 tightens M101 route rollback rationale proof",
         )
         registry_path.write_text(
             replace_registry_task_block(
