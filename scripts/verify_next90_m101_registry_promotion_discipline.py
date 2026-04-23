@@ -471,6 +471,9 @@ DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS = (
     "QUNUSVZFX1JVTl9IQU5ET0ZGLmdlbmVyYXRlZC5tZA==",
     "VEFTS19MT0NBTF9URUxFTUVUUlk=",
     "QUNUSVZFX1JVTl9IRUxQRVJfUkVDRUlQVA==",
+    "5snUC<^g@n<DHml5u'gD7Rf\"CASu(\"@<?'k/o>,",
+    "<'aGU?VF6_5tkWb78--E79!/f/n\\a5ATD4$ARmE.F)Pp",
+    "5snUC<^g@n<DHml78-NH;I<<j6UaRC;u",
 )
 
 PROOF_RECEIPT_SNIPPETS = (
@@ -1721,6 +1724,15 @@ def run_self_test(proof_receipt: Path) -> None:
         )
         expect_self_test_failure(
             "html-entity-active-run-helper-proof",
+            lambda: verify_no_active_run_helper_evidence(temp_path, label="temporary M101 proof receipt"),
+            "active-run helper or telemetry evidence",
+        )
+        temp_path.write_text(
+            source_text + "5snUC<^g@n<DHml78-NH;I<<j6UaRC;u ascii85 helper evidence\n",
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "ascii85-active-run-helper-proof",
             lambda: verify_no_active_run_helper_evidence(temp_path, label="temporary M101 proof receipt"),
             "active-run helper or telemetry evidence",
         )
