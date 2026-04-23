@@ -15,6 +15,56 @@ MODULE = importlib.util.module_from_spec(MODULE_SPEC)
 MODULE_SPEC.loader.exec_module(MODULE)
 
 
+def install_aware_payload() -> tuple[list[dict], dict]:
+    artifacts = [
+        {
+            "artifactId": "avalonia-linux-x64-installer",
+            "head": "avalonia",
+            "rid": "linux-x64",
+            "platform": "linux",
+            "arch": "x64",
+            "kind": "installer",
+        },
+        {
+            "artifactId": "avalonia-win-x64-installer",
+            "head": "avalonia",
+            "rid": "win-x64",
+            "platform": "windows",
+            "arch": "x64",
+            "kind": "installer",
+        },
+    ]
+    coverage = {
+        "desktopRouteTruth": [
+            {
+                "tupleId": "avalonia:linux:linux-x64",
+                "head": "avalonia",
+                "platform": "linux",
+                "rid": "linux-x64",
+                "arch": "x64",
+                "artifactId": "avalonia-linux-x64-installer",
+                "routeRole": "primary",
+                "promotionState": "promoted",
+                "revokeState": "not_revoked",
+                "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
+            },
+            {
+                "tupleId": "avalonia:windows:win-x64",
+                "head": "avalonia",
+                "platform": "windows",
+                "rid": "win-x64",
+                "arch": "x64",
+                "artifactId": "avalonia-win-x64-installer",
+                "routeRole": "primary",
+                "promotionState": "proof_required",
+                "revokeState": "not_revoked",
+                "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
+            },
+        ]
+    }
+    return artifacts, coverage
+
+
 def test_derive_rollout_state_uses_promoted_preview_for_complete_published_docker_release() -> None:
     assert (
         MODULE.derive_rollout_state(
@@ -1311,3 +1361,69 @@ def test_external_proof_request_capture_commands_include_macos_operating_system_
     assert commands[1].endswith('"$STARTUP_SMOKE_DIR" run-20260414-1836')
     assert commands[2].endswith('cd "$REPO_ROOT" && ./scripts/generate-releases-manifest.sh')
     assert 'REPO_ROOT="${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui}"' in commands[2]
+
+
+def test_install_aware_artifact_registry_derives_concierge_rows_from_route_truth() -> None:
+    artifacts, coverage = install_aware_payload()
+
+    rows = MODULE.install_aware_artifact_registry(
+        artifacts,
+        coverage,
+        channel_id="docker",
+        release_version="run-20260420-072339",
+    )
+
+    assert rows == [
+        {
+            "registryId": "concierge:docker:run-20260420-072339:avalonia-linux-x64-installer",
+            "artifactId": "avalonia-linux-x64-installer",
+            "channelId": "docker",
+            "releaseVersion": "run-20260420-072339",
+            "tupleId": "avalonia:linux:linux-x64",
+            "head": "avalonia",
+            "platform": "linux",
+            "rid": "linux-x64",
+            "arch": "x64",
+            "kind": "installer",
+            "installedBuildSelector": "docker/run-20260420-072339/avalonia/linux/x64",
+            "currentForInstalledBuild": True,
+            "channelRationale": "Published docker channel keeps primary-route avalonia:linux:linux-x64 current for installed build selector docker/run-20260420-072339/avalonia/linux/x64.",
+            "correctnessReason": "Offer avalonia-linux-x64-installer to installed build selector docker/run-20260420-072339/avalonia/linux/x64 because tuple avalonia:linux:linux-x64 is currently promoted for this channel.",
+            "recoveryProofRefs": [
+                "/downloads/install/avalonia-linux-x64-installer",
+                "startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json",
+                "desktopTupleCoverage.desktopRouteTruth[avalonia:linux:linux-x64]",
+            ],
+            "conciergeAssetRefs": {
+                "releaseExplainerPacket": "concierge/release/docker/run-20260420-072339/avalonia-linux-x64-installer",
+                "supportClosurePacket": "concierge/support/docker/run-20260420-072339/avalonia-linux-x64-installer",
+                "publicTrustWrapper": "/downloads/install/avalonia-linux-x64-installer",
+            },
+        },
+        {
+            "registryId": "concierge:docker:run-20260420-072339:avalonia-win-x64-installer",
+            "artifactId": "avalonia-win-x64-installer",
+            "channelId": "docker",
+            "releaseVersion": "run-20260420-072339",
+            "tupleId": "avalonia:windows:win-x64",
+            "head": "avalonia",
+            "platform": "windows",
+            "rid": "win-x64",
+            "arch": "x64",
+            "kind": "installer",
+            "installedBuildSelector": "docker/run-20260420-072339/avalonia/windows/x64",
+            "currentForInstalledBuild": False,
+            "channelRationale": "Published docker channel keeps primary-route avalonia:windows:win-x64 blocked for installed build selector docker/run-20260420-072339/avalonia/windows/x64 until installer and startup-smoke proof are present.",
+            "correctnessReason": "Do not offer avalonia-win-x64-installer to installed build selector docker/run-20260420-072339/avalonia/windows/x64 because tuple avalonia:windows:win-x64 is not currently promoted for this channel.",
+            "recoveryProofRefs": [
+                "/downloads/install/avalonia-win-x64-installer",
+                "startup-smoke/startup-smoke-avalonia-win-x64.receipt.json",
+                "desktopTupleCoverage.desktopRouteTruth[avalonia:windows:win-x64]",
+            ],
+            "conciergeAssetRefs": {
+                "releaseExplainerPacket": "concierge/release/docker/run-20260420-072339/avalonia-win-x64-installer",
+                "supportClosurePacket": "concierge/support/docker/run-20260420-072339/avalonia-win-x64-installer",
+                "publicTrustWrapper": "/downloads/install/avalonia-win-x64-installer",
+            },
+        },
+    ]

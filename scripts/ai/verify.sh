@@ -50,6 +50,8 @@ if ! python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_
 fi
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m101_registry_promotion_discipline.py >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m101_registry_promotion_discipline.py --self-test >/dev/null
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m111_registry_install_aware_concierge.py >/dev/null
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m111_registry_install_aware_concierge.py --self-test >/dev/null
 
 # Default verify must fail when consumer repos still source-own registry contracts.
 export CHUMMER_ENFORCE_CONSUMER_OWNERSHIP="${CHUMMER_ENFORCE_CONSUMER_OWNERSHIP:-1}"
@@ -66,10 +68,74 @@ dotnet build /docker/chummercomplete/chummer-hub-registry/Chummer.Run.Registry/C
 test -f /docker/chummercomplete/chummer-hub-registry/docs/REGISTRY_RESTORE_RUNBOOK.md
 test -f /docker/chummercomplete/chummer-hub-registry/docs/REGISTRY_PRODUCT_READMODELS.md
 test -f /docker/chummercomplete/chummer-hub-registry/docs/RELEASE_CHANNEL_PIPELINE.md
+test -f /docker/chummercomplete/chummer-hub-registry/docs/flagship-front-door-registry-closeout.md
+test -f /docker/chummercomplete/chummer-hub-registry/.codex-studio/published/FLAGSHIP_FRONT_DOOR_REGISTRY_CLOSEOUT.generated.json
 rg -n 'hub_state_backup_v1|Chummer\.Run\.Registry\.Verify|runtime-bundle head' /docker/chummercomplete/chummer-hub-registry/docs/REGISTRY_RESTORE_RUNBOOK.md >/dev/null
 rg -n 'PublicationsController|PublicationWorkflowService|HubRegistryController|SearchArtifacts|GetPreview|GetCurrentReleaseChannel|ListProjections|GetInstallProjection|GetRuntimeBundleHeads|GetPipelineProjection|AddReview|GetReviews|ModerationTimeline|ApprovalAuditTrail|docs/help views|operator boards' /docker/chummercomplete/chummer-hub-registry/docs/REGISTRY_PRODUCT_READMODELS.md >/dev/null
 rg -n 'RELEASE_CHANNEL\.generated\.json|releases\.json|portable|claim tickets|claimed-installation|installation grants|download receipts|chummer6-ui|fleet|chummer6-hub' /docker/chummercomplete/chummer-hub-registry/docs/RELEASE_CHANNEL_PIPELINE.md >/dev/null
+rg -n 'ui_kit_and_flagship_polish|media_artifacts|guided Chummer product installer|build_explain_publish|StructuredRecipeVideo|StructuredRecipePacketBundle' /docker/chummercomplete/chummer-hub-registry/docs/flagship-front-door-registry-closeout.md >/dev/null
 rg -n 'account-aware install-linking DTOs|chummer6-ui' /docker/chummercomplete/chummer-hub-registry/README.md /docker/chummercomplete/chummer-hub-registry/Chummer.Hub.Registry.Contracts/PACKAGE_README.md >/dev/null
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+root = Path("/docker/chummercomplete/chummer-hub-registry")
+proof_path = root / ".codex-studio/published/FLAGSHIP_FRONT_DOOR_REGISTRY_CLOSEOUT.generated.json"
+release_path = root / ".codex-studio/published/RELEASE_CHANNEL.generated.json"
+media_path = Path("/docker/fleet/repos/chummer-media-factory/.codex-studio/published/MEDIA_LOCAL_RELEASE_PROOF.generated.json")
+
+proof = json.loads(proof_path.read_text(encoding="utf-8"))
+release = json.loads(release_path.read_text(encoding="utf-8"))
+media = json.loads(media_path.read_text(encoding="utf-8"))
+
+assert proof.get("contract_name") == "chummer6-hub-registry.flagship_front_door_registry_closeout"
+assert proof.get("status") == "passed"
+assert proof.get("frontier_id") == 2541792707
+assert proof.get("verification", {}).get("operator_telemetry_helpers_used") is False
+assert set(proof.get("closes_readiness_coverage") or []) == {"ui_kit_and_flagship_polish", "media_artifacts"}
+
+happy_path = proof.get("public_happy_path") or {}
+assert happy_path.get("primary_route") == "guided_chummer_product_installer"
+assert happy_path.get("browser_claim_code_ritual") == "not_required_for_primary_claim_restore"
+assert happy_path.get("framework_first_choice") == "not_allowed"
+required_installer_routes = [
+    "/downloads/install/avalonia-linux-x64-installer",
+    "/downloads/install/avalonia-win-x64-installer",
+    "/downloads/install/avalonia-osx-arm64-installer",
+]
+assert happy_path.get("required_installer_routes") == required_installer_routes
+
+release_proof = release.get("releaseProof") or {}
+assert str(release_proof.get("status") or "").lower() in {"pass", "passed", "ready"}
+journeys = release_proof.get("journeysPassed") or []
+assert "build_explain_publish" in journeys
+release_routes = set(release_proof.get("proofRoutes") or [])
+for route in proof.get("proof_shelf_routes") or []:
+    assert route in release_routes, f"missing proof shelf route {route}"
+
+ui_gate = release_proof.get("uiLocalizationReleaseGate") or {}
+assert str(ui_gate.get("status") or "").lower() in {"pass", "passed", "ready"}
+domain_coverage = ui_gate.get("domainCoverage") or {}
+for domain in proof["ui_kit_and_flagship_polish"]["required_localization_domains"]:
+    assert domain_coverage.get(domain) == "pass", f"missing passing localization domain {domain}"
+
+route_truth = (release.get("desktopTupleCoverage") or {}).get("desktopRouteTruth") or []
+tuple_ids = {row.get("tupleId") for row in route_truth if isinstance(row, dict)}
+assert {"avalonia:linux:linux-x64", "avalonia:windows:win-x64", "avalonia:macos:osx-arm64"}.issubset(tuple_ids)
+
+assert media.get("status") == proof["media_artifacts"]["required_media_proof_status"]
+successor_packages = media.get("successor_packages") or []
+package = next((item for item in successor_packages if item.get("package_id") == proof["media_artifacts"]["publication_package_id"]), None)
+assert package is not None
+artifact_roles = set(package.get("artifact_roles") or [])
+assert set(proof["media_artifacts"]["required_artifact_roles"]).issubset(artifact_roles)
+
+owner_boundary = proof.get("owner_boundary") or {}
+for owner in ["chummer6-hub", "chummer6-hub-registry", "chummer6-ui", "chummer6-ui-kit", "chummer6-media-factory", "chummer6-design"]:
+    assert owner in owner_boundary
+
+print("verified flagship front-door registry closeout proof")
+PY
 dotnet run --project /docker/chummercomplete/chummer-hub-registry/Chummer.Hub.Registry.Contracts.Verify/Chummer.Hub.Registry.Contracts.Verify.csproj
 dotnet run --project /docker/chummercomplete/chummer-hub-registry/Chummer.Run.Registry.Verify/Chummer.Run.Registry.Verify.csproj
 rm -rf /tmp/chummer-hub-registry-release-fixture

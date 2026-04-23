@@ -125,6 +125,23 @@ def complete_primary_desktop_tuple_payload() -> dict:
     }
 
 
+def add_install_aware_route_truth(payload: dict) -> None:
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = [
+        {
+            "tupleId": "avalonia:linux:linux-x64",
+            "head": "avalonia",
+            "platform": "linux",
+            "rid": "linux-x64",
+            "arch": "x64",
+            "artifactId": "avalonia-linux-x64-installer",
+            "routeRole": "primary",
+            "promotionState": "promoted",
+            "revokeState": "not_revoked",
+            "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
+        }
+    ]
+
+
 def test_verify_contract_identity_rejects_noncanonical_contract_name() -> None:
     with pytest.raises(SystemExit, match="must declare canonical contract_name/contractName"):
         MODULE.verify_contract_identity(
@@ -150,6 +167,21 @@ def add_promoted_linux_fallback_tuple(payload: dict) -> None:
     )
     coverage["promotedPlatformHeads"]["linux"] = ["avalonia", "blazor-desktop"]
     coverage["promotedPlatformHeadRidTuples"].append("blazor-desktop:linux-x64:linux")
+
+
+def test_verify_install_aware_artifact_registry_rejects_missing_registry() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+
+    with pytest.raises(SystemExit, match="installAwareArtifactRegistry must be a list"):
+        MODULE.verify_install_aware_artifact_registry(payload, "release-channel.json")
+
+
+def test_verify_install_aware_artifact_registry_accepts_canonical_rows() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    payload["installAwareArtifactRegistry"] = MODULE.expected_install_aware_artifact_registry_rows(payload)
+
+    MODULE.verify_install_aware_artifact_registry(payload, "release-channel.json")
 
 
 def test_verify_required_desktop_heads_accepts_primary_head_set() -> None:
@@ -887,7 +919,72 @@ def test_verify_desktop_tuple_coverage_rejects_headless_route_truth_rationale() 
     )
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
 
+    with pytest.raises(SystemExit, match="promoted primary routes as flagship-head promotion"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_primary_promotion_rationale_without_flagship_reason() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["promotionReason"] = (
+        "Primary-route Avalonia Desktop tuple avalonia:linux:linux-x64 for linux/linux-x64 "
+        "is promoted because it is currently available on the shelf."
+    )
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="promoted primary routes as flagship-head promotion"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_canonical_route_truth_copy_drift() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["installPostureReason"] = (
+        "Promoted installer media avalonia-linux-x64-installer remains present for "
+        "Avalonia Desktop tuple avalonia:linux:linux-x64 on linux/linux-x64."
+    )
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
     with pytest.raises(SystemExit, match="desktopRouteTruth does not match canonical promotion/fallback route truth"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_promoted_fallback_promotion_rationale_without_recovery_reason() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["artifacts"].append(
+        {
+            "artifactId": "blazor-desktop-linux-x64-installer",
+            "head": "blazor-desktop",
+            "rid": "linux-x64",
+            "platform": "linux",
+            "arch": "x64",
+            "kind": "installer",
+        }
+    )
+    add_promoted_linux_fallback_tuple(payload)
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    fallback = next(row for row in rows if row["tupleId"] == "blazor-desktop:linux:linux-x64")
+    fallback["promotionReason"] = (
+        "Fallback Blazor Desktop tuple blazor-desktop:linux:linux-x64 for linux/linux-x64 "
+        "is promoted because it is currently available on the shelf."
+    )
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="promoted fallback routes as recovery/manual routing"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_proof_required_fallback_promotion_rationale_without_blocked_tuple_proof() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    fallback = next(row for row in rows if row["tupleId"] == "blazor-desktop:linux:linux-x64")
+    fallback["promotionReason"] = (
+        "Fallback Blazor Desktop tuple blazor-desktop:linux:linux-x64 for linux/linux-x64 "
+        "is available as a fallback route after review."
+    )
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="retained recovery routes blocked on tuple proof"):
         MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
@@ -1363,6 +1460,49 @@ def test_verify_desktop_tuple_coverage_rejects_fallback_missing_proof_install_po
         MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
+def test_verify_desktop_tuple_coverage_rejects_promoted_fallback_automatic_update_rationale() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["artifacts"].append(
+        {
+            "artifactId": "blazor-desktop-linux-x64-installer",
+            "head": "blazor-desktop",
+            "rid": "linux-x64",
+            "platform": "linux",
+            "arch": "x64",
+            "kind": "installer",
+        }
+    )
+    add_promoted_linux_fallback_tuple(payload)
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    fallback = next(row for row in rows if row["tupleId"] == "blazor-desktop:linux:linux-x64")
+    fallback["updateEligibilityReason"] = (
+        "Fallback Blazor Desktop tuple blazor-desktop:linux:linux-x64 is promoted for linux/linux-x64."
+    )
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(
+        SystemExit,
+        match="updateEligibilityReason must explain promoted fallback routes are manual recovery selections",
+    ):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_proof_required_fallback_update_rationale_drift() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    fallback = next(row for row in rows if row["tupleId"] == "blazor-desktop:windows:win-x64")
+    fallback["updateEligibilityReason"] = (
+        "Fallback route blazor-desktop:windows:win-x64 is available for manual updates."
+    )
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(
+        SystemExit,
+        match="updateEligibilityReason must explain proof-required fallback routes are not update-eligible",
+    ):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
 def test_verify_desktop_tuple_coverage_rejects_fallback_missing_proof_rollback_reason_drift() -> None:
     payload = complete_primary_desktop_tuple_payload()
     rows = MODULE.expected_desktop_route_truth_rows(payload)
@@ -1604,6 +1744,22 @@ def test_verify_desktop_tuple_coverage_rejects_revoked_rows_without_embedded_rev
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
 
     with pytest.raises(SystemExit, match="promotionReason must include revokeReason"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_revoked_promotion_reason_without_role_posture() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["status"] = "revoked"
+    payload["rolloutReason"] = "Signature receipt was revoked after publication."
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["promotionReason"] = (
+        "Registry revoke truth blocks promotion for avalonia:linux:linux-x64: "
+        "Registry revoke marker is active for avalonia:linux:linux-x64: "
+        "Signature receipt was revoked after publication."
+    )
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="revoked primary/fallback promotion posture"):
         MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 

@@ -213,6 +213,24 @@ ALLOWED_DESKTOP_ROUTE_TRUTH_ROW_KEYS = (
     "installPostureReason",
     "publicInstallRoute",
 )
+ALLOWED_INSTALL_AWARE_ARTIFACT_REGISTRY_ROW_KEYS = (
+    "registryId",
+    "artifactId",
+    "channelId",
+    "releaseVersion",
+    "tupleId",
+    "head",
+    "platform",
+    "rid",
+    "arch",
+    "kind",
+    "installedBuildSelector",
+    "currentForInstalledBuild",
+    "channelRationale",
+    "correctnessReason",
+    "recoveryProofRefs",
+    "conciergeAssetRefs",
+)
 ALLOWED_EXTERNAL_PROOF_REQUEST_KEYS = (
     "tupleId",
     "channelId",
@@ -1331,6 +1349,99 @@ def verify_desktop_route_state_matrix(
             )
 
 
+def verify_desktop_route_update_rationale(
+    normalized_row: dict[str, str],
+    *,
+    index: int,
+    source: str,
+) -> None:
+    if normalized_row["revokeState"] == "revoked":
+        return
+    if (
+        normalized_row["routeRole"] == "fallback"
+        and normalized_row["promotionState"] == "promoted"
+        and (
+            "recovery/manual selection" not in normalized_row["updateEligibilityReason"]
+            or "not automatic primary updates" not in normalized_row["updateEligibilityReason"]
+        )
+    ):
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].updateEligibilityReason "
+            "must explain promoted fallback routes are manual recovery selections, not automatic primary updates"
+        )
+    if (
+        normalized_row["routeRole"] == "fallback"
+        and normalized_row["promotionState"] == "proof_required"
+        and "not update-eligible until promoted" not in normalized_row["updateEligibilityReason"]
+    ):
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].updateEligibilityReason "
+            "must explain proof-required fallback routes are not update-eligible until promoted"
+        )
+
+
+def verify_desktop_route_promotion_rationale(
+    normalized_row: dict[str, str],
+    *,
+    index: int,
+    source: str,
+) -> None:
+    promotion_reason = normalized_row["promotionReason"]
+    route_role = normalized_row["routeRole"]
+    promotion_state = normalized_row["promotionState"]
+    route_tuple_id = normalized_row["tupleId"]
+
+    if normalized_row["revokeState"] == "revoked":
+        if normalized_row["revokeReason"] not in promotion_reason:
+            return
+        route_role_label = "primary-route" if route_role == "primary" else "fallback"
+        expected_prefix = f"Registry revoke truth blocks {route_role_label} promotion for {route_tuple_id}: "
+        if not promotion_reason.startswith(expected_prefix):
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].promotionReason "
+                "must identify revoked primary/fallback promotion posture"
+            )
+        return
+
+    if route_role == "primary" and promotion_state == "promoted":
+        if (
+            "Primary-route" not in promotion_reason
+            or "flagship head" not in promotion_reason
+            or "independent startup-smoke and release-proof gates" not in promotion_reason
+        ):
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].promotionReason "
+                "must explain promoted primary routes as flagship-head promotion"
+            )
+        return
+
+    if route_role == "primary" and promotion_state == "proof_required":
+        if "flagship head has matching artifact bytes and fresh startup-smoke proof" not in promotion_reason:
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].promotionReason "
+                "must explain proof-required primary routes as missing flagship tuple proof"
+            )
+        return
+
+    if route_role == "fallback" and promotion_state == "promoted":
+        if "Fallback" not in promotion_reason or "recovery/manual routing" not in promotion_reason:
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].promotionReason "
+                "must explain promoted fallback routes as recovery/manual routing"
+            )
+        return
+
+    if route_role == "fallback" and promotion_state == "proof_required":
+        if (
+            "retained for recovery/manual routing" not in promotion_reason
+            or "not promoted until matching artifact bytes and fresh startup-smoke proof" not in promotion_reason
+        ):
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].promotionReason "
+                "must explain proof-required fallback routes as retained recovery routes blocked on tuple proof"
+            )
+
+
 def verify_primary_rollback_matches_fallback_route_truth(
     normalized_rows: list[dict[str, str]],
     *,
@@ -2247,6 +2358,8 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
                 "must match canonical primary/fallback tuple rationale"
             )
         verify_desktop_route_rationale_context(normalized_row, index=index, source=source)
+        verify_desktop_route_promotion_rationale(normalized_row, index=index, source=source)
+        verify_desktop_route_update_rationale(normalized_row, index=index, source=source)
         verify_desktop_route_public_install_route(normalized_row, index=index, source=source)
         verify_desktop_route_artifact_promotion_binding(normalized_row, index=index, source=source)
         if normalized_row["revokeState"] == "revoked":
@@ -2375,6 +2488,277 @@ def verify_desktop_tuple_completeness(coverage: dict[str, list[str]], source: st
         raise SystemExit(
             f"{source} is missing required desktop tuple coverage for public release ({'; '.join(details)})"
         )
+
+
+def expected_installer_artifact_id_for_route(route_row: dict[str, Any]) -> str:
+    artifact_id = normalized_token(route_row.get("artifactId"))
+    if artifact_id:
+        return artifact_id
+    head = normalized_token(route_row.get("head"))
+    rid = normalized_token(route_row.get("rid"))
+    if head and rid:
+        return f"{head}-{rid}-installer"
+    return ""
+
+
+def install_aware_artifact_kind(
+    artifact_by_id: dict[str, dict[str, str]],
+    artifact_id: str,
+) -> str:
+    artifact = artifact_by_id.get(normalized_token(artifact_id)) or {}
+    return normalized_token(artifact.get("kind")) or "installer"
+
+
+def install_aware_installed_build_selector(
+    *,
+    channel_id: str,
+    release_version: str,
+    route_row: dict[str, Any],
+) -> str:
+    head = normalized_token(route_row.get("head"))
+    platform = normalized_platform_token(route_row.get("platform"))
+    arch = normalized_token(route_row.get("arch"))
+    return f"{channel_id}/{release_version}/{head}/{platform}/{arch}"
+
+
+def install_aware_channel_rationale(
+    route_row: dict[str, Any],
+    *,
+    channel_id: str,
+    installed_build_selector: str,
+) -> str:
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    route_role = normalized_token(route_row.get("routeRole"))
+    promotion_state = normalized_token(route_row.get("promotionState"))
+    revoke_state = normalized_token(route_row.get("revokeState"))
+    if revoke_state == "revoked":
+        return (
+            f"Published {channel_id} channel blocks {route_role}-route {tuple_id} "
+            f"for installed build selector {installed_build_selector} because registry revoke truth is active."
+        )
+    if promotion_state == "promoted":
+        if route_role == "fallback":
+            return (
+                f"Published {channel_id} channel keeps fallback route {tuple_id} current "
+                f"for installed build selector {installed_build_selector} as recovery/manual routing."
+            )
+        return (
+            f"Published {channel_id} channel keeps primary-route {tuple_id} current "
+            f"for installed build selector {installed_build_selector}."
+        )
+    return (
+        f"Published {channel_id} channel keeps {route_role}-route {tuple_id} blocked "
+        f"for installed build selector {installed_build_selector} until installer and startup-smoke proof are present."
+    )
+
+
+def install_aware_correctness_reason(
+    route_row: dict[str, Any],
+    *,
+    artifact_id: str,
+    installed_build_selector: str,
+) -> str:
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    promotion_state = normalized_token(route_row.get("promotionState"))
+    revoke_state = normalized_token(route_row.get("revokeState"))
+    if promotion_state == "promoted" and revoke_state != "revoked":
+        return (
+            f"Offer {artifact_id} to installed build selector {installed_build_selector} "
+            f"because tuple {tuple_id} is currently promoted for this channel."
+        )
+    return (
+        f"Do not offer {artifact_id} to installed build selector {installed_build_selector} "
+        f"because tuple {tuple_id} is not currently promoted for this channel."
+    )
+
+
+def install_aware_recovery_proof_refs(route_row: dict[str, Any]) -> list[str]:
+    head = normalized_token(route_row.get("head"))
+    rid = normalized_token(route_row.get("rid"))
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    public_install_route = str(route_row.get("publicInstallRoute") or "").strip()
+    refs = [
+        public_install_route,
+        f"startup-smoke/startup-smoke-{head}-{rid}.receipt.json",
+        f"desktopTupleCoverage.desktopRouteTruth[{tuple_id}]",
+    ]
+    return [ref for ref in refs if ref]
+
+
+def install_aware_concierge_asset_refs(
+    *,
+    channel_id: str,
+    release_version: str,
+    artifact_id: str,
+    route_row: dict[str, Any],
+) -> dict[str, str]:
+    return {
+        "releaseExplainerPacket": f"concierge/release/{channel_id}/{release_version}/{artifact_id}",
+        "supportClosurePacket": f"concierge/support/{channel_id}/{release_version}/{artifact_id}",
+        "publicTrustWrapper": str(route_row.get("publicInstallRoute") or "").strip(),
+    }
+
+
+def expected_install_aware_artifact_registry_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:
+    coverage = payload.get("desktopTupleCoverage") or {}
+    route_truth = coverage.get("desktopRouteTruth")
+    if not isinstance(route_truth, list):
+        return []
+    channel_id = expected_channel_id(payload)
+    release_version = str(
+        resolve_alias_value(
+            payload,
+            primary_key="version",
+            secondary_key="releaseVersion",
+            field_path="version",
+            source="install-aware registry derivation",
+        )
+        or ""
+    ).strip()
+    artifact_by_id: dict[str, dict[str, str]] = {}
+    for artifact in iter_manifest_download_entries(payload):
+        if not isinstance(artifact, dict):
+            continue
+        artifact_id = normalized_token(artifact.get("artifactId") or artifact.get("id"))
+        if artifact_id:
+            artifact_by_id[artifact_id] = {"kind": normalized_token(artifact.get("kind"))}
+    rows: list[dict[str, Any]] = []
+    for route_row in route_truth:
+        if not isinstance(route_row, dict):
+            continue
+        artifact_id = expected_installer_artifact_id_for_route(route_row)
+        if not artifact_id:
+            continue
+        installed_build_selector = install_aware_installed_build_selector(
+            channel_id=channel_id,
+            release_version=release_version,
+            route_row=route_row,
+        )
+        rows.append(
+            {
+                "registryId": f"concierge:{channel_id}:{release_version}:{artifact_id}",
+                "artifactId": artifact_id,
+                "channelId": channel_id,
+                "releaseVersion": release_version,
+                "tupleId": str(route_row.get("tupleId") or "").strip(),
+                "head": normalized_token(route_row.get("head")),
+                "platform": normalized_platform_token(route_row.get("platform")),
+                "rid": normalized_token(route_row.get("rid")),
+                "arch": normalized_token(route_row.get("arch")),
+                "kind": install_aware_artifact_kind(artifact_by_id, artifact_id),
+                "installedBuildSelector": installed_build_selector,
+                "currentForInstalledBuild": (
+                    normalized_token(route_row.get("promotionState")) == "promoted"
+                    and normalized_token(route_row.get("revokeState")) != "revoked"
+                ),
+                "channelRationale": install_aware_channel_rationale(
+                    route_row,
+                    channel_id=channel_id,
+                    installed_build_selector=installed_build_selector,
+                ),
+                "correctnessReason": install_aware_correctness_reason(
+                    route_row,
+                    artifact_id=artifact_id,
+                    installed_build_selector=installed_build_selector,
+                ),
+                "recoveryProofRefs": install_aware_recovery_proof_refs(route_row),
+                "conciergeAssetRefs": install_aware_concierge_asset_refs(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                    route_row=route_row,
+                ),
+            }
+        )
+    rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
+    return rows
+
+
+def verify_install_aware_artifact_registry(payload: dict[str, Any], source: str) -> None:
+    registry = payload.get("installAwareArtifactRegistry")
+    if not isinstance(registry, list):
+        raise SystemExit(f"{source} installAwareArtifactRegistry must be a list")
+    expected_rows = expected_install_aware_artifact_registry_rows(payload)
+    normalized_rows: list[dict[str, Any]] = []
+    registry_ids: list[str] = []
+    for index, item in enumerate(registry):
+        if not isinstance(item, dict):
+            raise SystemExit(f"{source} installAwareArtifactRegistry[{index}] must be an object")
+        unexpected_keys = sorted(
+            str(key) for key in item.keys() if str(key) not in ALLOWED_INSTALL_AWARE_ARTIFACT_REGISTRY_ROW_KEYS
+        )
+        if unexpected_keys:
+            raise SystemExit(
+                "installAwareArtifactRegistry rows have unexpected keys "
+                f"({', '.join(unexpected_keys)}) in {source}"
+            )
+        recovery_proof_refs = item.get("recoveryProofRefs")
+        concierge_asset_refs = item.get("conciergeAssetRefs")
+        current_for_installed_build = item.get("currentForInstalledBuild")
+        if not isinstance(recovery_proof_refs, list) or not all(isinstance(ref, str) and ref.strip() for ref in recovery_proof_refs):
+            raise SystemExit(
+                f"{source} installAwareArtifactRegistry[{index}].recoveryProofRefs must be a non-empty string list"
+            )
+        if not isinstance(concierge_asset_refs, dict) or not all(
+            isinstance(key, str) and key.strip() and isinstance(value, str) and value.strip()
+            for key, value in concierge_asset_refs.items()
+        ):
+            raise SystemExit(
+                f"{source} installAwareArtifactRegistry[{index}].conciergeAssetRefs must be a non-empty string map"
+            )
+        if not isinstance(current_for_installed_build, bool):
+            raise SystemExit(
+                f"{source} installAwareArtifactRegistry[{index}].currentForInstalledBuild must be a boolean"
+            )
+        normalized_row = {
+            "registryId": str(item.get("registryId") or "").strip(),
+            "artifactId": normalized_token(item.get("artifactId")),
+            "channelId": normalized_token(item.get("channelId")),
+            "releaseVersion": str(item.get("releaseVersion") or "").strip(),
+            "tupleId": str(item.get("tupleId") or "").strip(),
+            "head": normalized_token(item.get("head")),
+            "platform": normalized_platform_token(item.get("platform")),
+            "rid": normalized_token(item.get("rid")),
+            "arch": normalized_token(item.get("arch")),
+            "kind": normalized_token(item.get("kind")),
+            "installedBuildSelector": str(item.get("installedBuildSelector") or "").strip(),
+            "currentForInstalledBuild": current_for_installed_build,
+            "channelRationale": str(item.get("channelRationale") or "").strip(),
+            "correctnessReason": str(item.get("correctnessReason") or "").strip(),
+            "recoveryProofRefs": [str(ref).strip() for ref in recovery_proof_refs],
+            "conciergeAssetRefs": {str(key).strip(): str(value).strip() for key, value in concierge_asset_refs.items()},
+        }
+        for field_name in (
+            "registryId",
+            "artifactId",
+            "channelId",
+            "releaseVersion",
+            "tupleId",
+            "head",
+            "platform",
+            "rid",
+            "arch",
+            "kind",
+            "installedBuildSelector",
+            "channelRationale",
+            "correctnessReason",
+        ):
+            if not normalized_row[field_name]:
+                raise SystemExit(
+                    f"{source} installAwareArtifactRegistry[{index}].{field_name} must not be blank"
+                )
+        registry_ids.append(normalized_row["registryId"])
+        normalized_rows.append(normalized_row)
+    duplicates = sorted({registry_id for registry_id in registry_ids if registry_ids.count(registry_id) > 1})
+    if duplicates:
+        raise SystemExit(
+            "installAwareArtifactRegistry must not contain duplicate registryId values "
+            f"({', '.join(duplicates)}) in {source}"
+        )
+    normalized_rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
+    expected_rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
+    if normalized_rows != expected_rows:
+        raise SystemExit(f"{source} installAwareArtifactRegistry does not match canonical install-aware artifact truth")
 
 
 def verify_desktop_tuple_honesty(payload: dict, source: str, coverage: dict[str, list[str]] | None) -> None:
@@ -3682,6 +4066,7 @@ def main() -> int:
     )
     verify_release_truth(payload, source)
     verify_desktop_tuple_honesty(payload, source, coverage)
+    verify_install_aware_artifact_registry(payload, source)
     verify_local_download_files(
         payload,
         local_root,

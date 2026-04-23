@@ -2427,6 +2427,183 @@ def desktop_tuple_coverage_gap_summary(coverage: dict[str, Any] | None) -> str:
     return "required desktop tuple coverage is incomplete (" + "; ".join(details) + ")"
 
 
+def expected_installer_artifact_id_for_route(route_row: dict[str, Any]) -> str:
+    head = normalize_token(route_row.get("head"))
+    rid = normalize_token(route_row.get("rid"))
+    artifact_id = normalize_token(route_row.get("artifactId"))
+    if artifact_id:
+        return artifact_id
+    if head and rid:
+        return f"{head}-{rid}-installer"
+    return ""
+
+
+def install_aware_artifact_kind(
+    artifact_by_id: dict[str, dict[str, Any]],
+    artifact_id: str,
+) -> str:
+    artifact = artifact_by_id.get(normalize_token(artifact_id)) or {}
+    kind = normalize_token(artifact.get("kind"))
+    return kind or "installer"
+
+
+def install_aware_installed_build_selector(
+    *,
+    channel_id: str,
+    release_version: str,
+    route_row: dict[str, Any],
+) -> str:
+    head = normalize_token(route_row.get("head"))
+    platform = normalize_platform_token(route_row.get("platform"))
+    arch = normalize_token(route_row.get("arch"))
+    return f"{channel_id}/{release_version}/{head}/{platform}/{arch}"
+
+
+def install_aware_channel_rationale(
+    route_row: dict[str, Any],
+    *,
+    channel_id: str,
+    installed_build_selector: str,
+) -> str:
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    route_role = normalize_token(route_row.get("routeRole"))
+    promotion_state = normalize_token(route_row.get("promotionState"))
+    revoke_state = normalize_token(route_row.get("revokeState"))
+    if revoke_state == "revoked":
+        return (
+            f"Published {channel_id} channel blocks {route_role}-route {tuple_id} "
+            f"for installed build selector {installed_build_selector} because registry revoke truth is active."
+        )
+    if promotion_state == "promoted":
+        if route_role == "fallback":
+            return (
+                f"Published {channel_id} channel keeps fallback route {tuple_id} current "
+                f"for installed build selector {installed_build_selector} as recovery/manual routing."
+            )
+        return (
+            f"Published {channel_id} channel keeps primary-route {tuple_id} current "
+            f"for installed build selector {installed_build_selector}."
+        )
+    return (
+        f"Published {channel_id} channel keeps {route_role}-route {tuple_id} blocked "
+        f"for installed build selector {installed_build_selector} until installer and startup-smoke proof are present."
+    )
+
+
+def install_aware_correctness_reason(
+    route_row: dict[str, Any],
+    *,
+    artifact_id: str,
+    installed_build_selector: str,
+) -> str:
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    promotion_state = normalize_token(route_row.get("promotionState"))
+    revoke_state = normalize_token(route_row.get("revokeState"))
+    if promotion_state == "promoted" and revoke_state != "revoked":
+        return (
+            f"Offer {artifact_id} to installed build selector {installed_build_selector} "
+            f"because tuple {tuple_id} is currently promoted for this channel."
+        )
+    return (
+        f"Do not offer {artifact_id} to installed build selector {installed_build_selector} "
+        f"because tuple {tuple_id} is not currently promoted for this channel."
+    )
+
+
+def install_aware_recovery_proof_refs(route_row: dict[str, Any]) -> list[str]:
+    head = normalize_token(route_row.get("head"))
+    rid = normalize_token(route_row.get("rid"))
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    public_install_route = str(route_row.get("publicInstallRoute") or "").strip()
+    refs = [
+        public_install_route,
+        f"startup-smoke/startup-smoke-{head}-{rid}.receipt.json",
+        f"desktopTupleCoverage.desktopRouteTruth[{tuple_id}]",
+    ]
+    return [ref for ref in refs if ref]
+
+
+def install_aware_concierge_asset_refs(
+    *,
+    channel_id: str,
+    release_version: str,
+    artifact_id: str,
+    route_row: dict[str, Any],
+) -> dict[str, str]:
+    return {
+        "releaseExplainerPacket": f"concierge/release/{channel_id}/{release_version}/{artifact_id}",
+        "supportClosurePacket": f"concierge/support/{channel_id}/{release_version}/{artifact_id}",
+        "publicTrustWrapper": str(route_row.get("publicInstallRoute") or "").strip(),
+    }
+
+
+def install_aware_artifact_registry(
+    artifacts: list[dict[str, Any]],
+    tuple_coverage: dict[str, Any] | None,
+    *,
+    channel_id: str,
+    release_version: str,
+) -> list[dict[str, Any]]:
+    desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
+    if not isinstance(desktop_route_truth, list):
+        return []
+    artifact_by_id = {
+        normalize_token(artifact.get("artifactId") or artifact.get("id")): artifact
+        for artifact in artifacts
+        if isinstance(artifact, dict)
+    }
+    rows: list[dict[str, Any]] = []
+    for route_row in desktop_route_truth:
+        if not isinstance(route_row, dict):
+            continue
+        artifact_id = expected_installer_artifact_id_for_route(route_row)
+        if not artifact_id:
+            continue
+        installed_build_selector = install_aware_installed_build_selector(
+            channel_id=channel_id,
+            release_version=release_version,
+            route_row=route_row,
+        )
+        rows.append(
+            {
+                "registryId": f"concierge:{channel_id}:{release_version}:{artifact_id}",
+                "artifactId": artifact_id,
+                "channelId": channel_id,
+                "releaseVersion": release_version,
+                "tupleId": str(route_row.get("tupleId") or "").strip(),
+                "head": normalize_token(route_row.get("head")),
+                "platform": normalize_platform_token(route_row.get("platform")),
+                "rid": normalize_token(route_row.get("rid")),
+                "arch": normalize_token(route_row.get("arch")),
+                "kind": install_aware_artifact_kind(artifact_by_id, artifact_id),
+                "installedBuildSelector": installed_build_selector,
+                "currentForInstalledBuild": (
+                    normalize_token(route_row.get("promotionState")) == "promoted"
+                    and normalize_token(route_row.get("revokeState")) != "revoked"
+                ),
+                "channelRationale": install_aware_channel_rationale(
+                    route_row,
+                    channel_id=channel_id,
+                    installed_build_selector=installed_build_selector,
+                ),
+                "correctnessReason": install_aware_correctness_reason(
+                    route_row,
+                    artifact_id=artifact_id,
+                    installed_build_selector=installed_build_selector,
+                ),
+                "recoveryProofRefs": install_aware_recovery_proof_refs(route_row),
+                "conciergeAssetRefs": install_aware_concierge_asset_refs(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                    route_row=route_row,
+                ),
+            }
+        )
+    rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
+    return rows
+
+
 def derive_default_compatibility_state(status: str, proof: dict[str, Any] | None) -> str:
     if status == "published" and proof and str(proof.get("status") or "").strip().lower() == "passed":
         return "compatible"
@@ -2853,6 +3030,12 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             desktop_coverage_complete=desktop_coverage_complete,
         )
     )
+    install_aware_registry = install_aware_artifact_registry(
+        artifacts,
+        tuple_coverage,
+        channel_id=channel,
+        release_version=version,
+    )
     return {
         "generated_at": generated_at,
         "generatedAt": generated_at,
@@ -2876,6 +3059,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "artifacts": artifacts,
         "desktopTupleCoverage": tuple_coverage,
         "runtimeBundleHeads": runtime_bundle_heads,
+        "installAwareArtifactRegistry": install_aware_registry,
     }
 
 
@@ -2936,6 +3120,7 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         "fixAvailabilitySummary": canonical.get("fixAvailabilitySummary"),
         "releaseProof": canonical.get("releaseProof"),
         "desktopTupleCoverage": canonical.get("desktopTupleCoverage"),
+        "installAwareArtifactRegistry": canonical.get("installAwareArtifactRegistry"),
     }
 
 

@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-04-23T12:37:44Z",
-  "generatedAt": "2026-04-23T12:37:44Z",
+  "generated_at": "2026-04-23T17:51:20Z",
+  "generatedAt": "2026-04-23T17:51:20Z",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "version": "run-20260420-072339",
@@ -536,5 +536,163 @@
       }
     ],
     "complete": true
-  }
+  },
+  "installAwareArtifactRegistry": [
+    {
+      "registryId": "concierge:docker:run-20260420-072339:avalonia-linux-x64-installer",
+      "artifactId": "avalonia-linux-x64-installer",
+      "channelId": "docker",
+      "releaseVersion": "run-20260420-072339",
+      "tupleId": "avalonia:linux:linux-x64",
+      "head": "avalonia",
+      "platform": "linux",
+      "rid": "linux-x64",
+      "arch": "x64",
+      "kind": "installer",
+      "installedBuildSelector": "docker/run-20260420-072339/avalonia/linux/x64",
+      "currentForInstalledBuild": true,
+      "channelRationale": "Published docker channel keeps primary-route avalonia:linux:linux-x64 current for installed build selector docker/run-20260420-072339/avalonia/linux/x64.",
+      "correctnessReason": "Offer avalonia-linux-x64-installer to installed build selector docker/run-20260420-072339/avalonia/linux/x64 because tuple avalonia:linux:linux-x64 is currently promoted for this channel.",
+      "recoveryProofRefs": [
+        "/downloads/install/avalonia-linux-x64-installer",
+        "startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json",
+        "desktopTupleCoverage.desktopRouteTruth[avalonia:linux:linux-x64]"
+      ],
+      "conciergeAssetRefs": {
+        "releaseExplainerPacket": "concierge/release/docker/run-20260420-072339/avalonia-linux-x64-installer",
+        "supportClosurePacket": "concierge/support/docker/run-20260420-072339/avalonia-linux-x64-installer",
+        "publicTrustWrapper": "/downloads/install/avalonia-linux-x64-installer"
+      }
+    },
+    {
+      "registryId": "concierge:docker:run-20260420-072339:blazor-desktop-linux-x64-installer",
+      "artifactId": "blazor-desktop-linux-x64-installer",
+      "channelId": "docker",
+      "releaseVersion": "run-20260420-072339",
+      "tupleId": "blazor-desktop:linux:linux-x64",
+      "head": "blazor-desktop",
+      "platform": "linux",
+      "rid": "linux-x64",
+      "arch": "x64",
+      "kind": "installer",
+      "installedBuildSelector": "docker/run-20260420-072339/blazor-desktop/linux/x64",
+      "currentForInstalledBuild": true,
+      "channelRationale": "Published docker channel keeps fallback route blazor-desktop:linux:linux-x64 current for installed build selector docker/run-20260420-072339/blazor-desktop/linux/x64 as recovery/manual routing.",
+      "correctnessReason": "Offer blazor-desktop-linux-x64-installer to installed build selector docker/run-20260420-072339/blazor-desktop/linux/x64 because tuple blazor-desktop:linux:linux-x64 is currently promoted for this channel.",
+      "recoveryProofRefs": [
+        "/downloads/install/blazor-desktop-linux-x64-installer",
+        "startup-smoke/startup-smoke-blazor-desktop-linux-x64.receipt.json",
+        "desktopTupleCoverage.desktopRouteTruth[blazor-desktop:linux:linux-x64]"
+      ],
+      "conciergeAssetRefs": {
+        "releaseExplainerPacket": "concierge/release/docker/run-20260420-072339/blazor-desktop-linux-x64-installer",
+        "supportClosurePacket": "concierge/support/docker/run-20260420-072339/blazor-desktop-linux-x64-installer",
+        "publicTrustWrapper": "/downloads/install/blazor-desktop-linux-x64-installer"
+      }
+    },
+    {
+      "registryId": "concierge:docker:run-20260420-072339:avalonia-osx-arm64-installer",
+      "artifactId": "avalonia-osx-arm64-installer",
+      "channelId": "docker",
+      "releaseVersion": "run-20260420-072339",
+      "tupleId": "avalonia:macos:osx-arm64",
+      "head": "avalonia",
+      "platform": "macos",
+      "rid": "osx-arm64",
+      "arch": "arm64",
+      "kind": "installer",
+      "installedBuildSelector": "docker/run-20260420-072339/avalonia/macos/arm64",
+      "currentForInstalledBuild": true,
+      "channelRationale": "Published docker channel keeps primary-route avalonia:macos:osx-arm64 current for installed build selector docker/run-20260420-072339/avalonia/macos/arm64.",
+      "correctnessReason": "Offer avalonia-osx-arm64-installer to installed build selector docker/run-20260420-072339/avalonia/macos/arm64 because tuple avalonia:macos:osx-arm64 is currently promoted for this channel.",
+      "recoveryProofRefs": [
+        "/downloads/install/avalonia-osx-arm64-installer",
+        "startup-smoke/startup-smoke-avalonia-osx-arm64.receipt.json",
+        "desktopTupleCoverage.desktopRouteTruth[avalonia:macos:osx-arm64]"
+      ],
+      "conciergeAssetRefs": {
+        "releaseExplainerPacket": "concierge/release/docker/run-20260420-072339/avalonia-osx-arm64-installer",
+        "supportClosurePacket": "concierge/support/docker/run-20260420-072339/avalonia-osx-arm64-installer",
+        "publicTrustWrapper": "/downloads/install/avalonia-osx-arm64-installer"
+      }
+    },
+    {
+      "registryId": "concierge:docker:run-20260420-072339:blazor-desktop-osx-arm64-installer",
+      "artifactId": "blazor-desktop-osx-arm64-installer",
+      "channelId": "docker",
+      "releaseVersion": "run-20260420-072339",
+      "tupleId": "blazor-desktop:macos:osx-arm64",
+      "head": "blazor-desktop",
+      "platform": "macos",
+      "rid": "osx-arm64",
+      "arch": "arm64",
+      "kind": "installer",
+      "installedBuildSelector": "docker/run-20260420-072339/blazor-desktop/macos/arm64",
+      "currentForInstalledBuild": true,
+      "channelRationale": "Published docker channel keeps fallback route blazor-desktop:macos:osx-arm64 current for installed build selector docker/run-20260420-072339/blazor-desktop/macos/arm64 as recovery/manual routing.",
+      "correctnessReason": "Offer blazor-desktop-osx-arm64-installer to installed build selector docker/run-20260420-072339/blazor-desktop/macos/arm64 because tuple blazor-desktop:macos:osx-arm64 is currently promoted for this channel.",
+      "recoveryProofRefs": [
+        "/downloads/install/blazor-desktop-osx-arm64-installer",
+        "startup-smoke/startup-smoke-blazor-desktop-osx-arm64.receipt.json",
+        "desktopTupleCoverage.desktopRouteTruth[blazor-desktop:macos:osx-arm64]"
+      ],
+      "conciergeAssetRefs": {
+        "releaseExplainerPacket": "concierge/release/docker/run-20260420-072339/blazor-desktop-osx-arm64-installer",
+        "supportClosurePacket": "concierge/support/docker/run-20260420-072339/blazor-desktop-osx-arm64-installer",
+        "publicTrustWrapper": "/downloads/install/blazor-desktop-osx-arm64-installer"
+      }
+    },
+    {
+      "registryId": "concierge:docker:run-20260420-072339:avalonia-win-x64-installer",
+      "artifactId": "avalonia-win-x64-installer",
+      "channelId": "docker",
+      "releaseVersion": "run-20260420-072339",
+      "tupleId": "avalonia:windows:win-x64",
+      "head": "avalonia",
+      "platform": "windows",
+      "rid": "win-x64",
+      "arch": "x64",
+      "kind": "installer",
+      "installedBuildSelector": "docker/run-20260420-072339/avalonia/windows/x64",
+      "currentForInstalledBuild": true,
+      "channelRationale": "Published docker channel keeps primary-route avalonia:windows:win-x64 current for installed build selector docker/run-20260420-072339/avalonia/windows/x64.",
+      "correctnessReason": "Offer avalonia-win-x64-installer to installed build selector docker/run-20260420-072339/avalonia/windows/x64 because tuple avalonia:windows:win-x64 is currently promoted for this channel.",
+      "recoveryProofRefs": [
+        "/downloads/install/avalonia-win-x64-installer",
+        "startup-smoke/startup-smoke-avalonia-win-x64.receipt.json",
+        "desktopTupleCoverage.desktopRouteTruth[avalonia:windows:win-x64]"
+      ],
+      "conciergeAssetRefs": {
+        "releaseExplainerPacket": "concierge/release/docker/run-20260420-072339/avalonia-win-x64-installer",
+        "supportClosurePacket": "concierge/support/docker/run-20260420-072339/avalonia-win-x64-installer",
+        "publicTrustWrapper": "/downloads/install/avalonia-win-x64-installer"
+      }
+    },
+    {
+      "registryId": "concierge:docker:run-20260420-072339:blazor-desktop-win-x64-installer",
+      "artifactId": "blazor-desktop-win-x64-installer",
+      "channelId": "docker",
+      "releaseVersion": "run-20260420-072339",
+      "tupleId": "blazor-desktop:windows:win-x64",
+      "head": "blazor-desktop",
+      "platform": "windows",
+      "rid": "win-x64",
+      "arch": "x64",
+      "kind": "installer",
+      "installedBuildSelector": "docker/run-20260420-072339/blazor-desktop/windows/x64",
+      "currentForInstalledBuild": false,
+      "channelRationale": "Published docker channel keeps fallback-route blazor-desktop:windows:win-x64 blocked for installed build selector docker/run-20260420-072339/blazor-desktop/windows/x64 until installer and startup-smoke proof are present.",
+      "correctnessReason": "Do not offer blazor-desktop-win-x64-installer to installed build selector docker/run-20260420-072339/blazor-desktop/windows/x64 because tuple blazor-desktop:windows:win-x64 is not currently promoted for this channel.",
+      "recoveryProofRefs": [
+        "/downloads/install/blazor-desktop-win-x64-installer",
+        "startup-smoke/startup-smoke-blazor-desktop-win-x64.receipt.json",
+        "desktopTupleCoverage.desktopRouteTruth[blazor-desktop:windows:win-x64]"
+      ],
+      "conciergeAssetRefs": {
+        "releaseExplainerPacket": "concierge/release/docker/run-20260420-072339/blazor-desktop-win-x64-installer",
+        "supportClosurePacket": "concierge/support/docker/run-20260420-072339/blazor-desktop-win-x64-installer",
+        "publicTrustWrapper": "/downloads/install/blazor-desktop-win-x64-installer"
+      }
+    }
+  ]
 }

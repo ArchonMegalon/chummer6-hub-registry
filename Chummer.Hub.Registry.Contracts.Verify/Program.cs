@@ -18,6 +18,7 @@ VerifySealedRecord(typeof(ReleaseExternalProofRequest));
 VerifySealedRecord(typeof(ReleaseProofProjection));
 VerifySealedRecord(typeof(ReleaseDesktopRouteTruth));
 VerifySealedRecord(typeof(ReleaseDesktopTupleCoverage));
+VerifySealedRecord(typeof(InstallAwareConciergeArtifactIdentity));
 VerifySealedRecord(typeof(ReleaseChannelHeadProjection));
 VerifySealedRecord(typeof(DownloadReceiptDto));
 VerifySealedRecord(typeof(InstallClaimTicketDto));
@@ -227,7 +228,7 @@ ReleaseDesktopRouteTruth routeTruth = new(
     RouteRoleReason: "Avalonia Desktop route avalonia:windows:win-x64 is the flagship desktop route for windows/win-x64 and must carry independent startup-smoke proof before promotion.",
     PromotionState: ReleaseDesktopPromotionStates.Revoked,
     PromotionReasonCode: ReleaseDesktopPromotionReasonCodes.RegistryRevokeMarkerActive,
-    PromotionReason: $"Registry revoke truth blocks promotion for avalonia:windows:win-x64: {TupleRevokeReason}",
+    PromotionReason: $"Registry revoke truth blocks primary-route promotion for avalonia:windows:win-x64: {TupleRevokeReason}",
     ParityPosture: ReleaseDesktopParityPostures.FlagshipPrimary,
     UpdateEligibility: ReleaseDesktopUpdateEligibilities.BlockedRevoked,
     UpdateEligibilityReason: $"Updates are blocked because avalonia:windows:win-x64 is revoked in registry truth: {TupleRevokeReason}",
@@ -312,6 +313,34 @@ ReleaseExternalProofRequest externalProofRequest = new(
         "python3 scripts/capture-startup-smoke.py --rid linux-x64",
     ]);
 
+InstallAwareConciergeArtifactIdentity conciergeArtifactIdentity = new(
+    RegistryId: "concierge:preview:2026.03.23-preview.1:avalonia-win-x64-installer",
+    ArtifactId: releaseArtifact.ArtifactId,
+    ChannelId: "preview",
+    ReleaseVersion: "2026.03.23-preview.1",
+    TupleId: routeTruth.TupleId,
+    Head: routeTruth.Head,
+    Platform: routeTruth.Platform,
+    Rid: routeTruth.Rid,
+    Arch: routeTruth.Arch,
+    Kind: releaseArtifact.Kind,
+    InstalledBuildSelector: "preview/2026.03.23-preview.1/avalonia/windows/x64",
+    CurrentForInstalledBuild: false,
+    ChannelRationale: "Registry revoke truth blocks primary-route promotion for avalonia:windows:win-x64 on preview/2026.03.23-preview.1.",
+    CorrectnessReason: "Do not offer avalonia-win-x64-installer to installed build selector preview/2026.03.23-preview.1/avalonia/windows/x64 because the tuple is revoked for this channel.",
+    RecoveryProofRefs:
+    [
+        "/downloads/install/avalonia-win-x64-installer",
+        "startup-smoke/startup-smoke-avalonia-win-x64.receipt.json",
+        "desktopTupleCoverage.desktopRouteTruth[avalonia:windows:win-x64]",
+    ],
+    ConciergeAssetRefs: new Dictionary<string, string>
+    {
+        ["releaseExplainerPacket"] = "concierge/release/preview/2026.03.23-preview.1/avalonia-win-x64-installer",
+        ["supportClosurePacket"] = "concierge/support/preview/2026.03.23-preview.1/avalonia-win-x64-installer",
+        ["publicTrustWrapper"] = "/downloads/install/avalonia-win-x64-installer",
+    });
+
 ReleaseChannelHeadProjection releaseChannel = new(
     Product: "chummer6",
     ChannelId: "preview",
@@ -349,7 +378,8 @@ ReleaseChannelHeadProjection releaseChannel = new(
         DesktopRouteTruth: [routeTruth],
         ExternalProofRequests: [externalProofRequest],
         MissingRequiredPlatformHeadRidTuples: ["avalonia:linux:linux-x64", "avalonia:macos:osx-arm64"],
-        Complete: false));
+        Complete: false),
+    InstallAwareArtifactRegistry: [conciergeArtifactIdentity]);
 
 HubPublicationResult<RuntimeBundleHeadProjection> implemented = HubPublicationResult<RuntimeBundleHeadProjection>.Implemented(head);
 Assert(implemented.IsImplemented, "Implemented result wrappers must report IsImplemented.");
@@ -382,6 +412,20 @@ Assert(string.Equals(releaseChannel.RolloutState, ReleaseRolloutStates.CoverageI
     "Release channel projections must retain coverage_incomplete rollout posture.");
 Assert(string.Equals(releaseChannel.SupportabilityState, ReleaseSupportabilityStates.ReviewRequired, StringComparison.Ordinal),
     "Release channel projections must retain supportability posture.");
+InstallAwareConciergeArtifactIdentity retainedConciergeArtifactIdentity = releaseChannel.InstallAwareArtifactRegistry?.Single()
+    ?? throw new InvalidOperationException("Release channel projections must retain install-aware concierge artifact identities.");
+Assert(string.Equals(retainedConciergeArtifactIdentity.ArtifactId, releaseArtifact.ArtifactId, StringComparison.Ordinal),
+    "Install-aware concierge identity must retain the exact artifact id.");
+Assert(string.Equals(retainedConciergeArtifactIdentity.ChannelId, releaseChannel.ChannelId, StringComparison.Ordinal),
+    "Install-aware concierge identity must retain the release channel.");
+Assert(retainedConciergeArtifactIdentity.ChannelRationale.Contains(releaseChannel.ChannelId, StringComparison.Ordinal),
+    "Install-aware concierge identity must explain channel rationale.");
+Assert(retainedConciergeArtifactIdentity.CorrectnessReason.Contains(retainedConciergeArtifactIdentity.InstalledBuildSelector, StringComparison.Ordinal),
+    "Install-aware concierge identity must explain why the artifact is correct for the installed build selector.");
+Assert(retainedConciergeArtifactIdentity.RecoveryProofRefs.Contains(routeTruth.PublicInstallRoute, StringComparer.Ordinal),
+    "Install-aware concierge identity must retain recovery proof refs.");
+Assert(retainedConciergeArtifactIdentity.ConciergeAssetRefs.ContainsKey("releaseExplainerPacket"),
+    "Install-aware concierge identity must retain reusable release explainer asset refs.");
 ReleaseProofProjection releaseProof = releaseChannel.ReleaseProof
     ?? throw new InvalidOperationException("Release channel projections must retain release-proof payloads.");
 IReadOnlyList<string> journeysPassed = releaseProof.JourneysPassed ?? Array.Empty<string>();
@@ -431,6 +475,7 @@ Assert(string.Equals(desktopRouteTruth.RouteRole, ReleaseDesktopRouteRoles.Prima
 Assert(string.Equals(desktopRouteTruth.RouteRoleReasonCode, ReleaseDesktopRouteReasonCodes.PrimaryFlagshipHead, StringComparison.Ordinal),
     "Desktop route truth must retain route-role reason code.");
 AssertRouteTruthRationaleContext(desktopRouteTruth);
+AssertRouteTruthDecisionRationale(desktopRouteTruth);
 Assert(string.Equals(desktopRouteTruth.ParityPosture, ReleaseDesktopParityPostures.FlagshipPrimary, StringComparison.Ordinal),
     "Primary desktop route truth must retain flagship-primary parity posture.");
 AssertPublicInstallRouteMatchesArtifactId(desktopRouteTruth);
@@ -492,6 +537,7 @@ ReleaseDesktopRouteTruth promotedFallbackRouteTruth = new(
     PublicInstallRoute: "/downloads/install/blazor-desktop-linux-x64-installer");
 
 AssertRouteTruthRationaleContext(promotedFallbackRouteTruth);
+AssertRouteTruthDecisionRationale(promotedFallbackRouteTruth);
 Assert(string.Equals(promotedFallbackRouteTruth.RouteRole, ReleaseDesktopRouteRoles.Fallback, StringComparison.Ordinal),
     "Desktop route truth must retain fallback route role.");
 Assert(string.Equals(promotedFallbackRouteTruth.RouteRoleReasonCode, ReleaseDesktopRouteReasonCodes.FallbackRecoveryHead, StringComparison.Ordinal),
@@ -536,6 +582,7 @@ ReleaseDesktopRouteTruth primaryRouteWithRevokedSiblingFallback = new(
     PublicInstallRoute: "/downloads/install/avalonia-win-x64-installer");
 
 AssertRouteTruthRationaleContext(primaryRouteWithRevokedSiblingFallback);
+AssertRouteTruthDecisionRationale(primaryRouteWithRevokedSiblingFallback);
 Assert(string.Equals(primaryRouteWithRevokedSiblingFallback.RollbackState, ReleaseDesktopRollbackStates.ManualRecoveryRequired, StringComparison.Ordinal),
     "Primary desktop route truth must retain manual recovery posture when the sibling fallback route is revoked.");
 Assert(string.Equals(primaryRouteWithRevokedSiblingFallback.RollbackReasonCode, ReleaseDesktopRollbackReasonCodes.FallbackRevokedForTuple, StringComparison.Ordinal),
@@ -709,6 +756,45 @@ static void AssertRouteTruthRationaleContext(ReleaseDesktopRouteTruth routeTruth
                 || value.Contains(headLabel, StringComparison.Ordinal),
             $"Desktop route truth {name} must name the desktop head.");
     }
+}
+
+static void AssertRouteTruthDecisionRationale(ReleaseDesktopRouteTruth routeTruth)
+{
+    if (string.Equals(routeTruth.RouteRole, ReleaseDesktopRouteRoles.Primary, StringComparison.Ordinal))
+    {
+        Assert(
+            string.Equals(routeTruth.RouteRoleReasonCode, ReleaseDesktopRouteReasonCodes.PrimaryFlagshipHead, StringComparison.Ordinal),
+            "Primary desktop route truth must use the primary_flagship_head route-role reason code.");
+        Assert(
+            string.Equals(routeTruth.ParityPosture, ReleaseDesktopParityPostures.FlagshipPrimary, StringComparison.Ordinal),
+            "Primary desktop route truth must retain flagship-primary parity posture.");
+        Assert(
+            routeTruth.RouteRoleReason.Contains("flagship desktop route", StringComparison.Ordinal),
+            "Primary desktop route truth must explain why the head is the flagship route.");
+        Assert(
+            routeTruth.PromotionReason.Contains("primary-route", StringComparison.OrdinalIgnoreCase),
+            "Primary desktop route truth promotion rationale must identify primary-route promotion.");
+        return;
+    }
+
+    if (string.Equals(routeTruth.RouteRole, ReleaseDesktopRouteRoles.Fallback, StringComparison.Ordinal))
+    {
+        Assert(
+            string.Equals(routeTruth.RouteRoleReasonCode, ReleaseDesktopRouteReasonCodes.FallbackRecoveryHead, StringComparison.Ordinal),
+            "Fallback desktop route truth must use the fallback_recovery_head route-role reason code.");
+        Assert(
+            string.Equals(routeTruth.ParityPosture, ReleaseDesktopParityPostures.ExplicitFallback, StringComparison.Ordinal),
+            "Fallback desktop route truth must retain explicit-fallback parity posture.");
+        Assert(
+            routeTruth.RouteRoleReason.Contains("explicit fallback route", StringComparison.Ordinal),
+            "Fallback desktop route truth must explain why the head is a fallback route.");
+        Assert(
+            routeTruth.PromotionReason.Contains("Fallback", StringComparison.Ordinal),
+            "Fallback desktop route truth promotion rationale must identify fallback promotion or proof posture.");
+        return;
+    }
+
+    throw new InvalidOperationException("Desktop route truth must carry primary or fallback route role.");
 }
 
 static void AssertPublicInstallRouteMatchesArtifactId(ReleaseDesktopRouteTruth routeTruth)

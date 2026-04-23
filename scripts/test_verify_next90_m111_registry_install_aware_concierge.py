@@ -1,0 +1,40 @@
+#!/usr/bin/env python3
+from __future__ import annotations
+
+import subprocess
+import sys
+import unittest
+from pathlib import Path
+
+
+REPO_ROOT = Path(__file__).resolve().parents[1]
+SCRIPT = REPO_ROOT / "scripts/verify_next90_m111_registry_install_aware_concierge.py"
+
+
+class VerifyNext90M111RegistryInstallAwareConciergeTests(unittest.TestCase):
+    def test_self_test_passes(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT), "--self-test"],
+            cwd=str(REPO_ROOT),
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout)
+        self.assertIn("verified next90 M111 registry install-aware concierge self-test", result.stdout)
+
+    def test_default_verifier_passes(self) -> None:
+        result = subprocess.run(
+            [sys.executable, str(SCRIPT)],
+            cwd=str(REPO_ROOT),
+            check=False,
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+        )
+        self.assertEqual(result.returncode, 0, result.stdout)
+
+
+if __name__ == "__main__":
+    unittest.main()

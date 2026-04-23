@@ -221,8 +221,9 @@ public sealed record ReleaseChannelArtifact(
 
 /// <summary>
 /// Explains the exact desktop route decision for one head/platform/rid tuple.
-/// Consumers should read the role, promotion, rollback, and revoke fields together
-/// rather than inferring tuple posture from artifact presence alone.
+/// Consumers should read the role, parity, promotion, update, rollback, revoke,
+/// install posture, and public install route fields together rather than
+/// inferring tuple posture from artifact presence alone.
 /// </summary>
 public sealed record ReleaseDesktopRouteTruth(
     string TupleId,
@@ -268,6 +269,30 @@ public sealed record ReleaseDesktopTupleCoverage(
     IReadOnlyList<string>? MissingRequiredPlatformHeadRidTuples = null,
     bool Complete = false);
 
+/// <summary>
+/// Registry-owned concierge identity for one installed-build artifact decision.
+/// These rows explain why a release, fix, or recovery bundle is the right
+/// artifact for the installed build and channel before Hub renders support or
+/// public concierge packets from it.
+/// </summary>
+public sealed record InstallAwareConciergeArtifactIdentity(
+    string RegistryId,
+    string ArtifactId,
+    string ChannelId,
+    string ReleaseVersion,
+    string TupleId,
+    string Head,
+    string Platform,
+    string Rid,
+    string Arch,
+    string Kind,
+    string InstalledBuildSelector,
+    bool CurrentForInstalledBuild,
+    string ChannelRationale,
+    string CorrectnessReason,
+    IReadOnlyList<string> RecoveryProofRefs,
+    IReadOnlyDictionary<string, string> ConciergeAssetRefs);
+
 public sealed record ReleaseChannelHeadProjection(
     string Product,
     string ChannelId,
@@ -285,4 +310,5 @@ public sealed record ReleaseChannelHeadProjection(
     string? KnownIssueSummary = null,
     string? FixAvailabilitySummary = null,
     ReleaseProofProjection? ReleaseProof = null,
-    ReleaseDesktopTupleCoverage? DesktopTupleCoverage = null);
+    ReleaseDesktopTupleCoverage? DesktopTupleCoverage = null,
+    IReadOnlyList<InstallAwareConciergeArtifactIdentity>? InstallAwareArtifactRegistry = null);
