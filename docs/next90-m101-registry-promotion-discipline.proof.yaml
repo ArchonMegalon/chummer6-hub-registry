@@ -56,6 +56,7 @@ do_not_reopen_unless:
   - Fleet or design queue staging carries duplicate completed package rows
   - release channel or compatibility shelf loses exact desktop route-truth rows
   - release channel or compatibility shelf carries duplicate desktop route-truth tuple rows
+  - proof receipt route_truth_state_floor stops matching release channel or compatibility shelf desktopRouteTruth rows
   - release channel and compatibility shelf drift on generated, published, or version identity metadata
   - requiredDesktopHeads stops matching avalonia-only canonical coverage while fallback route truth remains explicit per tuple
   - promotion, fallback, rollback, revoke, update, or install-posture rationale drifts

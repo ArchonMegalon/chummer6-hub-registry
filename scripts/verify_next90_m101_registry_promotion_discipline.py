@@ -355,6 +355,9 @@ CLOSEOUT_DOC_SNIPPETS = (
     "The typed registry contract verifier now asserts that every `ReleaseDesktopRouteTruth` rationale field names either the platform/rid tuple or exact route tuple id",
     "The seeded revoked-route contract sample now keeps the full registry revoke rationale in `RevokeReason`",
     "`Chummer.Hub.Registry.Contracts.Verify` stops asserting tuple and head context for typed `ReleaseDesktopRouteTruth` rationale fields",
+    "Successor-wave proof floor derivation tightening on 2026-04-23",
+    "derives the compact `route_truth_state_floor` from both `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `.codex-studio/published/releases.json`",
+    "proof-floor edits cannot drift away from the generated release-channel truth",
     "Successor-wave public release-channel duplicate tuple unit guard on 2026-04-17",
     "Successor-wave repo-local path-expansion self-test tightening on 2026-04-19",
     "Successor-wave release projection identity tightening on 2026-04-19",
@@ -487,6 +490,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "scripts/verify_next90_m101_registry_promotion_discipline.py",
     "scripts/ai/verify.sh",
     "release channel or compatibility shelf carries duplicate desktop route-truth tuple rows",
+    "proof receipt route_truth_state_floor stops matching release channel or compatibility shelf desktopRouteTruth rows",
     "release channel and compatibility shelf drift on generated, published, or version identity metadata",
     "requiredDesktopHeads stops matching avalonia-only canonical coverage while fallback route truth remains explicit per tuple",
     "Fleet or design queue staging carries duplicate completed package rows",
@@ -563,6 +567,7 @@ EXPECTED_PROOF_RECEIPT_LISTS = {
         "Fleet or design queue staging carries duplicate completed package rows",
         "release channel or compatibility shelf loses exact desktop route-truth rows",
         "release channel or compatibility shelf carries duplicate desktop route-truth tuple rows",
+        "proof receipt route_truth_state_floor stops matching release channel or compatibility shelf desktopRouteTruth rows",
         "release channel and compatibility shelf drift on generated, published, or version identity metadata",
         "requiredDesktopHeads stops matching avalonia-only canonical coverage while fallback route truth remains explicit per tuple",
         "promotion, fallback, rollback, revoke, update, or install-posture rationale drifts",
@@ -1125,6 +1130,66 @@ def verify_release_channel_route_truth(path: Path) -> None:
         for key in RATIONALE_FIELDS:
             if not str(row.get(key) or "").strip():
                 fail(f"{tuple_id}.{key} must be nonblank")
+
+
+def compact_route_truth_state_floor(path: Path) -> list[str]:
+    if not path.is_file():
+        fail(f"release channel artifact is missing: {path}")
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    coverage = payload.get("desktopTupleCoverage")
+    if not isinstance(coverage, dict):
+        fail(f"{path.name} is missing desktopTupleCoverage")
+    rows = coverage.get("desktopRouteTruth")
+    if not isinstance(rows, list):
+        fail(f"{path.name} is missing desktopTupleCoverage.desktopRouteTruth")
+    by_tuple = {
+        str(row.get("tupleId") or ""): row
+        for row in rows
+        if isinstance(row, dict)
+    }
+    compact_rows: list[str] = []
+    for tuple_id in EXPECTED_ROUTE_TRUTH:
+        row = by_tuple.get(tuple_id)
+        if row is None:
+            fail(f"{path.name} desktopRouteTruth is missing {tuple_id}")
+        compact_rows.append(
+            " ".join(
+                str(row.get(field) or "").strip()
+                for field in (
+                    "tupleId",
+                    "routeRole",
+                    "promotionState",
+                    "updateEligibility",
+                    "rollbackState",
+                    "revokeState",
+                    "routeRoleReasonCode",
+                    "promotionReasonCode",
+                    "rollbackReasonCode",
+                    "revokeReasonCode",
+                )
+            )
+        )
+    return compact_rows
+
+
+def verify_proof_receipt_route_truth_state_floor_matches_release_truth(
+    proof_receipt: Path,
+    release_channel: Path,
+    releases_manifest: Path,
+) -> None:
+    proof_floor = parse_list_section(read_text(proof_receipt).splitlines(), "route_truth_state_floor")
+    release_floor = compact_route_truth_state_floor(release_channel)
+    releases_floor = compact_route_truth_state_floor(releases_manifest)
+    if proof_floor != release_floor:
+        fail(
+            "M101 proof receipt route_truth_state_floor does not match release-channel "
+            f"desktopRouteTruth state floor: proof={proof_floor!r}, release={release_floor!r}"
+        )
+    if proof_floor != releases_floor:
+        fail(
+            "M101 proof receipt route_truth_state_floor does not match compatibility-shelf "
+            f"desktopRouteTruth state floor: proof={proof_floor!r}, releases={releases_floor!r}"
+        )
 
 
 def resolved_projection_scalar(
@@ -2081,6 +2146,27 @@ def run_self_test(proof_receipt: Path) -> None:
             lambda: verify_release_channel_route_truth(release_path),
             "desktopTupleCoverage.desktopRouteTruth[0] must contain only objects",
         )
+        drifted_proof_path = Path(temp_dir) / "route-truth-state-floor-drift-proof.yaml"
+        drifted_proof_path.write_text(
+            source_text.replace(
+                "avalonia:macos:osx-arm64 primary promoted eligible fallback_available not_revoked "
+                "primary_flagship_head installer_smoke_and_release_proof_passed "
+                "promoted_fallback_available no_registry_revoke_marker",
+                "avalonia:macos:osx-arm64 primary promoted eligible manual_recovery_required "
+                "not_revoked primary_flagship_head installer_smoke_and_release_proof_passed "
+                "fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker",
+            ),
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "proof-route-truth-state-floor-drift",
+            lambda: verify_proof_receipt_route_truth_state_floor_matches_release_truth(
+                drifted_proof_path,
+                seeded_release_path,
+                seeded_releases_path,
+            ),
+            "route_truth_state_floor does not match release-channel",
+        )
         materializer_path = Path(temp_dir) / "materialize_public_release_channel.py"
         materializer_source = DEFAULT_MATERIALIZER.read_text(encoding="utf-8")
         materializer_path.write_text(
@@ -2280,6 +2366,11 @@ def main() -> int:
     verify_no_active_run_helper_evidence(args.proof_receipt, label="M101 proof receipt")
     verify_no_active_run_helper_evidence(args.closeout_doc, label="M101 closeout doc")
     verify_proof_receipt_structure(args.proof_receipt)
+    verify_proof_receipt_route_truth_state_floor_matches_release_truth(
+        args.proof_receipt,
+        args.release_channel,
+        args.releases_manifest,
+    )
     verify_standard_gate_includes_guardrail(args.verify_sh)
     verify_worklist_closeout(args.worklist)
     verify_source_snippets(

@@ -1103,6 +1103,16 @@ dotnet run --project Chummer.Hub.Registry.Contracts.Verify/Chummer.Hub.Registry.
 
 The typed registry contract verifier now asserts that every `ReleaseDesktopRouteTruth` rationale field names either the platform/rid tuple or exact route tuple id and also names the desktop head through the tuple id, head id, or product label. The seeded revoked-route contract sample now keeps the full registry revoke rationale in `RevokeReason`, matching the generated release-channel row shape instead of preserving only the raw revoke receipt text. This keeps typed consumers from proving field presence while losing the per-head, per-tuple explanation required by the M101 promotion discipline package.
 
+Successor-wave proof floor derivation tightening on 2026-04-23:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+```
+
+The package-specific verifier now derives the compact `route_truth_state_floor` from both `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `.codex-studio/published/releases.json` and compares that derived state floor to `docs/next90-m101-registry-promotion-discipline.proof.yaml`. Its no-pytest self-test mutates the macOS primary rollback state in a temporary proof receipt and proves the guard fails closed, so future proof-floor edits cannot drift away from the generated release-channel truth while still preserving the expected tuple list.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
@@ -1117,6 +1127,7 @@ Do not reopen this package unless one of these facts changes:
 * `RELEASE_CHANNEL.generated.json` loses verifier-bound `desktopRouteTruth`,
 * `.codex-studio/published/releases.json` loses matching verifier-bound `desktopRouteTruth`,
 * either generated projection carries duplicate `desktopRouteTruth` tuple ids,
+* `docs/next90-m101-registry-promotion-discipline.proof.yaml` `route_truth_state_floor` stops matching either generated projection's `desktopRouteTruth` state floor,
 * the release-channel and compatibility-shelf projections drift on `generatedAt`, `generated_at`, `publishedAt`, or `version` identity metadata,
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, headless, or non-canonical primary/fallback/promotion/rollback/revoke/install-posture rationale,
 * `Chummer.Hub.Registry.Contracts.Verify` stops asserting tuple and head context for typed `ReleaseDesktopRouteTruth` rationale fields,
