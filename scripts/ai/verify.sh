@@ -153,9 +153,11 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/proof.json <<'JSON'
     "/downloads/install/avalonia-linux-x64-installer",
     "/home/access",
     "/home/work",
+    "/account/access",
     "/account/work",
     "/account/support",
-    "/contact"
+    "/contact",
+    "/downloads"
   ]
 }
 JSON
@@ -672,9 +674,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/proof.json <<'JSON'
     "/downloads/install/avalonia-linux-x64-installer",
     "/home/access",
     "/home/work",
+    "/account/access",
     "/account/work",
     "/account/support",
-    "/contact"
+    "/contact",
+    "/downloads"
   ]
 }
 JSON
@@ -961,9 +965,11 @@ payload["proof_routes"] = [
   "/downloads/install/avalonia-linux-x64-installer",
   "/home/access",
   "/home/work",
+  "/account/access",
   "/account/work",
   "/account/support",
   "/contact",
+  "/downloads",
   "/home/preview"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -991,9 +997,11 @@ payload["proof_routes"] = [
   "/downloads/install/avalonia-linux-x64-installer",
   "/home/access",
   "/home/work",
+  "/account/access",
   "/account/work",
   "/account/support",
   "/contact",
+  "/downloads",
   "/downloads/install/avalonia-osx-arm64-installer"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -1015,9 +1023,11 @@ assert payload["releaseProof"]["proofRoutes"] == [
   "/downloads/install/avalonia-linux-x64-installer",
   "/home/access",
   "/home/work",
+  "/account/access",
   "/account/work",
   "/account/support",
   "/contact",
+  "/downloads",
   "/downloads/install/avalonia-osx-arm64-installer",
   "/downloads/install/avalonia-win-x64-installer",
   "/downloads/install/blazor-desktop-win-x64-installer",
@@ -1035,6 +1045,7 @@ payload["proof_routes"] = [
   "/home/access",
   "/downloads/install/avalonia-linux-x64-installer",
   "/home/work",
+  "/account/access",
   "/account/work",
   "/account/support",
   "/contact"
@@ -1130,6 +1141,7 @@ payload["proof_routes"] = [
   "/downloads/install/avalonia-linux-x64-installer",
   "/home/access",
   "/home/work",
+  "/account/access",
   "/account/work",
   "/contact"
 ]
@@ -1269,6 +1281,7 @@ payload["proofRoutes"] = [
   "/downloads/install/avalonia-linux-x64-installer",
   "/home/access",
   "/home/work",
+  "/account/access",
   "/account/work",
   "/account/support",
   "/contact"
@@ -1277,6 +1290,7 @@ payload["proof_routes"] = [
   "/home/access",
   "/downloads/install/avalonia-linux-x64-installer",
   "/home/work",
+  "/account/access",
   "/account/work",
   "/account/support",
   "/contact"
@@ -3019,6 +3033,7 @@ payload["releaseProof"]["proofRoutes"] = [
   "/home/access",
   "/downloads/install/avalonia-linux-x64-installer",
   "/home/work",
+  "/account/access",
   "/account/work",
   "/account/support",
   "/contact"
@@ -3100,6 +3115,7 @@ payload["releaseProof"]["proofRoutes"] = [
   "/downloads/install/avalonia-linux-x64-installer",
   "/home/access",
   "/home/work",
+  "/account/access",
   "/account/work",
   "/account/support",
   "/contact"
@@ -3108,6 +3124,7 @@ payload["releaseProof"]["proof_routes"] = [
   "/downloads/install/avalonia-linux-x64-installer",
   "/home/access",
   "/home/work",
+  "/account/access",
   "/account/work",
   "/account/support"
 ]
@@ -3655,6 +3672,7 @@ payload["releaseProof"]["proofRoutes"] = [
   "/downloads/install/avalonia-linux-x64-installer",
   "/home/access",
   "/home/work",
+  "/account/access",
   "/account/work",
   "/contact"
 ]
@@ -3676,9 +3694,11 @@ payload["releaseProof"]["proofRoutes"] = [
   "/downloads/install/avalonia-linux-x64-installer",
   "/home/access",
   "/home/work",
+  "/account/access",
   "/account/work",
   "/account/support",
   "/contact",
+  "/downloads",
   "/home/preview"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -3699,9 +3719,11 @@ payload["releaseProof"]["proofRoutes"] = [
   "/downloads/install/avalonia-linux-x64-installer",
   "/home/access",
   "/home/work",
+  "/account/access",
   "/account/work",
   "/account/support",
   "/contact",
+  "/downloads",
   "/downloads/install/avalonia-osx-arm64-installer",
   "/downloads/install/avalonia-win-x64-installer"
 ]

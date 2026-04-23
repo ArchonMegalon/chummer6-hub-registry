@@ -88,14 +88,15 @@ The row contract carries nonblank rationale fields for:
 * `rollbackReason`
 * `rollbackReasonCode`
 * `revokeReason`
+* `revokeSource`
 * `revokeReasonCode`
 * `installPostureReason`
 
-`desktopTupleCoverage.requiredDesktopHeads` is intentionally narrower than route-truth coverage: it stays `["avalonia"]` because only the flagship head is required for promoted desktop completion, while fallback `blazor-desktop` rows remain mandatory in `desktopTupleCoverage.desktopRouteTruth` so rollback and recovery truth stays explicit per tuple without falsely widening completion requirements.
+`desktopTupleCoverage.requiredDesktopHeads` is intentionally narrower than route-truth coverage: it stays `["avalonia"]` because only the flagship head is required for promoted desktop completion, while fallback `blazor-desktop` rows remain mandatory in `desktopTupleCoverage.desktopRouteTruth` so rollback and recovery truth stays explicit per tuple without falsely widening completion requirements. Revoked artifacts remain explainable route-truth rows, but they do not count as promoted installer coverage or make the shelf complete.
 
 Route, promotion, update, rollback, revoke, and install-posture rationale are tuple-qualified, not just channel-qualified. The canonical and compatibility projections say, for example, `linux/linux-x64`, `windows/win-x64`, `macos/osx-arm64`, and exact route tuple ids such as `blazor-desktop:windows:win-x64` inside the rationale fields, so registry truth explains why the head is primary, fallback, promoted, proof-required, rollback-eligible, or not revoked on the exact desktop platform tuple being offered. Promotion rationale is now role-explicit as well: primary rows say they are promoted because the flagship head passed independent tuple proof, promoted fallback rows say they are promoted for recovery/manual routing, and proof-required fallback rows say they are still retained for recovery/manual routing while tuple proof is missing. The public verifier now fail-closes `parityPosture` drift directly as route-role truth: primary rows must remain `flagship_primary`, and fallback rows must remain `explicit_fallback`.
 
-The verifier recomputes canonical route-truth rows and fail-closes if generated truth omits rows, carries unexpected keys, has blank rationale or reason-code fields, drifts from expected primary/fallback posture or route-role parity posture, or fails to block revoked channel/artifact routes. It now also cross-checks primary rollback posture against the sibling fallback route row for the same platform/rid before the full canonical-row comparison: primary rows may report `fallback_available` only when that fallback row is promoted and not revoked, and must report `manual_recovery_required` when the fallback row is proof-required or revoked. Primary rollback reason-code truth now distinguishes those blocked cases directly: `fallback_missing_artifact_or_startup_smoke_proof` when the sibling fallback still lacks promotion proof, and `fallback_revoked_for_tuple` when the sibling fallback is present but revoked. Artifact-level `status`, `rolloutState`, and `compatibilityState` revoke markers all block only the affected tuple, and artifact-level revoke reasons are preferred over channel-level known-issue text for individually revoked tuples, so a revoked fallback installer can explain its own rollback block without making the whole channel look revoked. Revoked rows now echo the resolved revoke rationale inside `promotionReason`, `updateEligibilityReason`, `rollbackReason`, and `installPostureReason`, not only in `revokeReason`, so desktop update, rollback, support, and public shelf consumers can explain why a tuple is blocked from whichever posture field they read. Stable `routeRoleReasonCode`, `promotionReasonCode`, `rollbackReasonCode`, and `revokeReasonCode` values give those consumers a machine-readable decision surface without parsing prose.
+The verifier recomputes canonical route-truth rows and fail-closes if generated truth omits rows, carries unexpected keys, has blank rationale or reason-code fields, drifts from expected primary/fallback posture or route-role parity posture, or fails to block revoked channel/artifact routes. It now also cross-checks primary rollback posture against the sibling fallback route row for the same platform/rid before the full canonical-row comparison: primary rows may report `fallback_available` only when that fallback row is promoted and not revoked, and must report `manual_recovery_required` when the fallback row is proof-required or revoked. Primary rollback reason-code truth now distinguishes those blocked cases directly: `fallback_missing_artifact_or_startup_smoke_proof` when the sibling fallback still lacks promotion proof, and `fallback_revoked_for_tuple` when the sibling fallback is present but revoked. Artifact-level `status`, `rolloutState`, and `compatibilityState` revoke markers all block only the affected tuple, and artifact-level revoke reasons are preferred over channel-level known-issue text for individually revoked tuples, so a revoked fallback installer can explain its own rollback block without making the whole channel look revoked. Revoked rows now echo the resolved revoke rationale inside `promotionReason`, `updateEligibilityReason`, `rollbackReason`, and `installPostureReason`, not only in `revokeReason`, so desktop update, rollback, support, and public shelf consumers can explain why a tuple is blocked from whichever posture field they read. Stable `routeRoleReasonCode`, `promotionReasonCode`, `rollbackReasonCode`, `revokeReasonCode`, and `revokeSource` values give those consumers a machine-readable decision surface without parsing prose; `revokeSource` is `none`, `channel`, or `artifact`.
 The package-specific verifier now also fail-closes release projection identity drift directly: `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `.codex-studio/published/releases.json` must keep the same `generatedAt`, `generated_at`, `publishedAt`, and `version` values instead of merely carrying matching tuple rationale. That closes the stale compatibility-shelf case where route truth still matches but the shelf metadata no longer identifies the same published release.
 In other words, `generatedAt`, `publishedAt`, and `version` identity fields stay aligned between the canonical release-channel projection and the compatibility shelf before this completed package remains trusted.
 The runtime registry manifest store now preserves those artifact-level `status`, `rolloutState`, `rolloutReason`, `revokeReason`, `compatibilityReason`, and `knownIssueSummary` fields when it loads `RELEASE_CHANNEL.generated.json`, so typed `Chummer.Run.Registry` consumers do not lose rollback/revoke rationale that is already present in canonical registry truth.
@@ -1113,6 +1114,36 @@ python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
 
 The package-specific verifier now derives the compact `route_truth_state_floor` from both `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `.codex-studio/published/releases.json` and compares that derived state floor to `docs/next90-m101-registry-promotion-discipline.proof.yaml`. Its no-pytest self-test mutates the macOS primary rollback state in a temporary proof receipt and proves the guard fails closed, so future proof-floor edits cannot drift away from the generated release-channel truth while still preserving the expected tuple list.
 
+Successor-wave percent-encoded helper proof tightening on 2026-04-23:
+
+```text
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+```
+
+The package-specific verifier now percent-decodes closed-package proof text before applying the active-run helper evidence scan. percent-encoded active-run helper markers cannot be cited as closed-package proof in the canonical successor registry, Fleet queue staging, design queue staging, proof receipt, or closeout note.
+
+Successor-wave public install route tuple tightening on 2026-04-23:
+
+```text
+python3 -m py_compile scripts/verify_public_release_channel.py scripts/test_verify_public_release_channel.py scripts/verify_next90_m101_registry_promotion_discipline.py
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+```
+
+The public release-channel verifier now checks `desktopTupleCoverage.desktopRouteTruth[*].publicInstallRoute` before canonical row comparison, so a fallback route row cannot point at a primary install route while retaining otherwise-correct promotion, rollback, and revoke rationale. The direct regression tampers `blazor-desktop:linux:linux-x64` to `/downloads/install/avalonia-linux-x64-installer` and requires the verifier to reject it with the exact desktop-route tuple marker.
+
+Successor-wave route artifact binding tightening on 2026-04-23:
+
+```text
+python3 -m py_compile scripts/verify_public_release_channel.py scripts/test_verify_public_release_channel.py scripts/verify_next90_m101_registry_promotion_discipline.py
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+```
+
+The public release-channel verifier now checks route-truth artifact binding before canonical row comparison. Promoted desktop route rows must carry the exact installer `artifactId`, proof-required rows must keep `artifactId` blank instead of implying shelf bytes exist, and artifact-sourced revoke rows must still name the revoked artifact. The direct regressions clear the Linux primary `artifactId`, inject a stale fallback `artifactId` into a proof-required row, and clear an artifact-sourced revoked primary `artifactId`; each case now fails closed with a route-truth artifact binding error.
+
 ## Future-shard rule
 
 Do not reopen this package unless one of these facts changes:
@@ -1130,11 +1161,15 @@ Do not reopen this package unless one of these facts changes:
 * `docs/next90-m101-registry-promotion-discipline.proof.yaml` `route_truth_state_floor` stops matching either generated projection's `desktopRouteTruth` state floor,
 * the release-channel and compatibility-shelf projections drift on `generatedAt`, `generated_at`, `publishedAt`, or `version` identity metadata,
 * `scripts/verify_public_release_channel.py` no longer fail-closes missing, blank, stale, headless, or non-canonical primary/fallback/promotion/rollback/revoke/install-posture rationale,
+* `scripts/verify_public_release_channel.py` no longer fail-closes `publicInstallRoute` drift away from the exact desktop route tuple,
+* `scripts/verify_public_release_channel.py` no longer fail-closes promoted, proof-required, or artifact-revoked route rows whose `artifactId` no longer matches their promotion/revoke posture,
 * `Chummer.Hub.Registry.Contracts.Verify` stops asserting tuple and head context for typed `ReleaseDesktopRouteTruth` rationale fields,
 * primary rollback rationale stops naming the exact sibling fallback route id, such as `blazor-desktop:windows:win-x64`,
 * primary rollback reason-code truth stops distinguishing sibling fallback proof-required versus sibling fallback revoked posture,
 * revoked route rows stop echoing the resolved revoke rationale in blocked promotion, update, rollback, and install-posture reason fields,
 * duplicate artifact rows for the same desktop head/platform/rid can make a revoked row win over a non-revoked tuple candidate,
+* revoked artifact rows can satisfy promoted installer tuple coverage or make `desktopTupleCoverage.complete` true,
+* percent-encoded active-run helper markers can be cited as closed-package proof,
 * canonical registry, queue staging, proof receipt, or closeout evidence can cite active-run helper markers directly or through encoded helper-token strings,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` stops applying canonical registry and queue staging active-run helper proof exclusion,

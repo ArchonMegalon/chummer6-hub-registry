@@ -105,6 +105,13 @@ public static class ReleaseDesktopRevokeStates
     public const string Revoked = "revoked";
 }
 
+public static class ReleaseDesktopRevokeSources
+{
+    public const string None = "none";
+    public const string Channel = "channel";
+    public const string Artifact = "artifact";
+}
+
 public static class ReleaseDesktopRevokeReasonCodes
 {
     public const string NoRegistryRevokeMarker = "no_registry_revoke_marker";
@@ -237,6 +244,7 @@ public sealed record ReleaseDesktopRouteTruth(
     string RollbackReasonCode,
     string RollbackReason,
     string RevokeState,
+    string RevokeSource,
     string RevokeReasonCode,
     string RevokeReason,
     string InstallPosture,

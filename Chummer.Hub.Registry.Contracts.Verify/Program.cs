@@ -89,6 +89,9 @@ Assert(ReleaseDesktopRollbackReasonCodes.RegistryRevokeMarkerActive == "registry
     "Desktop rollback reason codes must expose registry_revoke_marker_active.");
 Assert(ReleaseDesktopRevokeStates.NotRevoked == "not_revoked", "Desktop revoke states must expose not_revoked.");
 Assert(ReleaseDesktopRevokeStates.Revoked == "revoked", "Desktop revoke states must expose revoked.");
+Assert(ReleaseDesktopRevokeSources.None == "none", "Desktop revoke sources must expose none.");
+Assert(ReleaseDesktopRevokeSources.Channel == "channel", "Desktop revoke sources must expose channel.");
+Assert(ReleaseDesktopRevokeSources.Artifact == "artifact", "Desktop revoke sources must expose artifact.");
 Assert(ReleaseDesktopRevokeReasonCodes.NoRegistryRevokeMarker == "no_registry_revoke_marker",
     "Desktop revoke reason codes must expose no_registry_revoke_marker.");
 Assert(ReleaseDesktopRevokeReasonCodes.RegistryRevokeMarkerActive == "registry_revoke_marker_active",
@@ -232,6 +235,7 @@ ReleaseDesktopRouteTruth routeTruth = new(
     RollbackReasonCode: ReleaseDesktopRollbackReasonCodes.RegistryRevokeMarkerActive,
     RollbackReason: $"Do not use avalonia:windows:win-x64 for rollback while its registry revoke marker is active: {TupleRevokeReason}",
     RevokeState: ReleaseDesktopRevokeStates.Revoked,
+    RevokeSource: ReleaseDesktopRevokeSources.Artifact,
     RevokeReasonCode: ReleaseDesktopRevokeReasonCodes.RegistryRevokeMarkerActive,
     RevokeReason: TupleRevokeReason,
     InstallPosture: ReleaseDesktopInstallPostures.Revoked,
@@ -448,6 +452,8 @@ Assert(desktopRouteTruth.RollbackReason.Contains(desktopRouteTruth.RevokeReason,
     "Desktop route truth must echo revoke rationale inside rollback rationale.");
 Assert(string.Equals(desktopRouteTruth.RevokeState, ReleaseDesktopRevokeStates.Revoked, StringComparison.Ordinal),
     "Desktop route truth must retain revoke state.");
+Assert(string.Equals(desktopRouteTruth.RevokeSource, ReleaseDesktopRevokeSources.Artifact, StringComparison.Ordinal),
+    "Desktop route truth must retain tuple artifact revoke source.");
 Assert(string.Equals(desktopRouteTruth.RevokeReasonCode, ReleaseDesktopRevokeReasonCodes.RegistryRevokeMarkerActive, StringComparison.Ordinal),
     "Desktop route truth must retain revoke reason code.");
 Assert(string.Equals(desktopRouteTruth.InstallPosture, ReleaseDesktopInstallPostures.Revoked, StringComparison.Ordinal),
@@ -478,10 +484,11 @@ ReleaseDesktopRouteTruth promotedFallbackRouteTruth = new(
     RollbackReasonCode: ReleaseDesktopRollbackReasonCodes.FallbackPromotedForRecovery,
     RollbackReason: "Fallback Blazor Desktop tuple blazor-desktop:linux:linux-x64 is promoted for linux/linux-x64 rollback or recovery routing.",
     RevokeState: ReleaseDesktopRevokeStates.NotRevoked,
+    RevokeSource: ReleaseDesktopRevokeSources.None,
     RevokeReasonCode: ReleaseDesktopRevokeReasonCodes.NoRegistryRevokeMarker,
     RevokeReason: "No registry revoke marker is active for blazor-desktop:linux:linux-x64.",
     InstallPosture: ReleaseDesktopInstallPostures.InstallerFirst,
-    InstallPostureReason: "Promoted installer media is present for Blazor Desktop tuple blazor-desktop:linux:linux-x64 on linux/linux-x64.",
+    InstallPostureReason: "Promoted installer media blazor-desktop-linux-x64-installer is present for Blazor Desktop tuple blazor-desktop:linux:linux-x64 on linux/linux-x64.",
     PublicInstallRoute: "/downloads/install/blazor-desktop-linux-x64-installer");
 
 AssertRouteTruthRationaleContext(promotedFallbackRouteTruth);
@@ -498,6 +505,8 @@ Assert(string.Equals(promotedFallbackRouteTruth.RollbackState, ReleaseDesktopRol
     "Promoted fallback desktop route truth must retain fallback-available rollback posture.");
 Assert(string.Equals(promotedFallbackRouteTruth.RollbackReasonCode, ReleaseDesktopRollbackReasonCodes.FallbackPromotedForRecovery, StringComparison.Ordinal),
     "Promoted fallback desktop route truth must retain promoted-for-recovery rollback reason code.");
+Assert(promotedFallbackRouteTruth.InstallPostureReason.Contains(promotedFallbackRouteTruth.ArtifactId!, StringComparison.Ordinal),
+    "Promoted fallback desktop route truth must name the exact installer artifact id inside install rationale.");
 
 ReleaseDesktopRouteTruth primaryRouteWithRevokedSiblingFallback = new(
     TupleId: "avalonia:windows:win-x64",
@@ -519,10 +528,11 @@ ReleaseDesktopRouteTruth primaryRouteWithRevokedSiblingFallback = new(
     RollbackReasonCode: ReleaseDesktopRollbackReasonCodes.FallbackRevokedForTuple,
     RollbackReason: $"Fallback route blazor-desktop:windows:win-x64 is revoked for windows/win-x64, so primary route avalonia:windows:win-x64 requires manual recovery: {FallbackTupleRevokeReason}",
     RevokeState: ReleaseDesktopRevokeStates.NotRevoked,
+    RevokeSource: ReleaseDesktopRevokeSources.None,
     RevokeReasonCode: ReleaseDesktopRevokeReasonCodes.NoRegistryRevokeMarker,
     RevokeReason: "No registry revoke marker is active for avalonia:windows:win-x64.",
     InstallPosture: ReleaseDesktopInstallPostures.InstallerFirst,
-    InstallPostureReason: "Promoted installer media is present for Avalonia Desktop tuple avalonia:windows:win-x64 on windows/win-x64.",
+    InstallPostureReason: "Promoted installer media avalonia-win-x64-installer is present for Avalonia Desktop tuple avalonia:windows:win-x64 on windows/win-x64.",
     PublicInstallRoute: "/downloads/install/avalonia-win-x64-installer");
 
 AssertRouteTruthRationaleContext(primaryRouteWithRevokedSiblingFallback);
@@ -534,6 +544,8 @@ Assert(primaryRouteWithRevokedSiblingFallback.RollbackReason.Contains("blazor-de
     "Primary desktop route truth must name the exact sibling fallback route id inside rollback rationale.");
 Assert(primaryRouteWithRevokedSiblingFallback.RollbackReason.Contains(FallbackTupleRevokeReason, StringComparison.Ordinal),
     "Primary desktop route truth must embed the sibling fallback revoke rationale inside rollback rationale.");
+Assert(primaryRouteWithRevokedSiblingFallback.InstallPostureReason.Contains(primaryRouteWithRevokedSiblingFallback.ArtifactId!, StringComparison.Ordinal),
+    "Promoted primary desktop route truth must name the exact installer artifact id inside install rationale.");
 AssertPublicInstallRouteMatchesArtifactId(primaryRouteWithRevokedSiblingFallback);
 
 DownloadReceiptDto receipt = new(
@@ -772,6 +784,7 @@ static void VerifyRegistryContractsAreNotSourceOwnedInConsumers()
 
 static IReadOnlyCollection<string> FindRegistrySourceOwnershipViolations(string consumerRoot, Regex declarationRegex)
 {
+    HashSet<string> linkedTopLevelDirectories = FindLinkedTopLevelDirectories(consumerRoot);
     string[] sourceFiles = Directory.GetFiles(consumerRoot, "*.cs", SearchOption.AllDirectories)
         .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
         .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
@@ -782,10 +795,45 @@ static IReadOnlyCollection<string> FindRegistrySourceOwnershipViolations(string 
     {
         string source = File.ReadAllText(sourceFile);
         string relativePath = Path.GetRelativePath(consumerRoot, sourceFile);
+        if (IsUnderLinkedTopLevelDirectory(relativePath, linkedTopLevelDirectories))
+        {
+            continue;
+        }
+
         AddSourceOwnershipViolations(relativePath, source, declarationRegex, violations);
     }
 
     return violations;
+}
+
+static HashSet<string> FindLinkedTopLevelDirectories(string root)
+{
+    HashSet<string> linkedDirectories = new(StringComparer.Ordinal);
+    foreach (string directory in Directory.EnumerateDirectories(root))
+    {
+        DirectoryInfo info = new(directory);
+        if ((info.Attributes & FileAttributes.ReparsePoint) == 0)
+        {
+            continue;
+        }
+
+        linkedDirectories.Add(info.Name);
+    }
+
+    return linkedDirectories;
+}
+
+static bool IsUnderLinkedTopLevelDirectory(string relativePath, HashSet<string> linkedTopLevelDirectories)
+{
+    if (linkedTopLevelDirectories.Count == 0)
+    {
+        return false;
+    }
+
+    string normalized = relativePath.Replace(Path.AltDirectorySeparatorChar, Path.DirectorySeparatorChar);
+    int separatorIndex = normalized.IndexOf(Path.DirectorySeparatorChar);
+    string firstSegment = separatorIndex < 0 ? normalized : normalized[..separatorIndex];
+    return linkedTopLevelDirectories.Contains(firstSegment);
 }
 
 static string? ResolveConsumerRoot(string environmentVariableName)

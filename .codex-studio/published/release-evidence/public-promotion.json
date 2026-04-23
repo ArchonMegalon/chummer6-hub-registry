@@ -1,5 +1,104 @@
 {
   "contractName": "chummer.run.desktop_release_publication",
-  "generatedAt": "2026-04-16T15:50:54Z",
-  "artifacts": []
+  "generatedAt": "2026-04-23T08:55:09Z",
+  "artifacts": [
+    {
+      "artifactId": "avalonia-linux-x64-installer",
+      "fileName": "chummer-avalonia-linux-x64-installer.deb",
+      "platform": "linux",
+      "promotionStatus": "pass",
+      "startupSmokeStatus": "pass",
+      "startupSmokeReason": "",
+      "startupSmokeReceiptPath": "/tmp/tmp.jhkBupb7tQ/startup-smoke-avalonia-linux-x64.receipt.json",
+      "signingStatus": null,
+      "notarizationStatus": null,
+      "artifactSha256": "84d5c3a7065666286c5e3a5feccbc2ee3c04117cf5afaa116c09e1e2d9e44643",
+      "artifactSizeBytes": 35010278,
+      "kind": "installer"
+    },
+    {
+      "artifactId": "blazor-desktop-linux-x64-installer",
+      "fileName": "chummer-blazor-desktop-linux-x64-installer.deb",
+      "platform": "linux",
+      "promotionStatus": "pass",
+      "startupSmokeStatus": "pass",
+      "startupSmokeReason": "",
+      "startupSmokeReceiptPath": "/tmp/tmp.jhkBupb7tQ/startup-smoke-blazor-desktop-linux-x64.receipt.json",
+      "signingStatus": null,
+      "notarizationStatus": null,
+      "artifactSha256": "755de1de2a11d363f5f127dd81d9a00a1f33d9b20f6e75adb569d1c97e3faa94",
+      "artifactSizeBytes": 37378650,
+      "kind": "installer"
+    },
+    {
+      "artifactId": "avalonia-osx-arm64-installer",
+      "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
+      "platform": "macos",
+      "promotionStatus": "fail",
+      "startupSmokeStatus": "pass",
+      "startupSmokeReason": "",
+      "startupSmokeReceiptPath": "/tmp/tmp.jhkBupb7tQ/startup-smoke-avalonia-osx-arm64.receipt.json",
+      "signingStatus": "fail",
+      "notarizationStatus": "fail",
+      "artifactSha256": "ca6c25f0cdaf48bddfe83e3e983ff87b8763d973e671100165248c9edcd044bd",
+      "artifactSizeBytes": 51703625,
+      "kind": "installer"
+    },
+    {
+      "artifactId": "blazor-desktop-osx-arm64-installer",
+      "fileName": "chummer-blazor-desktop-osx-arm64-installer.dmg",
+      "platform": "macos",
+      "promotionStatus": "fail",
+      "startupSmokeStatus": "pass",
+      "startupSmokeReason": "",
+      "startupSmokeReceiptPath": "/tmp/tmp.jhkBupb7tQ/startup-smoke-blazor-desktop-osx-arm64.receipt.json",
+      "signingStatus": "fail",
+      "notarizationStatus": "fail",
+      "artifactSha256": "8c1f85e688667daf8ad576ab2d3152294f5d27a55b4005e059dff022356a2df4",
+      "artifactSizeBytes": 51586470,
+      "kind": "installer"
+    },
+    {
+      "artifactId": "avalonia-win-x64-installer",
+      "fileName": "chummer-avalonia-win-x64-installer.exe",
+      "platform": "windows",
+      "promotionStatus": "fail",
+      "startupSmokeStatus": "pass",
+      "startupSmokeReason": "",
+      "startupSmokeReceiptPath": "/tmp/tmp.jhkBupb7tQ/startup-smoke-avalonia-win-x64.receipt.json",
+      "signingStatus": "fail",
+      "notarizationStatus": null,
+      "artifactSha256": "cb3493c1113c23b5e496dfe8a1e6de9afc43c802d7da865adc5255497341e5c4",
+      "artifactSizeBytes": 96466473,
+      "kind": "installer"
+    },
+    {
+      "artifactId": "avalonia-osx-arm64-archive",
+      "fileName": "chummer-avalonia-osx-arm64.tar.gz",
+      "platform": "macos",
+      "promotionStatus": "fail",
+      "startupSmokeStatus": "pass",
+      "startupSmokeReason": "",
+      "startupSmokeReceiptPath": "",
+      "signingStatus": "fail",
+      "notarizationStatus": "fail",
+      "artifactSha256": "3466279179e7be99be59097bffee666632276817383f7c22ff65b3ab4dd4f9c5",
+      "artifactSizeBytes": 45231049,
+      "kind": "archive"
+    },
+    {
+      "artifactId": "blazor-desktop-osx-arm64-archive",
+      "fileName": "chummer-blazor-desktop-osx-arm64.tar.gz",
+      "platform": "macos",
+      "promotionStatus": "fail",
+      "startupSmokeStatus": "pass",
+      "startupSmokeReason": "",
+      "startupSmokeReceiptPath": "",
+      "signingStatus": "fail",
+      "notarizationStatus": "fail",
+      "artifactSha256": "5d4f1e75a70e1c729347217ad9aa25d94fd5ba64acf51c129964f27143738df3",
+      "artifactSizeBytes": 45080078,
+      "kind": "archive"
+    }
+  ]
 }

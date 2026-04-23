@@ -520,6 +520,7 @@ def test_desktop_route_truth_does_not_offer_revoked_fallback_for_primary_rollbac
         "blazor-desktop:linux:linux-x64: Blazor fallback startup smoke regressed on this tuple."
     )
     assert fallback["promotionState"] == "revoked"
+    assert fallback["revokeSource"] == "artifact"
     assert fallback["promotionReason"].endswith("Blazor fallback startup smoke regressed on this tuple.")
     assert fallback["updateEligibility"] == "blocked_revoked"
     assert fallback["updateEligibilityReason"].endswith("Blazor fallback startup smoke regressed on this tuple.")
@@ -570,6 +571,7 @@ def test_desktop_route_truth_prefers_non_revoked_tuple_artifact() -> None:
     assert fallback["artifactId"] == "z-blazor-desktop-linux-x64-installer"
     assert fallback["promotionState"] == "promoted"
     assert fallback["revokeState"] == "not_revoked"
+    assert fallback["revokeSource"] == "none"
     assert fallback["revokeReason"] == "No registry revoke marker is active for blazor-desktop:linux:linux-x64."
 
 
@@ -602,6 +604,7 @@ def test_desktop_route_truth_treats_artifact_rollout_state_as_tuple_revoke() -> 
 
     assert primary["rollbackState"] == "manual_recovery_required"
     assert fallback["promotionState"] == "revoked"
+    assert fallback["revokeSource"] == "artifact"
     assert fallback["promotionReason"].endswith("Fallback rollout was revoked after tuple smoke failed.")
     assert fallback["rollbackState"] == "revoked"
     assert fallback["rollbackReason"].endswith("Fallback rollout was revoked after tuple smoke failed.")
@@ -804,6 +807,7 @@ def test_desktop_tuple_coverage_emits_route_truth_for_primary_and_fallback_heads
     assert route_truth["avalonia"]["rollbackState"] == "fallback_available"
     assert route_truth["avalonia"]["rollbackReasonCode"] == "promoted_fallback_available"
     assert route_truth["avalonia"]["revokeReasonCode"] == "no_registry_revoke_marker"
+    assert "avalonia-linux-x64-installer" in route_truth["avalonia"]["installPostureReason"]
     assert route_truth["blazor-desktop"]["routeRole"] == "fallback"
     assert route_truth["blazor-desktop"]["routeRoleReasonCode"] == "fallback_recovery_head"
     assert "linux/linux-x64" in route_truth["blazor-desktop"]["routeRoleReason"]
@@ -816,6 +820,7 @@ def test_desktop_tuple_coverage_emits_route_truth_for_primary_and_fallback_heads
     )
     assert route_truth["blazor-desktop"]["updateEligibility"] == "manual_fallback"
     assert route_truth["blazor-desktop"]["revokeState"] == "not_revoked"
+    assert "blazor-desktop-linux-x64-installer" in route_truth["blazor-desktop"]["installPostureReason"]
 
 
 def test_desktop_tuple_coverage_normalizes_macos_alias_before_route_truth() -> None:
@@ -926,6 +931,37 @@ def test_desktop_tuple_coverage_marks_primary_manual_recovery_when_fallback_is_r
     assert primary["rollbackReasonCode"] == "fallback_revoked_for_tuple"
     assert "Fallback signature failed Windows smoke after publication." in primary["rollbackReason"]
     assert fallback["revokeState"] == "revoked"
+    assert fallback["revokeSource"] == "artifact"
+
+
+def test_desktop_tuple_coverage_does_not_count_revoked_primary_as_promoted() -> None:
+    coverage = MODULE.desktop_tuple_coverage(
+        [
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "platform": "windows",
+                "rid": "win-x64",
+                "arch": "x64",
+                "kind": "installer",
+                "rolloutState": "revoked",
+                "rolloutReason": "Windows tuple smoke was revoked after publication.",
+            },
+        ],
+        required_heads=["avalonia"],
+        required_platforms=["windows"],
+        channel_id="preview",
+    )
+
+    primary = next(row for row in coverage["desktopRouteTruth"] if row["head"] == "avalonia")
+    assert coverage["promotedInstallerTuples"] == []
+    assert coverage["promotedPlatformHeads"] == {"windows": []}
+    assert coverage["promotedPlatformHeadRidTuples"] == []
+    assert coverage["missingRequiredPlatformHeadRidTuples"] == ["avalonia:win-x64:windows"]
+    assert coverage["complete"] is False
+    assert primary["promotionState"] == "revoked"
+    assert primary["revokeSource"] == "artifact"
+    assert primary["revokeReason"].endswith("Windows tuple smoke was revoked after publication.")
 
 
 def test_desktop_tuple_coverage_marks_primary_manual_recovery_when_fallback_is_missing_linux_proof() -> None:
@@ -1031,6 +1067,7 @@ def test_desktop_tuple_coverage_marks_channel_revoked_routes_as_revoked() -> Non
         assert row["rollbackReasonCode"] == "registry_revoke_marker_active"
         assert row["rollbackReason"].endswith("Signature receipt was revoked after publication.")
         assert row["revokeState"] == "revoked"
+        assert row["revokeSource"] == "channel"
         assert row["revokeReasonCode"] == "registry_revoke_marker_active"
         assert row["revokeReason"].startswith(
             f"Registry revoke marker is active for {row['tupleId']}: "

@@ -90,9 +90,11 @@ REQUIRED_RELEASE_PROOF_ROUTES = (
     "/downloads/install/avalonia-linux-x64-installer",
     "/home/access",
     "/home/work",
+    "/account/access",
     "/account/work",
     "/account/support",
     "/contact",
+    "/downloads",
 )
 DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME = "Chummer.Hub.Registry.Contracts"
 RELEASE_PROOF_ARTIFACT_INSTALL_ROUTE_RE = re.compile(
@@ -204,6 +206,7 @@ ALLOWED_DESKTOP_ROUTE_TRUTH_ROW_KEYS = (
     "rollbackReasonCode",
     "rollbackReason",
     "revokeState",
+    "revokeSource",
     "revokeReasonCode",
     "revokeReason",
     "installPosture",
@@ -1076,14 +1079,14 @@ def desktop_route_promotion_subject(head: str) -> str:
     return f"Fallback {head_label}"
 
 
-def desktop_route_revoke_posture(artifact: dict[str, Any] | None, payload: dict) -> tuple[str, str]:
+def desktop_route_revoke_posture(artifact: dict[str, Any] | None, payload: dict) -> tuple[str, str, str]:
     channel_status = normalized_token(payload.get("status"))
     rollout_state = normalized_token(payload.get("rolloutState") or payload.get("rollout_state"))
     rollout_reason = str(payload.get("rolloutReason") or payload.get("rollout_reason") or "").strip()
     known_issue_summary = str(payload.get("knownIssueSummary") or payload.get("known_issue_summary") or "").strip()
     if channel_status == "revoked" or rollout_state == "revoked":
         reason = rollout_reason or known_issue_summary or "The release channel is revoked for this desktop tuple."
-        return "revoked", reason
+        return "revoked", "channel", reason
     if artifact is not None and desktop_route_artifact_is_revoked(artifact):
         reason = (
             str(
@@ -1100,8 +1103,8 @@ def desktop_route_revoke_posture(artifact: dict[str, Any] | None, payload: dict)
             or known_issue_summary
             or "The artifact registry state is revoked for this desktop tuple."
         )
-        return "revoked", reason
-    return "not_revoked", "No registry revoke marker is active for this channel tuple."
+        return "revoked", "artifact", reason
+    return "not_revoked", "none", "No registry revoke marker is active for this channel tuple."
 
 
 def desktop_route_artifact_is_revoked(artifact: dict[str, Any] | None) -> bool:
@@ -1180,6 +1183,64 @@ def verify_desktop_route_role_parity(
         raise SystemExit(
             f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].parityPosture "
             f"must be {expected_parity} for {normalized_row['routeRole']} desktop route"
+        )
+
+
+def verify_desktop_route_public_install_route(
+    normalized_row: dict[str, str],
+    *,
+    index: int,
+    source: str,
+) -> None:
+    expected_public_install_route = (
+        f"/downloads/install/{normalized_row['head']}-{normalized_row['rid']}-installer"
+        if normalized_row["rid"]
+        else ""
+    )
+    if normalized_row["publicInstallRoute"] != expected_public_install_route:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].publicInstallRoute "
+            "must match the exact desktop route tuple"
+        )
+    if normalized_row["rid"] and normalized_row["head"] not in normalized_row["publicInstallRoute"]:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].publicInstallRoute "
+            "must name the desktop head"
+        )
+    if normalized_row["rid"] and normalized_row["rid"] not in normalized_row["publicInstallRoute"]:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].publicInstallRoute "
+            "must name the platform rid"
+        )
+
+
+def verify_desktop_route_artifact_promotion_binding(
+    normalized_row: dict[str, str],
+    *,
+    index: int,
+    source: str,
+) -> None:
+    promotion_state = normalized_row["promotionState"]
+    artifact_id = normalized_row["artifactId"]
+    if promotion_state == "promoted" and not artifact_id:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].artifactId "
+            "must name promoted installer artifact when promotionState is promoted"
+        )
+    if promotion_state == "promoted" and artifact_id not in normalized_row["installPostureReason"]:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].installPostureReason "
+            "must name promoted installer artifactId when promotionState is promoted"
+        )
+    if promotion_state == "proof_required" and artifact_id:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].artifactId "
+            "must be blank when promotionState is proof_required"
+        )
+    if normalized_row["revokeSource"] == "artifact" and not artifact_id:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].artifactId "
+            "must name revoked artifact when revokeSource is artifact"
         )
 
 
@@ -1371,7 +1432,7 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
                 fallback_route_tuple_label = (
                     f"blazor-desktop:{platform}:{rid}" if rid else f"blazor-desktop:{platform}"
                 )
-                revoke_state, revoke_reason = desktop_route_revoke_posture(artifact, payload)
+                revoke_state, revoke_source, revoke_reason = desktop_route_revoke_posture(artifact, payload)
                 if revoke_state != "revoked":
                     revoke_reason = f"No registry revoke marker is active for {route_tuple_label}."
                 else:
@@ -1397,7 +1458,8 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
                         )
                     install_posture = "installer_first"
                     install_posture_reason = (
-                        f"Promoted installer media is present for {head_label} tuple {route_tuple_label} on {tuple_label}."
+                        f"Promoted installer media {artifact_id} is present for {head_label} tuple "
+                        f"{route_tuple_label} on {tuple_label}."
                     )
                 else:
                     promotion_state = "proof_required"
@@ -1441,7 +1503,7 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
                             f"{route_tuple_label} on {tuple_label}."
                         )
                     elif fallback_revoked:
-                        fallback_revoke_reason = desktop_route_revoke_posture(fallback_artifact, payload)[1]
+                        fallback_revoke_reason = desktop_route_revoke_posture(fallback_artifact, payload)[2]
                         fallback_revoke_reason = (
                             f"Registry revoke marker is active for {fallback_route_tuple_label}: "
                             f"{fallback_revoke_reason}"
@@ -1529,6 +1591,7 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
                         "rollbackReasonCode": rollback_reason_code,
                         "rollbackReason": rollback_reason,
                         "revokeState": revoke_state,
+                        "revokeSource": revoke_source,
                         "revokeReasonCode": (
                             "registry_revoke_marker_active"
                             if revoke_state == "revoked"
@@ -1715,6 +1778,16 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         raise SystemExit(f"{source} desktopTupleCoverage.desktopRouteTruth must be a list")
     if not isinstance(complete, bool):
         raise SystemExit(f"{source} desktopTupleCoverage.complete must be a boolean")
+    for index, item in enumerate(desktop_route_truth):
+        if not isinstance(item, dict):
+            continue
+        revoke_source = normalized_token(item.get("revokeSource"))
+        artifact_id = normalized_token(item.get("artifactId"))
+        if revoke_source == "artifact" and not artifact_id:
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].artifactId "
+                "must name revoked artifact when revokeSource is artifact"
+            )
 
     normalized_required_platforms = [normalized_token(item) for item in required_platforms if normalized_token(item)]
     normalized_required_heads = [normalized_token(item) for item in required_heads if normalized_token(item)]
@@ -1747,6 +1820,8 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         if platform not in REQUIRED_DESKTOP_PLATFORMS:
             continue
         if not is_desktop_install_media(platform, kind):
+            continue
+        if desktop_route_artifact_is_revoked(artifact):
             continue
         tuple_id = f"{head}:{platform}:{rid}" if rid else f"{head}:{platform}"
         expected_promoted_tuples.append(tuple_id)
@@ -2112,6 +2187,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
             "rollbackReasonCode": normalized_token(item.get("rollbackReasonCode")),
             "rollbackReason": str(item.get("rollbackReason") or "").strip(),
             "revokeState": normalized_token(item.get("revokeState")),
+            "revokeSource": normalized_token(item.get("revokeSource")),
             "revokeReasonCode": normalized_token(item.get("revokeReasonCode")),
             "revokeReason": str(item.get("revokeReason") or "").strip(),
             "installPosture": normalized_token(item.get("installPosture")),
@@ -2138,6 +2214,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
             "rollbackReasonCode",
             "rollbackReason",
             "revokeReasonCode",
+            "revokeSource",
             "revokeReason",
             "installPostureReason",
         ):
@@ -2170,7 +2247,14 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
                 "must match canonical primary/fallback tuple rationale"
             )
         verify_desktop_route_rationale_context(normalized_row, index=index, source=source)
+        verify_desktop_route_public_install_route(normalized_row, index=index, source=source)
+        verify_desktop_route_artifact_promotion_binding(normalized_row, index=index, source=source)
         if normalized_row["revokeState"] == "revoked":
+            if normalized_row["revokeSource"] not in {"channel", "artifact"}:
+                raise SystemExit(
+                    f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].revokeSource "
+                    "must be channel or artifact when revokeState is revoked"
+                )
             if normalized_row["revokeReasonCode"] != "registry_revoke_marker_active":
                 raise SystemExit(
                     f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].revokeReasonCode "
@@ -2223,6 +2307,11 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
                 raise SystemExit(
                     f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].revokeReasonCode "
                     "must be no_registry_revoke_marker when revokeState is not revoked"
+                )
+            if normalized_row["revokeSource"] != "none":
+                raise SystemExit(
+                    f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].revokeSource "
+                    "must be none when revokeState is not revoked"
                 )
             expected_promotion_reason_codes = {
                 "promoted": "installer_smoke_and_release_proof_passed",

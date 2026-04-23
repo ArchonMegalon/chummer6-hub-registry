@@ -929,6 +929,51 @@ def test_verify_desktop_tuple_coverage_rejects_primary_rollback_without_sibling_
         MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
+def test_verify_desktop_tuple_coverage_rejects_route_truth_public_install_route_drift() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    fallback = next(row for row in rows if row["tupleId"] == "blazor-desktop:linux:linux-x64")
+    fallback["publicInstallRoute"] = "/downloads/install/avalonia-linux-x64-installer"
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="publicInstallRoute must match the exact desktop route tuple"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_promoted_route_without_artifact_id() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["artifactId"] = ""
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="artifactId must name promoted installer artifact"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_promoted_install_rationale_without_artifact_id() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["installPostureReason"] = (
+        "Promoted installer media is present for Avalonia Desktop tuple "
+        "avalonia:linux:linux-x64 on linux/linux-x64."
+    )
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="installPostureReason must name promoted installer artifactId"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_proof_required_route_with_artifact_id() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    fallback = next(row for row in rows if row["tupleId"] == "blazor-desktop:linux:linux-x64")
+    fallback["artifactId"] = "blazor-desktop-linux-x64-installer"
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="artifactId must be blank when promotionState is proof_required"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
 def test_verify_desktop_tuple_coverage_rejects_missing_sibling_fallback_route_truth() -> None:
     payload = complete_primary_desktop_tuple_payload()
     rows = [
@@ -1154,7 +1199,6 @@ def test_verify_desktop_tuple_coverage_rejects_primary_rollback_without_embedded
             "revokeReason": "Fallback signature failed Linux smoke after publication.",
         }
     )
-    add_promoted_linux_fallback_tuple(payload)
     rows = MODULE.expected_desktop_route_truth_rows(payload)
     rows[0]["rollbackReason"] = (
         "Fallback route blazor-desktop:linux:linux-x64 is revoked for linux/linux-x64, "
@@ -1183,7 +1227,6 @@ def test_verify_desktop_tuple_coverage_rejects_primary_revoked_fallback_rollback
             "revokeReason": "Fallback signature failed Linux smoke after publication.",
         }
     )
-    add_promoted_linux_fallback_tuple(payload)
     rows = MODULE.expected_desktop_route_truth_rows(payload)
     rows[0]["rollbackReasonCode"] = "fallback_missing_artifact_or_startup_smoke_proof"
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
@@ -1285,6 +1328,16 @@ def test_verify_desktop_tuple_coverage_rejects_non_revoked_row_with_revoked_reas
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
 
     with pytest.raises(SystemExit, match="revokeReasonCode must be no_registry_revoke_marker"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_non_revoked_row_with_revoked_source() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["revokeSource"] = "artifact"
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="revokeSource must be none"):
         MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
@@ -1444,6 +1497,7 @@ def test_expected_desktop_route_truth_rows_marks_revoked_channel_routes() -> Non
 
     assert rows
     assert {row["revokeState"] for row in rows} == {"revoked"}
+    assert {row["revokeSource"] for row in rows} == {"channel"}
     assert {row["revokeReasonCode"] for row in rows} == {"registry_revoke_marker_active"}
     assert {row["promotionState"] for row in rows} == {"revoked"}
     assert {row["promotionReasonCode"] for row in rows} == {"registry_revoke_marker_active"}
@@ -1943,6 +1997,30 @@ def test_verify_desktop_tuple_coverage_rejects_revoked_row_reason_code_drift() -
         MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
+def test_verify_desktop_tuple_coverage_rejects_revoked_row_without_revoke_source() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["status"] = "revoked"
+    payload["rolloutReason"] = "Signature receipt was revoked after publication."
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["revokeSource"] = "none"
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="revokeSource must be channel or artifact"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_rejects_artifact_revoke_without_artifact_id() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["artifacts"][0]["rolloutState"] = "revoked"
+    payload["artifacts"][0]["rolloutReason"] = "Linux tuple smoke was revoked after publication."
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["artifactId"] = ""
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="artifactId must name revoked artifact"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
 def test_expected_desktop_route_truth_rows_does_not_offer_revoked_fallback_for_primary_rollback() -> None:
     payload = {
         "channelId": "docker",
@@ -1983,6 +2061,7 @@ def test_expected_desktop_route_truth_rows_does_not_offer_revoked_fallback_for_p
         "blazor-desktop:linux:linux-x64: Tuple-specific fallback signature was revoked."
     )
     assert fallback["promotionState"] == "revoked"
+    assert fallback["revokeSource"] == "artifact"
     assert fallback["promotionReason"].endswith("Tuple-specific fallback signature was revoked.")
     assert fallback["updateEligibility"] == "blocked_revoked"
     assert fallback["updateEligibilityReason"].endswith("Tuple-specific fallback signature was revoked.")
@@ -1990,6 +2069,16 @@ def test_expected_desktop_route_truth_rows_does_not_offer_revoked_fallback_for_p
         "Registry revoke marker is active for blazor-desktop:linux:linux-x64: "
         "Tuple-specific fallback signature was revoked."
     )
+
+
+def test_verify_desktop_tuple_coverage_rejects_revoked_artifact_as_promoted_coverage() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["artifacts"][0]["rolloutState"] = "revoked"
+    payload["artifacts"][0]["rolloutReason"] = "Linux tuple smoke was revoked after publication."
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = MODULE.expected_desktop_route_truth_rows(payload)
+
+    with pytest.raises(SystemExit, match="promotedInstallerTuples does not match canonical artifact installer tuples"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
 def test_expected_desktop_route_truth_rows_prefers_non_revoked_tuple_artifact() -> None:
@@ -2035,6 +2124,7 @@ def test_expected_desktop_route_truth_rows_prefers_non_revoked_tuple_artifact() 
     assert fallback["artifactId"] == "z-blazor-desktop-linux-x64-installer"
     assert fallback["promotionState"] == "promoted"
     assert fallback["revokeState"] == "not_revoked"
+    assert fallback["revokeSource"] == "none"
     assert fallback["revokeReason"] == "No registry revoke marker is active for blazor-desktop:linux:linux-x64."
 
 
@@ -2076,6 +2166,7 @@ def test_expected_desktop_route_truth_rows_treat_artifact_rollout_state_as_tuple
         "blazor-desktop:linux:linux-x64: Fallback rollout was revoked after tuple smoke failed."
     )
     assert fallback["promotionState"] == "revoked"
+    assert fallback["revokeSource"] == "artifact"
     assert fallback["promotionReason"].endswith("Fallback rollout was revoked after tuple smoke failed.")
     assert fallback["rollbackState"] == "revoked"
     assert fallback["rollbackReason"].endswith("Fallback rollout was revoked after tuple smoke failed.")

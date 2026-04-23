@@ -18,8 +18,9 @@
   "completedAtUtc": "2026-04-19T20:53:57.320355+00:00",
   "status": "pass",
   "artifactId": "avalonia-osx-arm64-installer",
-  "artifactPath": "dist/files/chummer-avalonia-osx-arm64-installer.dmg",
+  "artifactPath": "/docker/chummercomplete/chummer-presentation/Docker/Downloads/files/chummer-avalonia-osx-arm64-installer.dmg",
   "artifactFileName": "chummer-avalonia-osx-arm64-installer.dmg",
   "artifactRelativePath": "files/chummer-avalonia-osx-arm64-installer.dmg",
-  "artifactSha256": "ca6c25f0cdaf48bddfe83e3e983ff87b8763d973e671100165248c9edcd044bd"
+  "artifactSha256": "ca6c25f0cdaf48bddfe83e3e983ff87b8763d973e671100165248c9edcd044bd",
+  "channel": "docker"
 }

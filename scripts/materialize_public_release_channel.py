@@ -68,9 +68,11 @@ REQUIRED_RELEASE_PROOF_ROUTES = (
     "/downloads/install/avalonia-linux-x64-installer",
     "/home/access",
     "/home/work",
+    "/account/access",
     "/account/work",
     "/account/support",
     "/contact",
+    "/downloads",
 )
 RELEASE_PROOF_ARTIFACT_INSTALL_ROUTE_RE = re.compile(
     r"^/downloads/install/(?P<artifact_id>[a-z0-9][a-z0-9-]*)$"
@@ -1627,12 +1629,12 @@ def desktop_route_revoke_posture(
     rollout_state: str,
     rollout_reason: str,
     known_issue_summary: str,
-) -> tuple[str, str]:
+) -> tuple[str, str, str]:
     status_token = normalized_token(channel_status)
     rollout_token = normalized_token(rollout_state)
     if status_token == "revoked" or rollout_token == "revoked":
         reason = rollout_reason or known_issue_summary or "The release channel is revoked for this desktop tuple."
-        return "revoked", reason
+        return "revoked", "channel", reason
     if artifact is not None and desktop_route_artifact_is_revoked(artifact):
         reason = (
             str(
@@ -1649,8 +1651,8 @@ def desktop_route_revoke_posture(
             or known_issue_summary
             or "The artifact registry state is revoked for this desktop tuple."
         )
-        return "revoked", reason
-    return "not_revoked", "No registry revoke marker is active for this channel tuple."
+        return "revoked", "artifact", reason
+    return "not_revoked", "none", "No registry revoke marker is active for this channel tuple."
 
 
 def desktop_route_artifact_is_revoked(artifact: dict[str, Any] | None) -> bool:
@@ -1720,7 +1722,7 @@ def desktop_route_truth(
                 fallback_route_tuple_label = (
                     f"blazor-desktop:{platform}:{rid}" if rid else f"blazor-desktop:{platform}"
                 )
-                revoke_state, revoke_reason = desktop_route_revoke_posture(
+                revoke_state, revoke_source, revoke_reason = desktop_route_revoke_posture(
                     artifact,
                     channel_status=channel_status,
                     rollout_state=rollout_state,
@@ -1752,7 +1754,8 @@ def desktop_route_truth(
                         )
                     install_posture = "installer_first"
                     install_posture_reason = (
-                        f"Promoted installer media is present for {head_label} tuple {route_tuple_label} on {tuple_label}."
+                        f"Promoted installer media {artifact_id} is present for {head_label} tuple "
+                        f"{route_tuple_label} on {tuple_label}."
                     )
                 else:
                     promotion_state = "proof_required"
@@ -1802,7 +1805,7 @@ def desktop_route_truth(
                             rollout_state=rollout_state,
                             rollout_reason=rollout_reason,
                             known_issue_summary=known_issue_summary,
-                        )[1]
+                        )[2]
                         fallback_revoke_reason = (
                             f"Registry revoke marker is active for {fallback_route_tuple_label}: "
                             f"{fallback_revoke_reason}"
@@ -1890,6 +1893,7 @@ def desktop_route_truth(
                         "rollbackReasonCode": rollback_reason_code,
                         "rollbackReason": rollback_reason,
                         "revokeState": revoke_state,
+                        "revokeSource": revoke_source,
                         "revokeReasonCode": (
                             "registry_revoke_marker_active"
                             if revoke_state == "revoked"
@@ -2103,6 +2107,8 @@ def desktop_tuple_coverage(
         if platform not in required_platforms:
             continue
         if not is_desktop_install_media(platform, item.get("kind")):
+            continue
+        if desktop_route_artifact_is_revoked(item):
             continue
         head = normalized_token(item.get("head"))
         rid = normalized_token(item.get("rid"))

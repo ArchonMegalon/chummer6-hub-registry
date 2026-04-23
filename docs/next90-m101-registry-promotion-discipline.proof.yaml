@@ -40,12 +40,12 @@ release_truth:
     - avalonia:macos:osx-arm64
     - blazor-desktop:macos:osx-arm64
 route_truth_state_floor:
-  - avalonia:linux:linux-x64 primary promoted eligible fallback_available not_revoked primary_flagship_head installer_smoke_and_release_proof_passed promoted_fallback_available no_registry_revoke_marker
-  - blazor-desktop:linux:linux-x64 fallback promoted manual_fallback fallback_available not_revoked fallback_recovery_head installer_smoke_and_release_proof_passed fallback_promoted_for_recovery no_registry_revoke_marker
-  - avalonia:windows:win-x64 primary promoted eligible manual_recovery_required not_revoked primary_flagship_head installer_smoke_and_release_proof_passed fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker
-  - blazor-desktop:windows:win-x64 fallback proof_required blocked_missing_proof fallback_not_promoted not_revoked fallback_recovery_head missing_artifact_or_startup_smoke_proof fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker
-  - avalonia:macos:osx-arm64 primary promoted eligible fallback_available not_revoked primary_flagship_head installer_smoke_and_release_proof_passed promoted_fallback_available no_registry_revoke_marker
-  - blazor-desktop:macos:osx-arm64 fallback promoted manual_fallback fallback_available not_revoked fallback_recovery_head installer_smoke_and_release_proof_passed fallback_promoted_for_recovery no_registry_revoke_marker
+  - avalonia:linux:linux-x64 primary promoted eligible fallback_available not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed promoted_fallback_available no_registry_revoke_marker
+  - blazor-desktop:linux:linux-x64 fallback promoted manual_fallback fallback_available not_revoked none fallback_recovery_head installer_smoke_and_release_proof_passed fallback_promoted_for_recovery no_registry_revoke_marker
+  - avalonia:windows:win-x64 primary promoted eligible manual_recovery_required not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker
+  - blazor-desktop:windows:win-x64 fallback proof_required blocked_missing_proof fallback_not_promoted not_revoked none fallback_recovery_head missing_artifact_or_startup_smoke_proof fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker
+  - avalonia:macos:osx-arm64 primary promoted eligible fallback_available not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed promoted_fallback_available no_registry_revoke_marker
+  - blazor-desktop:macos:osx-arm64 fallback promoted manual_fallback fallback_available not_revoked none fallback_recovery_head installer_smoke_and_release_proof_passed fallback_promoted_for_recovery no_registry_revoke_marker
 guardrails:
   - scripts/verify_public_release_channel.py
   - scripts/verify_next90_m101_registry_promotion_discipline.py
@@ -63,6 +63,10 @@ do_not_reopen_unless:
   - Chummer.Run.Registry stops preserving artifact-level status, rollout, revoke, compatibility, or known-issue rationale when it loads release-channel truth for typed consumers
   - promotion rationale stops distinguishing primary flagship promotion from fallback recovery/manual promotion on each platform tuple
   - route-role, promotion, update, rollback, revoke, or install-posture rationale stops naming the exact route tuple id, such as avalonia:windows:win-x64
+  - publicInstallRoute stops matching the exact desktop route tuple for a primary or fallback row
+  - promoted desktop route-truth rows stop naming the exact promoted installer artifactId
+  - proof-required desktop route-truth rows carry stale artifactId values that imply promoted bytes exist
+  - artifact-sourced revoke route-truth rows stop naming the revoked artifactId
   - route-role parity posture stops matching primary=flagship_primary or fallback=explicit_fallback
   - primary rollback posture stops matching sibling fallback route truth for the same platform/rid
   - primary route truth loses its explicit sibling fallback row for the same platform/rid
@@ -70,8 +74,10 @@ do_not_reopen_unless:
   - primary rollback reason-code truth stops distinguishing fallback proof-required versus fallback revoked sibling posture
   - primary rollback reason-code truth falls back to generic no_promoted_fallback_for_tuple instead of explicit fallback proof-required or fallback revoked posture
   - route-role, promotion, rollback, or revoke reason-code fields disappear or drift from canonical tuple truth
+  - revoke source truth stops distinguishing none, whole-channel revocation, and tuple-artifact revocation
   - non-revoked revoke rationale stops naming the exact route tuple id instead of falling back to channel-level prose
   - tuple selection stops preferring non-revoked artifact truth over revoked artifact rows for the same head/platform/rid
+  - revoked artifact rows count as promoted installer tuple coverage or make desktopTupleCoverage.complete true
   - canonical registry, queue, proof, or closeout evidence cites active-run helper markers directly or through encoded helper-token strings
   - canonical registry or queue evidence stops using the repo checkout root /docker/chummercomplete/chummer-hub-registry
   - the landed commit a4e47da no longer resolves in this repo
