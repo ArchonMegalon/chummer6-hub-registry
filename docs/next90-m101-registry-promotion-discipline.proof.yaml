@@ -64,9 +64,12 @@ do_not_reopen_unless:
   - route-role, promotion, update, rollback, revoke, or install-posture rationale stops naming the exact route tuple id, such as avalonia:windows:win-x64
   - route-role parity posture stops matching primary=flagship_primary or fallback=explicit_fallback
   - primary rollback posture stops matching sibling fallback route truth for the same platform/rid
+  - primary route truth loses its explicit sibling fallback row for the same platform/rid
   - primary rollback rationale stops naming the exact sibling fallback route id, such as blazor-desktop:windows:win-x64
   - primary rollback reason-code truth stops distinguishing fallback proof-required versus fallback revoked sibling posture
+  - primary rollback reason-code truth falls back to generic no_promoted_fallback_for_tuple instead of explicit fallback proof-required or fallback revoked posture
   - route-role, promotion, rollback, or revoke reason-code fields disappear or drift from canonical tuple truth
+  - non-revoked revoke rationale stops naming the exact route tuple id instead of falling back to channel-level prose
   - tuple selection stops preferring non-revoked artifact truth over revoked artifact rows for the same head/platform/rid
   - canonical registry, queue, proof, or closeout evidence cites active-run helper markers directly or through encoded helper-token strings
   - canonical registry or queue evidence stops using the repo checkout root /docker/chummercomplete/chummer-hub-registry

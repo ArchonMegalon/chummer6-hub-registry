@@ -218,6 +218,29 @@ exit 0
 
 The public verifier now fail-closes route-role parity drift before canonical row comparison: primary route rows must carry `parityPosture=flagship_primary`, and fallback route rows must carry `parityPosture=explicit_fallback`. The package proof receipt records this as a do-not-reopen condition so future shards verify the completed channel-truth guard instead of relabeling fallback heads through hand-edited shelf copy.
 
+Successor-wave revoke-rationale tightening on 2026-04-23:
+
+```text
+python3 -m py_compile scripts/materialize_public_release_channel.py scripts/verify_public_release_channel.py scripts/verify_next90_m101_registry_promotion_discipline.py scripts/test_materialize_public_release_channel.py scripts/test_verify_public_release_channel.py
+exit 0
+
+python3 scripts/verify_public_release_channel.py .codex-studio/published/RELEASE_CHANNEL.generated.json
+verified public release manifest: .codex-studio/published/RELEASE_CHANNEL.generated.json
+
+python3 scripts/verify_public_release_channel.py .codex-studio/published/releases.json
+verified public release manifest: .codex-studio/published/releases.json
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py
+verified next90 M101 registry promotion discipline: next90-m101-registry-promotion-discipline
+
+python3 scripts/verify_next90_m101_registry_promotion_discipline.py --self-test
+verified next90 M101 registry promotion discipline self-test: next90-m101-registry-promotion-discipline
+```
+
+The public verifier test suite now includes a dedicated non-revoked revoke-rationale regression, and the package verifier requires that test name before trusting the completed package. This closes the stale-copy case where a non-revoked row could fall back to generic channel-level revoke prose instead of explaining the exact route tuple, such as `avalonia:linux:linux-x64`, in `revokeReason`.
+
+The verifier also rejects the legacy generic `no_promoted_fallback_for_tuple` rollback code for primary rows, because route truth now requires an explicit sibling fallback row for every platform/rid. Primary rollback truth must say either `fallback_missing_artifact_or_startup_smoke_proof` or `fallback_revoked_for_tuple`, and the typed contract constant is kept only as an obsolete compatibility symbol.
+
 Successor-wave all-rationale tuple qualification on 2026-04-17:
 
 ```text

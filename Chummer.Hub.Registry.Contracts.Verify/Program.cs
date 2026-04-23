@@ -78,8 +78,9 @@ Assert(ReleaseDesktopRollbackReasonCodes.PromotedFallbackAvailable == "promoted_
     "Desktop rollback reason codes must expose promoted_fallback_available.");
 Assert(ReleaseDesktopRollbackReasonCodes.FallbackPromotedForRecovery == "fallback_promoted_for_recovery",
     "Desktop rollback reason codes must expose fallback_promoted_for_recovery.");
-Assert(ReleaseDesktopRollbackReasonCodes.NoPromotedFallbackForTuple == "no_promoted_fallback_for_tuple",
-    "Desktop rollback reason codes must expose no_promoted_fallback_for_tuple.");
+AssertObsoleteRollbackCode(
+    "NoPromotedFallbackForTuple",
+    "Desktop route truth requires an explicit sibling fallback row");
 Assert(ReleaseDesktopRollbackReasonCodes.FallbackMissingArtifactOrStartupSmokeProof == "fallback_missing_artifact_or_startup_smoke_proof",
     "Desktop rollback reason codes must expose fallback_missing_artifact_or_startup_smoke_proof.");
 Assert(ReleaseDesktopRollbackReasonCodes.FallbackRevokedForTuple == "fallback_revoked_for_tuple",
@@ -640,6 +641,28 @@ static void Assert(bool condition, string message)
     if (!condition)
     {
         throw new InvalidOperationException(message);
+    }
+}
+
+static void AssertObsoleteRollbackCode(string fieldName, string expectedReason)
+{
+    FieldInfo? field = typeof(ReleaseDesktopRollbackReasonCodes).GetField(
+        fieldName,
+        BindingFlags.Public | BindingFlags.Static);
+    if (field is null)
+    {
+        throw new InvalidOperationException($"Desktop rollback reason code {fieldName} must remain discoverable for compatibility.");
+    }
+
+    ObsoleteAttribute? obsolete = field.GetCustomAttribute<ObsoleteAttribute>();
+    if (obsolete is null)
+    {
+        throw new InvalidOperationException($"Desktop rollback reason code {fieldName} must be marked obsolete.");
+    }
+
+    if (obsolete.Message?.Contains(expectedReason, StringComparison.Ordinal) != true)
+    {
+        throw new InvalidOperationException($"Desktop rollback reason code {fieldName} must explain the explicit fallback-row replacement.");
     }
 }
 

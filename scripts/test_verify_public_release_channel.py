@@ -1,9 +1,11 @@
 from __future__ import annotations
 
 import hashlib
+import inspect
 import importlib.util
 import json
 import re
+import tempfile
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
@@ -927,6 +929,22 @@ def test_verify_desktop_tuple_coverage_rejects_primary_rollback_without_sibling_
         MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
+def test_verify_desktop_tuple_coverage_rejects_missing_sibling_fallback_route_truth() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    rows = [
+        row
+        for row in MODULE.expected_desktop_route_truth_rows(payload)
+        if row["tupleId"] != "blazor-desktop:linux:linux-x64"
+    ]
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(
+        SystemExit,
+        match="must include sibling fallback route truth blazor-desktop:linux:linux-x64",
+    ):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
 def test_verify_desktop_tuple_coverage_rejects_route_role_reason_drift() -> None:
     payload = {
         "channelId": "docker",
@@ -1041,6 +1059,17 @@ def test_verify_desktop_route_role_parity_rejects_primary_fallback_drift() -> No
         )
 
 
+def test_verify_desktop_route_state_matrix_rejects_generic_primary_fallback_absence_code() -> None:
+    row = MODULE.expected_desktop_route_truth_rows(complete_primary_desktop_tuple_payload())[0]
+    row["rollbackReasonCode"] = "no_promoted_fallback_for_tuple"
+
+    with pytest.raises(
+        SystemExit,
+        match="must explain whether primary rollback is blocked by missing fallback proof or fallback revocation",
+    ):
+        MODULE.verify_desktop_route_state_matrix(row, index=0, source="release-channel.json")
+
+
 def test_verify_desktop_tuple_coverage_rejects_primary_rollback_without_promoted_fallback_row() -> None:
     payload = complete_primary_desktop_tuple_payload()
     rows = MODULE.expected_desktop_route_truth_rows(payload)
@@ -1065,7 +1094,7 @@ def test_verify_desktop_tuple_coverage_rejects_primary_rollback_without_promoted
 def test_verify_desktop_tuple_coverage_rejects_primary_missing_proof_rollback_reason_code_drift() -> None:
     payload = complete_primary_desktop_tuple_payload()
     rows = MODULE.expected_desktop_route_truth_rows(payload)
-    rows[0]["rollbackReasonCode"] = "no_promoted_fallback_for_tuple"
+    rows[0]["rollbackReasonCode"] = "fallback_revoked_for_tuple"
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
 
     with pytest.raises(
@@ -1093,7 +1122,7 @@ def test_verify_desktop_tuple_coverage_rejects_primary_manual_rollback_when_fall
     add_promoted_linux_fallback_tuple(payload)
     rows = MODULE.expected_desktop_route_truth_rows(payload)
     rows[0]["rollbackState"] = "manual_recovery_required"
-    rows[0]["rollbackReasonCode"] = "no_promoted_fallback_for_tuple"
+    rows[0]["rollbackReasonCode"] = "fallback_missing_artifact_or_startup_smoke_proof"
     rows[0]["rollbackReason"] = (
         "Fallback route blazor-desktop:linux:linux-x64 is not promoted for linux/linux-x64 because "
         "matching artifact bytes and fresh startup-smoke proof are still required; primary route "
@@ -1812,6 +1841,16 @@ def test_verify_desktop_tuple_coverage_rejects_revoked_revoke_reason_without_tup
         MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
+def test_verify_desktop_tuple_coverage_rejects_non_revoked_revoke_reason_without_tuple_context() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    rows = MODULE.expected_desktop_route_truth_rows(payload)
+    rows[0]["revokeReason"] = "No registry revoke marker is active for this channel tuple."
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
+
+    with pytest.raises(SystemExit, match="revokeReason must name exact route tuple id"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
 def test_verify_desktop_tuple_coverage_rejects_revoked_row_reason_code_drift() -> None:
     payload = {
         "channelId": "docker",
@@ -2060,7 +2099,12 @@ if __name__ == "__main__":
     failures: list[str] = []
     for name, test_function in test_functions:
         try:
-            test_function()
+            parameters = inspect.signature(test_function).parameters
+            if "tmp_path" in parameters:
+                with tempfile.TemporaryDirectory(prefix=f"{name}-") as tmp_dir:
+                    test_function(tmp_path=Path(tmp_dir))
+            else:
+                test_function()
         except Exception as error:  # pragma: no cover - command-line execution only.
             failures.append(f"{name}: {error}")
     if failures:

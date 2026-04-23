@@ -1221,7 +1221,6 @@ def verify_desktop_route_state_matrix(
         expected_reason_by_state = {
             "fallback_available": "promoted_fallback_available",
             "manual_recovery_required": {
-                "no_promoted_fallback_for_tuple",
                 "fallback_missing_artifact_or_startup_smoke_proof",
                 "fallback_revoked_for_tuple",
             },
@@ -1285,16 +1284,18 @@ def verify_primary_rollback_matches_fallback_route_truth(
         if row["routeRole"] != "primary" or row["revokeState"] == "revoked":
             continue
         fallback_row = fallback_rows_by_tuple.get((row["platform"], row["rid"]))
+        if fallback_row is None:
+            raise SystemExit(
+                f"{source} desktopTupleCoverage.desktopRouteTruth[{index}] "
+                f"must include sibling fallback route truth blazor-desktop:{row['platform']}:{row['rid']}"
+            )
         fallback_promoted = (
-            fallback_row is not None
-            and fallback_row["promotionState"] == "promoted"
+            fallback_row["promotionState"] == "promoted"
             and fallback_row["revokeState"] != "revoked"
         )
         expected_state = "fallback_available" if fallback_promoted else "manual_recovery_required"
         if fallback_promoted:
             expected_reason_code = "promoted_fallback_available"
-        elif fallback_row is None:
-            expected_reason_code = "no_promoted_fallback_for_tuple"
         elif fallback_row["revokeState"] == "revoked":
             expected_reason_code = "fallback_revoked_for_tuple"
         else:

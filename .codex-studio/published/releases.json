@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-04-21T15:36:03Z",
-  "generatedAt": "2026-04-21T15:36:03Z",
+  "generated_at": "2026-04-23T08:55:11Z",
+  "generatedAt": "2026-04-23T08:55:11Z",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "version": "run-20260420-072339",
   "channel": "docker",
-  "publishedAt": "2026-04-20T15:29:59Z",
+  "publishedAt": "2026-04-23T08:55:09Z",
   "downloads": [
     {
       "id": "avalonia-linux-x64-installer",
@@ -124,7 +124,7 @@
   "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
   "releaseProof": {
     "status": "passed",
-    "generatedAt": "2026-04-19T17:41:56Z",
+    "generatedAt": "2026-04-22T05:39:48Z",
     "baseUrl": "https://chummer.run",
     "journeysPassed": [
       "install_claim_restore_continue",
@@ -147,7 +147,7 @@
     ],
     "uiLocalizationReleaseGate": {
       "status": "pass",
-      "generatedAt": "2026-04-20T07:07:21Z",
+      "generatedAt": "2026-04-22T04:20:06Z",
       "defaultKeyCount": 383,
       "explicitFallbackRuntime": "pass",
       "signoffSmokeRunnerStatus": "pass",

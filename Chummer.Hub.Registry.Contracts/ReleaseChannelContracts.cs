@@ -92,6 +92,7 @@ public static class ReleaseDesktopRollbackReasonCodes
 {
     public const string PromotedFallbackAvailable = "promoted_fallback_available";
     public const string FallbackPromotedForRecovery = "fallback_promoted_for_recovery";
+    [Obsolete("Desktop route truth requires an explicit sibling fallback row; use FallbackMissingArtifactOrStartupSmokeProof or FallbackRevokedForTuple.")]
     public const string NoPromotedFallbackForTuple = "no_promoted_fallback_for_tuple";
     public const string FallbackMissingArtifactOrStartupSmokeProof = "fallback_missing_artifact_or_startup_smoke_proof";
     public const string FallbackRevokedForTuple = "fallback_revoked_for_tuple";
