@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import html
 import json
 import subprocess
 import sys
@@ -371,6 +372,8 @@ CLOSEOUT_DOC_SNIPPETS = (
     "proof-floor edits cannot drift away from the generated release-channel truth",
     "Successor-wave percent-encoded helper proof tightening on 2026-04-23",
     "percent-encoded active-run helper markers cannot be cited as closed-package proof",
+    "Successor-wave HTML-entity helper proof tightening on 2026-04-23",
+    "HTML-entity encoded active-run helper markers cannot be cited as closed-package proof",
     "Successor-wave public release-channel duplicate tuple unit guard on 2026-04-17",
     "Successor-wave repo-local path-expansion self-test tightening on 2026-04-19",
     "Successor-wave release projection identity tightening on 2026-04-19",
@@ -610,6 +613,7 @@ EXPECTED_PROOF_RECEIPT_LISTS = {
         "tuple selection stops preferring non-revoked artifact truth over revoked artifact rows for the same head/platform/rid",
         "revoked artifact rows count as promoted installer tuple coverage or make desktopTupleCoverage.complete true",
         "canonical registry, queue, proof, or closeout evidence cites active-run helper markers directly or through encoded helper-token strings",
+        "canonical registry, queue, proof, or closeout evidence cites HTML-entity encoded active-run helper markers",
         f"canonical registry or queue evidence stops using the repo checkout root {EXPECTED_REPO_CHECKOUT_ROOT}",
         f"the landed commit {LANDED_COMMIT} no longer resolves in this repo",
         f"the verified guardrail commit {VERIFIED_GUARDRAIL_COMMIT} no longer resolves in this repo",
@@ -1329,10 +1333,14 @@ def verify_closeout_doc(path: Path) -> None:
 
 def verify_no_active_run_helper_evidence(path: Path, *, label: str) -> None:
     text = read_text(path)
+    html_unescaped_text = html.unescape(text)
     folded_variants = {
         text.casefold(),
+        html_unescaped_text.casefold(),
         urllib.parse.unquote(text).casefold(),
         urllib.parse.unquote(urllib.parse.unquote(text)).casefold(),
+        urllib.parse.unquote(html_unescaped_text).casefold(),
+        urllib.parse.unquote(urllib.parse.unquote(html_unescaped_text)).casefold(),
     }
     for snippet in DISALLOWED_ACTIVE_RUN_PROOF_SNIPPETS:
         folded_snippet = snippet.casefold()
@@ -1704,6 +1712,15 @@ def run_self_test(proof_receipt: Path) -> None:
         )
         expect_self_test_failure(
             "percent-encoded-active-run-helper-proof",
+            lambda: verify_no_active_run_helper_evidence(temp_path, label="temporary M101 proof receipt"),
+            "active-run helper or telemetry evidence",
+        )
+        temp_path.write_text(
+            source_text + "&#65;&#67;&#84;&#73;&#86;&#69;&#95;&#82;&#85;&#78;&#95;&#72;&#69;&#76;&#80;&#69;&#82;&#95;&#82;&#69;&#67;&#69;&#73;&#80;&#84; evidence\n",
+            encoding="utf-8",
+        )
+        expect_self_test_failure(
+            "html-entity-active-run-helper-proof",
             lambda: verify_no_active_run_helper_evidence(temp_path, label="temporary M101 proof receipt"),
             "active-run helper or telemetry evidence",
         )

@@ -79,6 +79,7 @@ do_not_reopen_unless:
   - tuple selection stops preferring non-revoked artifact truth over revoked artifact rows for the same head/platform/rid
   - revoked artifact rows count as promoted installer tuple coverage or make desktopTupleCoverage.complete true
   - canonical registry, queue, proof, or closeout evidence cites active-run helper markers directly or through encoded helper-token strings
+  - canonical registry, queue, proof, or closeout evidence cites HTML-entity encoded active-run helper markers
   - canonical registry or queue evidence stops using the repo checkout root /docker/chummercomplete/chummer-hub-registry
   - the landed commit a4e47da no longer resolves in this repo
   - the verified guardrail commit be80077 no longer resolves in this repo

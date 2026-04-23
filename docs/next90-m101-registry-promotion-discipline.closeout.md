@@ -60,6 +60,7 @@ Repo-local guardrail commit `fc57464` superseded `49dd07a` in the package verifi
 Repo-local guardrail commit `acb881d` now supersedes `fc57464` in the package verifier, proof receipt, canonical registry row, and both queue staging rows so future shards also fail closed when those two projections drift only across the `generatedAt` versus `generated_at` alias fields, and so the pinned pipeline proof keeps the current six-tuple successor matrix plus the Avalonia-only required-head coverage explanation in sync with executable guardrails.
 Repo-local guardrail commit `a1da9ca` now supersedes `acb881d` in the package verifier, proof receipt, canonical registry row, and both queue staging rows so future shards also fail closed when route-role, promotion, rollback, and install-posture rationale regress from exact `head:platform:rid` tuple language to platform-only prose while the direct verifier tests still appear green.
 Repo-local guardrail commit `be80077` now supersedes `9919487` in the package verifier, proof receipt, canonical registry row, and both queue staging rows so future shards also fail closed when closed-package proof cites percent-encoded active-run helper markers, while retaining the existing route rollback, sibling fallback, and non-revoked revoke rationale guards.
+The package verifier now also decodes HTML entities before scanning canonical registry, queue, proof, and closeout evidence for active-run helper markers, so copied helper citations cannot be hidden behind numeric entity escapes while keeping the completed package green.
 
 Fleet queue staging also marks package `next90-m101-registry-promotion-discipline` complete with the same proof paths and landed commit.
 Fleet and design queue staging now also require `completion_action: verify_closed_package_only` and a package-specific `do_not_reopen_reason`, so future shards get an explicit closed-package instruction in queue truth instead of inferring it from proof prose.
@@ -161,6 +162,10 @@ Build succeeded. 0 Warning(s), 0 Error(s)
 `python3 -m pytest scripts/test_verify_public_release_channel.py scripts/test_materialize_public_release_channel.py -q` could not run in this worker environment because the `pytest` module is not installed and the repo has no Python dependency manifest to restore from. The route-truth helper tests are present in `scripts/test_verify_public_release_channel.py` and `scripts/test_materialize_public_release_channel.py`, and the files compile cleanly.
 
 No operator telemetry or active-run helper commands were used for this closeout.
+
+Successor-wave HTML-entity helper proof tightening on 2026-04-23:
+
+HTML-entity encoded active-run helper markers cannot be cited as closed-package proof. The package verifier now decodes HTML entities before scanning canonical registry, queue, proof, and closeout evidence for active-run helper markers, so copied helper citations cannot be hidden behind numeric entity escapes while keeping the completed package green.
 
 Successor-wave implementation-only retry on 2026-04-17:
 
@@ -1173,6 +1178,7 @@ Do not reopen this package unless one of these facts changes:
 * canonical registry, queue staging, proof receipt, or closeout evidence can cite active-run helper markers directly or through encoded helper-token strings,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` no longer asserts the closed row-shape, tuple metadata, exact per-tuple rationale, and public install route for both generated projections,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` stops applying canonical registry and queue staging active-run helper proof exclusion,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` stops rejecting HTML-entity encoded active-run helper markers in registry, queue, proof, or closeout evidence,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `be80077`,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail, successor-frontier proof self-test, or hand-edited `desktopRouteTruth` negative-case verifier,
