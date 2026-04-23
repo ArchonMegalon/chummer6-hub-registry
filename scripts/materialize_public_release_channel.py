@@ -2604,6 +2604,215 @@ def install_aware_artifact_registry(
     return rows
 
 
+def artifact_family_id(route_row: dict[str, Any]) -> str:
+    head = normalize_token(route_row.get("head"))
+    platform = normalize_platform_token(route_row.get("platform"))
+    rid = normalize_token(route_row.get("rid"))
+    return f"artifact-family:{head}:{platform}:{rid}"
+
+
+def artifact_publication_binding_id(
+    *,
+    channel_id: str,
+    release_version: str,
+    route_row: dict[str, Any],
+) -> str:
+    return f"binding:{channel_id}:{release_version}:{str(route_row.get('tupleId') or '').strip()}"
+
+
+def artifact_preview_ref(
+    *,
+    artifact_id: str,
+    route_row: dict[str, Any],
+) -> str:
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    return f"registry-preview:{artifact_id}:{tuple_id}"
+
+
+def artifact_caption_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    route_row: dict[str, Any],
+) -> str:
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    return f"registry-caption:{channel_id}:{release_version}:{tuple_id}"
+
+
+def artifact_signed_in_shelf_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    artifact_id: str,
+) -> str:
+    return f"shelf:signed-in:{channel_id}:{release_version}:{artifact_id}"
+
+
+def artifact_public_shelf_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    artifact_id: str,
+) -> str:
+    return f"shelf:public:{channel_id}:{release_version}:{artifact_id}"
+
+
+def artifact_publication_scope(route_row: dict[str, Any]) -> str:
+    visibility = normalize_token(route_row.get("visibility"))
+    if visibility in {"private", "local-only"}:
+        return "signed-in"
+    return "signed-in-and-public"
+
+
+def artifact_publication_state(route_row: dict[str, Any]) -> str:
+    promotion_state = normalize_token(route_row.get("promotionState"))
+    revoke_state = normalize_token(route_row.get("revokeState"))
+    if revoke_state == "revoked":
+        return "revoked"
+    if promotion_state == "promoted":
+        return "published"
+    return "preview"
+
+
+def artifact_publication_rationale(
+    route_row: dict[str, Any],
+    *,
+    channel_id: str,
+) -> str:
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    route_role = normalize_token(route_row.get("routeRole")) or "artifact"
+    publication_state = artifact_publication_state(route_row)
+    if publication_state == "published":
+        return (
+            f"{channel_id} keeps {route_role} tuple {tuple_id} published so signed-in and public shelves "
+            "cite the same governed preview, caption, and install refs."
+        )
+    if publication_state == "revoked":
+        return (
+            f"{channel_id} keeps tuple {tuple_id} retained but revoked so both shelves still point at the same "
+            "governed refs without advertising the artifact for install."
+        )
+    return (
+        f"{channel_id} keeps tuple {tuple_id} in preview so shelf refs stay governed before wider publication."
+    )
+
+
+def artifact_identity_registry(
+    tuple_coverage: dict[str, Any] | None,
+    *,
+    channel_id: str,
+    release_version: str,
+) -> list[dict[str, Any]]:
+    desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
+    if not isinstance(desktop_route_truth, list):
+        return []
+    rows: list[dict[str, Any]] = []
+    for route_row in desktop_route_truth:
+        if not isinstance(route_row, dict):
+            continue
+        artifact_id = expected_installer_artifact_id_for_route(route_row)
+        if not artifact_id:
+            continue
+        rows.append(
+            {
+                "registryId": f"artifact-identity:{channel_id}:{release_version}:{str(route_row.get('tupleId') or '').strip()}",
+                "artifactFamilyId": artifact_family_id(route_row),
+                "artifactId": artifact_id,
+                "channelId": channel_id,
+                "releaseVersion": release_version,
+                "tupleId": str(route_row.get("tupleId") or "").strip(),
+                "head": normalize_token(route_row.get("head")),
+                "platform": normalize_platform_token(route_row.get("platform")),
+                "rid": normalize_token(route_row.get("rid")),
+                "arch": normalize_token(route_row.get("arch")),
+                "kind": normalize_token(route_row.get("kind")) or "installer",
+                "previewRef": artifact_preview_ref(artifact_id=artifact_id, route_row=route_row),
+                "captionRef": artifact_caption_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    route_row=route_row,
+                ),
+                "publicationBindingId": artifact_publication_binding_id(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    route_row=route_row,
+                ),
+                "signedInShelfRef": artifact_signed_in_shelf_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                ),
+                "publicShelfRef": artifact_public_shelf_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                ),
+                "publicInstallRoute": str(route_row.get("publicInstallRoute") or "").strip() or None,
+            }
+        )
+    rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
+    return rows
+
+
+def artifact_publication_bindings(
+    tuple_coverage: dict[str, Any] | None,
+    *,
+    channel_id: str,
+    release_version: str,
+) -> list[dict[str, Any]]:
+    desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
+    if not isinstance(desktop_route_truth, list):
+        return []
+    rows: list[dict[str, Any]] = []
+    for route_row in desktop_route_truth:
+        if not isinstance(route_row, dict):
+            continue
+        artifact_id = expected_installer_artifact_id_for_route(route_row)
+        if not artifact_id:
+            continue
+        rows.append(
+            {
+                "bindingId": artifact_publication_binding_id(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    route_row=route_row,
+                ),
+                "artifactFamilyId": artifact_family_id(route_row),
+                "artifactId": artifact_id,
+                "channelId": channel_id,
+                "releaseVersion": release_version,
+                "tupleId": str(route_row.get("tupleId") or "").strip(),
+                "head": normalize_token(route_row.get("head")),
+                "platform": normalize_platform_token(route_row.get("platform")),
+                "rid": normalize_token(route_row.get("rid")),
+                "arch": normalize_token(route_row.get("arch")),
+                "kind": normalize_token(route_row.get("kind")) or "installer",
+                "publicationScope": artifact_publication_scope(route_row),
+                "publicationState": artifact_publication_state(route_row),
+                "signedInShelfRef": artifact_signed_in_shelf_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                ),
+                "publicShelfRef": artifact_public_shelf_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                ),
+                "previewRef": artifact_preview_ref(artifact_id=artifact_id, route_row=route_row),
+                "captionRef": artifact_caption_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    route_row=route_row,
+                ),
+                "publicInstallRoute": str(route_row.get("publicInstallRoute") or "").strip() or None,
+                "rationale": artifact_publication_rationale(route_row, channel_id=channel_id),
+            }
+        )
+    rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
+    return rows
+
+
 def derive_default_compatibility_state(status: str, proof: dict[str, Any] | None) -> str:
     if status == "published" and proof and str(proof.get("status") or "").strip().lower() == "passed":
         return "compatible"
@@ -2844,11 +3053,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     ) or "unpublished"
     loaded_channel = str(loaded.get("channel") or loaded.get("channelId") or "").strip()
     requested_channel = str(args.channel or "").strip()
-    channel = (
-        requested_channel
-        if requested_channel and (requested_channel != "preview" or not loaded_channel)
-        else loaded_channel
-    ) or "preview"
+    channel = requested_channel or loaded_channel or "preview"
 
     if isinstance(loaded.get("artifacts"), list):
         artifacts = [parse_download_row(item) for item in loaded.get("artifacts") or [] if isinstance(item, dict)]
@@ -3036,6 +3241,16 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         channel_id=channel,
         release_version=version,
     )
+    artifact_identity_registry_rows = artifact_identity_registry(
+        tuple_coverage,
+        channel_id=channel,
+        release_version=version,
+    )
+    artifact_publication_binding_rows = artifact_publication_bindings(
+        tuple_coverage,
+        channel_id=channel,
+        release_version=version,
+    )
     return {
         "generated_at": generated_at,
         "generatedAt": generated_at,
@@ -3060,6 +3275,8 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "desktopTupleCoverage": tuple_coverage,
         "runtimeBundleHeads": runtime_bundle_heads,
         "installAwareArtifactRegistry": install_aware_registry,
+        "artifactIdentityRegistry": artifact_identity_registry_rows,
+        "artifactPublicationBindings": artifact_publication_binding_rows,
     }
 
 
@@ -3121,6 +3338,8 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         "releaseProof": canonical.get("releaseProof"),
         "desktopTupleCoverage": canonical.get("desktopTupleCoverage"),
         "installAwareArtifactRegistry": canonical.get("installAwareArtifactRegistry"),
+        "artifactIdentityRegistry": canonical.get("artifactIdentityRegistry"),
+        "artifactPublicationBindings": canonical.get("artifactPublicationBindings"),
     }
 
 
