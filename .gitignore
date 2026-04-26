@@ -51,3 +51,9 @@ git/
 !/.codex-studio/published/WORKPACKAGES.generated.yaml
 !/.codex-studio/published/RELEASE_CHANNEL.generated.json
 !/.codex-studio/published/releases.json
+
+# Download payloads are published out-of-band; keep large installer media out of Git.
+/.codex-studio/published/files/*.deb
+/.codex-studio/published/files/*.dmg
+/.codex-studio/published/files/*.exe
+/.codex-studio/published/files/*.tar.gz

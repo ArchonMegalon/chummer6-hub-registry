@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import re
 import subprocess
 import sys
 import tempfile
@@ -53,6 +54,7 @@ EXPECTED_QUEUE_DO_NOT_REOPEN_REASON = (
     "receipt, registry row, queue row, and published release-channel artifacts instead of reopening the "
     "install-aware artifact-identity package."
 )
+QUEUE_ITEM_TITLE_RE = re.compile(r"(?m)^(?:  )?- title:")
 EXPECTED_REPO_CHECKOUT_ROOT = "/docker/chummercomplete/chummer-hub-registry"
 
 REQUIRED_CLOSEOUT_SNIPPETS = (
@@ -130,16 +132,23 @@ def block_after_marker(text: str, marker: str, *, stop_markers: tuple[str, ...])
 
 
 def parse_queue_plain_list(block: str, field_name: str) -> list[str]:
-    marker = f"    {field_name}:"
-    start = block.find(marker)
-    if start < 0:
+    lines = block.splitlines()
+    start_index = next((index for index, line in enumerate(lines) if line.strip() == f"{field_name}:"), -1)
+    if start_index < 0:
         fail(f"queue block is missing {field_name}")
-    lines = block[start:].splitlines()[1:]
+    marker_line = lines[start_index]
+    marker_indent = len(marker_line) - len(marker_line.lstrip(" "))
     values: list[str] = []
-    for line in lines:
-        if not line.startswith("      - "):
+    for line in lines[start_index + 1 :]:
+        if not line.strip():
+            continue
+        indent = len(line) - len(line.lstrip(" "))
+        stripped = line.strip()
+        if indent < marker_indent or stripped.endswith(":"):
             break
-        values.append(line.removeprefix("      - ").strip())
+        if not stripped.startswith("- "):
+            break
+        values.append(stripped.removeprefix("- ").strip())
     return values
 
 
@@ -184,17 +193,22 @@ def queue_block(text: str) -> str:
     if package_count != 1:
         fail(f"queue staging package {PACKAGE_ID} must appear exactly once, found {package_count}")
     package_start = text.find(package_marker)
-    item_start = text.rfind("\n  - title:", 0, package_start)
-    if item_start < 0:
+    item_boundaries = [match.start() for match in QUEUE_ITEM_TITLE_RE.finditer(text)]
+    prior_items = [boundary for boundary in item_boundaries if boundary < package_start]
+    if not prior_items:
         fail(f"queue staging package {PACKAGE_ID} is missing item title row")
-    next_item = text.find("\n  - title:", package_start + len(package_marker))
+    item_start = max(prior_items)
+    next_items = [boundary for boundary in item_boundaries if boundary > package_start]
+    next_item = min(next_items) if next_items else -1
     return text[item_start : next_item if next_item >= 0 else len(text)]
 
 
 def verify_queue_staging(path: Path) -> None:
     block = queue_block(read_text(path))
+    normalized_block = " ".join(block.split())
     for snippet in REQUIRED_QUEUE_SNIPPETS:
-        if snippet not in block:
+        normalized_snippet = " ".join(snippet.split())
+        if snippet not in block and normalized_snippet not in normalized_block:
             fail(f"queue staging package {PACKAGE_ID} is missing proof snippet: {snippet}")
     allowed_paths = parse_queue_plain_list(block, "allowed_paths")
     if allowed_paths != EXPECTED_ASSIGNED_ALLOWED_PATHS:
@@ -314,7 +328,7 @@ def run_self_test() -> None:
             replace_within_block(
                 queue_text,
                 marker=f"package_id: {PACKAGE_ID}",
-                stop_markers=("\n  - title:",),
+                stop_markers=("\n- title:", "\n  - title:"),
                 needle="status: complete",
                 replacement="status: in_progress",
             ),

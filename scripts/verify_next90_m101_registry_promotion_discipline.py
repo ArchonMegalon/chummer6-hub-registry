@@ -38,7 +38,7 @@ EXPECTED_REPO_CHECKOUT_ROOT = "/docker/chummercomplete/chummer-hub-registry"
 PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
-VERIFIED_GUARDRAIL_COMMIT = "be80077"
+VERIFIED_GUARDRAIL_COMMIT = "7705a70"
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -275,6 +275,7 @@ EXPECTED_QUEUE_DO_NOT_REOPEN_REASON = (
     "the release-channel truth receipt, registry row, queue row, and design-queue row instead "
     "of reopening the desktop route rationale package."
 )
+QUEUE_ITEM_MARKERS = ("\n- title:", "\n  - title:")
 
 RATIONALE_FIELDS = (
     "routeRoleReasonCode",
@@ -333,7 +334,7 @@ CLOSEOUT_DOC_SNIPPETS = (
     "Status: complete",
     "Package: next90-m101-registry-promotion-discipline",
     "git cat-file -e a4e47da^{commit}",
-    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 registry promotion proof guard",
+    f"Verified guardrail commit: {VERIFIED_GUARDRAIL_COMMIT}, Tighten M101 ascii85 helper proof guard",
     "release_channel_truth:desktop",
     "rollback_and_revoke_reasoning",
     ".codex-studio/published/RELEASE_CHANNEL.generated.json",
@@ -916,7 +917,7 @@ CONTRACT_VERIFY_SNIPPETS = (
     "const string TupleRevokeReason =",
     "Registry revoke marker is active for avalonia:windows:win-x64: Tuple-specific revoke receipt blocked this desktop route.",
     "RevokeReason: TupleRevokeReason",
-    "PromotionReason: $\"Registry revoke truth blocks promotion for avalonia:windows:win-x64: {TupleRevokeReason}\"",
+    "PromotionReason: $\"Registry revoke truth blocks primary-route promotion for avalonia:windows:win-x64: {TupleRevokeReason}\"",
     "UpdateEligibilityReason: $\"Updates are blocked because avalonia:windows:win-x64 is revoked in registry truth: {TupleRevokeReason}\"",
     "RollbackReason: $\"Do not use avalonia:windows:win-x64 for rollback while its registry revoke marker is active: {TupleRevokeReason}\"",
     "InstallPostureReason: $\"Do not present avalonia:windows:win-x64 as installable while revoked: {TupleRevokeReason}\"",
@@ -1026,7 +1027,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
         "commit 49dd07a tightens the M101 route-truth row-shape guard",
         "commit acb881d tightens the M101 projection alias proof guard",
         "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
-        "commit be80077 Tighten M101 registry promotion proof guard",
+        "commit 7705a70 Tighten M101 ascii85 helper proof guard",
         "commit a4e47da landed the package slice",
     )
     for snippet in required_snippets:
@@ -1041,11 +1042,12 @@ def verify_queue_staging(path: Path) -> None:
     if package_count != 1:
         fail(f"queue staging package {PACKAGE_ID} must appear exactly once, found {package_count}")
     package_start = text.find(package_marker)
-    item_start = text.rfind("\n  - title:", 0, package_start)
+    item_start = queue_item_start_before(text, package_start)
     if item_start < 0:
         fail(f"queue staging package {PACKAGE_ID} is missing item title row")
-    next_item = text.find("\n  - title:", package_start + len(package_marker))
+    next_item = queue_item_start_after(text, package_start + len(package_marker))
     block = text[item_start : next_item if next_item >= 0 else len(text)]
+    normalized_block = " ".join(block.split())
     required_snippets = (
         f"title: {EXPECTED_QUEUE_TITLE}",
         f"task: {EXPECTED_QUEUE_TASK}",
@@ -1094,12 +1096,13 @@ def verify_queue_staging(path: Path) -> None:
         "commit 49dd07a tightens the M101 route-truth row-shape guard",
         "commit acb881d tightens the M101 projection alias proof guard",
         "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
-        "commit be80077 Tighten M101 registry promotion proof guard",
+        "commit 7705a70 Tighten M101 ascii85 helper proof guard",
         "release_channel_truth:desktop",
         "rollback_and_revoke_reasoning",
     )
     for snippet in required_snippets:
-        if snippet not in block:
+        normalized_snippet = " ".join(snippet.split())
+        if snippet not in block and normalized_snippet not in normalized_block:
             fail(f"queue staging package {PACKAGE_ID} is missing proof snippet: {snippet}")
     allowed_paths = parse_queue_plain_list(block, "allowed_paths")
     if allowed_paths != EXPECTED_ASSIGNED_ALLOWED_PATHS:
@@ -1544,10 +1547,10 @@ def replace_queue_package_block(text: str, old: str, new: str) -> str:
     package_start = text.find(marker)
     if package_start < 0:
         fail(f"self-test fixture is missing queue package marker: {PACKAGE_ID}")
-    start = text.rfind("\n  - title:", 0, package_start)
+    start = queue_item_start_before(text, package_start)
     if start < 0:
         fail(f"self-test fixture is missing queue package item start: {PACKAGE_ID}")
-    next_item = text.find("\n  - title:", package_start + len(marker))
+    next_item = queue_item_start_after(text, package_start + len(marker))
     end = next_item if next_item >= 0 else len(text)
     block = text[start:end]
     if old not in block:
@@ -1560,13 +1563,22 @@ def duplicate_queue_package_block(text: str) -> str:
     start = text.find(marker)
     if start < 0:
         fail(f"self-test fixture is missing queue package marker: {PACKAGE_ID}")
-    item_start = text.rfind("\n  - title:", 0, start)
+    item_start = queue_item_start_before(text, start)
     if item_start < 0:
         fail(f"self-test fixture is missing queue package item start: {PACKAGE_ID}")
-    next_item = text.find("\n  - title:", start + len(marker))
+    next_item = queue_item_start_after(text, start + len(marker))
     end = next_item if next_item >= 0 else len(text)
     block = text[item_start:end]
     return text[:end] + block + text[end:]
+
+
+def queue_item_start_before(text: str, end: int) -> int:
+    return max(text.rfind(marker, 0, end) for marker in QUEUE_ITEM_MARKERS)
+
+
+def queue_item_start_after(text: str, start: int) -> int:
+    starts = [index for marker in QUEUE_ITEM_MARKERS if (index := text.find(marker, start)) >= 0]
+    return min(starts) if starts else -1
 
 
 def replace_registry_task_block(text: str, old: str, new: str) -> str:
@@ -1587,17 +1599,23 @@ def replace_registry_task_block(text: str, old: str, new: str) -> str:
 
 
 def parse_queue_plain_list(block: str, section: str) -> list[str]:
-    marker = f"    {section}:"
-    start = block.find(marker)
-    if start < 0:
+    lines = block.splitlines()
+    start_index = next((index for index, line in enumerate(lines) if line.strip() == f"{section}:"), -1)
+    if start_index < 0:
         fail(f"queue staging package {PACKAGE_ID} is missing {section}")
+    marker_line = lines[start_index]
+    marker_indent = len(marker_line) - len(marker_line.lstrip(" "))
     values: list[str] = []
-    for line in block[start + len(marker) :].splitlines():
+    for line in lines[start_index + 1 :]:
         if not line.strip():
             continue
-        if not line.startswith("      - "):
+        indent = len(line) - len(line.lstrip(" "))
+        stripped = line.strip()
+        if indent < marker_indent or stripped.endswith(":"):
             break
-        values.append(normalize_yaml_scalar(line.strip()[2:]))
+        if not stripped.startswith("- "):
+            break
+        values.append(normalize_yaml_scalar(stripped[2:]))
     if not values:
         fail(f"queue staging package {PACKAGE_ID} {section} must be a non-empty list")
     return values
@@ -1820,7 +1838,7 @@ def run_self_test(proof_receipt: Path) -> None:
         queue_path.write_text(
             replace_queue_package_block(
                 queue_source_text,
-                f"do_not_reopen_reason: {EXPECTED_QUEUE_DO_NOT_REOPEN_REASON}",
+                "do_not_reopen_reason: M101 chummer6-hub-registry promotion discipline is complete; future",
                 "do_not_reopen_reason: stale copied closure prose",
             ),
             encoding="utf-8",
@@ -1833,7 +1851,7 @@ def run_self_test(proof_receipt: Path) -> None:
         queue_path.write_text(
             replace_queue_package_block(
                 queue_source_text,
-                "commit be80077 Tighten M101 registry promotion proof guard",
+                "commit 7705a70 Tighten M101 ascii85 helper proof guard",
                 "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
             ),
             encoding="utf-8",
@@ -1841,13 +1859,13 @@ def run_self_test(proof_receipt: Path) -> None:
         expect_self_test_failure(
             "queue-latest-guardrail-proof-drift",
             lambda: verify_queue_staging(queue_path),
-            "commit be80077 Tighten M101 registry promotion proof guard",
+            "commit 7705a70 Tighten M101 ascii85 helper proof guard",
         )
         queue_path.write_text(
             replace_queue_package_block(
                 queue_source_text,
-                "      - docs",
-                "      - docs\n      - Chummer.Run.Registry",
+                "  - docs",
+                "  - docs\n  - Chummer.Run.Registry",
             ),
             encoding="utf-8",
         )
@@ -1859,8 +1877,8 @@ def run_self_test(proof_receipt: Path) -> None:
         queue_path.write_text(
             replace_queue_package_block(
                 queue_source_text,
-                "      - rollback_and_revoke_reasoning",
-                "      - rollback_and_revoke_reasoning\n      - support_followthrough:install_truth",
+                "  - rollback_and_revoke_reasoning",
+                "  - rollback_and_revoke_reasoning\n  - support_followthrough:install_truth",
             ),
             encoding="utf-8",
         )
@@ -1972,7 +1990,7 @@ def run_self_test(proof_receipt: Path) -> None:
         source_queue_path.write_text(
             replace_queue_package_block(
                 source_queue_text,
-                f"do_not_reopen_reason: {EXPECTED_QUEUE_DO_NOT_REOPEN_REASON}",
+                "do_not_reopen_reason: M101 chummer6-hub-registry promotion discipline is complete; future",
                 "do_not_reopen_reason: stale copied closure prose",
             ),
             encoding="utf-8",
@@ -1985,7 +2003,7 @@ def run_self_test(proof_receipt: Path) -> None:
         source_queue_path.write_text(
             replace_queue_package_block(
                 source_queue_text,
-                "commit be80077 Tighten M101 registry promotion proof guard",
+                "commit 7705a70 Tighten M101 ascii85 helper proof guard",
                 "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
             ),
             encoding="utf-8",
@@ -1993,13 +2011,13 @@ def run_self_test(proof_receipt: Path) -> None:
         expect_self_test_failure(
             "design-queue-latest-guardrail-proof-drift",
             lambda: verify_queue_staging(source_queue_path),
-            "commit be80077 Tighten M101 registry promotion proof guard",
+            "commit 7705a70 Tighten M101 ascii85 helper proof guard",
         )
         source_queue_path.write_text(
             replace_queue_package_block(
                 source_queue_text,
-                "      - docs",
-                "      - docs\n      - Chummer.Run.Registry",
+                "  - docs",
+                "  - docs\n  - Chummer.Run.Registry",
             ),
             encoding="utf-8",
         )
@@ -2011,8 +2029,8 @@ def run_self_test(proof_receipt: Path) -> None:
         source_queue_path.write_text(
             replace_queue_package_block(
                 source_queue_text,
-                "      - rollback_and_revoke_reasoning",
-                "      - rollback_and_revoke_reasoning\n      - support_followthrough:install_truth",
+                "  - rollback_and_revoke_reasoning",
+                "  - rollback_and_revoke_reasoning\n  - support_followthrough:install_truth",
             ),
             encoding="utf-8",
         )
@@ -2061,7 +2079,7 @@ def run_self_test(proof_receipt: Path) -> None:
         registry_path.write_text(
             replace_registry_task_block(
                 registry_text,
-                "commit be80077 Tighten M101 registry promotion proof guard",
+                "commit 7705a70 Tighten M101 ascii85 helper proof guard",
                 "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
             ),
             encoding="utf-8",
@@ -2069,7 +2087,7 @@ def run_self_test(proof_receipt: Path) -> None:
         expect_self_test_failure(
             "registry-latest-guardrail-proof-drift",
             lambda: verify_canonical_successor_registry(registry_path),
-            "commit be80077 Tighten M101 registry promotion proof guard",
+            "commit 7705a70 Tighten M101 ascii85 helper proof guard",
         )
         registry_path.write_text(
             replace_registry_task_block(

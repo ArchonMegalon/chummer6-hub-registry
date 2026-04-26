@@ -221,8 +221,8 @@ public sealed record ReleaseChannelArtifact(
 
 /// <summary>
 /// Explains the exact desktop route decision for one head/platform/rid tuple.
-/// Consumers should read the role, parity, promotion, update, rollback, revoke,
-/// install posture, and public install route fields together rather than
+/// Consumers should read the role, promotion, rollback, and revoke fields together
+/// with parity, update, install posture, and public install route rather than
 /// inferring tuple posture from artifact presence alone.
 /// </summary>
 public sealed record ReleaseDesktopRouteTruth(
@@ -293,6 +293,46 @@ public sealed record InstallAwareConciergeArtifactIdentity(
     IReadOnlyList<string> RecoveryProofRefs,
     IReadOnlyDictionary<string, string> ConciergeAssetRefs);
 
+public sealed record ArtifactFamilyIdentityRegistryRow(
+    string RegistryId,
+    string ArtifactFamilyId,
+    string ArtifactId,
+    string ChannelId,
+    string ReleaseVersion,
+    string TupleId,
+    string Head,
+    string Platform,
+    string Rid,
+    string Arch,
+    string Kind,
+    string PreviewRef,
+    string CaptionRef,
+    string PublicationBindingId,
+    string SignedInShelfRef,
+    string PublicShelfRef,
+    string? PublicInstallRoute = null);
+
+public sealed record ArtifactPublicationBindingRow(
+    string BindingId,
+    string ArtifactFamilyId,
+    string ArtifactId,
+    string ChannelId,
+    string ReleaseVersion,
+    string TupleId,
+    string Head,
+    string Platform,
+    string Rid,
+    string Arch,
+    string Kind,
+    string PublicationScope,
+    string PublicationState,
+    string SignedInShelfRef,
+    string PublicShelfRef,
+    string PreviewRef,
+    string CaptionRef,
+    string? PublicInstallRoute = null,
+    string? Rationale = null);
+
 public sealed record ReleaseChannelHeadProjection(
     string Product,
     string ChannelId,
@@ -311,4 +351,6 @@ public sealed record ReleaseChannelHeadProjection(
     string? FixAvailabilitySummary = null,
     ReleaseProofProjection? ReleaseProof = null,
     ReleaseDesktopTupleCoverage? DesktopTupleCoverage = null,
-    IReadOnlyList<InstallAwareConciergeArtifactIdentity>? InstallAwareArtifactRegistry = null);
+    IReadOnlyList<InstallAwareConciergeArtifactIdentity>? InstallAwareArtifactRegistry = null,
+    IReadOnlyList<ArtifactFamilyIdentityRegistryRow>? ArtifactIdentityRegistry = null,
+    IReadOnlyList<ArtifactPublicationBindingRow>? ArtifactPublicationBindings = null);

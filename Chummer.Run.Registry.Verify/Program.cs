@@ -68,6 +68,54 @@ File.WriteAllText(
                     projectionFingerprint = "sha256:runtime-head-preview-sr6",
                     compatibilityState = "compatible"
                 }
+            },
+            artifactIdentityRegistry = new[]
+            {
+                new
+                {
+                    registryId = "artifact-identity:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
+                    artifactFamilyId = "artifact-family:avalonia:linux:linux-x64",
+                    artifactId = "avalonia-linux-x64-archive",
+                    channelId = "docker",
+                    releaseVersion = "smoke-2026.03.28-linux-x64",
+                    tupleId = "avalonia:linux:linux-x64",
+                    head = "avalonia",
+                    platform = "linux",
+                    rid = "linux-x64",
+                    arch = "x64",
+                    kind = "archive",
+                    previewRef = "registry-preview:avalonia-linux-x64-archive:avalonia:linux:linux-x64",
+                    captionRef = "registry-caption:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
+                    publicationBindingId = "binding:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
+                    signedInShelfRef = "shelf:signed-in:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
+                    publicShelfRef = "shelf:public:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
+                    publicInstallRoute = "/downloads/install/avalonia-linux-x64-installer"
+                }
+            },
+            artifactPublicationBindings = new[]
+            {
+                new
+                {
+                    bindingId = "binding:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
+                    artifactFamilyId = "artifact-family:avalonia:linux:linux-x64",
+                    artifactId = "avalonia-linux-x64-archive",
+                    channelId = "docker",
+                    releaseVersion = "smoke-2026.03.28-linux-x64",
+                    tupleId = "avalonia:linux:linux-x64",
+                    head = "avalonia",
+                    platform = "linux",
+                    rid = "linux-x64",
+                    arch = "x64",
+                    kind = "archive",
+                    publicationScope = "signed-in-and-public",
+                    publicationState = "published",
+                    signedInShelfRef = "shelf:signed-in:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
+                    publicShelfRef = "shelf:public:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
+                    previewRef = "registry-preview:avalonia-linux-x64-archive:avalonia:linux:linux-x64",
+                    captionRef = "registry-caption:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
+                    publicInstallRoute = "/downloads/install/avalonia-linux-x64-installer",
+                    rationale = "docker keeps tuple avalonia:linux:linux-x64 published so signed-in and public shelves cite the same governed refs."
+                }
             }
         },
         new JsonSerializerOptions(JsonSerializerDefaults.Web)));
@@ -92,6 +140,8 @@ Assert(string.Equals(releaseChannel.SupportabilityState, RegistryOwner.ReleaseSu
 Assert(string.Equals(releaseChannel.ReleaseProof?.Status, "passed", StringComparison.Ordinal), "Release-channel read model should retain proof posture.");
 Assert(string.Equals(releaseChannel.Artifacts[0].CompatibilityState, "compatible", StringComparison.Ordinal), "Release-channel artifacts should retain compatibility posture.");
 Assert(string.Equals(releaseChannel.RuntimeBundleHeads?[0].CompatibilityState, "compatible", StringComparison.Ordinal), "Release-channel runtime heads should retain compatibility posture.");
+Assert(string.Equals(releaseChannel.ArtifactIdentityRegistry?.Single().ArtifactFamilyId, "artifact-family:avalonia:linux:linux-x64", StringComparison.Ordinal), "Release-channel artifact identity registry should retain artifact family ids.");
+Assert(string.Equals(releaseChannel.ArtifactPublicationBindings?.Single().BindingId, "binding:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64", StringComparison.Ordinal), "Release-channel artifact publication bindings should retain binding ids.");
 
 var missingInstallEvent = new HubInstallEvent(
     ArtifactId: "artifact-missing",

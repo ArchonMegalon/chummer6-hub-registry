@@ -5,7 +5,7 @@ Milestone: 101, Native-host desktop release train and promotion discipline
 Package: next90-m101-registry-promotion-discipline
 Owner: chummer6-hub-registry
 Landed commit: a4e47da, Publish desktop route rationale in release channel truth
-Verified guardrail commit: be80077, Tighten M101 registry promotion proof guard
+Verified guardrail commit: 7705a70, Tighten M101 ascii85 helper proof guard
 
 ## Scope
 
@@ -59,7 +59,7 @@ Repo-local guardrail commit `49dd07a` superseded that floor in the package verif
 Repo-local guardrail commit `fc57464` superseded `49dd07a` in the package verifier, proof receipt, canonical registry row, and both queue staging rows so future shards fail closed when `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `.codex-studio/published/releases.json` drift on `generatedAt`, `generated_at`, `publishedAt`, or `version` identity metadata while still carrying matching desktop route-truth rows.
 Repo-local guardrail commit `acb881d` now supersedes `fc57464` in the package verifier, proof receipt, canonical registry row, and both queue staging rows so future shards also fail closed when those two projections drift only across the `generatedAt` versus `generated_at` alias fields, and so the pinned pipeline proof keeps the current six-tuple successor matrix plus the Avalonia-only required-head coverage explanation in sync with executable guardrails.
 Repo-local guardrail commit `a1da9ca` now supersedes `acb881d` in the package verifier, proof receipt, canonical registry row, and both queue staging rows so future shards also fail closed when route-role, promotion, rollback, and install-posture rationale regress from exact `head:platform:rid` tuple language to platform-only prose while the direct verifier tests still appear green.
-Repo-local guardrail commit `be80077` now supersedes `9919487` in the package verifier, proof receipt, canonical registry row, and both queue staging rows so future shards also fail closed when closed-package proof cites percent-encoded active-run helper markers, while retaining the existing route rollback, sibling fallback, and non-revoked revoke rationale guards.
+Repo-local guardrail commit `7705a70` now supersedes `9919487` in the package verifier, proof receipt, canonical registry row, and both queue staging rows so future shards also fail closed when closed-package proof cites base85/ascii85-encoded active-run helper markers, while retaining the existing route rollback, sibling fallback, and non-revoked revoke rationale guards.
 The package verifier now also decodes HTML entities before scanning canonical registry, queue, proof, and closeout evidence for active-run helper markers, so copied helper citations cannot be hidden behind numeric entity escapes while keeping the completed package green.
 
 Fleet queue staging also marks package `next90-m101-registry-promotion-discipline` complete with the same proof paths and landed commit.
@@ -1180,6 +1180,6 @@ Do not reopen this package unless one of these facts changes:
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` stops applying canonical registry and queue staging active-run helper proof exclusion,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` stops rejecting HTML-entity encoded active-run helper markers in registry, queue, proof, or closeout evidence,
 * `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded landed commit `a4e47da`,
-* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `be80077`,
+* `scripts/verify_next90_m101_registry_promotion_discipline.py` can no longer resolve the recorded verified guardrail commit `7705a70`,
 * `scripts/ai/verify.sh` stops running the package-specific closeout guardrail, successor-frontier proof self-test, or hand-edited `desktopRouteTruth` negative-case verifier,
 * a new platform tuple or desktop head is added without corresponding route-truth rows and tests.

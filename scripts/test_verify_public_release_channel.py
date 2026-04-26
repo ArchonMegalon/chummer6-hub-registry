@@ -41,6 +41,10 @@ MODULE = importlib.util.module_from_spec(MODULE_SPEC)
 MODULE_SPEC.loader.exec_module(MODULE)
 
 
+def load_tests(loader, tests, pattern):
+    return tests
+
+
 def complete_primary_desktop_tuple_payload() -> dict:
     return {
         "channelId": "docker",
@@ -182,6 +186,36 @@ def test_verify_install_aware_artifact_registry_accepts_canonical_rows() -> None
     payload["installAwareArtifactRegistry"] = MODULE.expected_install_aware_artifact_registry_rows(payload)
 
     MODULE.verify_install_aware_artifact_registry(payload, "release-channel.json")
+
+
+def test_verify_artifact_identity_registry_accepts_canonical_rows() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    payload["artifactIdentityRegistry"] = MODULE.expected_artifact_identity_registry_rows(payload)
+
+    MODULE.verify_artifact_identity_registry(payload, "release-channel.json")
+
+
+def test_verify_artifact_identity_registry_rejects_missing_registry() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+
+    with pytest.raises(SystemExit, match="artifactIdentityRegistry must be a list"):
+        MODULE.verify_artifact_identity_registry(payload, "release-channel.json")
+
+
+def test_verify_artifact_publication_bindings_accepts_canonical_rows() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    payload["artifactPublicationBindings"] = MODULE.expected_artifact_publication_binding_rows(payload)
+
+    MODULE.verify_artifact_publication_bindings(payload, "release-channel.json")
+
+
+def test_verify_artifact_publication_bindings_rejects_missing_registry() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+
+    with pytest.raises(SystemExit, match="artifactPublicationBindings must be a list"):
+        MODULE.verify_artifact_publication_bindings(payload, "release-channel.json")
 
 
 def test_verify_required_desktop_heads_accepts_primary_head_set() -> None:

@@ -195,7 +195,73 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
                     MissingRequiredHeads: parsed.DesktopTupleCoverage.MissingRequiredHeads ?? [],
                     MissingRequiredPlatformHeadPairs: parsed.DesktopTupleCoverage.MissingRequiredPlatformHeadPairs ?? [],
                     MissingRequiredPlatformHeadRidTuples: parsed.DesktopTupleCoverage.MissingRequiredPlatformHeadRidTuples ?? [],
-                    Complete: parsed.DesktopTupleCoverage.Complete));
+                    Complete: parsed.DesktopTupleCoverage.Complete),
+            InstallAwareArtifactRegistry: (parsed.InstallAwareArtifactRegistry ?? [])
+                .Where(static item => !string.IsNullOrWhiteSpace(item.RegistryId))
+                .Select(static item => new InstallAwareConciergeArtifactIdentity(
+                    RegistryId: item.RegistryId ?? string.Empty,
+                    ArtifactId: item.ArtifactId ?? string.Empty,
+                    ChannelId: item.ChannelId ?? string.Empty,
+                    ReleaseVersion: item.ReleaseVersion ?? string.Empty,
+                    TupleId: item.TupleId ?? string.Empty,
+                    Head: item.Head ?? string.Empty,
+                    Platform: item.Platform ?? string.Empty,
+                    Rid: item.Rid ?? string.Empty,
+                    Arch: item.Arch ?? string.Empty,
+                    Kind: item.Kind ?? string.Empty,
+                    InstalledBuildSelector: item.InstalledBuildSelector ?? string.Empty,
+                    CurrentForInstalledBuild: item.CurrentForInstalledBuild ?? false,
+                    ChannelRationale: item.ChannelRationale ?? string.Empty,
+                    CorrectnessReason: item.CorrectnessReason ?? string.Empty,
+                    RecoveryProofRefs: item.RecoveryProofRefs ?? [],
+                    ConciergeAssetRefs: item.ConciergeAssetRefs is null
+                        ? new Dictionary<string, string>(StringComparer.Ordinal)
+                        : new Dictionary<string, string>(item.ConciergeAssetRefs, StringComparer.Ordinal)))
+                .ToArray(),
+            ArtifactIdentityRegistry: (parsed.ArtifactIdentityRegistry ?? [])
+                .Where(static item => !string.IsNullOrWhiteSpace(item.RegistryId))
+                .Select(static item => new ArtifactFamilyIdentityRegistryRow(
+                    RegistryId: item.RegistryId ?? string.Empty,
+                    ArtifactFamilyId: item.ArtifactFamilyId ?? string.Empty,
+                    ArtifactId: item.ArtifactId ?? string.Empty,
+                    ChannelId: item.ChannelId ?? string.Empty,
+                    ReleaseVersion: item.ReleaseVersion ?? string.Empty,
+                    TupleId: item.TupleId ?? string.Empty,
+                    Head: item.Head ?? string.Empty,
+                    Platform: item.Platform ?? string.Empty,
+                    Rid: item.Rid ?? string.Empty,
+                    Arch: item.Arch ?? string.Empty,
+                    Kind: item.Kind ?? string.Empty,
+                    PreviewRef: item.PreviewRef ?? string.Empty,
+                    CaptionRef: item.CaptionRef ?? string.Empty,
+                    PublicationBindingId: item.PublicationBindingId ?? string.Empty,
+                    SignedInShelfRef: item.SignedInShelfRef ?? string.Empty,
+                    PublicShelfRef: item.PublicShelfRef ?? string.Empty,
+                    PublicInstallRoute: item.PublicInstallRoute))
+                .ToArray(),
+            ArtifactPublicationBindings: (parsed.ArtifactPublicationBindings ?? [])
+                .Where(static item => !string.IsNullOrWhiteSpace(item.BindingId))
+                .Select(static item => new ArtifactPublicationBindingRow(
+                    BindingId: item.BindingId ?? string.Empty,
+                    ArtifactFamilyId: item.ArtifactFamilyId ?? string.Empty,
+                    ArtifactId: item.ArtifactId ?? string.Empty,
+                    ChannelId: item.ChannelId ?? string.Empty,
+                    ReleaseVersion: item.ReleaseVersion ?? string.Empty,
+                    TupleId: item.TupleId ?? string.Empty,
+                    Head: item.Head ?? string.Empty,
+                    Platform: item.Platform ?? string.Empty,
+                    Rid: item.Rid ?? string.Empty,
+                    Arch: item.Arch ?? string.Empty,
+                    Kind: item.Kind ?? string.Empty,
+                    PublicationScope: item.PublicationScope ?? string.Empty,
+                    PublicationState: item.PublicationState ?? string.Empty,
+                    SignedInShelfRef: item.SignedInShelfRef ?? string.Empty,
+                    PublicShelfRef: item.PublicShelfRef ?? string.Empty,
+                    PreviewRef: item.PreviewRef ?? string.Empty,
+                    CaptionRef: item.CaptionRef ?? string.Empty,
+                    PublicInstallRoute: item.PublicInstallRoute,
+                    Rationale: item.Rationale))
+                .ToArray());
     }
 
     private sealed record RegistryReleaseChannelManifest(
@@ -215,6 +281,9 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
         RegistryReleaseProof? ReleaseProof,
         IReadOnlyList<RegistryReleaseArtifact>? Artifacts,
         RegistryDesktopTupleCoverage? DesktopTupleCoverage,
+        IReadOnlyList<RegistryInstallAwareConciergeArtifactIdentity>? InstallAwareArtifactRegistry,
+        IReadOnlyList<RegistryArtifactFamilyIdentityRegistryRow>? ArtifactIdentityRegistry,
+        IReadOnlyList<RegistryArtifactPublicationBindingRow>? ArtifactPublicationBindings,
         IReadOnlyList<RegistryRuntimeBundleHead>? RuntimeBundleHeads);
 
     private sealed record RegistryReleaseProof(
@@ -334,6 +403,64 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
         string? InstallPosture,
         string? InstallPostureReason,
         string? PublicInstallRoute);
+
+    private sealed record RegistryInstallAwareConciergeArtifactIdentity(
+        string? RegistryId,
+        string? ArtifactId,
+        string? ChannelId,
+        string? ReleaseVersion,
+        string? TupleId,
+        string? Head,
+        string? Platform,
+        string? Rid,
+        string? Arch,
+        string? Kind,
+        string? InstalledBuildSelector,
+        bool? CurrentForInstalledBuild,
+        string? ChannelRationale,
+        string? CorrectnessReason,
+        IReadOnlyList<string>? RecoveryProofRefs,
+        Dictionary<string, string>? ConciergeAssetRefs);
+
+    private sealed record RegistryArtifactFamilyIdentityRegistryRow(
+        string? RegistryId,
+        string? ArtifactFamilyId,
+        string? ArtifactId,
+        string? ChannelId,
+        string? ReleaseVersion,
+        string? TupleId,
+        string? Head,
+        string? Platform,
+        string? Rid,
+        string? Arch,
+        string? Kind,
+        string? PreviewRef,
+        string? CaptionRef,
+        string? PublicationBindingId,
+        string? SignedInShelfRef,
+        string? PublicShelfRef,
+        string? PublicInstallRoute);
+
+    private sealed record RegistryArtifactPublicationBindingRow(
+        string? BindingId,
+        string? ArtifactFamilyId,
+        string? ArtifactId,
+        string? ChannelId,
+        string? ReleaseVersion,
+        string? TupleId,
+        string? Head,
+        string? Platform,
+        string? Rid,
+        string? Arch,
+        string? Kind,
+        string? PublicationScope,
+        string? PublicationState,
+        string? SignedInShelfRef,
+        string? PublicShelfRef,
+        string? PreviewRef,
+        string? CaptionRef,
+        string? PublicInstallRoute,
+        string? Rationale);
 
     private sealed record RegistryRuntimeBundleHead(
         string? HeadId,

@@ -15,6 +15,10 @@ MODULE = importlib.util.module_from_spec(MODULE_SPEC)
 MODULE_SPEC.loader.exec_module(MODULE)
 
 
+def load_tests(loader, tests, pattern):
+    return tests
+
+
 def install_aware_payload() -> tuple[list[dict], dict]:
     artifacts = [
         {
@@ -1427,3 +1431,39 @@ def test_install_aware_artifact_registry_derives_concierge_rows_from_route_truth
             },
         },
     ]
+
+
+def test_artifact_identity_registry_derives_canonical_rows() -> None:
+    _, coverage = install_aware_payload()
+
+    rows = MODULE.artifact_identity_registry(
+        coverage,
+        channel_id="docker",
+        release_version="run-20260420-072339",
+    )
+
+    assert len(rows) == 2
+    assert rows[0]["registryId"] == "artifact-identity:docker:run-20260420-072339:avalonia:linux:linux-x64"
+    assert rows[0]["artifactFamilyId"] == "artifact-family:avalonia:linux:linux-x64"
+    assert rows[0]["publicationBindingId"] == "binding:docker:run-20260420-072339:avalonia:linux:linux-x64"
+    assert rows[0]["signedInShelfRef"] == "shelf:signed-in:docker:run-20260420-072339:avalonia-linux-x64-installer"
+    assert rows[0]["publicShelfRef"] == "shelf:public:docker:run-20260420-072339:avalonia-linux-x64-installer"
+    assert rows[1]["registryId"] == "artifact-identity:docker:run-20260420-072339:avalonia:windows:win-x64"
+
+
+def test_artifact_publication_bindings_derive_canonical_rows() -> None:
+    _, coverage = install_aware_payload()
+
+    rows = MODULE.artifact_publication_bindings(
+        coverage,
+        channel_id="docker",
+        release_version="run-20260420-072339",
+    )
+
+    assert len(rows) == 2
+    assert rows[0]["bindingId"] == "binding:docker:run-20260420-072339:avalonia:linux:linux-x64"
+    assert rows[0]["artifactFamilyId"] == "artifact-family:avalonia:linux:linux-x64"
+    assert rows[0]["publicationScope"] == "signed-in-and-public"
+    assert rows[0]["publicationState"] == "published"
+    assert rows[1]["bindingId"] == "binding:docker:run-20260420-072339:avalonia:windows:win-x64"
+    assert rows[1]["publicationState"] == "preview"

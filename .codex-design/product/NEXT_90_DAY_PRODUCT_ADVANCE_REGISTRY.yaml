@@ -77,6 +77,53 @@ waves:
     milestone_ids:
       - 119
       - 120
+  - id: W15
+    name: Make live table loops and world memory playable
+    status: not_started
+    milestone_ids:
+    - 121
+    - 122
+  - id: W16
+    name: Make public run network and companion runtime real
+    status: not_started
+    milestone_ids:
+    - 123
+    - 124
+  - id: W17
+    name: Turn public signal and horizons into governed implementation lanes
+    status: not_started
+    milestone_ids:
+    - 125
+    - 126
+  - id: W18
+    name: Finish release operations, localization, privacy, and support trust
+    status: not_started
+    milestone_ids:
+    - 127
+    - 128
+  - id: W19
+    name: Finish account/community, provider, and public-guide substrate
+    status: not_started
+    milestone_ids:
+    - 129
+    - 130
+    - 131
+  - id: W20
+    name: Implement rules, source, and deterministic horizon tranche
+    status: not_started
+    milestone_ids:
+    - 132
+    - 134
+  - id: W21
+    name: Implement media, run-network, and table-social horizon tranche
+    status: not_started
+    milestone_ids:
+    - 133
+  - id: W22
+    name: Close backbone, contract, repo-boundary, and final design coverage
+    status: not_started
+    milestone_ids:
+    - 135
 
 milestones:
   - id: 101
@@ -1228,7 +1275,7 @@ milestones:
       - chummer6-media-factory
       - chummer6-hub-registry
       - chummer6-design
-    status: in_progress
+    status: complete
     dependencies:
       - 101
       - 102
@@ -1313,6 +1360,7 @@ milestones:
           - /docker/fleet/repos/chummer-media-factory commit e93f8f4 tightens structured recipe receipt refs so publication-ready refs, role receipt groups, aggregate job ids, caption refs, preview refs, and packet-bundle preview receipt detail stay first-class in generated proof.
           - /docker/fleet/repos/chummer-media-factory commit 6adf9a8 tightens M107 completed-package closure authority across the Fleet queue mirror, design queue mirror, registry task row, proof-floor note, and generated release proof.
           - /docker/fleet/repos/chummer-media-factory commit 9614cca pins the M107 queue-mirror closure guard so Fleet and design-owned queue rows must carry the same completed-package proof floor.
+          - /docker/fleet/repos/chummer-media-factory commit 398f756 hardens structured recipe receipts with direct asset urls, stable replay ordering and rendered timestamps, and length-prefixed caption/preview ref hashing while becoming the current M107 proof floor.
           - /docker/fleet/repos/chummer-media-factory/src/Chummer.Media.Factory.Runtime/Assets/StructuredMediaRecipeExecutionService.cs validates required sibling roles, enqueues replay-safe structured recipe jobs, and emits role receipt ids plus publication, caption, and preview ref receipt rows.
           - /docker/fleet/repos/chummer-media-factory/src/Chummer.Media.Contracts/Compatibility/RunServices/MediaFactoryContracts.cs defines StructuredMediaRecipe request, artifact receipt, bundle receipt, publication ref receipt, caption ref receipt, and preview ref receipt contracts.
           - /docker/fleet/repos/chummer-media-factory/tests/StructuredMediaRecipeSmoke/Program.cs proves video, audio, preview-card, and packet-bundle execution, shared caption/preview refs, first-class publication/caption/preview receipt rows, and replay-safe dedupe.
@@ -1324,9 +1372,35 @@ milestones:
       - id: 107.3
         owner: chummer6-hub-registry
         title: Store artifact-family identities, preview refs, caption refs, and publication bindings.
+        status: complete
+        evidence:
+          - /docker/chummercomplete/chummer-hub-registry/Chummer.Hub.Registry.Contracts/ReleaseChannelContracts.cs exposes `ArtifactFamilyIdentityRegistryRow` and `ArtifactPublicationBindingRow` on `ReleaseChannelHeadProjection`.
+          - /docker/chummercomplete/chummer-hub-registry/Chummer.Run.Registry/Services/ReleaseChannelManifestStore.cs loads `artifactIdentityRegistry` and `artifactPublicationBindings` into the runtime release manifest projection.
+          - /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py derives canonical artifact-family identity, preview, caption, shelf, and publication-binding rows from `desktopTupleCoverage.desktopRouteTruth`.
+          - /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py fail-closes missing, malformed, duplicate, blank, or non-canonical artifact identity and publication-binding rows.
+          - /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m107_registry_artifact_family_bindings.py fail-closes canonical registry and queue drift, repo-mirror drift, missing closeout anchors, missing standard verify wiring, and blocked-helper citations for this package.
+          - /docker/chummercomplete/chummer-hub-registry/scripts/test_materialize_public_release_channel.py covers canonical artifact identity and publication-binding derivation.
+          - /docker/chummercomplete/chummer-hub-registry/scripts/test_verify_public_release_channel.py covers canonical artifact identity and publication-binding verifier acceptance and rejection paths.
+          - /docker/chummercomplete/chummer-hub-registry/scripts/test_verify_next90_m107_registry_artifact_family_bindings.py covers default and self-test verifier execution for this closed package.
+          - /docker/chummercomplete/chummer-hub-registry/.codex-studio/published/RELEASE_CHANNEL.generated.json and /docker/chummercomplete/chummer-hub-registry/.codex-studio/published/releases.json persist matching `artifactIdentityRegistry` and `artifactPublicationBindings` rows for the published shelf.
+          - /docker/chummercomplete/chummer-hub-registry/docs/next90-m107-registry-artifact-family-bindings.md records the implementation landing scope for the repo-owned storage slice.
+          - /docker/chummercomplete/chummer-hub-registry/docs/next90-m107-registry-artifact-family-bindings.closeout.md records the closed-package proof floor and do-not-reopen posture for future shards.
+          - python3 scripts/test_materialize_public_release_channel.py exits 0.
+          - python3 scripts/test_verify_public_release_channel.py exits 0.
+          - python3 -m unittest scripts/test_verify_next90_m107_registry_artifact_family_bindings.py exits 0.
+          - python3 scripts/verify_next90_m107_registry_artifact_family_bindings.py exits 0.
       - id: 107.4
         owner: chummer6-design
         title: Tighten artifact-factory and public-proof language so preview, proof, fallback, and flagship claims cannot blur together.
+        status: complete
+        evidence:
+          - /docker/chummercomplete/chummer-design/products/chummer/PUBLIC_LANDING_POLICY.md now scopes proof-shelf wording to posted files, recent checks, and inspectable trails, and requires fallback routes to stay visibly secondary.
+          - /docker/chummercomplete/chummer-design/products/chummer/PUBLIC_DOWNLOADS_POLICY.md and PUBLIC_RELEASE_EXPERIENCE.yaml now separate posted proof, fallback posture, and flagship-acceptance claims for the public shelf.
+          - /docker/chummercomplete/chummer-design/products/chummer/PUBLIC_LANDING_MANIFEST.yaml now narrows the front-door proof module to inspectable preview proof instead of generic real-product proof.
+          - /docker/chummercomplete/chummer-design/products/chummer/FLAGSHIP_PRODUCT_BAR.md now states that proof, preview, fallback, and flagship claims are distinct public promises.
+          - /docker/chummercomplete/chummer-design/scripts/ai/materialize_public_guide_bundle.py keeps generated guide and download copy honest about proof scope, fallback posture, and the flagship claim boundary, and it now fail-softs missing local derivative encoders so text refreshes do not stall on absent `ffmpeg`.
+          - /docker/chummercomplete/chummer-design/products/chummer/public-guide/DOWNLOAD.md, README.md, and FROM_CHUMMER5A_TO_CHUMMER6.md now carry the tightened proof-scope, fallback-only, and flagship-boundary wording in generated public copy.
+          - /docker/chummercomplete/chummer-design/feedback/2026-04-23-next90-m107-design-artifact-proof-language.md records the package-local wording boundary and refresh scope for worker-safe resume.
 
   - id: 108
     title: Campaign cold open and mission briefing delivery
@@ -1359,31 +1433,64 @@ milestones:
           - /docker/chummercomplete/chummer6-hub commit d0a84683 tightens campaign briefing proof requests.
           - python3 -m unittest tests/test_artifact_factory_source_pack_launcher.py exits 0.
           - python3 scripts/verify_artifact_factory_orchestration.py exits 0.
-          - dotnet test /docker/chummercomplete/chummer6-hub/Chummer.Tests/Chummer.Tests.csproj --filter ArtifactFactoryOrchestrationServiceTests rebuilt the test project but discovered zero xUnit tests in the current project configuration; this is recorded as residual test-discovery risk, not behavioral proof.
+          - dotnet test /docker/chummercomplete/chummer6-hub/Chummer.Tests/Chummer.Tests.csproj --filter ArtifactFactoryOrchestrationServiceTests --no-restore exits 0 and reports 51 passing tests on net10.0 plus 51 passing tests on net10.0-windows.
       - id: 108.2
         owner: chummer6-media-factory
-        title: Render campaign primer and mission briefing bundles with captions, previews, and fallback audio or packet lanes.
+        title: Render campaign primer and mission briefing bundles with captions, previews, and fallback siblings.
+        status: complete
+        landed_commit: ef3f006
+        evidence:
+          - /docker/fleet/repos/chummer-media-factory commit ef3f006 closes the M108 campaign briefing package proof floor.
+          - /docker/fleet/repos/chummer-media-factory/src/Chummer.Media.Factory.Runtime/Assets/CampaignBriefingBundleService.cs renders locale-matched cold-open and mission briefing media, caption, and preview siblings through media-factory job execution only.
+          - /docker/fleet/repos/chummer-media-factory/src/Chummer.Media.Contracts/Compatibility/RunServices/MediaFactoryContracts.cs defines CampaignBriefingBundleRequest, CampaignBriefingBundleReceipt, CampaignBriefingLocaleBundleReceipt, and CampaignBriefingFallbackSiblingReceipt.
+          - /docker/fleet/repos/chummer-media-factory/tests/CampaignBriefingBundleSmoke/Program.cs proves requested-locale cold-open and mission briefing siblings are mandatory, fallback locales stay bounded, caption and preview ids stay slot-aware, and delimiter-heavy locale variants cannot collapse dedupe or receipt ids.
+          - /docker/fleet/repos/chummer-media-factory/tests/test_campaign_briefing_bundle_contracts.py, /docker/fleet/repos/chummer-media-factory/tests/test_m108_campaign_briefing_proof.py, and /docker/fleet/repos/chummer-media-factory/tests/test_m108_successor_package_authority.py fail-close contract drift, repo-local proof drift, queue and registry closure drift, and do-not-reopen proof drift.
+          - /docker/fleet/repos/chummer-media-factory/docs/NEXT90_M108_CAMPAIGN_BRIEFING_PROOF_FLOOR.md records the repo-local M108 proof floor.
+          - /docker/fleet/repos/chummer-media-factory/scripts/ai/materialize_media_release_proof.py emits the M108 package into MEDIA_LOCAL_RELEASE_PROOF.generated.json and ARTIFACT_PUBLICATION_CERTIFICATION.generated.json with the current complete status.
+          - python3 -m unittest tests.test_m108_successor_package_authority tests.test_m108_campaign_briefing_proof tests.test_campaign_briefing_bundle_contracts exits 0.
+          - dotnet run --project tests/CampaignBriefingBundleSmoke/Chummer.Media.Factory.CampaignBriefingBundleSmoke.csproj --configuration Release --nologo --verbosity quiet exits 0.
+          - ./scripts/ai/verify.sh exits 0.
       - id: 108.3
         owner: chummer6-ui
         title: Surface primer and briefing artifacts in campaign home on the primary desktop route.
+        status: complete
+        landed_commit: 7b04dd41
+        evidence:
+          - /docker/chummercomplete/chummer-presentation/Chummer.Avalonia/DesktopHomeWindow.cs adds direct campaign primer and mission briefing actions to the promoted desktop campaign-home route and keeps the next-session return lane visible beside campaign continuity state.
+          - /docker/chummercomplete/chummer-presentation/Chummer.Avalonia/DesktopCampaignWorkspaceWindow.cs keeps primer and mission briefing launch actions visible inside the native desktop campaign workspace without requiring the browser artifact shelf.
+          - /docker/chummercomplete/chummer-presentation/Chummer.Avalonia/DesktopCampaignArtifactWindow.cs provides desktop-native campaign primer and mission briefing surfaces with workspace return, devices/access, and support follow-through actions.
+          - /docker/chummercomplete/chummer-presentation/Chummer.Avalonia/App.axaml.cs and /docker/chummercomplete/chummer-presentation/Chummer.Desktop.Runtime/DesktopStartupSurfaceCatalog.cs route campaign_primer and mission_briefing directly into the promoted Avalonia desktop startup surface catalog.
+          - /docker/chummercomplete/chummer-presentation/.codex-studio/published/NEXT90_M108_UI_CAMPAIGN_HOME_ARTIFACTS.generated.json records canonical registry/queue closure and repo-local desktop launch markers for this package.
+          - bash scripts/ai/milestones/next90-m108-ui-campaign-home-artifacts-check.sh exited 0 on 2026-04-23.
       - id: 108.4
         owner: chummer6-mobile
         title: Surface primer and briefing artifacts in campaign home on travel and mobile shells.
         status: complete
         landed_commit: bc84b37
         evidence:
-          - /docker/chummercomplete/chummer-play/src/Chummer.Play.Core/Application/PlayCampaignWorkspaceServerPlane.cs projects campaign_cold_open and mission_briefing recap-shelf entries with mobile campaign-home ownership, audience, provenance, next-action, and audit copy.
-          - /docker/chummercomplete/chummer-play/src/Chummer.Play.Core/Application/PlayCampaignWorkspaceLiteProjector.cs exposes LaunchPrimer and MissionBriefing summaries, provenance, direct artifact hrefs, and cold_open plus mission_briefing shelf views for the mobile campaign home.
-          - /docker/chummercomplete/chummer-play/src/Chummer.Play.Web/PlayWebApplication.cs routes /artifacts and /artifacts/{artifactId} back into the installable mobile shell while preserving artifactSurface, artifactId, sessionId, and role context.
-          - /docker/chummercomplete/chummer-play/src/Chummer.Play.Web/wwwroot/index.html binds launch-primer and mission-briefing links directly in the mobile workspace shell.
-          - /docker/chummercomplete/chummer-play/src/Chummer.Play.RegressionChecks/Program.cs proves M108 projection and redirect behavior, including campaign_home:artifact_launch and mission_briefing:mobile surfaces.
-          - /docker/chummercomplete/chummer-play/docs/next90-m108-mobile-campaign-artifacts.proof.md records the mobile package receipt and no-sibling-scope closure posture.
-          - /docker/chummercomplete/chummer-play/.codex-studio/published/MOBILE_LOCAL_RELEASE_PROOF.generated.json includes campaign_artifact_launch proof for next90-m108-mobile-campaign-artifacts.
-          - /docker/chummercomplete/chummer-play commit bc84b37 stabilizes the mobile package-plane verifier and ./scripts/ai/verify.sh exits 0.
-          - /docker/chummercomplete/chummer-play commit 00a22df adds scripts/verify_next90_m108_mobile_campaign_artifacts.py so completed-package proof fails closed when canonical registry, design queue, Fleet queue, generated proof, landed commit scope, or worker-safe closure wording drifts.
+          - /docker/chummercomplete/chummer6-mobile/src/Chummer.Play.Core/Application/PlayCampaignWorkspaceServerPlane.cs projects campaign_cold_open and mission_briefing recap-shelf entries with mobile campaign-home ownership, audience, provenance, next-action, and audit copy.
+          - /docker/chummercomplete/chummer6-mobile/src/Chummer.Play.Core/Application/PlayCampaignWorkspaceLiteProjector.cs exposes LaunchPrimer and MissionBriefing summaries, provenance, direct artifact hrefs, and cold_open plus mission_briefing shelf views for the mobile campaign home.
+          - /docker/chummercomplete/chummer6-mobile/src/Chummer.Play.Core/Roaming/RoamingWorkspaceSyncPlanner.cs keeps travel-shell primer and mission-briefing follow-through links on the same canonical artifact surface, preserving claimed-device, session, and role context without a browser detour.
+          - /docker/chummercomplete/chummer6-mobile/src/Chummer.Play.Web/PlayWebApplication.cs routes /artifacts and /artifacts/{artifactId} back into the installable mobile shell while preserving artifactSurface, artifactId, sessionId, and role context.
+          - /docker/chummercomplete/chummer6-mobile/src/Chummer.Play.Web/wwwroot/index.html binds launch-primer and mission-briefing links directly in the mobile workspace shell.
+          - /docker/chummercomplete/chummer6-mobile/src/Chummer.Play.RegressionChecks/Program.cs proves M108 projection and redirect behavior, including campaign_home:artifact_launch and mission_briefing:mobile surfaces.
+          - /docker/chummercomplete/chummer6-mobile/scripts/verify_next90_m108_mobile_campaign_artifacts.py fail-closes canonical queue and registry proof if any M108 evidence item drifts outside the package repo scope.
+          - /docker/chummercomplete/chummer6-mobile/docs/next90-m108-mobile-campaign-artifacts.proof.md records the mobile package receipt and no-sibling-scope closure posture.
+          - /docker/chummercomplete/chummer6-mobile/.codex-studio/published/MOBILE_LOCAL_RELEASE_PROOF.generated.json includes campaign_artifact_launch proof for next90-m108-mobile-campaign-artifacts.
+          - /docker/chummercomplete/chummer6-mobile commit bc84b37 stabilizes the mobile package-plane verifier and ./scripts/ai/verify.sh exits 0.
+          - /docker/chummercomplete/chummer6-mobile commit 00a22df adds scripts/verify_next90_m108_mobile_campaign_artifacts.py so completed-package proof fails closed when canonical registry, design queue, Fleet queue, generated proof, landed commit scope, or worker-safe closure wording drifts.
       - id: 108.5
         owner: chummer6-design
         title: Make campaign cold-open and mission-briefing artifacts first-class campaign OS promises with audience and locale rules.
+        status: complete
+        evidence:
+          - /docker/chummercomplete/chummer-design/products/chummer/CAMPAIGN_COLD_OPEN_AND_MISSION_BRIEFING_POLICY.md makes campaign cold-open and mission-briefing artifacts explicit campaign OS promises, audience classes, locale fallback order, and spoiler-safe launch rules instead of leaving them implicit in media or workspace prose.
+          - /docker/chummercomplete/chummer-design/products/chummer/CAMPAIGN_WORKSPACE_AND_DEVICE_ROLES.md now treats campaign cold-open cards and mission briefings as first-class workspace publication-shelf outputs only when audience, locale, and source-pack posture stay visible.
+          - /docker/chummercomplete/chummer-design/products/chummer/LOCALIZATION_AND_LANGUAGE_SYSTEM.md now binds campaign cold-open and mission-briefing captions, preview copy, packets, and text fallbacks to one deterministic locale chain that cannot widen spoiler scope.
+          - /docker/chummercomplete/chummer-design/products/chummer/PUBLIC_VIDEO_BRIEFS.yaml now gives `campaign_primer_video` and `mission_brief_video` explicit audience variants, spoiler classes, locale fallback chains, launch surfaces, and localized text fallback siblings for the campaign OS lane.
+          - /docker/chummercomplete/chummer-design/scripts/ai/validate_next90_m108_design_campaign_briefing_canon.py fail-closes missing canon anchors, missing audience/locale fields, or drift between the M108 design registry row and the design-owned queue row.
+          - /docker/chummercomplete/chummer-design/scripts/ai/verify.sh now includes the M108 campaign-briefing canon doc and validator in standard design-repo verification.
+          - /docker/chummercomplete/chummer-design/products/chummer/maintenance/feedback_archive/2026-04-23-next90-m108-design-campaign-briefing-canon-closeout.md records the package scope, proof anchors, and do-not-reopen posture for the design-owned campaign artifact slice.
 
   - id: 109
     title: Build Lab explain companion lane
@@ -1410,6 +1517,7 @@ milestones:
         evidence:
           - /docker/chummercomplete/chummer6-core commit a52603c9 exposes approved Build Lab explain packet anchors from M104 engine proof truth for artifact-factory companion generation.
           - /docker/chummercomplete/chummer6-core commit a4dcffb6 tightens the M109 packet authority guard so mixed-case worker-local telemetry, active-run handoff, or blocked helper evidence cannot keep the completed package green.
+          - /docker/chummercomplete/chummer6-core commit 95829fcd tightens the M109 packet authority receipt so packet-local approval digests, canonical receipt anchors, Build Lab runtime contract digests, and output-anchor handoff proof fail closed together.
           - /docker/chummercomplete/chummer6-core/.codex-studio/published/BUILD_LAB_EXPLAIN_PACKETS.generated.json reports status=passed, four approved packets, twelve approved anchors, and companion-only artifact-factory rules that preserve JSON pointers and anchor digests.
           - /docker/chummercomplete/chummer6-core/scripts/generate-build-lab-explain-packets.py requires the passed M104 engine proof pack, M109 registry authority, Fleet queue row, design queue row, and the `build_lab_explain_packets` plus `engine_truth:artifact_anchors` owned surfaces before approving packets.
           - /docker/chummercomplete/chummer6-core/tests/test_build_lab_explain_packets_generator.py fail-closes missing engine truth, regressed anchor status, design queue drift, duplicate queue rows, and stale checked-in receipts.
@@ -1437,6 +1545,16 @@ milestones:
       - id: 109.4
         owner: chummer6-design
         title: Keep Build and Explain artifact policy grounded in inspectable engine truth.
+        status: complete
+        evidence:
+          - /docker/chummercomplete/chummer-design/products/chummer/BUILD_EXPLAIN_ARTIFACT_TRUTH_POLICY.md now defines receipt and anchor minimums, exact packet-revision and rule-environment traceability, approval-scope limits, and fail-closed fallback for Build and Explain companions.
+          - /docker/chummercomplete/chummer-design/products/chummer/BUILD_LAB_PRODUCT_MODEL.md now requires companion artifacts to preserve the packet revision, anchor scope, rule-environment identity, and approval scope they summarize.
+          - /docker/chummercomplete/chummer-design/products/chummer/STRUCTURED_VIDEO_AND_NARRATED_MEDIA_MODEL.md now states that Build and Explain narration cannot replace packet inspection or ship without revision, anchor, and approval-scope truth.
+          - /docker/chummercomplete/chummer-design/products/chummer/PUBLIC_VIDEO_BRIEFS.yaml now gives `build_explain_companion_video` explicit required receipt fields, approval-scope axes, revision-mismatch forbiddance, and fail-closed fallback siblings.
+          - /docker/chummercomplete/chummer-design/products/chummer/LOCALIZATION_AND_LANGUAGE_SYSTEM.md now keeps Build and Explain locale fallback from rewriting packet revision ids, approval-state labels, or rule-environment badges into freer copy.
+          - /docker/chummercomplete/chummer-design/scripts/ai/validate_next90_m109_design_explain_truth_policy.py fail-closes missing receipt-floor markers, missing closure metadata, missing Build and Explain brief truth fields, or drift between the M109 design registry row and design-owned queue row.
+          - /docker/chummercomplete/chummer-design/scripts/ai/verify.sh includes the M109 Build and Explain truth-policy doc and validator in standard design-repo verification.
+          - /docker/chummercomplete/chummer-design/products/chummer/maintenance/feedback_archive/2026-04-23-next90-m109-design-explain-truth-policy-closeout.md records the package scope, proof anchors, and do-not-reopen posture for this design-owned claim-bounding slice.
 
   - id: 110
     title: Runsite host and orientation bundle
@@ -1446,7 +1564,7 @@ milestones:
       - chummer6-media-factory
       - chummer6-mobile
       - chummer6-design
-    status: in_progress
+    status: complete
     dependencies:
       - 105
       - 107
@@ -1459,15 +1577,86 @@ milestones:
       - id: 110.1
         owner: chummer6-hub
         title: Compose runsite orientation requests from approved runsite packs and route summaries.
+        status: complete
+        landed_commit: 1f5dd4de
+        evidence:
+          - /docker/chummercomplete/chummer.run-services/Chummer.Run.Api/Services/RunsiteOrientationRequestComposerService.cs composes governed runsite orientation bundles from approved packs, route summaries, and preview-safe pre-session truth while keeping route previews route-summary governed.
+          - /docker/chummercomplete/chummer.run-services/Chummer.Run.Api/Controllers/InternalRunsiteOrientationController.cs exposes the bounded internal request route and rejects unauthorized or malformed runsite orientation requests.
+          - /docker/chummercomplete/chummer.run-services/Chummer.Tests/RunsiteOrientationRequestComposerServiceTests.cs covers route-summary-governed preview composition, duplicate dedupe rejection, and internal authorization on the request route.
+          - /docker/chummercomplete/chummer.run-services/scripts/verify_runsite_orientation_requests.py fail-closes queue, registry, release-proof, and worker-unsafe proof drift for next90-m110-hub-runsite-orientation-requests.
+          - /docker/chummercomplete/chummer.run-services/tests/test_runsite_orientation_requests.py covers verifier regressions, composed output shape, preview-safe evidence anchors, and release-proof materialization.
+          - /docker/chummercomplete/chummer.run-services/tests/test_hub_local_release_proof_native_support_route.py proves HUB_LOCAL_RELEASE_PROOF materialization carries the completed M110 package plus runsite_orientation_requests and route_summary:artifact_launch receipts.
+          - /docker/chummercomplete/chummer.run-services/.codex-studio/published/HUB_LOCAL_RELEASE_PROOF.generated.json records the completed package plus runsite orientation proof receipts for repo-local release truth.
+          - /docker/chummercomplete/chummer.run-services/Chummer.Run.Api/wwwroot/proofs/mac-codex-release/HUB_LOCAL_RELEASE_PROOF.generated.json serves the same completed package and receipt set on the published proof shelf.
+          - /docker/chummercomplete/chummer.run-services commit 1f5dd4de closes the M110 governed runsite orientation request proof package.
+          - python3 scripts/verify_runsite_orientation_requests.py exits 0.
+          - python3 -m unittest tests/test_runsite_orientation_requests.py exits 0.
+          - dotnet test Chummer.Tests/Chummer.Tests.csproj --filter RunsiteOrientationRequestComposerServiceTests --no-restore exits 0.
       - id: 110.2
         owner: chummer6-media-factory
         title: Render host clips, audio companions, previews, and route-linked bundle receipts.
+        status: complete
+        landed_commit: 3accc50
+        evidence:
+          - /docker/fleet/repos/chummer-media-factory/src/Chummer.Media.Factory.Runtime/Assets/RunsiteOrientationBundleService.cs renders host clips, route previews, audio companions, and optional tour siblings through media-factory job execution only.
+          - /docker/fleet/repos/chummer-media-factory/src/Chummer.Media.Contracts/Compatibility/RunServices/MediaFactoryContracts.cs defines RunsiteOrientationBundleRequest, RunsiteOrientationBundleReceipt, and RunsiteRoutePreviewArtifactReceipt.
+          - /docker/fleet/repos/chummer-media-factory/tests/RunsiteOrientationBundleSmoke/Program.cs proves host clips and route previews are mandatory, route preview receipts stay route-linked, and delimiter-heavy variants cannot collapse dedupe or receipt ids.
+          - /docker/fleet/repos/chummer-media-factory/tests/test_runsite_orientation_bundle_contracts.py fail-closes contract drift so runsite orientation stays first-class and render-only.
+          - /docker/fleet/repos/chummer-media-factory/tests/test_m110_successor_closure_authority.py fail-closes the exact package, queue, registry, and generated-proof closure authority.
+          - /docker/fleet/repos/chummer-media-factory/docs/NEXT90_M110_RUNSITE_ORIENTATION_PROOF_FLOOR.md records the package proof anchors, preview-only posture, dedupe scope, and worker-safe closure rule.
+          - /docker/fleet/repos/chummer-media-factory/scripts/ai/materialize_media_release_proof.py emits the M110 closure package into repo-local release proof receipts.
+          - /docker/fleet/repos/chummer-media-factory commit 3accc50 closes the runsite orientation proof package and ./scripts/ai/verify.sh exits 0.
+          - python3 -m unittest tests.test_m110_successor_closure_authority tests.test_m110_runsite_orientation_proof exits 0.
+          - dotnet run --project tests/RunsiteOrientationBundleSmoke/Chummer.Media.Factory.RunsiteOrientationBundleSmoke.csproj --configuration Release --nologo --verbosity quiet exits 0.
+          - ./scripts/ai/verify.sh exits 0.
       - id: 110.3
         owner: chummer6-mobile
         title: Surface orientation entry points and preview-safe pre-session launch flows for campaign members.
+        status: complete
+        landed_commit: 5cc6a03
+        evidence:
+          - /docker/chummercomplete/chummer6-mobile/src/Chummer.Play.Core/Application/PlayCampaignWorkspaceServerPlane.cs keeps the runsite orientation shelf entry bounded to runsite_host_mode:entry, campaign_orientation:mobile, and pre-session-orientation-only-not-tactical-truth provenance.
+          - /docker/chummercomplete/chummer6-mobile/src/Chummer.Play.Core/Application/PlayCampaignWorkspaceLiteProjector.cs exposes RunsiteOrientationSummary, RunsiteOrientationHref, RunsiteOrientationProvenanceSummary, RunsiteOrientationTruthPosture, and a role-preserving runsite host-mode shelf link that preserves orientationSurface=campaign_orientation.
+          - /docker/chummercomplete/chummer6-mobile/src/Chummer.Play.Core/Application/PlayEntryRecoveryProjector.cs adds direct preview-safe onboarding entry hrefs and summaries for cold-open, mission briefing, and runsite host mode before session.
+          - /docker/chummercomplete/chummer6-mobile/src/Chummer.Play.Core/Roaming/RoamingWorkspaceSyncPlanner.cs keeps RunsiteOrientationFollowThrough and RunsiteOrientationFollowThroughHref attached to the travel shell so restore/device plans preserve claimed-device, session, role, artifactSurface=runsite_host_mode, and orientationSurface=campaign_orientation.
+          - /docker/chummercomplete/chummer6-mobile/src/Chummer.Play.Web/PlayWebApplication.cs redirects /artifacts and /artifacts/{artifactId} back into the installable mobile shell while preserving session, role, device, artifactSurface=runsite_host_mode, artifact identity, and campaign-orientation context.
+          - /docker/chummercomplete/chummer6-mobile/src/Chummer.Play.Web/wwwroot/index.html binds onboarding, campaign, and travel-shell runsite entry points directly in the mobile shell, preserves active launched-artifact context, and repeats the runsite host truth posture before live play.
+          - /docker/chummercomplete/chummer6-mobile/src/Chummer.Play.RegressionChecks/Program.cs proves runsite orientation projection, redirect behavior, claimed-device preservation, and campaign_orientation:mobile plus runsite_host_mode:entry scope for Player, GameMaster, and Observer roles.
+          - /docker/chummercomplete/chummer6-mobile/scripts/materialize_mobile_local_release_proof.py emits a package_receipts entry for next90-m110-mobile-runsite-orientation-entry inside MOBILE_LOCAL_RELEASE_PROOF.generated.json without reopening the older M108 receipt shape.
+          - /docker/chummercomplete/chummer6-mobile/scripts/verify_next90_m110_mobile_runsite_orientation_entry.py fail-closes canonical queue and registry proof, generated-proof package receipt drift, landed-commit scope drift, and worker-unsafe closure wording for this package.
+          - /docker/chummercomplete/chummer6-mobile/docs/next90-m110-mobile-runsite-orientation-entry.proof.md records the mobile package receipt, concrete checkout root, and do-not-reopen closure posture for the successor entry slice.
+          - /docker/chummercomplete/chummer6-mobile/.codex-studio/published/MOBILE_LOCAL_RELEASE_PROOF.generated.json includes a package_receipts entry for next90-m110-mobile-runsite-orientation-entry plus runsite_orientation_launch proof markers.
+          - /docker/chummercomplete/chummer6-mobile commit 5cc6a03 lands the M110 mobile runsite orientation entry package inside the play-shell source, docs, verifier wiring, and generated receipt scope.
+          - /docker/chummercomplete/chummer6-mobile commit ba97b74 tracks the M110 verifier against the implementation landed_commit so future shards verify the same closed package without reopening the entry slice.
+          - python3 scripts/verify_next90_m110_mobile_runsite_orientation_entry.py exits 0.
+          - dotnet run --project src/Chummer.Play.RegressionChecks/Chummer.Play.RegressionChecks.csproj exits 0.
       - id: 110.4
         owner: chummer6-design
         title: Keep runsite host mode bounded under route, tour, and inspection truth.
+        status: complete
+        evidence:
+          - /docker/chummercomplete/chummer-design/products/chummer/RUNSITE_HOST_MODE_POLICY.md now defines runsite host mode as preview-safe orientation only, pins the truth order below pack, route, and tour inspection, and requires visible sibling actions instead of letting media become tactical authority.
+          - /docker/chummercomplete/chummer-design/products/chummer/PUBLIC_VIDEO_BRIEFS.yaml now gives `runsite_orientation_video` explicit audience variants, locale fallback order, truth order, receipt minimums, fail-closed fallbacks, and forbidden modes that stop clips from becoming the only route surface.
+          - /docker/chummercomplete/chummer-design/products/chummer/MEDIA_ARTIFACT_RECIPE_REGISTRY.yaml now keeps `runsite_host_mode` subordinate to approved runsite-pack and route-summary truth with explicit inspection siblings and launch requirements.
+          - /docker/chummercomplete/chummer-design/products/chummer/STRUCTURED_VIDEO_AND_NARRATED_MEDIA_MODEL.md, /docker/chummercomplete/chummer-design/products/chummer/VIDBOARD_AND_LTD_WOW_FACTOR_WORKFLOWS.md, and /docker/chummercomplete/chummer-design/products/chummer/EXTERNAL_TOOLS_PLANE.md now agree that runsite host clips are preview-safe orientation siblings rather than route, map, or tactical authority.
+          - /docker/chummercomplete/chummer-design/scripts/ai/validate_next90_m110_design_runsite_host_bounds.py fail-closes missing policy markers, runsite brief or recipe drift, verifier wiring drift, or drift between the M110 design registry row and the design-owned queue row.
+          - /docker/chummercomplete/chummer-design/scripts/ai/verify.sh now includes the M110 runsite host-bounds policy doc and validator in standard design-repo verification.
+          - /docker/chummercomplete/chummer-design/products/chummer/maintenance/feedback_archive/2026-04-23-next90-m110-design-runsite-host-bounds-closeout.md records the package scope, proof anchors, and do-not-reopen posture for the design-owned runsite host-bounds slice.
+      - id: 110.5
+        owner: chummer6-mobile
+        title: Close the mobile runsite orientation successor package against the canonical queue and local proof receipt.
+        status: complete
+        landed_commit: bc84b37
+        evidence:
+          - /docker/chummercomplete/chummer6-mobile/docs/next90-m110-mobile-runsite-orientation.proof.md records the package scope, concrete checkout root, closure posture, and the dependency on the already-landed `110.3` implementation slice without widening the claimed surface.
+          - /docker/chummercomplete/chummer6-mobile/scripts/verify_next90_m110_mobile_runsite_orientation.py fail-closes canonical queue, design queue, registry, generated-proof package receipt, landed-commit scope, and worker-unsafe proof drift for `next90-m110-mobile-runsite-orientation`.
+          - /docker/chummercomplete/chummer6-mobile/.codex-studio/published/MOBILE_LOCAL_RELEASE_PROOF.generated.json includes a `package_receipts` entry for `next90-m110-mobile-runsite-orientation` with `runsite_orientation_launch` markers and the package-owned surfaces `runsite_host_mode:mobile` plus `campaign_orientation:mobile`.
+          - /docker/chummercomplete/chummer6-mobile/scripts/materialize_mobile_local_release_proof.py emits the M110 successor package receipt without reopening the narrower `next90-m110-mobile-runsite-orientation-entry` implementation row.
+          - /docker/chummercomplete/chummer6-mobile commit f95c490 lands the mobile campaign-shell and travel-shell runsite host-mode follow-through that keeps route preview truth inspectable before live play.
+          - /docker/chummercomplete/chummer6-mobile commit bc84b37 stabilizes the closure verifier and release-proof receipt for the completed M110 successor package.
+          - /docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_QUEUE_STAGING.generated.yaml closes `next90-m110-mobile-runsite-orientation` on `verify_closed_package_only` with the package-specific do-not-reopen reason.
+          - /docker/fleet/.codex-studio/published/NEXT_90_DAY_QUEUE_STAGING.generated.yaml mirrors the same completed queue row for worker-safe verification.
+          - python3 scripts/verify_next90_m110_mobile_runsite_orientation.py exits 0.
 
   - id: 111
     title: Install-aware release, support, and public concierge
@@ -1530,12 +1719,48 @@ milestones:
       - id: 111.3
         owner: chummer6-media-factory
         title: Render release explainer, support closure, and public concierge companion bundles with captions, previews, and sibling notes.
+        status: in_progress
+        evidence:
+          - /docker/fleet/repos/chummer-media-factory/src/Chummer.Media.Factory.Runtime/Assets/InstallAwareConciergeBundleService.cs renders release explainer, support closure, and public concierge companions through media-factory job execution only while preserving caption, preview, sibling-note, asset-url, and grouped receipt truth.
+          - /docker/fleet/repos/chummer-media-factory/src/Chummer.Media.Contracts/Compatibility/RunServices/MediaFactoryContracts.cs defines InstallAwareConciergeRenderRequest, InstallAwareConciergeBundleReceipt, InstallAwareConciergeArtifactReceipt, InstallAwareConciergeCompanionReadyRef, InstallAwareConciergeRoleReceiptGroup, InstallAwareConciergeCompanionRefReceipt, InstallAwareConciergeCaptionRefReceipt, InstallAwareConciergePreviewRefReceipt, and InstallAwareConciergeSiblingNoteReceipt.
+          - /docker/fleet/repos/chummer-media-factory/tests/InstallAwareConciergeSmoke/Program.cs proves every install-aware bundle kind requires video, audio, and preview-card siblings, delimiter-heavy refs cannot collapse job dedupe or receipt ids, duplicate companion refs fail closed, payload scope stays install-aware, bounded sibling notes stay enforced, and replay-safe dedupe keeps rendered timestamps stable.
+          - /docker/fleet/repos/chummer-media-factory/tests/test_install_aware_concierge_rendering.py, /docker/fleet/repos/chummer-media-factory/tests/test_m111_install_aware_concierge_proof.py, and /docker/fleet/repos/chummer-media-factory/tests/test_m111_successor_package_authority.py fail-close contract drift, repo-local proof drift, and canonical package-assignment drift for this slice.
+          - /docker/fleet/repos/chummer-media-factory/docs/NEXT90_M111_INSTALL_AWARE_CONCIERGE_PROOF_FLOOR.md records the repo-local M111 proof floor, owned surfaces, guard conditions, and worker-safe evidence posture while the package remains open for clean landed-commit closure.
+          - /docker/fleet/repos/chummer-media-factory/scripts/ai/materialize_media_release_proof.py emits the M111 package into /docker/fleet/repos/chummer-media-factory/.codex-studio/published/MEDIA_LOCAL_RELEASE_PROOF.generated.json and /docker/fleet/repos/chummer-media-factory/.codex-studio/published/ARTIFACT_PUBLICATION_CERTIFICATION.generated.json with the current in-progress status, repo-local proof anchors, and the one-queue-row-per-mirror plus one-registry-task package-authority guard.
+          - /docker/fleet/repos/chummer-media-factory/scripts/ai/verify_m111_install_aware_concierge.sh gives the package one repo-local verifier entrypoint for the authority tests and smoke proof.
+          - /docker/fleet/repos/chummer-media-factory/scripts/ai/verify.sh calls the dedicated M111 verifier as part of the standard media-factory verify lane, so package proof cannot drift away from the normal repo-local release gate.
+          - python3 -m unittest tests.test_m111_successor_package_authority tests.test_m111_install_aware_concierge_proof tests.test_install_aware_concierge_rendering exits 0.
+          - dotnet run --project tests/InstallAwareConciergeSmoke/Chummer.Media.Factory.InstallAwareConciergeSmoke.csproj --configuration Release --nologo --verbosity quiet exits 0.
+          - bash /docker/fleet/repos/chummer-media-factory/scripts/ai/verify_m111_install_aware_concierge.sh exits 0.
+          - bash /docker/fleet/repos/chummer-media-factory/scripts/ai/verify.sh exits 0.
       - id: 111.4
         owner: fleet
         title: Gate followthrough mail, public proof promotion, and public concierge rollout against the same install-aware receipts and kill-switch posture.
+        status: complete
+        completion_action: verify_closed_package_only
+        do_not_reopen_reason: M111 Fleet install-aware followthrough is complete; future shards must verify the install-aware gate receipt, standalone verifier, registry row, queue row, and design queue row instead of reopening the followthrough-mail and public-proof promotion package.
+        evidence:
+          - /docker/fleet/scripts/materialize_next90_m111_fleet_install_aware_followthrough.py compiles one package-scoped gate from install-aware support packets, the weekly governor packet, the mirrored weekly product pulse, the mirrored progress report, the canonical successor registry, and the Fleet queue row.
+          - /docker/fleet/scripts/verify_next90_m111_fleet_install_aware_followthrough.py fail-closes drift between the generated M111 gate artifact and the source receipt, launch-truth, publication-ref, queue-scope, and closure-metadata inputs.
+          - /docker/fleet/tests/test_materialize_next90_m111_fleet_install_aware_followthrough.py and /docker/fleet/tests/test_verify_next90_m111_fleet_install_aware_followthrough.py cover the green path plus publication-ref drift, support/governor source-refresh drift, and regenerated queue-closure or registry-closure drift.
+          - /docker/fleet/scripts/verify_script_bootstrap_no_pythonpath.py and /docker/fleet/tests/test_fleet_script_bootstrap_without_pythonpath.py include the M111 materializer and verifier in standalone bootstrap proof.
+          - /docker/fleet/.codex-studio/published/NEXT90_M111_FLEET_INSTALL_AWARE_FOLLOWTHROUGH.generated.json records the current Fleet-local receipt proving followthrough mail and public-proof promotion only pass when install-aware blockers are zero, launch truth agrees, and publication refs share one public snapshot.
+          - /docker/fleet/feedback/2026-04-23-next90-m111-fleet-install-aware-followthrough-closeout.md records the package closeout posture and do-not-reopen rule for future shards.
+          - python3 tests/test_materialize_next90_m111_fleet_install_aware_followthrough.py exits 0.
+          - python3 tests/test_verify_next90_m111_fleet_install_aware_followthrough.py exits 0.
+          - python3 scripts/verify_next90_m111_fleet_install_aware_followthrough.py --artifact /docker/fleet/.codex-studio/published/NEXT90_M111_FLEET_INSTALL_AWARE_FOLLOWTHROUGH.generated.json --support-packets /docker/fleet/.codex-studio/published/SUPPORT_CASE_PACKETS.generated.json --weekly-governor-packet /docker/fleet/.codex-studio/published/WEEKLY_GOVERNOR_PACKET.generated.json --weekly-product-pulse /docker/fleet/.codex-design/product/WEEKLY_PRODUCT_PULSE.generated.json --progress-report /docker/fleet/.codex-design/product/PROGRESS_REPORT.generated.json --successor-registry /docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_PRODUCT_ADVANCE_REGISTRY.yaml --queue-staging /docker/fleet/.codex-studio/published/NEXT_90_DAY_QUEUE_STAGING.generated.yaml --json exits 0.
       - id: 111.5
         owner: chummer6-design
         title: Keep public concierge widgets bounded to low-risk public surfaces with honest fixed, fallback, preview, and recovery posture.
+        status: complete
+        evidence:
+          - /docker/chummercomplete/chummer-design/products/chummer/PUBLIC_CONCIERGE_AND_TRUST_WIDGET_MODEL.md now defines fixed, preview, fallback, and recovery posture for bounded public concierge surfaces and limits recovery posture on public pages to first-party routing rather than secret-bearing execution.
+          - /docker/chummercomplete/chummer-design/products/chummer/PUBLIC_CONCIERGE_WORKFLOWS.yaml now records posture taxonomy, forbidden claims, receipt posture labels, and per-flow fixed, fallback, and recovery targets for every public concierge family.
+          - /docker/chummercomplete/chummer-design/products/chummer/EXTERNAL_TOOLS_PLANE.md, /docker/chummercomplete/chummer-design/products/chummer/PUBLIC_DOWNLOADS_POLICY.md, /docker/chummercomplete/chummer-design/products/chummer/PUBLIC_HELP_COPY.md, and /docker/chummercomplete/chummer-design/products/chummer/PUBLIC_RELEASE_EXPERIENCE.yaml now agree that concierge widgets stay optional preview overlays on low-risk public surfaces and cannot overclaim fixes, fallback routes, or recovery authority.
+          - /docker/chummercomplete/chummer-design/scripts/ai/validate_next90_m111_design_public_concierge_bounds.py fail-closes policy drift, workflow drift, verifier wiring drift, and canonical registry plus design queue drift for this completed package.
+          - /docker/chummercomplete/chummer-design/scripts/ai/verify.sh now requires the M111 validator and the public concierge canon files during standard repo verification.
+          - /docker/chummercomplete/chummer-design/products/chummer/maintenance/feedback_archive/2026-04-23-next90-m111-design-public-concierge-bounds-closeout.md records the package closeout posture and do-not-reopen rule for future shards.
+          - python3 scripts/ai/validate_next90_m111_design_public_concierge_bounds.py exits 0.
 
   - id: 112
     title: Campaign memory, downtime, heat, faction, and contact truth
@@ -1558,9 +1783,34 @@ milestones:
       - id: 112.1
         owner: chummer6-hub
         title: Promote downtime, aftermath, heat, faction, contact, and reputation state into governed campaign APIs and receipts.
+        status: complete
+        completion_action: verify_closed_package_only
+        do_not_reopen_reason: M112 chummer6-hub campaign consequence truth is complete; future shards must verify the governed campaign consequence proof, local release proof receipts, registry row, queue row, and design queue row instead of reopening this package.
+        landed_commit: f2b0b5a6
+        evidence:
+          - /docker/chummercomplete/chummer.run-services/Chummer.Run.Api/Controllers/CampaignSpineController.cs exposes governed workspace consequence, consequence-truth, aftermath-recap, downtime-aftermath, campaign-memory, and next-session carry-forward routes on one campaign spine API.
+          - /docker/chummercomplete/chummer.run-services/Chummer.Run.Api/Services/Community/CampaignSpineService.cs persists governed consequence updates, governed aftermath package receipts, and canonical return-loop routes for heat, faction, contact, reputation, downtime, and aftermath state.
+          - /docker/chummercomplete/chummer.run-services/Chummer.Run.Api/Services/Community/CampaignWorkspaceServerPlaneService.cs projects campaign consequence truth and downtime-aftermath summaries back onto campaign memory and next-session return surfaces.
+          - /docker/chummercomplete/chummer.run-services/tests/RunServicesVerification/CampaignSpineRestoreVerification.cs and /docker/chummercomplete/chummer.run-services/tests/RunServicesSmoke/Program.cs prove reload durability plus API projection of governed consequence state, package receipts, and return-loop actions.
+          - /docker/chummercomplete/chummer.run-services/scripts/verify_campaign_consequence_truth.py fail-closes queue, registry, local proof, local release proof, and worker-unsafe proof drift for this completed package.
+          - /docker/chummercomplete/chummer.run-services/tests/test_campaign_consequence_truth.py covers the green path plus closure-metadata and release-proof drift for this completed package.
+          - /docker/chummercomplete/chummer.run-services/.codex-studio/published/HUB_CAMPAIGN_OS_LOCAL_PROOF.generated.json and /docker/chummercomplete/chummer.run-services/.codex-studio/published/HUB_LOCAL_RELEASE_PROOF.generated.json record the package proof plus package-scoped campaign-memory and downtime-aftermath receipts.
       - id: 112.2
         owner: chummer6-core
         title: Keep campaign consequence rules and rule-environment fingerprints portable through campaign state changes.
+        status: complete
+        completion_action: verify_closed_package_only
+        do_not_reopen_reason: M112 chummer6-core campaign consequence portability is complete; future shards must verify the portability contracts, workspace-service fingerprint behavior, package-local verifier, focused receipt tests, registry row, and queue mirrors instead of reopening this slice.
+        landed_commit: 4b02785b
+        evidence:
+          - /docker/chummercomplete/chummer-core-engine/Chummer.Contracts/Workspaces/WorkspacePortabilityContracts.cs defines the canonical portable-rule metadata keys plus the portability receipt fields for `portableRules`, `ruleEnvironmentFingerprint`, and `consequenceStateFingerprint`.
+          - /docker/chummercomplete/chummer-core-engine/Chummer.Application/Workspaces/WorkspaceService.cs stamps portable rules into workspace metadata, preserves governed portable-rule snapshots across campaign state drift, and recomputes rule-environment plus campaign consequence state fingerprints deterministically.
+          - /docker/chummercomplete/chummer-core-engine/Chummer.Infrastructure/Workspaces/FileWorkspaceStore.cs persists workspace envelope metadata so portable rules and both fingerprint fields survive restart-safe workspace reloads.
+          - /docker/chummercomplete/chummer-core-engine/Chummer.Tests/WorkspaceServiceTests.cs covers shifted campaign state, stale fingerprint metadata, partial portable-rule metadata merge, metadata-only portability recovery, and duplicate portable-rule canonicalization.
+          - /docker/chummercomplete/chummer-core-engine/Chummer.Tests/WorkspaceStoreTests.cs proves the persisted workspace envelope keeps portability metadata across store instances.
+          - /docker/chummercomplete/chummer-core-engine/scripts/verify-campaign-consequence-portability.py fail-closes package-local proof if the portability contracts, workspace service logic, persistence seam, tests, or package doc drift.
+          - /docker/chummercomplete/chummer-core-engine/tests/test_campaign_consequence_portability_receipt.py proves the package-local proof receipt is reproducible and that the verifier CLI fails closed on drift.
+          - /docker/chummercomplete/chummer-core-engine/docs/CAMPAIGN_CONSEQUENCE_PORTABILITY.md records the package identity, portability contract, deterministic behavior floor, and verification commands for future shards.
       - id: 112.3
         owner: chummer6-ui
         title: Surface campaign memory, consequences, and return-loop actions on the primary desktop route.
@@ -1570,6 +1820,15 @@ milestones:
       - id: 112.5
         owner: chummer6-design
         title: Update campaign OS canon so downtime, heat, faction, and contact truth are first-class product promises.
+        status: complete
+        evidence:
+          - /docker/chummercomplete/chummer-design/products/chummer/CAMPAIGN_SPINE_AND_CREW_MODEL.md now defines campaign memory and consequence truth as part of the canonical campaign spine, including downtime, aftermath, heat, faction stance, contact truth, reputation, and next-session return state.
+          - /docker/chummercomplete/chummer-design/products/chummer/CAMPAIGN_WORKSPACE_AND_DEVICE_ROLES.md now promotes campaign-memory packets, return-loop actions, and consequence cues into first-class workspace promises across home, campaign, and device-role surfaces.
+          - /docker/chummercomplete/chummer-design/products/chummer/journeys/run-a-campaign-and-return.md now treats downtime, aftermath, heat, faction stance, contact truth, and reputation as part of the main campaign return-loop happy path and failure posture.
+          - /docker/chummercomplete/chummer-design/products/chummer/CAMPAIGN_OS_GAP_AND_CHANGE_GUIDE.md now states that lived campaign-OS maturity requires first-class campaign-memory truth for downtime, aftermath, heat, faction posture, contact truth, reputation, and return-loop actions.
+          - /docker/chummercomplete/chummer-design/scripts/ai/validate_next90_m112_design_campaign_canon.py fail-closes campaign-canon doc drift, standard verifier drift, feedback closeout drift, and canonical registry plus design queue drift for this completed package.
+          - /docker/chummercomplete/chummer-design/scripts/ai/verify.sh now requires the M112 validator plus the campaign canon files during standard repo verification.
+          - /docker/chummercomplete/chummer-design/products/chummer/maintenance/feedback_archive/2026-04-23-next90-m112-design-campaign-canon-closeout.md records the package closeout posture and do-not-reopen rule for future shards.
 
   - id: 113
     title: Crew, roster, opposition packets, and GM prep library
@@ -1592,6 +1851,18 @@ milestones:
       - id: 113.1
         owner: chummer6-hub
         title: Land crew, roster, campaign-group, and event movement APIs with ownership and audit posture.
+        status: complete
+        evidence:
+          - /docker/chummercomplete/chummer.run-services/Chummer.Run.Api/Contracts/CampaignMovementContracts.cs defines dossier movement request, planner, target campaign or event, and receipt contracts that preserve ownership, group, campaign, run, scene, and audit-receipt state on one governed API lane.
+          - /docker/chummercomplete/chummer.run-services/Chummer.Run.Api/Controllers/CampaignSpineController.cs exposes GET `me/workspaces/{workspaceId}/dossier-movement-plan`, GET `me/workspaces/{workspaceId}/dossier-movements`, and POST `me/dossier-movements` beside the existing roster-transfer lane so campaign-group and event movement stay first-class hosted APIs.
+          - /docker/chummercomplete/chummer.run-services/Chummer.Run.Api/Services/Community/CampaignSpineService.cs lands the dossier movement planner, execution, persistence, target event creation, ownership guards, and audit receipt projection while keeping roster transfers and campaign consequences attached to the same governed campaign spine.
+          - /docker/chummercomplete/chummer.run-services/Chummer.Tests/CampaignMovementServiceTests.cs proves dossier movement persists target run plus scene assignment, ownership changes, audit receipts, and reload-safe movement history across the governed campaign workspace.
+          - /docker/chummercomplete/chummer.run-services/tests/RunServicesSmoke/Program.cs proves end-to-end source and target workspace visibility for dossier movement plans, move receipts, target run plus scene receipts, outsider target-owner visibility, and the existing roster-transfer rail on the same shared campaign spine.
+          - /docker/chummercomplete/chummer.run-services/scripts/materialize_next90_m113_hub_roster_ops_proof.py and /docker/chummercomplete/chummer.run-services/.codex-studio/published/NEXT90_M113_HUB_ROSTER_OPS.generated.json record the repo-local proof contract for `crew_roster_ops` and `campaign_group_event_movement` without relying on worker-unsafe telemetry helpers.
+          - /docker/chummercomplete/chummer.run-services/scripts/verify_next90_m113_hub_roster_ops.py and /docker/chummercomplete/chummer.run-services/tests/test_next90_m113_hub_roster_ops.py fail closed on queue or registry drift, missing API markers, missing smoke proof, generated-proof identity drift, and forbidden active-run helper citations for the completed package.
+          - python3 scripts/verify_next90_m113_hub_roster_ops.py exits 0.
+          - python3 -m unittest tests/test_next90_m113_hub_roster_ops.py exits 0.
+          - dotnet test Chummer.Tests/Chummer.Tests.csproj --filter CampaignMovementServiceTests --no-restore exits 0.
       - id: 113.2
         owner: chummer6-core
         title: Define opposition and scene packet contracts with rules-backed stats and bounded-loss receipts.
@@ -1604,6 +1875,17 @@ milestones:
       - id: 113.5
         owner: executive-assistant
         title: Produce operator-safe GM prep and roster movement packets from governed campaign truth.
+        status: complete
+        evidence:
+          - /docker/EA/docs/chummer_operator_safe_packets/CHUMMER_OPERATOR_SAFE_PACKET_PACK.yaml binds EA output to governed Hub GM-operations readiness, governed opposition packet projection, governed roster movement packet projection, Core bounded-loss posture, and the upstream Hub and UI M113 proof receipts without inventing local shadow campaign state.
+          - /docker/EA/docs/chummer_operator_safe_packets/OPERATOR_SAFE_PACKET_SPECIMENS.yaml shows the GM prep and roster followthrough packet shapes, safe operator actions, and fail-closed hold rules for operator review.
+          - /docker/EA/scripts/materialize_next90_m113_operator_safe_packets.py and /docker/EA/.codex-studio/published/NEXT90_M113_OPERATOR_SAFE_PACKETS.generated.json materialize the governed truth bundle into a repo-local proof receipt that stays independent of worker-unsafe telemetry helpers.
+          - /docker/EA/scripts/verify_next90_m113_operator_safe_packets.py and /docker/EA/tests/test_next90_m113_operator_safe_packets.py fail closed on pack/spec/generated drift, missing upstream governed receipts, forbidden helper-proof markers, and closure-authority drift.
+          - /docker/EA/docs/chummer_operator_safe_packets/SUCCESSOR_HANDOFF_CLOSEOUT.yaml records the closed EA proof boundary, canonical queue and registry authority, and repeat-prevention rule for future shards.
+          - /docker/EA/feedback/2026-04-24-ea-operator-safe-packets-package-closeout.md records the shipped slice, proof commands, and remaining non-EA milestone ownership.
+          - python3 scripts/materialize_next90_m113_operator_safe_packets.py exits 0.
+          - python3 scripts/verify_next90_m113_operator_safe_packets.py exits 0.
+          - python3 tests/test_next90_m113_operator_safe_packets.py exits 0 with ran=6 failed=0.
 
   - id: 114
     title: Rule-environment studio and explain receipts everywhere
@@ -1849,3 +2131,725 @@ milestones:
       - id: 120.5
         owner: chummer6-design
         title: Keep public launch health language precise about live, preview, fallback, fixed, revoked, and blocked posture.
+
+  - id: 121
+    title: Live action economy, source anchors, and GM Runboard
+    wave: W15
+    owners:
+    - chummer6-core
+    - chummer6-ui-kit
+    - chummer6-ui
+    - chummer6-mobile
+    - chummer6-hub
+    - chummer6-design
+    status: not_started
+    dependencies:
+    - 104
+    - 112
+    - 113
+    - 114
+    exit_criteria:
+    - One player and one GM can complete one SR6 combat round with action-budget truth, source anchors, and between-turn affordance
+      receipts visible on promoted surfaces.
+    - The GM Runboard shows initiative, action budgets, condition/effect summaries, scene objectives, heat posture, opposition
+      packet refs, and one-click ResolutionReport handoff without becoming a VTT or second campaign truth source.
+    - Core owns action math and receipts; UI-kit owns reusable primitives; desktop, mobile, and Hub consume package contracts
+      without local rule forks.
+    work_tasks:
+    - id: '121.1'
+      owner: chummer6-core
+      title: Implement ActionBudgetResult, ActionAffordance, TurnLedgerDelta, and source-anchor receipts for the first SR6 combat-round
+        proof.
+    - id: '121.2'
+      owner: chummer6-ui-kit
+      title: Add action-budget bars, condition/effect chips, source-anchor drawers, and Runboard primitives for desktop and
+        mobile consumers.
+    - id: '121.3'
+      owner: chummer6-ui
+      title: Add the desktop GM Runboard route with initiative, action budgets, scene objectives, opposition refs, and ResolutionReport
+        entry.
+    - id: '121.4'
+      owner: chummer6-mobile
+      title: Add player table cards, between-turn affordances, and GM-lite continuity views for live combat confidence.
+    - id: '121.5'
+      owner: chummer6-hub
+      title: Persist session turn-ledger handoff, runboard state, and ResolutionReport draft continuity without owning engine
+        math.
+    - id: '121.6'
+      owner: chummer6-design
+      title: Bind live action economy and GM Runboard proof into journey gates, acceptance language, and no-VTT boundary policy.
+  - id: 122
+    title: Campaign adoption, runner goals, and first BLACK LEDGER consequence
+    wave: W15
+    owners:
+    - chummer6-hub
+    - chummer6-core
+    - chummer6-ui
+    - chummer6-mobile
+    - chummer6-media-factory
+    - chummer6-design
+    status: not_started
+    dependencies:
+    - 107
+    - 112
+    - 113
+    - 121
+    exit_criteria:
+    - An existing table can adopt current campaign state, map runners and crew context, and produce explicit confidence/conflict
+      receipts instead of silent import assumptions.
+    - A runner can pin and update one goal after a reward or downtime event, with campaign and mobile surfaces showing the same
+      goal state and receipt trail.
+    - One GM-approved ResolutionReport creates one WorldTick and one player-safe news item, proving the BLACK LEDGER consequence
+      loop without broad simulation or spoiler drift.
+    work_tasks:
+    - id: '122.1'
+      owner: chummer6-hub
+      title: Implement campaign adoption wizard state, runner-goal persistence, ResolutionReport approval, and first WorldTick/news
+        item flow.
+    - id: '122.2'
+      owner: chummer6-core
+      title: Add deterministic reward, downtime, goal-update, and consequence receipt contracts consumed by adoption and BLACK
+        LEDGER flows.
+    - id: '122.3'
+      owner: chummer6-ui
+      title: Surface campaign adoption, runner goal pins, ResolutionReport closeout, and BLACK LEDGER consequence proof on desktop.
+    - id: '122.4'
+      owner: chummer6-mobile
+      title: Add mobile runner-goal updates and player-safe consequence feed views for campaign return moments.
+    - id: '122.5'
+      owner: chummer6-media-factory
+      title: Render player-safe newsreel and recap preview artifacts from WorldTick receipts without becoming world truth.
+    - id: '122.6'
+      owner: chummer6-design
+      title: Finalize BLACK LEDGER MVP receipt semantics, spoiler policy, and adoption confidence gates in canonical design.
+  - id: 123
+    title: Open Runs and Community Hub table-formation loop
+    wave: W16
+    owners:
+    - chummer6-hub
+    - chummer6-hub-registry
+    - chummer6-ui
+    - chummer6-mobile
+    - chummer6-media-factory
+    - chummer6-design
+    status: not_started
+    dependencies:
+    - 112
+    - 117
+    - 118
+    - 122
+    exit_criteria:
+    - A GM can open a run from a job packet or campaign prep item, accept join requests, form a roster, schedule a session,
+      and hand off to the meeting/session space with Chummer-owned receipts.
+    - Players can discover eligible runs, understand rule-environment and join-policy requirements, request seats with compatible
+      runners, and rejoin or observe according to consent policy.
+    - Run closeout can feed ResolutionReport, world tick, newsreel, reputation, and artifact shelves without Discord, calendar,
+      or VTT providers becoming authority.
+    work_tasks:
+    - id: '123.1'
+      owner: chummer6-hub
+      title: Build OpenRun listing, join request, roster, schedule, meeting-handoff, and closeout orchestration.
+    - id: '123.2'
+      owner: chummer6-hub-registry
+      title: Publish OpenRun visibility, compatibility, schedule, publication, and revocation refs for public and cohort surfaces.
+    - id: '123.3'
+      owner: chummer6-ui
+      title: Add desktop Open Runs and GM open-run creation flows tied to campaign, rule-environment, and artifact truth.
+    - id: '123.4'
+      owner: chummer6-mobile
+      title: Add mobile run discovery, join request, rejoin, observer-consent, and session handoff flows.
+    - id: '123.5'
+      owner: chummer6-media-factory
+      title: Render open-run cards, briefing previews, route/share assets, and post-run newsreel siblings from approved manifests.
+    - id: '123.6'
+      owner: chummer6-design
+      title: Bind Community Hub authority, join policy, provider handoff, and closeout rules into canon and release
+        gates.
+  - id: 124
+    title: Switch companion runtime and bounded table-pulse moments
+    wave: W16
+    owners:
+    - chummer6-core
+    - chummer6-hub
+    - chummer6-ui
+    - chummer6-mobile
+    - executive-assistant
+    - chummer6-media-factory
+    - chummer6-design
+    status: not_started
+    dependencies:
+    - 106
+    - 111
+    - 121
+    - 122
+    exit_criteria:
+    - CompanionPacket trigger truth is emitted by Chummer-owned domains for install/update/support, build/explain, campaign
+      workspace, runboard, restore, publication, and table-pulse moments.
+    - Desktop and mobile render Switch with tone, suppression, fallback templates, evidence drawers, and action chips without
+      requiring a live model call or letting a chatbot own product truth.
+    - EA and media lanes compile optional wording, localization, and rare media packs from packets only; they never create trigger
+      authority or mutate rules, support, release, campaign, or world truth.
+    work_tasks:
+    - id: '124.1'
+      owner: chummer6-core
+      title: Emit Build Lab, rule-environment, explain, and action-economy CompanionPacket trigger truth from deterministic
+        receipts.
+    - id: '124.2'
+      owner: chummer6-hub
+      title: Emit install, update, support, restore, campaign, publication, and public-hub CompanionPacket truth from hosted
+        domains.
+    - id: '124.3'
+      owner: chummer6-ui
+      title: Implement desktop Switch runtime presentation, action chips, evidence drawer, suppression receipts, and offline
+        fallback templates.
+    - id: '124.4'
+      owner: chummer6-mobile
+      title: Implement mobile Switch runtime masks for table, campaign return, recap, and degraded-network contexts.
+    - id: '124.5'
+      owner: executive-assistant
+      title: Compile Switch tone packs, locale variants, annoyance-budget proposals, and packet-based copy without trigger authority.
+    - id: '124.6'
+      owner: chummer6-media-factory
+      title: Render optional Switch audio, preview, and rare scene assets from approved CompanionPacket media eligibility.
+    - id: '124.7'
+      owner: chummer6-design
+      title: Keep persona, trigger registry, packet schema, suppression policy, and bounded voice/table-pulse rules aligned.
+  - id: 125
+    title: Public signal, visibility, and canon-feedback implementation loop
+    wave: W17
+    owners:
+    - chummer6-hub
+    - chummer6-hub-registry
+    - fleet
+    - executive-assistant
+    - chummer6-design
+    status: not_started
+    dependencies:
+    - 106
+    - 111
+    - 120
+    exit_criteria:
+    - ProductLift, Katteb, ClickRank, support, survey, and public-content findings become classified SignalToCanon packets with
+      source, audience, claim-sensitivity, owner, decision, and closeout posture.
+    - Accepted public-site and guide improvements patch Chummer-owned source, metadata config, registry YAML, or article packets
+      before regeneration; generated public output is never the authority.
+    - Fleet can synthesize bounded queue candidates from repeated public-signal clusters while Product Governor and chummer6-design
+      remain the canon decision authority.
+    work_tasks:
+    - id: '125.1'
+      owner: chummer6-hub
+      title: Build public feedback, roadmap, changelog, support, and signal-intake surfaces that emit governed SignalToCanon
+        packets.
+    - id: '125.2'
+      owner: chummer6-hub-registry
+      title: Normalize public metadata, schema, release refs, visibility posture, and crawl-safe route truth for public surfaces.
+    - id: '125.3'
+      owner: fleet
+      title: Add signal-cluster-to-queue synthesis for repeated ProductLift, Katteb, ClickRank, support, and public-guide findings.
+    - id: '125.4'
+      owner: executive-assistant
+      title: Compile weekly public-signal digests, content patch packets, and closeout drafts without owning canon or roadmap
+        status.
+    - id: '125.5'
+      owner: chummer6-design
+      title: Maintain public signal taxonomy, ClickRank/Katteb/ProductLift review gates, and source-truth patch rules.
+  - id: 126
+    title: Horizon handoff gates and bounded research-to-build conversion
+    wave: W17
+    owners:
+    - chummer6-design
+    - fleet
+    - chummer6-core
+    - chummer6-hub
+    - chummer6-ui
+    - chummer6-mobile
+    - chummer6-media-factory
+    status: not_started
+    dependencies:
+    - 114
+    - 115
+    - 123
+    - 124
+    - 125
+    exit_criteria:
+    - Each public-eligible horizon with demand has an owner handoff gate, bounded research packet, executable proof requirement,
+      and explicit rule for when it may become implementation backlog.
+    - NEXUS-PAN, ALICE, KARMA FORGE, Table Pulse, Open Runs, Community Hub, creator/publication, and media horizons cannot be
+      described as shipped until owner proof exists.
+    - Fleet can schedule horizon-conversion slices only when Chummer-owned canon names the repo owner, allowed surfaces, proof
+      gate, public claim posture, and stop condition.
+    work_tasks:
+    - id: '126.1'
+      owner: chummer6-design
+      title: Add horizon handoff gates, build-path promotion criteria, and public-claim stop rules to the horizon registry and
+        guide canon.
+    - id: '126.2'
+      owner: fleet
+      title: Teach the supervisor to stage bounded horizon-conversion queue slices only after owner handoff gates are satisfied.
+    - id: '126.3'
+      owner: chummer6-core
+      title: Define deterministic proof contracts for ALICE, KARMA FORGE, Table Pulse, rule-environment, and simulation-adjacent
+        horizons.
+    - id: '126.4'
+      owner: chummer6-hub
+      title: Define hosted proof contracts for Open Runs, Community Hub, public signal, community, and account-aware horizon
+        conversions.
+    - id: '126.5'
+      owner: chummer6-ui
+      title: Define desktop proof contracts for horizon entry points that must appear in Build, Runboard, publication, and workspace
+        surfaces.
+    - id: '126.6'
+      owner: chummer6-mobile
+      title: Define mobile proof contracts for NEXUS-PAN, table-pulse, reconnect, recap, and travel-cache horizon conversions.
+    - id: '126.7'
+      owner: chummer6-media-factory
+      title: Define media proof contracts for creator press, route artifacts, narrated recap, preview, and bounded video horizons.
+  - id: 127
+    title: Release pipeline, updater, platform acceptance, and public downloads completion
+    wave: W18
+    owners:
+    - chummer6-ui
+    - chummer6-hub-registry
+    - chummer6-hub
+    - fleet
+    - chummer6-design
+    status: not_started
+    dependencies:
+    - 101
+    - 102
+    - 120
+    exit_criteria:
+    - Windows, macOS, and Linux release, installer, auto-update, rollback, revoke, download, proof-shelf, and public channel
+      surfaces compile from one release-truth chain.
+    - Desktop updater and public downloads copy stay consistent about promoted, preview, fallback, fixed, revoked, blocked,
+      and unsupported posture.
+    - Fleet release evidence, platform acceptance, repo hardening, and proof orchestration fail closed when generated status
+      outruns executable proof.
+    work_tasks:
+    - id: '127.1'
+      owner: chummer6-ui
+      title: Complete desktop updater, installer, first-run, rollback, support, and platform proof loops on the primary desktop
+        route.
+    - id: '127.2'
+      owner: chummer6-hub-registry
+      title: Unify release channel, update feed, route truth, revoke, rollback, signing, and compatibility shelf records.
+    - id: '127.3'
+      owner: chummer6-hub
+      title: Keep downloads, install help, account-aware guidance, support recovery, and public release shelf UX bound to registry
+        truth.
+    - id: '127.4'
+      owner: fleet
+      title: Promote platform acceptance, release evidence packs, repo hardening, and external-host proof orchestration into
+        repeatable gates.
+    - id: '127.5'
+      owner: chummer6-design
+      title: Close release-pipeline, desktop-auto-update, public-downloads, repo-hygiene, and release-evidence design coverage.
+  - id: 128
+    title: Localization, accessibility, telemetry, privacy, support, and crash trust completion
+    wave: W18
+    owners:
+    - chummer6-ui-kit
+    - chummer6-ui
+    - chummer6-mobile
+    - chummer6-hub
+    - fleet
+    - chummer6-design
+    status: not_started
+    dependencies:
+    - 105
+    - 106
+    - 111
+    - 121
+    - 124
+    exit_criteria:
+    - Promoted desktop, mobile, Hub, public, support, and artifact surfaces satisfy localization, accessibility, dense-data,
+      telemetry, privacy, retention, and support/crash status contracts.
+    - Telemetry and support signals are privacy-bounded, install-aware, user-visible where appropriate, and useful to product-governor
+      decisions without becoming surveillance or support folklore.
+    - Crash, feedback, fix-available, please-test, recovery, reporter followthrough, and public trust surfaces agree on retention
+      clocks and release/support truth.
+    work_tasks:
+    - id: '128.1'
+      owner: chummer6-ui-kit
+      title: Finish localization-safe, accessibility-safe dense primitives, warning states, focus behavior, and visual-regression
+        catalog coverage.
+    - id: '128.2'
+      owner: chummer6-ui
+      title: Wire desktop localization, telemetry opt-out, crash/feedback intake, support diagnostics, and accessibility proof
+        into promoted workflows.
+    - id: '128.3'
+      owner: chummer6-mobile
+      title: Wire mobile localization, offline/degraded support posture, telemetry opt-out, crash/feedback handoff, and accessibility
+        proof.
+    - id: '128.4'
+      owner: chummer6-hub
+      title: Implement privacy-bounded support, crash, feedback, telemetry rollups, retention clocks, and case-status followthrough.
+    - id: '128.5'
+      owner: fleet
+      title: Add freshness and contradiction monitors for telemetry, privacy, retention, localization, support, and crash proof
+        planes.
+    - id: '128.6'
+      owner: chummer6-design
+      title: Close localization, telemetry, privacy, retention, feedback, crash, support-status, and experience-metrics canon
+        coverage.
+  - id: 129
+    title: Account, identity, channel linking, participation, entitlements, and community ledger completion
+    wave: W19
+    owners:
+    - chummer6-hub
+    - chummer6-hub-registry
+    - chummer6-ui
+    - fleet
+    - executive-assistant
+    - chummer6-design
+    status: not_started
+    dependencies:
+    - 102
+    - 105
+    - 118
+    - 125
+    exit_criteria:
+    - Accounts, profiles, verified email, linked identities, linked channels, groups, memberships, join codes, boost codes,
+      sponsorship, rewards, and entitlements exist as reusable Hub-owned product truth.
+    - Fleet participant/direct burst remains lane-local for auth execution while Hub owns consent, sponsor-session, group, reward,
+      entitlement, and receipt-ingest truth.
+    - Desktop and public surfaces can explain claim, entitlement, participation, reward, channel, and recovery posture without
+      leaking raw provider auth or control-plane internals.
+    work_tasks:
+    - id: '129.1'
+      owner: chummer6-hub
+      title: Build reusable account, profile, group, membership, join-code, boost-code, reward-journal, and entitlement-journal
+        flows.
+    - id: '129.2'
+      owner: chummer6-hub-registry
+      title: Publish entitlement-backed desktop channel, install guidance, participation receipt, and reward-publication refs.
+    - id: '129.3'
+      owner: chummer6-ui
+      title: Surface account, claim, entitlement, channel, participation, and recovery posture inside desktop without browser-only
+        ritual.
+    - id: '129.4'
+      owner: fleet
+      title: Keep participant-lane auth lane-local while emitting signed contribution receipts and sponsor-session execution
+        metadata.
+    - id: '129.5'
+      owner: executive-assistant
+      title: Compile contribution, participation, entitlement, channel, and reward followthrough packets from Hub/Fleet receipts
+        only.
+    - id: '129.6'
+      owner: chummer6-design
+      title: Close public-auth, identity/channel-linking, participation, account-aware front-door, and community-ledger canon
+        coverage.
+  - id: 130
+    title: External tools, LTD provider stewardship, and governed integration adapter completion
+    wave: W19
+    owners:
+    - executive-assistant
+    - fleet
+    - chummer6-hub
+    - chummer6-media-factory
+    - chummer6-core
+    - chummer6-design
+    status: not_started
+    dependencies:
+    - 106
+    - 107
+    - 114
+    - 125
+    exit_criteria:
+    - Every LTD/external tool used by Chummer has an owner, allowed surface, forbidden surface, receipt type, privacy posture,
+      fallback, kill switch, and non-authority boundary.
+    - Provider routing, credit/resource stewardship, public discovery tools, media adapters, text/content tools, survey/interview
+      tools, and automation helpers are useful without becoming product truth.
+    - Core remains deterministic and provider-agnostic; media-factory owns render adapters; Hub owns hosted intake; EA compiles;
+      Fleet schedules and audits provider health.
+    work_tasks:
+    - id: '130.1'
+      owner: executive-assistant
+      title: Maintain LTD capability inventory, provider playbooks, digest workflows, prompt packs, and tool-use receipts without
+        canon authority.
+    - id: '130.2'
+      owner: fleet
+      title: Add provider-health, credit-runway, kill-switch, fallback, and route-stewardship monitors for all governed external
+        tools.
+    - id: '130.3'
+      owner: chummer6-hub
+      title: Implement hosted intake adapters for ProductLift, Deftform, Icanpreneur, surveys, public concierge, and channel
+        handoff without owning provider secrets.
+    - id: '130.4'
+      owner: chummer6-media-factory
+      title: Implement document, preview, image, video, route, archive, and optional assistant-media adapters with manifests
+        and provenance.
+    - id: '130.5'
+      owner: chummer6-core
+      title: Keep deterministic engine APIs provider-agnostic while accepting only approved deterministic inputs and emitting
+        inspectable receipts.
+    - id: '130.6'
+      owner: chummer6-design
+      title: Close external-tools, LTD capability map, provider-route stewardship, and discovery-validation canon coverage.
+  - id: 131
+    title: Public guide, help, FAQ, content export, media briefs, and search visibility completion
+    wave: W19
+    owners:
+    - chummer6-design
+    - chummer6-hub
+    - chummer6-hub-registry
+    - executive-assistant
+    - fleet
+    - chummer6-media-factory
+    status: not_started
+    dependencies:
+    - 107
+    - 111
+    - 120
+    - 125
+    exit_criteria:
+    - Public guide pages, help copy, FAQ, public parts, progress parts, media briefs, video briefs, asset registries, sitemap/crawl
+      policy, and export manifests compile from Chummer-owned source truth.
+    - ClickRank, Katteb, ProductLift, public feedback, and support findings can propose changes, but accepted copy, metadata,
+      schema, media, and guide updates patch source first and regenerate output second.
+    - Public pages never describe horizons, preview heads, support status, rules, releases, or roadmap items as shipped without
+      proof from the release/status/governor chain.
+    work_tasks:
+    - id: '131.1'
+      owner: chummer6-design
+      title: Complete public guide, FAQ, help, part registry, export manifest, media brief, video brief, and visibility source
+        canon.
+    - id: '131.2'
+      owner: chummer6-hub
+      title: Serve public guide, help, feedback, roadmap, changelog, status, downloads, and trust pages from source-backed projections.
+    - id: '131.3'
+      owner: chummer6-hub-registry
+      title: Normalize public page metadata, schema, sitemap, route refs, release refs, and crawl-safe proof shelf records.
+    - id: '131.4'
+      owner: executive-assistant
+      title: Compile Katteb, ClickRank, ProductLift, support, and guide findings into source-patch packets and public closeout
+        drafts.
+    - id: '131.5'
+      owner: fleet
+      title: Verify public-guide regeneration, visibility-source freshness, crawl-budget discipline, and unsupported-claim rejection
+        gates.
+    - id: '131.6'
+      owner: chummer6-media-factory
+      title: Render public guide imagery, share cards, thumbnails, structured video, narrated media, and asset siblings from
+        approved briefs.
+  - id: 132
+    title: 'Deterministic horizon implementation tranche: NEXUS-PAN, ALICE, KARMA FORGE, Knowledge Fabric, and Local Co-Processor'
+    wave: W20
+    owners:
+    - chummer6-core
+    - chummer6-hub
+    - chummer6-hub-registry
+    - chummer6-ui
+    - chummer6-mobile
+    - fleet
+    - chummer6-design
+    status: not_started
+    dependencies:
+    - 114
+    - 115
+    - 126
+    exit_criteria:
+    - NEXUS-PAN, ALICE, KARMA FORGE, Knowledge Fabric, and Local Co-Processor move from horizon storytelling to bounded implementation
+      only through owner handoff gates and executable proof.
+    - Simulation, comparison, house-rule evolution, local acceleration, source anchors, and knowledge-fabric outputs consume
+      deterministic core truth and never invent mechanics or legality.
+    - Desktop, mobile, Hub, registry, and Fleet surfaces can show bounded research/proof status without public shipment drift.
+    work_tasks:
+    - id: '132.1'
+      owner: chummer6-core
+      title: Implement deterministic contracts for NEXUS-PAN replay, ALICE comparisons, KARMA FORGE amend packs, Knowledge Fabric
+        source refs, and Local Co-Processor acceleration.
+    - id: '132.2'
+      owner: chummer6-hub
+      title: Orchestrate hosted research packets, approvals, campaign/account context, and public-signal intake for deterministic
+        horizons.
+    - id: '132.3'
+      owner: chummer6-hub-registry
+      title: Publish horizon proof status, amend-package lineage, compatibility, revocation, and public-claim refs for deterministic
+        horizons.
+    - id: '132.4'
+      owner: chummer6-ui
+      title: Surface ALICE, KARMA FORGE, Knowledge Fabric, and source-anchor horizon entry points on desktop with proof and
+        preview boundaries.
+    - id: '132.5'
+      owner: chummer6-mobile
+      title: Surface NEXUS-PAN reconnect/replay and local co-processor confidence posture on mobile without owning rules truth.
+    - id: '132.6'
+      owner: fleet
+      title: Schedule deterministic horizon slices only after owner handoff gates, proof scopes, and stop conditions are satisfied.
+    - id: '132.7'
+      owner: chummer6-design
+      title: Close deterministic horizon canon, public claim language, owner handoff gates, and build-path promotion criteria.
+  - id: 133
+    title: 'Media and social horizon implementation tranche: JACKPOINT, RUNBOOK PRESS, GHOSTWIRE, RUNSITE, TABLE PULSE, and
+      Community Hub'
+    wave: W21
+    owners:
+    - chummer6-hub
+    - chummer6-hub-registry
+    - chummer6-media-factory
+    - chummer6-ui
+    - chummer6-mobile
+    - executive-assistant
+    - fleet
+    - chummer6-design
+    status: not_started
+    dependencies:
+    - 107
+    - 110
+    - 116
+    - 117
+    - 123
+    - 124
+    - 126
+    exit_criteria:
+    - JACKPOINT, RUNBOOK PRESS, GHOSTWIRE, RUNSITE, TABLE PULSE, and Community Hub become bounded implementation lanes
+      with first-party manifests, consent, provenance, publication, and revocation truth.
+    - Replay/forensics, route/spatial artifacts, creator press, narrated recap, table coaching, public open-run discovery, and
+      artifact studio outputs remain source-backed and inspectable.
+    - Media and EA may enrich artifacts, but Hub/registry/campaign/rules truth remains canonical and player/GM consent is visible.
+    work_tasks:
+    - id: '133.1'
+      owner: chummer6-hub
+      title: Implement hosted orchestration for JACKPOINT artifact studio, RUNBOOK PRESS creator workflows, RUNSITE packs, TABLE
+        PULSE, GHOSTWIRE, and Community Hub surfaces.
+    - id: '133.2'
+      owner: chummer6-hub-registry
+      title: Publish lineage, publication, moderation, route, consent, replay, recap, revocation, and compatibility refs for
+        media/social horizons.
+    - id: '133.3'
+      owner: chummer6-media-factory
+      title: Render route, preview, narrated recap, creator press, table-pulse, replay/forensics, and open-run media artifacts
+        from approved manifests.
+    - id: '133.4'
+      owner: chummer6-ui
+      title: Surface artifact studio, creator press, replay/forensics, route packs, table-pulse, and Community Hub entry points
+        on desktop.
+    - id: '133.5'
+      owner: chummer6-mobile
+      title: Surface mobile travel, route, recap, observer, table-pulse, and Community Hub horizon moments with consent and
+        offline posture.
+    - id: '133.6'
+      owner: executive-assistant
+      title: Compile media/social horizon packets, table-pulse summaries, recap drafts, and creator-publication followthrough
+        from governed truth only.
+    - id: '133.7'
+      owner: fleet
+      title: Monitor media/social horizon proof freshness, consent gates, unsupported public claims, and provider-health stop
+        conditions.
+    - id: '133.8'
+      owner: chummer6-design
+      title: Close media/social horizon canon, artifact manifest rules, table-pulse consent, and public explainer posture.
+  - id: 134
+    title: Source anchors, local rulebook binding, house-rule discovery, and amend-package marketplace completion
+    wave: W20
+    owners:
+    - chummer6-core
+    - chummer6-hub
+    - chummer6-hub-registry
+    - chummer6-ui
+    - executive-assistant
+    - chummer6-design
+    status: not_started
+    dependencies:
+    - 109
+    - 114
+    - 125
+    - 132
+    exit_criteria:
+    - Local source anchors, rulebook binding, house-rule discovery, amend package promotion, rollback, compatibility, marketplace/publication,
+      and explain receipts are one governed rule-environment lane.
+    - House-rule demand can flow through public signal and discovery tools into KARMA FORGE candidates without votes overriding
+      Product Governor or engine legality truth.
+    - Desktop and Hub surfaces show before/after impacts, source refs, compatibility hazards, package conflicts, and rollback
+      receipts before any table adopts a rule change.
+    work_tasks:
+    - id: '134.1'
+      owner: chummer6-core
+      title: Implement source-anchor, local rulebook binding, amend graph, compatibility, rollback, and deterministic explain
+        contracts.
+    - id: '134.2'
+      owner: chummer6-hub
+      title: Build house-rule discovery intake, Product Governor triage, approval, campaign adoption, and rollback orchestration.
+    - id: '134.3'
+      owner: chummer6-hub-registry
+      title: Publish amend-package lineage, compatibility, trust, marketplace, revocation, and adoption refs.
+    - id: '134.4'
+      owner: chummer6-ui
+      title: Surface source anchors, rulebook binding, house-rule impact diffs, conflict warnings, and rollback receipts on
+        desktop.
+    - id: '134.5'
+      owner: executive-assistant
+      title: Compile house-rule demand clusters, interview summaries, amend-package drafts, and closeout packets from governed
+        intake.
+    - id: '134.6'
+      owner: chummer6-design
+      title: Close source-anchor, local-rulebook, house-rule discovery, KARMA FORGE, and amend-package policy canon.
+  - id: 135
+    title: Product backbone, contract sets, ownership matrix, repo hygiene, and final design coverage closeout
+    wave: W22
+    owners:
+    - chummer6-design
+    - fleet
+    - chummer6-core
+    - chummer6-hub
+    - chummer6-hub-registry
+    - chummer6-ui
+    - chummer6-mobile
+    - chummer6-ui-kit
+    - chummer6-media-factory
+    - executive-assistant
+    status: not_started
+    dependencies:
+    - 127
+    - 128
+    - 129
+    - 130
+    - 131
+    - 132
+    - 133
+    - 134
+    exit_criteria:
+    - Every canonical design source family is either implemented, explicitly non-goal/future-only, or represented by a repo-owned
+      executable milestone with queue slice, allowed paths, proof gate, and stop condition.
+    - Product backbone workspace, ownership matrix, contract sets, package boundaries, project scopes, release gates, public
+      promises, horizon posture, and generated proofs agree without hidden super-repos or mirror-only truth.
+    - Fleet can report full-design queued coverage separately from shipped completion and fails closed on missing queue rows,
+      stale mirrors, stale proof, or unsupported public claims.
+    work_tasks:
+    - id: '135.1'
+      owner: chummer6-design
+      title: Materialize a canonical design coverage ledger mapping every source family to implemented, queued, future-only,
+        or non-goal posture.
+    - id: '135.2'
+      owner: fleet
+      title: Add full-design queued-coverage verification, mirror freshness checks, missing-row detection, and status-plane
+        reporting.
+    - id: '135.3'
+      owner: chummer6-core
+      title: Close engine contract-set, package bootstrap, deterministic proof, interop, import/export, and rules-boundary coverage.
+    - id: '135.4'
+      owner: chummer6-hub
+      title: Close hosted bounded-context, campaign, account, support, public, community, and orchestration-boundary coverage.
+    - id: '135.5'
+      owner: chummer6-hub-registry
+      title: Close registry persistence, release-channel, artifact lineage, publication, entitlement, and compatibility-boundary
+        coverage.
+    - id: '135.6'
+      owner: chummer6-ui
+      title: Close desktop workbench, Build Lab, GM Runboard, publication, restore, support, and veteran-familiarity surface
+        coverage.
+    - id: '135.7'
+      owner: chummer6-mobile
+      title: Close mobile play shell, reconnect, replay, travel cache, table cards, recap, and offline/degraded-state coverage.
+    - id: '135.8'
+      owner: chummer6-ui-kit
+      title: Close shared design-system, accessibility, localization, dense-data, state-badge, and visual-regression package
+        coverage.
+    - id: '135.9'
+      owner: chummer6-media-factory
+      title: Close media contracts, render jobs, previews, manifests, archive, provider adapters, and asset lifecycle coverage.
+    - id: '135.10'
+      owner: executive-assistant
+      title: Close EA compile, signal, companion, public copy, operator packet, provider digest, and followthrough coverage
+        without canon authority.

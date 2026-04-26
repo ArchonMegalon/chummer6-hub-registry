@@ -19,6 +19,8 @@ VerifySealedRecord(typeof(ReleaseProofProjection));
 VerifySealedRecord(typeof(ReleaseDesktopRouteTruth));
 VerifySealedRecord(typeof(ReleaseDesktopTupleCoverage));
 VerifySealedRecord(typeof(InstallAwareConciergeArtifactIdentity));
+VerifySealedRecord(typeof(ArtifactFamilyIdentityRegistryRow));
+VerifySealedRecord(typeof(ArtifactPublicationBindingRow));
 VerifySealedRecord(typeof(ReleaseChannelHeadProjection));
 VerifySealedRecord(typeof(DownloadReceiptDto));
 VerifySealedRecord(typeof(InstallClaimTicketDto));
@@ -341,6 +343,46 @@ InstallAwareConciergeArtifactIdentity conciergeArtifactIdentity = new(
         ["publicTrustWrapper"] = "/downloads/install/avalonia-win-x64-installer",
     });
 
+ArtifactFamilyIdentityRegistryRow artifactIdentity = new(
+    RegistryId: "artifact-identity:preview:2026.03.23-preview.1:avalonia:windows:win-x64",
+    ArtifactFamilyId: "artifact-family:avalonia:windows:win-x64",
+    ArtifactId: releaseArtifact.ArtifactId,
+    ChannelId: "preview",
+    ReleaseVersion: "2026.03.23-preview.1",
+    TupleId: routeTruth.TupleId,
+    Head: routeTruth.Head,
+    Platform: routeTruth.Platform,
+    Rid: routeTruth.Rid,
+    Arch: routeTruth.Arch,
+    Kind: releaseArtifact.Kind,
+    PreviewRef: "registry-preview:avalonia-win-x64-installer:avalonia:windows:win-x64",
+    CaptionRef: "registry-caption:preview:2026.03.23-preview.1:avalonia:windows:win-x64",
+    PublicationBindingId: "binding:preview:2026.03.23-preview.1:avalonia:windows:win-x64",
+    SignedInShelfRef: "shelf:signed-in:preview:2026.03.23-preview.1:avalonia-win-x64-installer",
+    PublicShelfRef: "shelf:public:preview:2026.03.23-preview.1:avalonia-win-x64-installer",
+    PublicInstallRoute: routeTruth.PublicInstallRoute);
+
+ArtifactPublicationBindingRow artifactPublicationBinding = new(
+    BindingId: artifactIdentity.PublicationBindingId,
+    ArtifactFamilyId: artifactIdentity.ArtifactFamilyId,
+    ArtifactId: artifactIdentity.ArtifactId,
+    ChannelId: artifactIdentity.ChannelId,
+    ReleaseVersion: artifactIdentity.ReleaseVersion,
+    TupleId: artifactIdentity.TupleId,
+    Head: artifactIdentity.Head,
+    Platform: artifactIdentity.Platform,
+    Rid: artifactIdentity.Rid,
+    Arch: artifactIdentity.Arch,
+    Kind: artifactIdentity.Kind,
+    PublicationScope: "signed-in-and-public",
+    PublicationState: "published",
+    SignedInShelfRef: artifactIdentity.SignedInShelfRef,
+    PublicShelfRef: artifactIdentity.PublicShelfRef,
+    PreviewRef: artifactIdentity.PreviewRef,
+    CaptionRef: artifactIdentity.CaptionRef,
+    PublicInstallRoute: artifactIdentity.PublicInstallRoute,
+    Rationale: "preview keeps tuple avalonia:windows:win-x64 published so signed-in and public shelves cite the same governed refs.");
+
 ReleaseChannelHeadProjection releaseChannel = new(
     Product: "chummer6",
     ChannelId: "preview",
@@ -379,7 +421,9 @@ ReleaseChannelHeadProjection releaseChannel = new(
         ExternalProofRequests: [externalProofRequest],
         MissingRequiredPlatformHeadRidTuples: ["avalonia:linux:linux-x64", "avalonia:macos:osx-arm64"],
         Complete: false),
-    InstallAwareArtifactRegistry: [conciergeArtifactIdentity]);
+    InstallAwareArtifactRegistry: [conciergeArtifactIdentity],
+    ArtifactIdentityRegistry: [artifactIdentity],
+    ArtifactPublicationBindings: [artifactPublicationBinding]);
 
 HubPublicationResult<RuntimeBundleHeadProjection> implemented = HubPublicationResult<RuntimeBundleHeadProjection>.Implemented(head);
 Assert(implemented.IsImplemented, "Implemented result wrappers must report IsImplemented.");
@@ -426,6 +470,18 @@ Assert(retainedConciergeArtifactIdentity.RecoveryProofRefs.Contains(routeTruth.P
     "Install-aware concierge identity must retain recovery proof refs.");
 Assert(retainedConciergeArtifactIdentity.ConciergeAssetRefs.ContainsKey("releaseExplainerPacket"),
     "Install-aware concierge identity must retain reusable release explainer asset refs.");
+ArtifactFamilyIdentityRegistryRow retainedArtifactIdentity = releaseChannel.ArtifactIdentityRegistry?.Single()
+    ?? throw new InvalidOperationException("Release channel projections must retain artifact-family identity registry rows.");
+Assert(string.Equals(retainedArtifactIdentity.ArtifactFamilyId, artifactIdentity.ArtifactFamilyId, StringComparison.Ordinal),
+    "Artifact-family identity rows must retain stable family ids.");
+Assert(string.Equals(retainedArtifactIdentity.PublicationBindingId, artifactPublicationBinding.BindingId, StringComparison.Ordinal),
+    "Artifact-family identity rows must retain the shared publication binding id.");
+ArtifactPublicationBindingRow retainedArtifactPublicationBinding = releaseChannel.ArtifactPublicationBindings?.Single()
+    ?? throw new InvalidOperationException("Release channel projections must retain artifact publication binding rows.");
+Assert(string.Equals(retainedArtifactPublicationBinding.BindingId, artifactIdentity.PublicationBindingId, StringComparison.Ordinal),
+    "Artifact publication binding rows must align with the identity row binding id.");
+Assert(string.Equals(retainedArtifactPublicationBinding.PublicShelfRef, artifactIdentity.PublicShelfRef, StringComparison.Ordinal),
+    "Artifact publication binding rows must retain the governed public shelf ref.");
 ReleaseProofProjection releaseProof = releaseChannel.ReleaseProof
     ?? throw new InvalidOperationException("Release channel projections must retain release-proof payloads.");
 IReadOnlyList<string> journeysPassed = releaseProof.JourneysPassed ?? Array.Empty<string>();
