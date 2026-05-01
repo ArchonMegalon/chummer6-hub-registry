@@ -1,8 +1,8 @@
 {
   "headId": "blazor-desktop",
-  "version": "run-20260420-072339",
-  "releaseVersion": "run-20260420-072339",
-  "channelId": "docker",
+  "version": "run-20260429-233209",
+  "releaseVersion": "run-20260429-233209",
+  "channelId": "preview",
   "platform": "linux",
   "arch": "x64",
   "rid": "linux-x64",
@@ -17,12 +17,12 @@
   "startedAtUtc": "2026-04-20T07:27:06.5202314+00:00",
   "completedAtUtc": "2026-04-20T07:27:06.5221829+00:00",
   "artifactInstallMode": "dpkg_rootless_install",
-  "artifactInstallVerificationPath": "/docker/chummercomplete/chummer-presentation/Docker/Downloads/startup-smoke/install-verification-blazor-desktop-linux-x64.json",
-  "artifactInstallDpkgLogPath": "/docker/chummercomplete/chummer-presentation/Docker/Downloads/startup-smoke/dpkg-blazor-desktop-linux-x64.log",
-  "artifactInstallLaunchCapturePath": "/docker/chummercomplete/chummer-presentation/Docker/Downloads/startup-smoke/installed-launch-blazor-desktop-linux-x64.bin",
-  "artifactInstallWrapperCapturePath": "/docker/chummercomplete/chummer-presentation/Docker/Downloads/startup-smoke/installed-wrapper-blazor-desktop-linux-x64.sh",
-  "artifactInstallDesktopEntryCapturePath": "/docker/chummercomplete/chummer-presentation/Docker/Downloads/startup-smoke/installed-desktop-entry-blazor-desktop-linux-x64.desktop",
-  "artifactPath": "/docker/chummercomplete/chummer-presentation/Docker/Downloads/files/chummer-blazor-desktop-linux-x64-installer.deb",
+  "artifactInstallVerificationPath": "/docker/chummercomplete/chummer.run-services/Chummer.Portal/downloads/startup-smoke/install-verification-blazor-desktop-linux-x64.json",
+  "artifactInstallDpkgLogPath": "/docker/chummercomplete/chummer.run-services/Chummer.Portal/downloads/startup-smoke/dpkg-blazor-desktop-linux-x64.log",
+  "artifactInstallLaunchCapturePath": "/docker/chummercomplete/chummer.run-services/Chummer.Portal/downloads/startup-smoke/installed-launch-blazor-desktop-linux-x64.bin",
+  "artifactInstallWrapperCapturePath": "/docker/chummercomplete/chummer.run-services/Chummer.Portal/downloads/startup-smoke/installed-wrapper-blazor-desktop-linux-x64.sh",
+  "artifactInstallDesktopEntryCapturePath": "/docker/chummercomplete/chummer.run-services/Chummer.Portal/downloads/startup-smoke/installed-desktop-entry-blazor-desktop-linux-x64.desktop",
+  "artifactPath": "/docker/chummercomplete/chummer.run-services/Chummer.Portal/downloads/files/chummer-blazor-desktop-linux-x64-installer.deb",
   "status": "pass",
-  "channel": "docker"
+  "channel": "preview"
 }

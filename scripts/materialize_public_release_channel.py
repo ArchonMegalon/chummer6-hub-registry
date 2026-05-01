@@ -2388,6 +2388,18 @@ def desktop_tuple_coverage(
     }
 
 
+def derive_required_desktop_platforms(artifacts: list[dict[str, Any]]) -> list[str]:
+    promoted_platforms = {
+        normalized_token(item.get("platform"))
+        for item in artifacts
+        if isinstance(item, dict)
+        and is_desktop_install_media(normalized_token(item.get("platform")), item.get("kind"))
+        and not desktop_route_artifact_is_revoked(item)
+    }
+    ordered = [platform for platform in DEFAULT_REQUIRED_DESKTOP_PLATFORMS if platform in promoted_platforms]
+    return ordered or list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS)
+
+
 def desktop_tuple_coverage_is_complete(coverage: dict[str, Any] | None) -> bool:
     if not isinstance(coverage, dict):
         return False
@@ -3020,10 +3032,23 @@ def normalize_release_channel_posture(
         desktop_coverage_complete=desktop_coverage_complete,
     )
 
-    # Older source payloads may still carry the pre-normalized local docker posture
-    # even after the shelf becomes a complete, published promoted preview. Keep
-    # explicit blocking states like paused/revoked, but normalize the stale local
-    # aliases so downstream executable gates read the canonical promoted posture.
+    # Older source payloads may still carry stale tuple-coverage or pre-normalized
+    # local docker postures even after the shelf becomes a complete, published
+    # promoted preview. Keep explicit blocking states like paused/revoked, but
+    # normalize stale aliases so downstream executable gates read the canonical
+    # promoted posture.
+    if (
+        status == "published"
+        and desktop_coverage_complete
+        and rollout_state == "coverage_incomplete"
+    ):
+        rollout_state = derived_rollout_state
+    if (
+        status == "published"
+        and desktop_coverage_complete
+        and supportability_state == "review_required"
+    ):
+        supportability_state = derived_supportability_state
     if (
         status == "published"
         and desktop_coverage_complete
@@ -3066,6 +3091,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         args.downloads_dir,
         downloads_prefix=args.downloads_prefix,
     )
+    required_platforms = derive_required_desktop_platforms(artifacts)
     startup_smoke_receipts: list[dict[str, str]] | None
     if args.startup_smoke_dir is not None and not args.skip_startup_smoke_filter:
         startup_smoke_receipts = load_startup_smoke_receipts(
@@ -3170,7 +3196,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     tuple_coverage = desktop_tuple_coverage(
         artifacts,
         required_heads=required_heads,
-        required_platforms=list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS),
+        required_platforms=required_platforms,
         channel_id=channel,
         release_version=version,
         channel_status=status,

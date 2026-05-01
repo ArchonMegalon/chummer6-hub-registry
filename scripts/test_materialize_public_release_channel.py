@@ -103,6 +103,17 @@ def test_normalize_release_channel_posture_upgrades_stale_local_docker_states() 
     ) == ("promoted_preview", "preview_supported")
 
 
+def test_normalize_release_channel_posture_upgrades_stale_coverage_states() -> None:
+    assert MODULE.normalize_release_channel_posture(
+        "coverage_incomplete",
+        "review_required",
+        channel="preview",
+        status="published",
+        proof={"status": "passed"},
+        desktop_coverage_complete=True,
+    ) == ("promoted_preview", "preview_supported")
+
+
 def test_desktop_tuple_coverage_incomplete_when_only_rid_tuple_is_missing() -> None:
     coverage = {
         "missingRequiredPlatforms": [],
@@ -130,6 +141,29 @@ def test_desktop_tuple_coverage_gap_summary_reports_missing_rid_tuples() -> None
         "required desktop tuple coverage is incomplete (tuples: "
         "avalonia:osx-arm64:macos, blazor-desktop:win-x64:windows)"
     )
+
+
+def test_derive_required_desktop_platforms_tracks_published_installers_only() -> None:
+    artifacts = [
+        {
+            "artifactId": "avalonia-win-x64-installer",
+            "head": "avalonia",
+            "rid": "win-x64",
+            "platform": "windows",
+            "arch": "x64",
+            "kind": "installer",
+        },
+        {
+            "artifactId": "avalonia-win-x64-archive",
+            "head": "avalonia",
+            "rid": "win-x64",
+            "platform": "windows",
+            "arch": "x64",
+            "kind": "archive",
+        },
+    ]
+
+    assert MODULE.derive_required_desktop_platforms(artifacts) == ["windows"]
 
 
 def test_load_startup_smoke_receipts_rejects_future_dated_receipts_beyond_skew() -> None:

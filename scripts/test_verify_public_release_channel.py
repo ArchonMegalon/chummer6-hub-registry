@@ -4,6 +4,7 @@ import hashlib
 import inspect
 import importlib.util
 import json
+import os
 import re
 import tempfile
 from contextlib import contextmanager
@@ -129,6 +130,26 @@ def complete_primary_desktop_tuple_payload() -> dict:
     }
 
 
+def windows_only_primary_desktop_tuple_payload() -> dict:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["desktopTupleCoverage"]["requiredDesktopPlatforms"] = ["windows"]
+    payload["desktopTupleCoverage"]["promotedInstallerTuples"] = [
+        item for item in payload["desktopTupleCoverage"]["promotedInstallerTuples"] if item["platform"] == "windows"
+    ]
+    payload["desktopTupleCoverage"]["promotedPlatformHeads"] = {"windows": ["avalonia"]}
+    payload["desktopTupleCoverage"]["requiredDesktopPlatformHeadRidTuples"] = ["avalonia:win-x64:windows"]
+    payload["desktopTupleCoverage"]["promotedPlatformHeadRidTuples"] = ["avalonia:win-x64:windows"]
+    payload["desktopTupleCoverage"]["missingRequiredPlatforms"] = []
+    payload["desktopTupleCoverage"]["missingRequiredHeads"] = []
+    payload["desktopTupleCoverage"]["missingRequiredPlatformHeadPairs"] = []
+    payload["desktopTupleCoverage"]["missingRequiredPlatformHeadRidTuples"] = []
+    payload["desktopTupleCoverage"]["externalProofRequests"] = []
+    payload["desktopTupleCoverage"]["complete"] = True
+    payload["artifacts"] = [item for item in payload["artifacts"] if item["platform"] == "windows"]
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = MODULE.expected_desktop_route_truth_rows(payload)
+    return payload
+
+
 def add_install_aware_route_truth(payload: dict) -> None:
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = [
         {
@@ -154,6 +175,33 @@ def test_verify_contract_identity_rejects_noncanonical_contract_name() -> None:
             },
             "fixture payload",
         )
+
+
+def test_load_payload_uses_run_services_downloads_root_for_registry_published_manifest() -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        registry_manifest = temp_root / "docker" / "chummercomplete" / "chummer-hub-registry" / ".codex-studio" / "published" / "RELEASE_CHANNEL.generated.json"
+        registry_manifest.parent.mkdir(parents=True, exist_ok=True)
+        registry_manifest.write_text("{}", encoding="utf-8")
+
+        run_services_root = temp_root / "run-services"
+        downloads_root = run_services_root / "Chummer.Portal" / "downloads"
+        downloads_root.mkdir(parents=True, exist_ok=True)
+        (downloads_root / "RELEASE_CHANNEL.generated.json").write_text("{}", encoding="utf-8")
+
+        previous = os.environ.get("CHUMMER_RUN_SERVICES_ROOT")
+        os.environ["CHUMMER_RUN_SERVICES_ROOT"] = str(run_services_root)
+        try:
+            payload, source, local_root = MODULE.load_payload(str(registry_manifest))
+        finally:
+            if previous is None:
+                os.environ.pop("CHUMMER_RUN_SERVICES_ROOT", None)
+            else:
+                os.environ["CHUMMER_RUN_SERVICES_ROOT"] = previous
+
+        assert payload == {}
+        assert source == str(registry_manifest)
+        assert local_root == downloads_root
 
 
 def add_promoted_linux_fallback_tuple(payload: dict) -> None:
@@ -238,6 +286,15 @@ def test_verify_required_desktop_heads_rejects_unexpected_extra_head() -> None:
 def test_verify_required_desktop_heads_rejects_order_drift() -> None:
     with pytest.raises(SystemExit, match="requiredDesktopHeads must be exactly canonical heads"):
         MODULE.verify_required_desktop_heads(["blazor-desktop", "avalonia"], "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_accepts_windows_only_published_primary_route() -> None:
+    payload = windows_only_primary_desktop_tuple_payload()
+
+    coverage = MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+    assert coverage["missing_platforms"] == []
+    assert coverage["missing_platform_head_rid_tuples"] == []
 
 
 def test_verify_desktop_tuple_coverage_complete_flag_rejects_mismatch() -> None:

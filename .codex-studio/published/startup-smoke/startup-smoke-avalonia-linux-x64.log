@@ -1,0 +1,18 @@
+dpkg: warning: 'ldconfig' not found in PATH or not executable
+dpkg: warning: 'start-stop-daemon' not found in PATH or not executable
+dpkg: warning: overriding problem because --force enabled:
+dpkg: warning: 2 expected programs not found in PATH or not executable
+Note: root's PATH should usually contain /usr/local/sbin, /usr/sbin and /sbin
+Selecting previously unselected package chummer6-avalonia.
+(Reading database ... 64726 files and directories currently installed.)
+Preparing to unpack .../chummer-avalonia-linux-x64-installer.deb ...
+Unpacking chummer6-avalonia (0~local-docker) ...
+Setting up chummer6-avalonia (0~local-docker) ...
+startup smoke ready: head=avalonia platform=linux arch=x64 checkpoint=pre_ui_event_loop
+dpkg: warning: 'ldconfig' not found in PATH or not executable
+dpkg: warning: 'start-stop-daemon' not found in PATH or not executable
+dpkg: warning: overriding problem because --force enabled:
+dpkg: warning: 2 expected programs not found in PATH or not executable
+Note: root's PATH should usually contain /usr/local/sbin, /usr/sbin and /sbin
+(Reading database ... 64753 files and directories currently installed.)
+Removing chummer6-avalonia (0~local-docker) ...

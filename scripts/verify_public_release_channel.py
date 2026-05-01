@@ -571,6 +571,27 @@ def open_json_url(raw_target: str) -> dict:
         return open_json_url_via_urllib(raw_target)
 
 
+def resolve_authoritative_local_root(path: Path) -> Path | None:
+    if path.name not in {"RELEASE_CHANNEL.generated.json", "releases.json"}:
+        return None
+    normalized_parts = {part.lower() for part in path.parts}
+    if "chummer-hub-registry" not in normalized_parts:
+        return None
+    if ".codex-studio" not in normalized_parts or "published" not in normalized_parts:
+        return None
+    configured_root = str(os.environ.get("CHUMMER_RUN_SERVICES_ROOT") or "").strip()
+    if not configured_root:
+        return None
+    run_services_root = Path(configured_root).expanduser()
+    if not run_services_root.is_dir():
+        return None
+    downloads_root = run_services_root / "Chummer.Portal" / "downloads"
+    manifest_candidate = downloads_root / path.name
+    if not downloads_root.is_dir() or not manifest_candidate.is_file():
+        return None
+    return downloads_root
+
+
 def load_payload(raw_target: str) -> tuple[dict, str, Path | None]:
     if raw_target.startswith(("http://", "https://")):
         return open_json_url(raw_target), raw_target, None
@@ -584,7 +605,8 @@ def load_payload(raw_target: str) -> tuple[dict, str, Path | None]:
         return json.loads(path.read_text(encoding="utf-8")), str(path), root
     if not path.exists():
         raise SystemExit(f"Manifest file not found: {path}")
-    return json.loads(path.read_text(encoding="utf-8")), str(path), path.parent
+    local_root = resolve_authoritative_local_root(path) or path.parent
+    return json.loads(path.read_text(encoding="utf-8")), str(path), local_root
 
 
 def manifest_file_names(payload: dict) -> set[str]:
@@ -1541,16 +1563,27 @@ def verify_primary_rollback_matches_fallback_route_truth(
 
 def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
     promoted_by_platform_head_rid: dict[tuple[str, str, str], dict[str, Any]] = {}
+    coverage = payload.get("desktopTupleCoverage") if isinstance(payload, dict) else None
+    configured_required_platforms = (
+        coverage.get("requiredDesktopPlatforms") if isinstance(coverage, dict) else None
+    )
+    required_platforms = [
+        platform
+        for platform in REQUIRED_DESKTOP_PLATFORMS
+        if isinstance(configured_required_platforms, list) and platform in configured_required_platforms
+    ]
+    if not required_platforms:
+        required_platforms = list(REQUIRED_DESKTOP_PLATFORMS)
     required_rids_by_platform: dict[str, set[str]] = {
         platform: set(DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS.get(platform, ()))
-        for platform in REQUIRED_DESKTOP_PLATFORMS
+        for platform in required_platforms
     }
     for artifact in iter_manifest_download_entries(payload):
         if not isinstance(artifact, dict):
             continue
         head, platform, rid, kind = parse_manifest_tuple_fields(artifact)
         if (
-            platform not in REQUIRED_DESKTOP_PLATFORMS
+            platform not in required_platforms
             or head not in DESKTOP_ROUTE_TRUTH_HEADS
             or not rid
             or not is_desktop_install_media(platform, kind)
@@ -1562,7 +1595,7 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
             promoted_by_platform_head_rid[(platform, head, rid)] = artifact
 
     rows: list[dict[str, str]] = []
-    for platform in REQUIRED_DESKTOP_PLATFORMS:
+    for platform in required_platforms:
         for rid in sorted(required_rids_by_platform.get(platform, set())):
             for head in DESKTOP_ROUTE_TRUTH_HEADS:
                 artifact = promoted_by_platform_head_rid.get((platform, head, rid))
@@ -1942,9 +1975,29 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
 
     normalized_required_platforms = [normalized_token(item) for item in required_platforms if normalized_token(item)]
     normalized_required_heads = [normalized_token(item) for item in required_heads if normalized_token(item)]
-    if normalized_required_platforms != list(REQUIRED_DESKTOP_PLATFORMS):
+    if not normalized_required_platforms:
         raise SystemExit(
-            f"{source} desktopTupleCoverage.requiredDesktopPlatforms must be exactly {list(REQUIRED_DESKTOP_PLATFORMS)}"
+            f"{source} desktopTupleCoverage.requiredDesktopPlatforms must include at least one published desktop platform"
+        )
+    if len(set(normalized_required_platforms)) != len(normalized_required_platforms):
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.requiredDesktopPlatforms must not contain duplicate platform ids"
+        )
+    unexpected_required_platforms = [
+        platform for platform in normalized_required_platforms if platform not in REQUIRED_DESKTOP_PLATFORMS
+    ]
+    if unexpected_required_platforms:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.requiredDesktopPlatforms contains unsupported platform ids "
+            f"{unexpected_required_platforms}; allowed platforms are {list(REQUIRED_DESKTOP_PLATFORMS)}"
+        )
+    canonical_required_platform_order = [
+        platform for platform in REQUIRED_DESKTOP_PLATFORMS if platform in normalized_required_platforms
+    ]
+    if normalized_required_platforms != canonical_required_platform_order:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.requiredDesktopPlatforms must preserve canonical platform order "
+            f"{canonical_required_platform_order}"
         )
     verify_required_desktop_heads(normalized_required_heads, source)
     normalized_channel_id = expected_channel_id(payload)
@@ -1963,12 +2016,12 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
 
     expected_promoted_tuples: list[str] = []
     expected_promoted_tuple_rows: list[dict[str, str]] = []
-    expected_promoted_platform_heads: dict[str, set[str]] = {platform: set() for platform in REQUIRED_DESKTOP_PLATFORMS}
+    expected_promoted_platform_heads: dict[str, set[str]] = {platform: set() for platform in normalized_required_platforms}
     for artifact in iter_manifest_download_entries(payload):
         if not isinstance(artifact, dict):
             continue
         head, platform, rid, kind = parse_manifest_tuple_fields(artifact)
-        if platform not in REQUIRED_DESKTOP_PLATFORMS:
+        if platform not in normalized_required_platforms:
             continue
         if not is_desktop_install_media(platform, kind):
             continue
@@ -2047,7 +2100,16 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         )
 
     normalized_promoted_platform_heads: dict[str, list[str]] = {}
-    for platform in REQUIRED_DESKTOP_PLATFORMS:
+    unexpected_promoted_platform_head_keys = sorted(
+        key for key in promoted_platform_heads.keys() if normalized_platform_token(key) not in normalized_required_platforms
+    )
+    if unexpected_promoted_platform_head_keys:
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.promotedPlatformHeads contains unexpected platform keys "
+            f"{unexpected_promoted_platform_head_keys}"
+        )
+
+    for platform in normalized_required_platforms:
         reported_heads = promoted_platform_heads.get(platform)
         if not isinstance(reported_heads, list) or not all(isinstance(item, str) for item in reported_heads):
             raise SystemExit(
@@ -2062,7 +2124,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
             )
 
     expected_missing_platforms = sorted(
-        platform for platform in REQUIRED_DESKTOP_PLATFORMS if not expected_promoted_platform_heads[platform]
+        platform for platform in normalized_required_platforms if not expected_promoted_platform_heads[platform]
     )
     normalized_missing_platforms = sorted(normalized_string_list(missing_platforms))
     if normalized_missing_platforms != expected_missing_platforms:
@@ -2080,7 +2142,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
 
     expected_missing_pairs = sorted(
         f"{head}:{platform}"
-        for platform in REQUIRED_DESKTOP_PLATFORMS
+        for platform in normalized_required_platforms
         for head in normalized_required_heads
         if head not in expected_promoted_platform_heads[platform]
     )
@@ -2096,7 +2158,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
             if row.get("head") and row.get("rid") and row.get("platform")
         }
     )
-    expected_promoted_rids_by_platform: dict[str, set[str]] = {platform: set() for platform in REQUIRED_DESKTOP_PLATFORMS}
+    expected_promoted_rids_by_platform: dict[str, set[str]] = {platform: set() for platform in normalized_required_platforms}
     for tuple_id in expected_promoted_platform_head_rid_tuples:
         head_token, rid_token, platform_token = tuple_id.split(":", 2)
         if head_token and rid_token and platform_token in expected_promoted_rids_by_platform:
@@ -2104,7 +2166,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
     expected_required_platform_head_rid_tuples = sorted(
         {
             f"{head}:{rid}:{platform}"
-            for platform in REQUIRED_DESKTOP_PLATFORMS
+            for platform in normalized_required_platforms
             for head in normalized_required_heads
             for rid in (
                 list(DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS.get(platform, ()))
@@ -2501,7 +2563,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
             f"{source} desktopTupleCoverage.desktopRouteTruth does not match canonical promotion/fallback route truth"
         )
     return {
-        "required_platforms": list(REQUIRED_DESKTOP_PLATFORMS),
+        "required_platforms": normalized_required_platforms,
         "required_heads": normalized_required_heads,
         "missing_platforms": normalized_missing_platforms,
         "missing_heads": normalized_missing_heads,
