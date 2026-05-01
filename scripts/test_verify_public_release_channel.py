@@ -177,6 +177,10 @@ def test_verify_contract_identity_rejects_noncanonical_contract_name() -> None:
         )
 
 
+def test_startup_smoke_channel_matches_expected_accepts_preview_receipt_for_docker_channel() -> None:
+    assert MODULE.startup_smoke_channel_matches_expected("docker", "preview") is True
+
+
 def test_load_payload_uses_run_services_downloads_root_for_registry_published_manifest() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = Path(temp_dir)
@@ -197,6 +201,31 @@ def test_load_payload_uses_run_services_downloads_root_for_registry_published_ma
             if previous is None:
                 os.environ.pop("CHUMMER_RUN_SERVICES_ROOT", None)
             else:
+                os.environ["CHUMMER_RUN_SERVICES_ROOT"] = previous
+
+        assert payload == {}
+        assert source == str(registry_manifest)
+        assert local_root == downloads_root
+
+
+def test_load_payload_auto_detects_sibling_run_services_root_for_registry_published_manifest() -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        complete_root = temp_root / "docker" / "chummercomplete"
+        registry_manifest = complete_root / "chummer-hub-registry" / ".codex-studio" / "published" / "RELEASE_CHANNEL.generated.json"
+        registry_manifest.parent.mkdir(parents=True, exist_ok=True)
+        registry_manifest.write_text("{}", encoding="utf-8")
+
+        downloads_root = complete_root / "chummer.run-services" / "Chummer.Portal" / "downloads"
+        downloads_root.mkdir(parents=True, exist_ok=True)
+        (downloads_root / "RELEASE_CHANNEL.generated.json").write_text("{}", encoding="utf-8")
+
+        previous = os.environ.get("CHUMMER_RUN_SERVICES_ROOT")
+        os.environ.pop("CHUMMER_RUN_SERVICES_ROOT", None)
+        try:
+            payload, source, local_root = MODULE.load_payload(str(registry_manifest))
+        finally:
+            if previous is not None:
                 os.environ["CHUMMER_RUN_SERVICES_ROOT"] = previous
 
         assert payload == {}

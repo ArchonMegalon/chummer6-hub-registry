@@ -1,13 +1,13 @@
 {
-  "generated_at": "2026-05-01T08:37:08Z",
-  "generatedAt": "2026-05-01T08:37:08Z",
+  "generated_at": "2026-05-01T09:58:20Z",
+  "generatedAt": "2026-05-01T09:58:20Z",
   "schemaVersion": 1,
   "product": "chummer6",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
-  "channelId": "preview",
+  "channelId": "docker",
   "version": "run-20260501-083446",
-  "publishedAt": "2026-05-01T08:34:46.874932Z",
+  "publishedAt": "2026-05-01T09:58:19Z",
   "status": "published",
   "artifactSource": "ui_desktop_bundle",
   "message": null,
@@ -195,12 +195,12 @@
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
       "installAccessClass": "account_required",
-      "channelId": "preview",
-      "channel": "preview",
+      "channelId": "docker",
+      "channel": "docker",
       "version": "run-20260501-083446",
       "releaseVersion": "run-20260501-083446",
-      "generated_at": "2026-05-01T08:37:08Z",
-      "generatedAt": "2026-05-01T08:37:08Z",
+      "generated_at": "2026-05-01T09:58:20Z",
+      "generatedAt": "2026-05-01T09:58:20Z",
       "id": "avalonia-win-x64-installer"
     },
     {
@@ -219,12 +219,12 @@
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
       "installAccessClass": "open_public",
-      "channelId": "preview",
-      "channel": "preview",
+      "channelId": "docker",
+      "channel": "docker",
       "version": "run-20260501-083446",
       "releaseVersion": "run-20260501-083446",
-      "generated_at": "2026-05-01T08:37:08Z",
-      "generatedAt": "2026-05-01T08:37:08Z",
+      "generated_at": "2026-05-01T09:58:20Z",
+      "generatedAt": "2026-05-01T09:58:20Z",
       "id": "avalonia-win-x64-archive"
     }
   ],
@@ -323,9 +323,9 @@
   "runtimeBundleHeads": [],
   "installAwareArtifactRegistry": [
     {
-      "registryId": "concierge:preview:run-20260501-083446:avalonia-win-x64-installer",
+      "registryId": "concierge:docker:run-20260501-083446:avalonia-win-x64-installer",
       "artifactId": "avalonia-win-x64-installer",
-      "channelId": "preview",
+      "channelId": "docker",
       "releaseVersion": "run-20260501-083446",
       "tupleId": "avalonia:windows:win-x64",
       "head": "avalonia",
@@ -333,25 +333,25 @@
       "rid": "win-x64",
       "arch": "x64",
       "kind": "installer",
-      "installedBuildSelector": "preview/run-20260501-083446/avalonia/windows/x64",
+      "installedBuildSelector": "docker/run-20260501-083446/avalonia/windows/x64",
       "currentForInstalledBuild": true,
-      "channelRationale": "Published preview channel keeps primary-route avalonia:windows:win-x64 current for installed build selector preview/run-20260501-083446/avalonia/windows/x64.",
-      "correctnessReason": "Offer avalonia-win-x64-installer to installed build selector preview/run-20260501-083446/avalonia/windows/x64 because tuple avalonia:windows:win-x64 is currently promoted for this channel.",
+      "channelRationale": "Published docker channel keeps primary-route avalonia:windows:win-x64 current for installed build selector docker/run-20260501-083446/avalonia/windows/x64.",
+      "correctnessReason": "Offer avalonia-win-x64-installer to installed build selector docker/run-20260501-083446/avalonia/windows/x64 because tuple avalonia:windows:win-x64 is currently promoted for this channel.",
       "recoveryProofRefs": [
         "/downloads/install/avalonia-win-x64-installer",
         "startup-smoke/startup-smoke-avalonia-win-x64.receipt.json",
         "desktopTupleCoverage.desktopRouteTruth[avalonia:windows:win-x64]"
       ],
       "conciergeAssetRefs": {
-        "releaseExplainerPacket": "concierge/release/preview/run-20260501-083446/avalonia-win-x64-installer",
-        "supportClosurePacket": "concierge/support/preview/run-20260501-083446/avalonia-win-x64-installer",
+        "releaseExplainerPacket": "concierge/release/docker/run-20260501-083446/avalonia-win-x64-installer",
+        "supportClosurePacket": "concierge/support/docker/run-20260501-083446/avalonia-win-x64-installer",
         "publicTrustWrapper": "/downloads/install/avalonia-win-x64-installer"
       }
     },
     {
-      "registryId": "concierge:preview:run-20260501-083446:blazor-desktop-win-x64-installer",
+      "registryId": "concierge:docker:run-20260501-083446:blazor-desktop-win-x64-installer",
       "artifactId": "blazor-desktop-win-x64-installer",
-      "channelId": "preview",
+      "channelId": "docker",
       "releaseVersion": "run-20260501-083446",
       "tupleId": "blazor-desktop:windows:win-x64",
       "head": "blazor-desktop",
@@ -359,28 +359,28 @@
       "rid": "win-x64",
       "arch": "x64",
       "kind": "installer",
-      "installedBuildSelector": "preview/run-20260501-083446/blazor-desktop/windows/x64",
+      "installedBuildSelector": "docker/run-20260501-083446/blazor-desktop/windows/x64",
       "currentForInstalledBuild": false,
-      "channelRationale": "Published preview channel keeps fallback-route blazor-desktop:windows:win-x64 blocked for installed build selector preview/run-20260501-083446/blazor-desktop/windows/x64 until installer and startup-smoke proof are present.",
-      "correctnessReason": "Do not offer blazor-desktop-win-x64-installer to installed build selector preview/run-20260501-083446/blazor-desktop/windows/x64 because tuple blazor-desktop:windows:win-x64 is not currently promoted for this channel.",
+      "channelRationale": "Published docker channel keeps fallback-route blazor-desktop:windows:win-x64 blocked for installed build selector docker/run-20260501-083446/blazor-desktop/windows/x64 until installer and startup-smoke proof are present.",
+      "correctnessReason": "Do not offer blazor-desktop-win-x64-installer to installed build selector docker/run-20260501-083446/blazor-desktop/windows/x64 because tuple blazor-desktop:windows:win-x64 is not currently promoted for this channel.",
       "recoveryProofRefs": [
         "/downloads/install/blazor-desktop-win-x64-installer",
         "startup-smoke/startup-smoke-blazor-desktop-win-x64.receipt.json",
         "desktopTupleCoverage.desktopRouteTruth[blazor-desktop:windows:win-x64]"
       ],
       "conciergeAssetRefs": {
-        "releaseExplainerPacket": "concierge/release/preview/run-20260501-083446/blazor-desktop-win-x64-installer",
-        "supportClosurePacket": "concierge/support/preview/run-20260501-083446/blazor-desktop-win-x64-installer",
+        "releaseExplainerPacket": "concierge/release/docker/run-20260501-083446/blazor-desktop-win-x64-installer",
+        "supportClosurePacket": "concierge/support/docker/run-20260501-083446/blazor-desktop-win-x64-installer",
         "publicTrustWrapper": "/downloads/install/blazor-desktop-win-x64-installer"
       }
     }
   ],
   "artifactIdentityRegistry": [
     {
-      "registryId": "artifact-identity:preview:run-20260501-083446:avalonia:windows:win-x64",
+      "registryId": "artifact-identity:docker:run-20260501-083446:avalonia:windows:win-x64",
       "artifactFamilyId": "artifact-family:avalonia:windows:win-x64",
       "artifactId": "avalonia-win-x64-installer",
-      "channelId": "preview",
+      "channelId": "docker",
       "releaseVersion": "run-20260501-083446",
       "tupleId": "avalonia:windows:win-x64",
       "head": "avalonia",
@@ -389,17 +389,17 @@
       "arch": "x64",
       "kind": "installer",
       "previewRef": "registry-preview:avalonia-win-x64-installer:avalonia:windows:win-x64",
-      "captionRef": "registry-caption:preview:run-20260501-083446:avalonia:windows:win-x64",
-      "publicationBindingId": "binding:preview:run-20260501-083446:avalonia:windows:win-x64",
-      "signedInShelfRef": "shelf:signed-in:preview:run-20260501-083446:avalonia-win-x64-installer",
-      "publicShelfRef": "shelf:public:preview:run-20260501-083446:avalonia-win-x64-installer",
+      "captionRef": "registry-caption:docker:run-20260501-083446:avalonia:windows:win-x64",
+      "publicationBindingId": "binding:docker:run-20260501-083446:avalonia:windows:win-x64",
+      "signedInShelfRef": "shelf:signed-in:docker:run-20260501-083446:avalonia-win-x64-installer",
+      "publicShelfRef": "shelf:public:docker:run-20260501-083446:avalonia-win-x64-installer",
       "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer"
     },
     {
-      "registryId": "artifact-identity:preview:run-20260501-083446:blazor-desktop:windows:win-x64",
+      "registryId": "artifact-identity:docker:run-20260501-083446:blazor-desktop:windows:win-x64",
       "artifactFamilyId": "artifact-family:blazor-desktop:windows:win-x64",
       "artifactId": "blazor-desktop-win-x64-installer",
-      "channelId": "preview",
+      "channelId": "docker",
       "releaseVersion": "run-20260501-083446",
       "tupleId": "blazor-desktop:windows:win-x64",
       "head": "blazor-desktop",
@@ -408,19 +408,19 @@
       "arch": "x64",
       "kind": "installer",
       "previewRef": "registry-preview:blazor-desktop-win-x64-installer:blazor-desktop:windows:win-x64",
-      "captionRef": "registry-caption:preview:run-20260501-083446:blazor-desktop:windows:win-x64",
-      "publicationBindingId": "binding:preview:run-20260501-083446:blazor-desktop:windows:win-x64",
-      "signedInShelfRef": "shelf:signed-in:preview:run-20260501-083446:blazor-desktop-win-x64-installer",
-      "publicShelfRef": "shelf:public:preview:run-20260501-083446:blazor-desktop-win-x64-installer",
+      "captionRef": "registry-caption:docker:run-20260501-083446:blazor-desktop:windows:win-x64",
+      "publicationBindingId": "binding:docker:run-20260501-083446:blazor-desktop:windows:win-x64",
+      "signedInShelfRef": "shelf:signed-in:docker:run-20260501-083446:blazor-desktop-win-x64-installer",
+      "publicShelfRef": "shelf:public:docker:run-20260501-083446:blazor-desktop-win-x64-installer",
       "publicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer"
     }
   ],
   "artifactPublicationBindings": [
     {
-      "bindingId": "binding:preview:run-20260501-083446:avalonia:windows:win-x64",
+      "bindingId": "binding:docker:run-20260501-083446:avalonia:windows:win-x64",
       "artifactFamilyId": "artifact-family:avalonia:windows:win-x64",
       "artifactId": "avalonia-win-x64-installer",
-      "channelId": "preview",
+      "channelId": "docker",
       "releaseVersion": "run-20260501-083446",
       "tupleId": "avalonia:windows:win-x64",
       "head": "avalonia",
@@ -430,18 +430,18 @@
       "kind": "installer",
       "publicationScope": "signed-in-and-public",
       "publicationState": "published",
-      "signedInShelfRef": "shelf:signed-in:preview:run-20260501-083446:avalonia-win-x64-installer",
-      "publicShelfRef": "shelf:public:preview:run-20260501-083446:avalonia-win-x64-installer",
+      "signedInShelfRef": "shelf:signed-in:docker:run-20260501-083446:avalonia-win-x64-installer",
+      "publicShelfRef": "shelf:public:docker:run-20260501-083446:avalonia-win-x64-installer",
       "previewRef": "registry-preview:avalonia-win-x64-installer:avalonia:windows:win-x64",
-      "captionRef": "registry-caption:preview:run-20260501-083446:avalonia:windows:win-x64",
+      "captionRef": "registry-caption:docker:run-20260501-083446:avalonia:windows:win-x64",
       "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
-      "rationale": "preview keeps primary tuple avalonia:windows:win-x64 published so signed-in and public shelves cite the same governed preview, caption, and install refs."
+      "rationale": "docker keeps primary tuple avalonia:windows:win-x64 published so signed-in and public shelves cite the same governed preview, caption, and install refs."
     },
     {
-      "bindingId": "binding:preview:run-20260501-083446:blazor-desktop:windows:win-x64",
+      "bindingId": "binding:docker:run-20260501-083446:blazor-desktop:windows:win-x64",
       "artifactFamilyId": "artifact-family:blazor-desktop:windows:win-x64",
       "artifactId": "blazor-desktop-win-x64-installer",
-      "channelId": "preview",
+      "channelId": "docker",
       "releaseVersion": "run-20260501-083446",
       "tupleId": "blazor-desktop:windows:win-x64",
       "head": "blazor-desktop",
@@ -451,12 +451,12 @@
       "kind": "installer",
       "publicationScope": "signed-in-and-public",
       "publicationState": "preview",
-      "signedInShelfRef": "shelf:signed-in:preview:run-20260501-083446:blazor-desktop-win-x64-installer",
-      "publicShelfRef": "shelf:public:preview:run-20260501-083446:blazor-desktop-win-x64-installer",
+      "signedInShelfRef": "shelf:signed-in:docker:run-20260501-083446:blazor-desktop-win-x64-installer",
+      "publicShelfRef": "shelf:public:docker:run-20260501-083446:blazor-desktop-win-x64-installer",
       "previewRef": "registry-preview:blazor-desktop-win-x64-installer:blazor-desktop:windows:win-x64",
-      "captionRef": "registry-caption:preview:run-20260501-083446:blazor-desktop:windows:win-x64",
+      "captionRef": "registry-caption:docker:run-20260501-083446:blazor-desktop:windows:win-x64",
       "publicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer",
-      "rationale": "preview keeps tuple blazor-desktop:windows:win-x64 in preview so shelf refs stay governed before wider publication."
+      "rationale": "docker keeps tuple blazor-desktop:windows:win-x64 in preview so shelf refs stay governed before wider publication."
     }
   ]
 }

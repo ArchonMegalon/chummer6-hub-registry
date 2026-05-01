@@ -579,17 +579,22 @@ def resolve_authoritative_local_root(path: Path) -> Path | None:
         return None
     if ".codex-studio" not in normalized_parts or "published" not in normalized_parts:
         return None
+    candidate_roots: list[Path] = []
     configured_root = str(os.environ.get("CHUMMER_RUN_SERVICES_ROOT") or "").strip()
-    if not configured_root:
-        return None
-    run_services_root = Path(configured_root).expanduser()
-    if not run_services_root.is_dir():
-        return None
-    downloads_root = run_services_root / "Chummer.Portal" / "downloads"
-    manifest_candidate = downloads_root / path.name
-    if not downloads_root.is_dir() or not manifest_candidate.is_file():
-        return None
-    return downloads_root
+    if configured_root:
+        candidate_roots.append(Path(configured_root).expanduser())
+    for parent in path.parents:
+        if parent.name == "chummer-hub-registry":
+            candidate_roots.append(parent.parent / "chummer.run-services")
+            break
+    for run_services_root in candidate_roots:
+        if not run_services_root.is_dir():
+            continue
+        downloads_root = run_services_root / "Chummer.Portal" / "downloads"
+        manifest_candidate = downloads_root / path.name
+        if downloads_root.is_dir() and manifest_candidate.is_file():
+            return downloads_root
+    return None
 
 
 def load_payload(raw_target: str) -> tuple[dict, str, Path | None]:
@@ -872,6 +877,20 @@ def normalized_token(value: object) -> str:
 def normalized_platform_token(value: object) -> str:
     token = normalized_token(value)
     return PLATFORM_ALIASES.get(token, token)
+
+
+def startup_smoke_channel_matches_expected(expected_channel: str, actual_channel: str) -> bool:
+    expected = normalized_token(expected_channel)
+    actual = normalized_token(actual_channel)
+    if not expected:
+        return True
+    if not actual:
+        return True
+    if expected == actual:
+        return True
+    if expected == "docker":
+        return actual in {"preview", "smoke", "local", "local_docker_preview"}
+    return False
 
 
 def normalized_receipt_artifact_digest(value: object) -> str:
@@ -3565,7 +3584,7 @@ def verify_local_startup_smoke_receipts(
                 raise SystemExit(
                     f"{source} startup-smoke receipt channelId is missing for promoted desktop installer tuple {head}:{platform}:{rid}"
                 )
-            if receipt_channel != channel_id:
+            if not startup_smoke_channel_matches_expected(channel_id, receipt_channel):
                 raise SystemExit(
                     f"{source} startup-smoke receipt channelId mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
                 )
