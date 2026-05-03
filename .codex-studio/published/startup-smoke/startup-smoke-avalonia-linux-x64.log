@@ -1,18 +1,16 @@
-dpkg: warning: 'ldconfig' not found in PATH or not executable
-dpkg: warning: 'start-stop-daemon' not found in PATH or not executable
-dpkg: warning: overriding problem because --force enabled:
-dpkg: warning: 2 expected programs not found in PATH or not executable
-Note: root's PATH should usually contain /usr/local/sbin, /usr/sbin and /sbin
 Selecting previously unselected package chummer6-avalonia.
-(Reading database ... 64726 files and directories currently installed.)
+(Reading database ... 143611 files and directories currently installed.)
 Preparing to unpack .../chummer-avalonia-linux-x64-installer.deb ...
-Unpacking chummer6-avalonia (0~local-docker) ...
-Setting up chummer6-avalonia (0~local-docker) ...
+Unpacking chummer6-avalonia (0~run-20260420-072339) ...
+touch: cannot touch '/run/needrestart/unpacked': Permission denied
+Setting up chummer6-avalonia (0~run-20260420-072339) ...
+Processing triggers for mailcap (3.70+nmu1ubuntu1) ...
+Error: could not write '/etc/mailcap.new' -- Permission denied
+dpkg: error processing package mailcap (--install):
+ installed mailcap package post-installation script subprocess returned error exit status 1
+touch: cannot touch '/run/needrestart/errored': Permission denied
+Errors were encountered while processing:
+ mailcap
 startup smoke ready: head=avalonia platform=linux arch=x64 checkpoint=pre_ui_event_loop
-dpkg: warning: 'ldconfig' not found in PATH or not executable
-dpkg: warning: 'start-stop-daemon' not found in PATH or not executable
-dpkg: warning: overriding problem because --force enabled:
-dpkg: warning: 2 expected programs not found in PATH or not executable
-Note: root's PATH should usually contain /usr/local/sbin, /usr/sbin and /sbin
-(Reading database ... 64753 files and directories currently installed.)
-Removing chummer6-avalonia (0~local-docker) ...
+(Reading database ... 143638 files and directories currently installed.)
+Removing chummer6-avalonia (0~run-20260420-072339) ...
