@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
 import importlib.util
 import json
@@ -69,6 +70,91 @@ def install_aware_payload() -> tuple[list[dict], dict]:
     return artifacts, coverage
 
 
+def valid_ui_localization_release_gate_payload() -> dict[str, object]:
+    return {
+        "status": "pass",
+        "generatedAt": "2026-04-14T18:12:04Z",
+        "defaultKeyCount": 383,
+        "explicitFallbackRuntime": "pass",
+        "signoffSmokeRunnerStatus": "pass",
+        "shippingLocales": list(MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES),
+        "acceptanceGates": list(MODULE.REQUIRED_LOCALIZATION_ACCEPTANCE_GATES),
+        "domainCoverage": {
+            "app_chrome": "pass",
+            "data_rules_names": "pass",
+            "explain_receipts": "pass",
+            "generated_artifacts": "pass",
+            "install_update_support": "pass",
+        },
+        "localeDomainCoverage": {
+            locale: {
+                "app_chrome": "pass",
+                "data_rules_names": "pass",
+                "explain_receipts": "pass",
+                "generated_artifacts": "pass",
+                "install_update_support": "pass",
+            }
+            for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+        },
+        "localeSummary": [
+            {
+                "locale": locale,
+                "untranslatedKeyCount": 0,
+                "overrideCount": 383,
+                "minimumOverrideCount": 40 if locale != "en-us" else 383,
+                "missingReleaseSeedKeys": [],
+                "legacyXmlPresent": True,
+                "legacyDataXmlPresent": True,
+            }
+            for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+        ],
+        "blockingFindings": [],
+        "blockingFindingsCount": 0,
+        "translationBacklogFindings": [],
+        "translationBacklogFindingsCount": 0,
+    }
+
+
+def valid_release_proof_payload() -> dict[str, object]:
+    return {
+        "status": "passed",
+        "generatedAt": "2026-04-14T18:12:04Z",
+        "baseUrl": "https://chummer.run",
+        "journeysPassed": list(MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS),
+        "proofRoutes": list(MODULE.REQUIRED_RELEASE_PROOF_ROUTES),
+        "uiLocalizationReleaseGate": valid_ui_localization_release_gate_payload(),
+    }
+
+
+def canonical_args(
+    *,
+    manifest: Path,
+    downloads_dir: Path,
+    startup_smoke_dir: Path | None,
+) -> argparse.Namespace:
+    return argparse.Namespace(
+        manifest=manifest,
+        downloads_dir=downloads_dir,
+        startup_smoke_dir=startup_smoke_dir,
+        startup_smoke_max_age_seconds=MODULE.STARTUP_SMOKE_MAX_AGE_SECONDS,
+        startup_smoke_max_future_skew_seconds=MODULE.STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
+        skip_startup_smoke_filter=False,
+        output=downloads_dir / "RELEASE_CHANNEL.generated.json",
+        compat_output=None,
+        runtime_bundles=None,
+        proof=None,
+        ui_localization_release_gate=None,
+        product="chummer6",
+        channel="",
+        version="",
+        contract_name="",
+        published_at="",
+        artifact_source="ui_desktop_bundle",
+        downloads_prefix="/downloads/files",
+        required_desktop_heads=",".join(MODULE.DEFAULT_REQUIRED_DESKTOP_HEADS),
+    )
+
+
 def test_derive_rollout_state_uses_promoted_preview_for_complete_published_docker_release() -> None:
     assert (
         MODULE.derive_rollout_state(
@@ -112,6 +198,197 @@ def test_normalize_release_channel_posture_upgrades_stale_coverage_states() -> N
         proof={"status": "passed"},
         desktop_coverage_complete=True,
     ) == ("promoted_preview", "preview_supported")
+
+
+def test_normalize_release_channel_posture_downgrades_stale_promoted_states_when_coverage_is_incomplete() -> None:
+    assert MODULE.normalize_release_channel_posture(
+        "promoted_preview",
+        "preview_supported",
+        channel="docker",
+        status="published",
+        proof={"status": "passed"},
+        desktop_coverage_complete=False,
+    ) == ("coverage_incomplete", "review_required")
+
+
+def test_canonical_payload_downgrades_stale_published_posture_when_startup_smoke_proof_is_missing() -> None:
+    proof = valid_release_proof_payload()
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        downloads_dir = root / "downloads"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        startup_smoke_dir = root / "startup-smoke"
+        startup_smoke_dir.mkdir(parents=True, exist_ok=True)
+        installer_path = downloads_dir / "chummer-avalonia-win-x64-installer.exe"
+        payload = b"\n".join(MODULE.WINDOWS_INSTALLER_PAYLOAD_MARKERS) + b"\n"
+        installer_path.write_bytes(payload)
+        manifest_path = root / "source-manifest.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "channelId": "docker",
+                    "version": "run-20260504-0900",
+                    "publishedAt": "2026-05-04T09:00:00Z",
+                    "status": "published",
+                    "rolloutState": "promoted_preview",
+                    "rolloutReason": "Current release shelf was exercised by the local docker release proof harness before publication.",
+                    "supportabilityState": "preview_supported",
+                    "supportabilitySummary": "Local release proof passed for the current shelf.",
+                    "knownIssueSummary": "Preview caveats still apply, but the current shelf has recent install proof.",
+                    "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
+                    "releaseProof": proof,
+                    "artifacts": [
+                        {
+                            "artifactId": "avalonia-win-x64-installer",
+                            "fileName": installer_path.name,
+                            "downloadUrl": f"/downloads/files/{installer_path.name}",
+                            "kind": "installer",
+                            "sha256": hashlib.sha256(payload).hexdigest(),
+                            "sizeBytes": len(payload),
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        canonical = MODULE.canonical_payload(
+            canonical_args(
+                manifest=manifest_path,
+                downloads_dir=downloads_dir,
+                startup_smoke_dir=startup_smoke_dir,
+            )
+        )
+
+    coverage = canonical["desktopTupleCoverage"]
+    assert coverage["complete"] is False
+    assert canonical["rolloutState"] == "coverage_incomplete"
+    assert canonical["supportabilityState"] == "review_required"
+    assert canonical["rolloutReason"] == MODULE.derive_rollout_reason(
+        "docker",
+        "published",
+        proof,
+        desktop_coverage_complete=False,
+        coverage=coverage,
+    )
+    assert canonical["supportabilitySummary"] == MODULE.derive_supportability_summary(
+        "published",
+        proof,
+        desktop_coverage_complete=False,
+        coverage=coverage,
+    )
+    assert canonical["knownIssueSummary"] == MODULE.derive_known_issue_summary(
+        "docker",
+        "published",
+        proof,
+        desktop_coverage_complete=False,
+        coverage=coverage,
+    )
+    assert canonical["fixAvailabilitySummary"] == MODULE.derive_fix_availability_summary(
+        "published",
+        proof,
+        desktop_coverage_complete=False,
+    )
+
+
+def test_canonical_payload_rederives_stale_published_copy_when_coverage_recovers() -> None:
+    proof = valid_release_proof_payload()
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        downloads_dir = root / "downloads"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        startup_smoke_dir = root / "startup-smoke"
+        startup_smoke_dir.mkdir(parents=True, exist_ok=True)
+        installer_path = downloads_dir / "chummer-avalonia-win-x64-installer.exe"
+        payload = b"\n".join(MODULE.WINDOWS_INSTALLER_PAYLOAD_MARKERS) + b"\n"
+        installer_path.write_bytes(payload)
+        manifest_path = root / "source-manifest.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "channelId": "docker",
+                    "version": "run-20260504-0901",
+                    "publishedAt": "2026-05-04T09:01:00Z",
+                    "status": "published",
+                    "rolloutState": "promoted_preview",
+                    "rolloutReason": "Current shelf is published, but promotion stays blocked because required desktop tuple coverage is incomplete (platforms: linux).",
+                    "supportabilityState": "preview_supported",
+                    "supportabilitySummary": "Treat the current shelf as review-required because required desktop tuple coverage is incomplete (platforms: linux).",
+                    "knownIssueSummary": "Known issue: required desktop tuple coverage is incomplete (platforms: linux).",
+                    "fixAvailabilitySummary": "Do not send fixed notices until required desktop tuple coverage is complete for the promoted shelf.",
+                    "releaseProof": proof,
+                    "artifacts": [
+                        {
+                            "artifactId": "avalonia-win-x64-installer",
+                            "fileName": installer_path.name,
+                            "downloadUrl": f"/downloads/files/{installer_path.name}",
+                            "kind": "installer",
+                            "sha256": hashlib.sha256(payload).hexdigest(),
+                            "sizeBytes": len(payload),
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipt_path = startup_smoke_dir / "startup-smoke-avalonia-win-x64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": MODULE.utc_now().replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+                    "headId": "avalonia",
+                    "platform": "windows",
+                    "arch": "x64",
+                    "hostClass": "windows-host",
+                    "operatingSystem": "Windows 11",
+                    "channelId": "docker",
+                    "artifactDigest": f"sha256:{hashlib.sha256(payload).hexdigest()}",
+                    "artifactId": "avalonia-win-x64-installer",
+                    "artifactFileName": installer_path.name,
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        canonical = MODULE.canonical_payload(
+            canonical_args(
+                manifest=manifest_path,
+                downloads_dir=downloads_dir,
+                startup_smoke_dir=startup_smoke_dir,
+            )
+        )
+
+    coverage = canonical["desktopTupleCoverage"]
+    assert coverage["complete"] is True
+    assert canonical["rolloutState"] == "promoted_preview"
+    assert canonical["supportabilityState"] == "preview_supported"
+    assert canonical["rolloutReason"] == MODULE.derive_rollout_reason(
+        "docker",
+        "published",
+        proof,
+        desktop_coverage_complete=True,
+        coverage=coverage,
+    )
+    assert canonical["supportabilitySummary"] == MODULE.derive_supportability_summary(
+        "published",
+        proof,
+        desktop_coverage_complete=True,
+        coverage=coverage,
+    )
+    assert canonical["knownIssueSummary"] == MODULE.derive_known_issue_summary(
+        "docker",
+        "published",
+        proof,
+        desktop_coverage_complete=True,
+        coverage=coverage,
+    )
+    assert canonical["fixAvailabilitySummary"] == MODULE.derive_fix_availability_summary(
+        "published",
+        proof,
+        desktop_coverage_complete=True,
+    )
 
 
 def test_desktop_tuple_coverage_incomplete_when_only_rid_tuple_is_missing() -> None:

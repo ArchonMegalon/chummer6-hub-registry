@@ -10,7 +10,91 @@ activation:
     - The current full-product flagship closeout frontier reports zero open milestones.
     - FLAGSHIP_PRODUCT_READINESS.generated.json is green for desktop_client and the other flagship readiness planes.
     - The promoted desktop route is honest on Windows, macOS, and Linux.
-  control_plane_rule: Launch this wave on spare Fleet shards immediately, prioritize W22P parity-proof and desktop-proof closure ahead of later successor waves, but do not let it steal shards already assigned to the current flagship closeout frontier.
+  control_plane_rule: Launch all successor waves through the staged queue immediately, treat W22P parity-proof and desktop-proof closure as the lead current successor frontier, drive current frontier selection from the staged successor queue rather than the legacy flagship closeout package queue, keep W23-W27 queue-materialized behind it, and do not let automatic runtime dispatch preempt already-running flagship closeout shards.
+  staged_queue_contract:
+    queue_source: NEXT_90_DAY_QUEUE_STAGING.generated.yaml
+    meaning: Pre-authored successor work packages that matching repo controllers may materialize immediately.
+    current_frontier_source: next90_queue_staging
+    controller_ingest_statuses:
+      - in_progress
+      - not_started
+    controller_materialized_work_package_status: ready
+    spare_capacity_only: true
+    flagship_preemption: forbidden
+    stale_review_window_days: 7
+    queue_staged_wave_ids:
+      - W6
+      - W7
+      - W8
+      - W9
+      - W10
+      - W11
+      - W12
+      - W13
+      - W14
+      - W15
+      - W16
+      - W17
+      - W18
+      - W19
+      - W20
+      - W21
+      - W22
+      - W22P
+      - W23
+      - W24
+      - W25
+      - W26
+      - W27
+      - W28
+    registry_only_wave_ids: []
+    blank_work_task_status_policy:
+      staged_waves: inherit_from_queue_staging
+      registry_only_waves: remain_unstaged_until_promoted
+    non_terminal_review_outcomes:
+      - not_started
+      - blocked
+      - in_progress
+      - done
+      - skipped
+
+implementation_order_milestone_ids:
+  - 141
+  - 142
+  - 143
+  - 144
+  - 145
+  - 108
+  - 109
+  - 111
+  - 112
+  - 113
+  - 114
+  - 115
+  - 116
+  - 117
+  - 118
+  - 119
+  - 120
+  - 121
+  - 122
+  - 123
+  - 124
+  - 125
+  - 130
+  - 126
+  - 132
+  - 134
+  - 127
+  - 128
+  - 129
+  - 131
+  - 135
+  - 136
+  - 137
+  - 138
+  - 139
+  - 140
 
 ordering_rule:
   - Before broader successor breadth, drive the Chummer5A human-parity matrix to zero `no` rows and clear desktop executable proof drift.
@@ -127,7 +211,7 @@ waves:
     - 135
   - id: W22P
     name: Close human-tested parity proof and desktop executable trust before successor breadth
-    status: not_started
+    status: in_progress
     milestone_ids:
     - 141
     - 142
@@ -158,6 +242,11 @@ waves:
     status: not_started
     milestone_ids:
     - 140
+  - id: W28
+    name: Explain every visible value with grounded follow-up and bounded presenter mode
+    status: in_progress
+    milestone_ids:
+    - 145
 
 milestones:
   - id: 101
@@ -3247,7 +3336,7 @@ milestones:
     - executive-assistant
     - fleet
     - chummer6-design
-    status: not_started
+    status: in_progress
     dependencies:
     - 103
     - 104
@@ -3287,7 +3376,7 @@ milestones:
     - executive-assistant
     - fleet
     - chummer6-design
-    status: not_started
+    status: in_progress
     dependencies:
     - 103
     - 104
@@ -3328,7 +3417,7 @@ milestones:
     - executive-assistant
     - fleet
     - chummer6-design
-    status: not_started
+    status: in_progress
     dependencies:
     - 103
     - 114
@@ -3370,7 +3459,7 @@ milestones:
     - chummer6-ui
     - fleet
     - chummer6-design
-    status: not_started
+    status: in_progress
     dependencies:
     - 101
     - 102

@@ -3011,6 +3011,10 @@ def derive_fix_availability_summary(
     return "Verify fix availability against the live channel artifact before closing support loops."
 
 
+def published_rollout_state_prefers_derived_copy(rollout_state: str) -> bool:
+    return normalized_token(rollout_state) not in {"paused", "revoked"}
+
+
 def normalize_release_channel_posture(
     rollout_state: str,
     supportability_state: str,
@@ -3031,12 +3035,22 @@ def normalize_release_channel_posture(
         proof,
         desktop_coverage_complete=desktop_coverage_complete,
     )
+    rollout_state_prefers_derived_copy = published_rollout_state_prefers_derived_copy(rollout_state)
+
+    if (
+        status == "published"
+        and not desktop_coverage_complete
+        and rollout_state_prefers_derived_copy
+    ):
+        rollout_state = derived_rollout_state
+    if status == "published" and not desktop_coverage_complete:
+        supportability_state = derived_supportability_state
 
     # Older source payloads may still carry stale tuple-coverage or pre-normalized
     # local docker postures even after the shelf becomes a complete, published
     # promoted preview. Keep explicit blocking states like paused/revoked, but
-    # normalize stale aliases so downstream executable gates read the canonical
-    # promoted posture.
+    # otherwise normalize stale aliases so downstream executable gates read the
+    # canonical posture for the current artifact/proof truth.
     if (
         status == "published"
         and desktop_coverage_complete
@@ -3206,26 +3220,47 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         downloads_dir=args.downloads_dir,
     )
     desktop_coverage_complete = desktop_tuple_coverage_is_complete(tuple_coverage)
-    rollout_state = loaded_rollout_state or derive_rollout_state(
+    derived_rollout_state = derive_rollout_state(
         channel,
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
     )
-    rollout_reason = loaded_rollout_reason or derive_rollout_reason(
+    derived_rollout_reason = derive_rollout_reason(
         channel,
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
         coverage=tuple_coverage,
     )
+    derived_supportability_state = derive_supportability_state(
+        status,
+        release_proof,
+        desktop_coverage_complete=desktop_coverage_complete,
+    )
+    derived_supportability_summary = derive_supportability_summary(
+        status,
+        release_proof,
+        desktop_coverage_complete=desktop_coverage_complete,
+        coverage=tuple_coverage,
+    )
+    derived_known_issue_summary = derive_known_issue_summary(
+        channel,
+        status,
+        release_proof,
+        desktop_coverage_complete=desktop_coverage_complete,
+        coverage=tuple_coverage,
+    )
+    derived_fix_availability_summary = derive_fix_availability_summary(
+        status,
+        release_proof,
+        desktop_coverage_complete=desktop_coverage_complete,
+    )
+    rollout_state = loaded_rollout_state or derived_rollout_state
+    rollout_reason = loaded_rollout_reason or derived_rollout_reason
     supportability_state = (
         str(loaded.get("supportabilityState") or loaded.get("supportability_state") or "").strip()
-        or derive_supportability_state(
-            status,
-            release_proof,
-            desktop_coverage_complete=desktop_coverage_complete,
-        )
+        or derived_supportability_state
     )
     rollout_state, supportability_state = normalize_release_channel_posture(
         rollout_state,
@@ -3235,32 +3270,23 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         proof=release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
     )
+    if status == "published" and published_rollout_state_prefers_derived_copy(rollout_state):
+        rollout_reason = derived_rollout_reason
     supportability_summary = (
         str(loaded.get("supportabilitySummary") or loaded.get("supportability_summary") or "").strip()
-        or derive_supportability_summary(
-            status,
-            release_proof,
-            desktop_coverage_complete=desktop_coverage_complete,
-            coverage=tuple_coverage,
-        )
+        or derived_supportability_summary
     )
     known_issue_summary = (
-        loaded_known_issue_summary or derive_known_issue_summary(
-            channel,
-            status,
-            release_proof,
-            desktop_coverage_complete=desktop_coverage_complete,
-            coverage=tuple_coverage,
-        )
+        loaded_known_issue_summary or derived_known_issue_summary
     )
     fix_availability_summary = (
         str(loaded.get("fixAvailabilitySummary") or loaded.get("fix_availability_summary") or "").strip()
-        or derive_fix_availability_summary(
-            status,
-            release_proof,
-            desktop_coverage_complete=desktop_coverage_complete,
-        )
+        or derived_fix_availability_summary
     )
+    if status == "published" and published_rollout_state_prefers_derived_copy(rollout_state):
+        supportability_summary = derived_supportability_summary
+        known_issue_summary = derived_known_issue_summary
+        fix_availability_summary = derived_fix_availability_summary
     install_aware_registry = install_aware_artifact_registry(
         artifacts,
         tuple_coverage,
