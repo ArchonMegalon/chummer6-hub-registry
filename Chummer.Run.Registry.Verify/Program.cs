@@ -69,6 +69,30 @@ File.WriteAllText(
                     compatibilityState = "compatible"
                 }
             },
+            desktopSurfaceRefs = new[]
+            {
+                new
+                {
+                    registryId = "desktop-surface:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
+                    artifactId = "avalonia-linux-x64-archive",
+                    channelId = "docker",
+                    releaseVersion = "smoke-2026.03.28-linux-x64",
+                    tupleId = "avalonia:linux:linux-x64",
+                    head = "avalonia",
+                    platform = "linux",
+                    rid = "linux-x64",
+                    arch = "x64",
+                    kind = "archive",
+                    installAccessClass = "open_public",
+                    desktopChannelRef = "desktop-channel:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
+                    installGuidanceRef = "install-guidance:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
+                    participationReceiptRef = "participation-receipt:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
+                    rewardPublicationRef = "reward-publication:binding:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
+                    publicationBindingId = "binding:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
+                    publicInstallRoute = "/downloads/install/avalonia-linux-x64-installer",
+                    rationale = "docker keeps avalonia:linux:linux-x64 guest-readable so desktop channel, install guidance, participation, and reward refs stay governed without exposing provider internals."
+                }
+            },
             artifactIdentityRegistry = new[]
             {
                 new
@@ -86,7 +110,12 @@ File.WriteAllText(
                     kind = "archive",
                     previewRef = "registry-preview:avalonia-linux-x64-archive:avalonia:linux:linux-x64",
                     captionRef = "registry-caption:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
+                    packetRef = "registry-packet:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
+                    localeRef = "registry-locale:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
+                    retentionRef = "registry-retention:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
+                    retentionState = "current",
                     publicationBindingId = "binding:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
+                    publicationState = "published",
                     signedInShelfRef = "shelf:signed-in:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
                     publicShelfRef = "shelf:public:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
                     publicInstallRoute = "/downloads/install/avalonia-linux-x64-installer"
@@ -113,8 +142,175 @@ File.WriteAllText(
                     publicShelfRef = "shelf:public:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
                     previewRef = "registry-preview:avalonia-linux-x64-archive:avalonia:linux:linux-x64",
                     captionRef = "registry-caption:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
+                    packetRef = "registry-packet:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
+                    localeRef = "registry-locale:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
+                    retentionRef = "registry-retention:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
+                    retentionState = "current",
                     publicInstallRoute = "/downloads/install/avalonia-linux-x64-installer",
                     rationale = "docker keeps tuple avalonia:linux:linux-x64 published so signed-in and public shelves cite the same governed refs."
+                }
+            },
+            exchangeLineageRegistry = new[]
+            {
+                new
+                {
+                    registryId = "exchange-lineage:docker:smoke-2026.03.28-linux-x64:campaign:campaign-emerald-grid",
+                    artifactId = "campaign-emerald-grid",
+                    artifactKind = "campaign",
+                    channelId = "docker",
+                    releaseVersion = "smoke-2026.03.28-linux-x64",
+                    lineageRef = "lineage:campaign:campaign-emerald-grid",
+                    parentLineageRefs = Array.Empty<string>(),
+                    provenanceRef = "provenance:campaign:campaign-emerald-grid",
+                    compatibilityState = "compatible",
+                    compatibilityRef = "compatibility:campaign:campaign-emerald-grid",
+                    boundedLossPosture = "lossless",
+                    boundedLossRef = "bounded-loss:campaign:campaign-emerald-grid",
+                    publicationBindingId = "binding:docker:smoke-2026.03.28-linux-x64:campaign:campaign-emerald-grid",
+                    publicationState = "published",
+                    packetRef = "registry-packet:docker:smoke-2026.03.28-linux-x64:campaign-emerald-grid",
+                    localeRef = "registry-locale:docker:smoke-2026.03.28-linux-x64:campaign-emerald-grid",
+                    retentionRef = "registry-retention:docker:smoke-2026.03.28-linux-x64:campaign-emerald-grid",
+                    retentionState = "current",
+                    signedInShelfRef = "shelf:signed-in:docker:smoke-2026.03.28-linux-x64:campaign-emerald-grid",
+                    publicShelfRef = "shelf:public:docker:smoke-2026.03.28-linux-x64:campaign-emerald-grid"
+                },
+                new
+                {
+                    registryId = "exchange-lineage:docker:smoke-2026.03.28-linux-x64:dossier:dossier-runner-001",
+                    artifactId = "dossier-runner-001",
+                    artifactKind = "dossier",
+                    channelId = "docker",
+                    releaseVersion = "smoke-2026.03.28-linux-x64",
+                    lineageRef = "lineage:dossier:dossier-runner-001",
+                    parentLineageRefs = new[] { "lineage:campaign:campaign-emerald-grid" },
+                    provenanceRef = "provenance:dossier:dossier-runner-001",
+                    compatibilityState = "compatible_with_loss",
+                    compatibilityRef = "compatibility:dossier:dossier-runner-001",
+                    boundedLossPosture = "bounded_loss",
+                    boundedLossRef = "bounded-loss:dossier:dossier-runner-001",
+                    publicationBindingId = "binding:docker:smoke-2026.03.28-linux-x64:dossier:dossier-runner-001",
+                    publicationState = "preview",
+                    packetRef = "registry-packet:docker:smoke-2026.03.28-linux-x64:dossier-runner-001",
+                    localeRef = "registry-locale:docker:smoke-2026.03.28-linux-x64:dossier-runner-001",
+                    retentionRef = "registry-retention:docker:smoke-2026.03.28-linux-x64:dossier-runner-001",
+                    retentionState = "temporary",
+                    signedInShelfRef = "shelf:signed-in:docker:smoke-2026.03.28-linux-x64:dossier-runner-001",
+                    publicShelfRef = "shelf:public:docker:smoke-2026.03.28-linux-x64:dossier-runner-001"
+                },
+                new
+                {
+                    registryId = "exchange-lineage:docker:smoke-2026.03.28-linux-x64:replay:replay-session-001",
+                    artifactId = "replay-session-001",
+                    artifactKind = "replay",
+                    channelId = "docker",
+                    releaseVersion = "smoke-2026.03.28-linux-x64",
+                    lineageRef = "lineage:replay:replay-session-001",
+                    parentLineageRefs = new[] { "lineage:campaign:campaign-emerald-grid" },
+                    provenanceRef = "provenance:replay:replay-session-001",
+                    compatibilityState = "compatible",
+                    compatibilityRef = "compatibility:replay:replay-session-001",
+                    boundedLossPosture = "lossless",
+                    boundedLossRef = "bounded-loss:replay:replay-session-001",
+                    publicationBindingId = "binding:docker:smoke-2026.03.28-linux-x64:replay:replay-session-001",
+                    publicationState = "published",
+                    packetRef = "registry-packet:docker:smoke-2026.03.28-linux-x64:replay-session-001",
+                    localeRef = "registry-locale:docker:smoke-2026.03.28-linux-x64:replay-session-001",
+                    retentionRef = "registry-retention:docker:smoke-2026.03.28-linux-x64:replay-session-001",
+                    retentionState = "current",
+                    signedInShelfRef = "shelf:signed-in:docker:smoke-2026.03.28-linux-x64:replay-session-001",
+                    publicShelfRef = "shelf:public:docker:smoke-2026.03.28-linux-x64:replay-session-001"
+                },
+                new
+                {
+                    registryId = "exchange-lineage:docker:smoke-2026.03.28-linux-x64:recap:recap-session-001",
+                    artifactId = "recap-session-001",
+                    artifactKind = "recap",
+                    channelId = "docker",
+                    releaseVersion = "smoke-2026.03.28-linux-x64",
+                    lineageRef = "lineage:recap:recap-session-001",
+                    parentLineageRefs = new[] { "lineage:campaign:campaign-emerald-grid", "lineage:replay:replay-session-001" },
+                    provenanceRef = "provenance:recap:recap-session-001",
+                    compatibilityState = "compatible",
+                    compatibilityRef = "compatibility:recap:recap-session-001",
+                    boundedLossPosture = "lossless",
+                    boundedLossRef = "bounded-loss:recap:recap-session-001",
+                    publicationBindingId = "binding:docker:smoke-2026.03.28-linux-x64:recap:recap-session-001",
+                    publicationState = "published",
+                    packetRef = "registry-packet:docker:smoke-2026.03.28-linux-x64:recap-session-001",
+                    localeRef = "registry-locale:docker:smoke-2026.03.28-linux-x64:recap-session-001",
+                    retentionRef = "registry-retention:docker:smoke-2026.03.28-linux-x64:recap-session-001",
+                    retentionState = "current",
+                    signedInShelfRef = "shelf:signed-in:docker:smoke-2026.03.28-linux-x64:recap-session-001",
+                    publicShelfRef = "shelf:public:docker:smoke-2026.03.28-linux-x64:recap-session-001"
+                },
+                new
+                {
+                    registryId = "exchange-lineage:docker:smoke-2026.03.28-linux-x64:exchange:exchange-bundle-001",
+                    artifactId = "exchange-bundle-001",
+                    artifactKind = "exchange",
+                    channelId = "docker",
+                    releaseVersion = "smoke-2026.03.28-linux-x64",
+                    lineageRef = "lineage:exchange:exchange-bundle-001",
+                    parentLineageRefs = new[] { "lineage:campaign:campaign-emerald-grid", "lineage:dossier:dossier-runner-001" },
+                    provenanceRef = "provenance:exchange:exchange-bundle-001",
+                    compatibilityState = "review_required",
+                    compatibilityRef = "compatibility:exchange:exchange-bundle-001",
+                    boundedLossPosture = "bounded_loss",
+                    boundedLossRef = "bounded-loss:exchange:exchange-bundle-001",
+                    publicationBindingId = "binding:docker:smoke-2026.03.28-linux-x64:exchange:exchange-bundle-001",
+                    publicationState = "retained",
+                    packetRef = "registry-packet:docker:smoke-2026.03.28-linux-x64:exchange-bundle-001",
+                    localeRef = "registry-locale:docker:smoke-2026.03.28-linux-x64:exchange-bundle-001",
+                    retentionRef = "registry-retention:docker:smoke-2026.03.28-linux-x64:exchange-bundle-001",
+                    retentionState = "retained",
+                    signedInShelfRef = "shelf:signed-in:docker:smoke-2026.03.28-linux-x64:exchange-bundle-001",
+                    publicShelfRef = "shelf:public:docker:smoke-2026.03.28-linux-x64:exchange-bundle-001"
+                }
+            },
+            publicTrustMetrics = new
+            {
+                releaseChannel = new
+                {
+                    channelId = "docker",
+                    posture = "preview",
+                    publicationStatus = "published",
+                    rolloutState = RegistryOwner.ReleaseRolloutStates.CoverageIncomplete,
+                    supportabilityState = RegistryOwner.ReleaseSupportabilityStates.ReviewRequired,
+                    recommendedRouteCount = 0,
+                    blockedRouteCount = 0,
+                    revokedRouteCount = 0,
+                    summary = "Channel docker is preview with 0 recommended primary routes, 0 promoted fallback recovery routes, 0 blocked routes, and 0 active revocations."
+                },
+                adoptionHealth = new
+                {
+                    status = "blocked",
+                    primaryPromotedCount = 0,
+                    publicInstallCount = 0,
+                    accountLinkedInstallCount = 0,
+                    fallbackRecoveryCount = 0,
+                    blockedRouteCount = 0,
+                    revokedRouteCount = 0,
+                    summary = "0 primary routes are promoted; 0 are guest-readable, 0 require account-linked install handoff, 0 fallback recovery routes are promoted, and 0 routes are still blocked on proof."
+                },
+                proofFreshness = new
+                {
+                    status = "fresh",
+                    releaseProofGeneratedAt = "2026-03-28T16:31:31Z",
+                    releaseProofAgeSeconds = 0,
+                    releaseProofMaxAgeSeconds = 604800,
+                    uiLocalizationGeneratedAt = "2026-03-28T16:31:31Z",
+                    uiLocalizationAgeSeconds = 0,
+                    uiLocalizationMaxAgeSeconds = 604800,
+                    summary = "Release proof age is 0s (max 604800s) and UI localization gate age is 0s (max 604800s)."
+                },
+                revocationFacts = new
+                {
+                    status = "clear",
+                    channelRevoked = false,
+                    activeRevocationCount = 0,
+                    activeRevocations = Array.Empty<object>(),
+                    summary = "No channel or route revocations are active on channel docker."
                 }
             }
         },
@@ -140,8 +336,25 @@ Assert(string.Equals(releaseChannel.SupportabilityState, RegistryOwner.ReleaseSu
 Assert(string.Equals(releaseChannel.ReleaseProof?.Status, "passed", StringComparison.Ordinal), "Release-channel read model should retain proof posture.");
 Assert(string.Equals(releaseChannel.Artifacts[0].CompatibilityState, "compatible", StringComparison.Ordinal), "Release-channel artifacts should retain compatibility posture.");
 Assert(string.Equals(releaseChannel.RuntimeBundleHeads?[0].CompatibilityState, "compatible", StringComparison.Ordinal), "Release-channel runtime heads should retain compatibility posture.");
+Assert(string.Equals(releaseChannel.DesktopSurfaceRefs?.Single().InstallAccessClass, "open_public", StringComparison.Ordinal), "Release-channel desktop surface refs should retain install access posture.");
+Assert(string.Equals(releaseChannel.DesktopSurfaceRefs?.Single().DesktopChannelRef, "desktop-channel:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64", StringComparison.Ordinal), "Release-channel desktop surface refs should retain desktop channel refs.");
+Assert(string.Equals(releaseChannel.DesktopSurfaceRefs?.Single().RewardPublicationRef, "reward-publication:binding:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64", StringComparison.Ordinal), "Release-channel desktop surface refs should retain reward publication refs.");
 Assert(string.Equals(releaseChannel.ArtifactIdentityRegistry?.Single().ArtifactFamilyId, "artifact-family:avalonia:linux:linux-x64", StringComparison.Ordinal), "Release-channel artifact identity registry should retain artifact family ids.");
+Assert(string.Equals(releaseChannel.ArtifactIdentityRegistry?.Single().PreviewRef, "registry-preview:avalonia-linux-x64-archive:avalonia:linux:linux-x64", StringComparison.Ordinal), "Release-channel artifact identity registry should retain preview refs.");
+Assert(string.Equals(releaseChannel.ArtifactIdentityRegistry?.Single().PacketRef, "registry-packet:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive", StringComparison.Ordinal), "Release-channel artifact identity registry should retain packet refs.");
+Assert(string.Equals(releaseChannel.ArtifactIdentityRegistry?.Single().RetentionState, "current", StringComparison.Ordinal), "Release-channel artifact identity registry should retain retention posture.");
 Assert(string.Equals(releaseChannel.ArtifactPublicationBindings?.Single().BindingId, "binding:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64", StringComparison.Ordinal), "Release-channel artifact publication bindings should retain binding ids.");
+Assert(string.Equals(releaseChannel.ArtifactPublicationBindings?.Single().CaptionRef, "registry-caption:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64", StringComparison.Ordinal), "Release-channel artifact publication bindings should retain caption refs.");
+Assert(string.Equals(releaseChannel.ArtifactPublicationBindings?.Single().LocaleRef, "registry-locale:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive", StringComparison.Ordinal), "Release-channel artifact publication bindings should retain locale refs.");
+Assert(string.Equals(releaseChannel.ArtifactPublicationBindings?.Single().RetentionState, "current", StringComparison.Ordinal), "Release-channel artifact publication bindings should retain retention posture.");
+Assert(releaseChannel.ExchangeLineageRegistry?.Count == 5, "Release-channel exchange lineage registry should retain the full exchange artifact set.");
+Assert(string.Equals(releaseChannel.ExchangeLineageRegistry?[0].ArtifactKind, "campaign", StringComparison.Ordinal), "Exchange lineage registry should preserve canonical artifact-kind ordering.");
+Assert(string.Equals(releaseChannel.ExchangeLineageRegistry?.Single(item => item.ArtifactKind == "exchange").CompatibilityState, "review_required", StringComparison.Ordinal), "Exchange lineage registry should retain compatibility posture.");
+Assert(string.Equals(releaseChannel.ExchangeLineageRegistry?.Single(item => item.ArtifactKind == "exchange").SignedInShelfRef, "shelf:signed-in:docker:smoke-2026.03.28-linux-x64:exchange-bundle-001", StringComparison.Ordinal), "Exchange lineage registry should retain signed-in shelf refs.");
+Assert(string.Equals(releaseChannel.ExchangeLineageRegistry?.Single(item => item.ArtifactKind == "exchange").RetentionState, "retained", StringComparison.Ordinal), "Exchange lineage registry should retain shelf retention posture.");
+Assert(string.Equals(releaseChannel.PublicTrustMetrics?.ReleaseChannel.Posture, "preview", StringComparison.Ordinal), "Release-channel public trust metrics should retain posture.");
+Assert(releaseChannel.PublicTrustMetrics?.ProofFreshness.ReleaseProofAgeSeconds == 0, "Release-channel public trust metrics should retain proof freshness age.");
+Assert(releaseChannel.PublicTrustMetrics?.RevocationFacts.ActiveRevocationCount == 0, "Release-channel public trust metrics should retain revocation counts.");
 
 var missingInstallEvent = new HubInstallEvent(
     ArtifactId: "artifact-missing",
@@ -460,6 +673,11 @@ Assert(string.Equals(published.TrustProjection?.RankingBand, "curated-live", Str
 Assert(published.TrustProjection?.Discoverable == true, "Published shared publications should be discoverable.");
 Assert(published.TrustProjection?.TrustSummary.Contains("shared visibility", StringComparison.OrdinalIgnoreCase) == true, "Published shared publications should carry discovery visibility in the trust summary.");
 Assert(published.TrustProjection?.LineageSummary.Contains("live lineage anchor", StringComparison.OrdinalIgnoreCase) == true, "Published publications without successors should project a live lineage anchor summary.");
+Assert(string.Equals(published.TrustProjection?.LineageAnchorArtifactId, artifact.Id, StringComparison.Ordinal), "Published publications should expose the current artifact as the lineage anchor when no successor exists.");
+Assert(string.Equals(published.TrustProjection?.CompatibilityState, "compatible", StringComparison.Ordinal), "Published shared publications should expose compatible creator-trust posture.");
+Assert(published.TrustProjection?.CompatibilitySummary.Contains("published shelf", StringComparison.OrdinalIgnoreCase) == true, "Published shared publications should explain compatibility posture from registry truth.");
+Assert(string.Equals(published.TrustProjection?.RevocationState, "not_revoked", StringComparison.Ordinal), "Published shared publications should expose not-revoked creator-trust posture.");
+Assert(published.TrustProjection?.RevocationSummary.Contains("No publication revocation marker", StringComparison.OrdinalIgnoreCase) == true, "Published shared publications should explain when no publication revocation marker is active.");
 
 PublicationRecordResponse creatorSubmitted = RequireCreated(publicationsController.Submit(new PublicationSubmissionRequest(
     ArtifactId: "creator-packet-shadow-brief",
@@ -481,6 +699,18 @@ Assert(creatorPublished.ModerationTimeline.NextSafeActionSummary?.Contains("live
 Assert(RequireOk(publicationsController.List(PublicationState.Published.ToString())).Count >= 2, "Publication list should retain creator publication rows beside install/update publications.");
 Assert(RequireOk(publicationsController.List(discoverable: true)).Count >= 2, "Publication list discoverable filter should retain creator publication rows beside install/update publications.");
 Assert(creatorPublished.TrustProjection?.Discoverable == true, "Published creator packets should be discoverable when no restrictive visibility is attached.");
+Assert(string.Equals(creatorPublished.TrustProjection?.LineageAnchorArtifactId, creatorPublished.ArtifactId, StringComparison.Ordinal), "Published creator packets should anchor lineage on their artifact id until a successor is attached.");
+Assert(string.Equals(creatorPublished.TrustProjection?.CompatibilityState, "compatible", StringComparison.Ordinal), "Published creator packets should project compatible creator trust.");
+Assert(string.Equals(creatorPublished.TrustProjection?.RevocationState, "not_revoked", StringComparison.Ordinal), "Published creator packets should project non-revoked creator trust by default.");
+
+PublicationRecordResponse creatorDelisted = RequireOk(publicationsController.Moderate(
+    creatorPublished.PublicationId,
+    new PublicationModerationRequest("ops.creator-moderator", "delist", Reason: "creator provenance receipt was revoked"),
+    creatorPublished.ConcurrencyToken));
+Assert(creatorDelisted.State == PublicationState.Delisted, "Creator moderation should project delisted state when the publication is revoked.");
+Assert(string.Equals(creatorDelisted.TrustProjection?.CompatibilityState, "revoked", StringComparison.Ordinal), "Delisted creator publications should expose revoked compatibility posture.");
+Assert(string.Equals(creatorDelisted.TrustProjection?.RevocationState, "revoked", StringComparison.Ordinal), "Delisted creator publications should expose active revocation posture.");
+Assert(creatorDelisted.TrustProjection?.RevocationSummary.Contains("creator provenance receipt was revoked", StringComparison.OrdinalIgnoreCase) == true, "Delisted creator publications should carry the moderation revoke reason.");
 
 PublicationRecordResponse deprecated = RequireOk(publicationsController.Moderate(
     published.PublicationId,
@@ -492,12 +722,21 @@ Assert(deprecated.ModerationTimeline.NextSafeActionSummary?.Contains("replacemen
 Assert(string.Equals(deprecated.TrustProjection?.RankingBand, "replacement-advised", StringComparison.Ordinal), "Deprecated publications should project a replacement-advised trust band.");
 Assert(RequireOk(publicationsController.List(rankingBand: "replacement-advised")).Any(item => string.Equals(item.PublicationId, deprecated.PublicationId, StringComparison.Ordinal)), "Publication list should filter by replacement-advised trust band.");
 Assert(deprecated.TrustProjection?.LineageSummary.Contains("add one", StringComparison.OrdinalIgnoreCase) == true, "Deprecated publications without a successor should ask for an attached replacement in the lineage summary.");
+Assert(string.Equals(deprecated.TrustProjection?.LineageAnchorArtifactId, artifact.Id, StringComparison.Ordinal), "Deprecated publications without a successor should retain the current artifact as the lineage anchor.");
+Assert(string.Equals(deprecated.TrustProjection?.CompatibilityState, "successor_required", StringComparison.Ordinal), "Deprecated publications should expose successor-required compatibility posture.");
+Assert(deprecated.TrustProjection?.CompatibilitySummary.Contains("successor artifact", StringComparison.OrdinalIgnoreCase) == true, "Deprecated publications should explain successor-required compatibility posture.");
+Assert(string.Equals(deprecated.TrustProjection?.RevocationState, "not_revoked", StringComparison.Ordinal), "Deprecated publications should not automatically count as revoked.");
 RegistryProjectionResponse deprecatedProjection = RequireOk(registryController.GetProjection(artifact.Id));
 Assert(string.Equals(deprecatedProjection.LatestPublicationState, PublicationState.Deprecated.ToString(), StringComparison.Ordinal), "Artifact projections should surface the latest publication state.");
 Assert(string.Equals(deprecatedProjection.PublicationTrustBand, "replacement-advised", StringComparison.Ordinal), "Artifact projections should surface the latest publication trust band.");
 Assert(deprecatedProjection.PublicationTrustSummary?.Contains("discovery should steer", StringComparison.OrdinalIgnoreCase) == true, "Artifact projections should surface the latest publication trust summary.");
 Assert(deprecatedProjection.PublicationDiscoverySummary?.Contains("successor-forward caution", StringComparison.OrdinalIgnoreCase) == true, "Artifact projections should surface the latest publication discovery summary.");
 Assert(deprecatedProjection.PublicationLineageSummary?.Contains("add one", StringComparison.OrdinalIgnoreCase) == true, "Artifact projections should surface the latest publication lineage summary.");
+Assert(string.Equals(deprecatedProjection.PublicationLineageAnchorArtifactId, artifact.Id, StringComparison.Ordinal), "Artifact projections should surface the current lineage anchor artifact id.");
+Assert(string.Equals(deprecatedProjection.PublicationCompatibilityState, "successor_required", StringComparison.Ordinal), "Artifact projections should surface successor-required compatibility posture.");
+Assert(deprecatedProjection.PublicationCompatibilitySummary?.Contains("successor artifact", StringComparison.OrdinalIgnoreCase) == true, "Artifact projections should surface compatibility rationale.");
+Assert(string.Equals(deprecatedProjection.PublicationRevocationState, "not_revoked", StringComparison.Ordinal), "Artifact projections should surface not-revoked posture when moderation has not delisted the publication.");
+Assert(deprecatedProjection.PublicationRevocationSummary?.Contains("No publication revocation marker", StringComparison.OrdinalIgnoreCase) == true, "Artifact projections should surface revocation rationale.");
 Assert(deprecatedProjection.PublicationDiscoverable == false, "Artifact projections should surface the latest publication discoverability posture.");
 Assert(deprecatedProjection.PublicationNextSafeActionSummary?.Contains("replacement artifact", StringComparison.OrdinalIgnoreCase) == true, "Artifact projections should surface the latest publication next safe action.");
 
@@ -507,6 +746,9 @@ Assert(string.Equals(publicationSearch.Items[0].PublicationTrustBand, "replaceme
 Assert(publicationSearch.Items[0].PublicationTrustSummary?.Contains("discovery should steer", StringComparison.OrdinalIgnoreCase) == true, "Registry search should surface the latest publication trust summary.");
 Assert(publicationSearch.Items[0].PublicationDiscoverySummary?.Contains("successor-forward caution", StringComparison.OrdinalIgnoreCase) == true, "Registry search should surface the latest publication discovery summary.");
 Assert(publicationSearch.Items[0].PublicationLineageSummary?.Contains("add one", StringComparison.OrdinalIgnoreCase) == true, "Registry search should surface the latest publication lineage summary.");
+Assert(string.Equals(publicationSearch.Items[0].PublicationLineageAnchorArtifactId, artifact.Id, StringComparison.Ordinal), "Registry search should surface the lineage anchor artifact id.");
+Assert(string.Equals(publicationSearch.Items[0].PublicationCompatibilityState, "successor_required", StringComparison.Ordinal), "Registry search should surface successor-required compatibility posture.");
+Assert(string.Equals(publicationSearch.Items[0].PublicationRevocationState, "not_revoked", StringComparison.Ordinal), "Registry search should surface non-revoked posture when moderation has not delisted the publication.");
 Assert(publicationSearch.Items[0].PublicationDiscoverable == false, "Registry search should surface the latest publication discoverability posture.");
 Assert(publicationSearch.Items[0].PublicationNextSafeActionSummary?.Contains("replacement artifact", StringComparison.OrdinalIgnoreCase) == true, "Registry search should surface the latest publication next safe action.");
 Assert(publicationSearch.Items[0].ShelfOwnershipSummary.Contains("shared publication lane", StringComparison.OrdinalIgnoreCase), "Registry search should retain shared-publication ownership posture after publication changes.");
@@ -517,18 +759,25 @@ Assert(string.Equals(publicationPreview.PublicationTrustBand, "replacement-advis
 Assert(publicationPreview.PublicationTrustSummary?.Contains("discovery should steer", StringComparison.OrdinalIgnoreCase) == true, "Registry preview should surface the latest publication trust summary.");
 Assert(publicationPreview.PublicationDiscoverySummary?.Contains("successor-forward caution", StringComparison.OrdinalIgnoreCase) == true, "Registry preview should surface the latest publication discovery summary.");
 Assert(publicationPreview.PublicationLineageSummary?.Contains("add one", StringComparison.OrdinalIgnoreCase) == true, "Registry preview should surface the latest publication lineage summary.");
+Assert(string.Equals(publicationPreview.PublicationLineageAnchorArtifactId, artifact.Id, StringComparison.Ordinal), "Registry preview should surface the lineage anchor artifact id.");
+Assert(string.Equals(publicationPreview.PublicationCompatibilityState, "successor_required", StringComparison.Ordinal), "Registry preview should surface successor-required compatibility posture.");
+Assert(string.Equals(publicationPreview.PublicationRevocationState, "not_revoked", StringComparison.Ordinal), "Registry preview should surface non-revoked posture when moderation has not delisted the publication.");
 Assert(publicationPreview.PublicationDiscoverable == false, "Registry preview should surface the latest publication discoverability posture.");
 Assert(publicationPreview.PublicationNextSafeActionSummary?.Contains("replacement artifact", StringComparison.OrdinalIgnoreCase) == true, "Registry preview should surface the latest publication next safe action.");
 Assert(publicationPreview.ShelfOwnershipSummary.Contains("shared publication lane", StringComparison.OrdinalIgnoreCase), "Registry preview should retain shared-publication ownership posture after publication changes.");
 
 PublicationRecordResponse superseded = RequireOk(publicationsController.Moderate(
-    creatorPublished.PublicationId,
+    creatorDelisted.PublicationId,
     new PublicationModerationRequest("ops.creator-moderator", "supersede", SupersededByArtifactId: artifact.Id, Reason: "creator packet replaced"),
-    creatorPublished.ConcurrencyToken));
+    creatorDelisted.ConcurrencyToken));
 Assert(superseded.State == PublicationState.Superseded, "Supersede moderation should project superseded state.");
 Assert(string.Equals(superseded.TrustProjection?.RankingBand, "retained-history", StringComparison.Ordinal), "Superseded publications should project a retained-history trust band.");
 Assert(superseded.TrustProjection?.Discoverable == false, "Superseded publications should not remain discoverable.");
 Assert(superseded.TrustProjection?.LineageSummary.Contains(artifact.Id, StringComparison.Ordinal) == true, "Superseded publications should retain the replacement artifact in the lineage summary.");
+Assert(string.Equals(superseded.TrustProjection?.LineageAnchorArtifactId, artifact.Id, StringComparison.Ordinal), "Superseded creator publications should switch the lineage anchor to the replacement artifact.");
+Assert(string.Equals(superseded.TrustProjection?.SuccessorArtifactId, artifact.Id, StringComparison.Ordinal), "Superseded creator publications should expose the successor artifact id.");
+Assert(string.Equals(superseded.TrustProjection?.CompatibilityState, "superseded", StringComparison.Ordinal), "Superseded creator publications should expose retained-history compatibility posture.");
+Assert(string.Equals(superseded.TrustProjection?.RevocationState, "not_revoked", StringComparison.Ordinal), "Superseded creator publications should not keep an active revocation marker once replacement is attached.");
 
 RuntimeBundleIssueResponse firstIssue = RequireCreated(registryController.IssueRuntimeBundle(new RuntimeBundleIssueRequest(
     SessionId: "session-registry",

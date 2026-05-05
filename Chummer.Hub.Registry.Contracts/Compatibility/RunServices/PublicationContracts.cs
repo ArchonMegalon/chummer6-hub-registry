@@ -81,6 +81,12 @@ public sealed record PublicationTrustProjection(
     string TrustSummary,
     string DiscoverySummary,
     string LineageSummary,
+    string LineageAnchorArtifactId,
+    string? SuccessorArtifactId,
+    string CompatibilityState,
+    string CompatibilitySummary,
+    string RevocationState,
+    string RevocationSummary,
     bool Discoverable);
 
 public sealed record PublicationRecordResponse(
@@ -138,7 +144,7 @@ public sealed record PublicationRecordResponse(
             Events: events,
             ApprovalAuditTrail: Array.Empty<PublicationApprovalAuditEntry>(),
             ModerationTimeline: BuildLegacyModerationTimeline(state, updatedAtUtc),
-            TrustProjection: BuildLegacyTrustProjection(state, supersededByArtifactId))
+            TrustProjection: BuildLegacyTrustProjection(artifactId, state, supersededByArtifactId))
     {
     }
 
@@ -168,6 +174,7 @@ public sealed record PublicationRecordResponse(
     }
 
     private static PublicationTrustProjection BuildLegacyTrustProjection(
+        string artifactId,
         PublicationState state,
         string? supersededByArtifactId,
         string? visibility = null,
@@ -176,6 +183,7 @@ public sealed record PublicationRecordResponse(
         var normalizedVisibility = NormalizeVisibility(visibility);
         var normalizedTrustTier = NormalizeTrustTier(trustTier);
         var successorArtifactId = string.IsNullOrWhiteSpace(supersededByArtifactId) ? null : supersededByArtifactId.Trim();
+        var lineageAnchorArtifactId = !string.IsNullOrWhiteSpace(successorArtifactId) ? successorArtifactId : artifactId;
         var discoverable = state == PublicationState.Published
             && normalizedVisibility is not ArtifactVisibilityModes.Private
             && normalizedVisibility is not ArtifactVisibilityModes.LocalOnly;
@@ -219,11 +227,20 @@ public sealed record PublicationRecordResponse(
             _ => "Draft publications stay off discovery surfaces."
         };
 
+        var (compatibilityState, compatibilitySummary) = BuildCompatibilityProjection(state, normalizedVisibility, successorArtifactId);
+        var (revocationState, revocationSummary) = BuildRevocationProjection(state, null, null);
+
         return new PublicationTrustProjection(
             RankingBand: rankingBand,
             TrustSummary: trustSummary,
             DiscoverySummary: discoverySummary,
             LineageSummary: BuildLineageSummary(state, successorArtifactId),
+            LineageAnchorArtifactId: lineageAnchorArtifactId,
+            SuccessorArtifactId: successorArtifactId,
+            CompatibilityState: compatibilityState,
+            CompatibilitySummary: compatibilitySummary,
+            RevocationState: revocationState,
+            RevocationSummary: revocationSummary,
             Discoverable: discoverable);
     }
 
@@ -249,4 +266,46 @@ public sealed record PublicationRecordResponse(
 
     private static string NormalizeTrustTier(string? trustTier) =>
         string.IsNullOrWhiteSpace(trustTier) ? ArtifactTrustTiers.Curated : trustTier.Trim();
+
+    private static (string CompatibilityState, string CompatibilitySummary) BuildCompatibilityProjection(
+        PublicationState state,
+        string visibility,
+        string? successorArtifactId)
+    {
+        return state switch
+        {
+            PublicationState.PendingReview => ("approval_pending", "Compatibility stays provisional until approval review completes."),
+            PublicationState.Approved => ("approval_backed", "Compatibility is approval-backed and ready for governed publication."),
+            PublicationState.Rejected => ("revision_required", "Compatibility is blocked until the creator revises and resubmits the publication."),
+            PublicationState.Published when visibility is ArtifactVisibilityModes.Private or ArtifactVisibilityModes.LocalOnly
+                => ("visibility_limited", $"Compatibility is limited to {visibility} surfaces until publication visibility widens."),
+            PublicationState.Published => ("compatible", "Compatibility is live for governed discovery on the published shelf."),
+            PublicationState.Delisted => ("revoked", "Compatibility is revoked while the publication stays delisted by moderation."),
+            PublicationState.Deprecated => ("successor_required", string.IsNullOrWhiteSpace(successorArtifactId)
+                ? "Compatibility now requires an explicit successor artifact before this publication should rank as current."
+                : $"Compatibility now routes through successor artifact {successorArtifactId}."),
+            PublicationState.Superseded => ("superseded", string.IsNullOrWhiteSpace(successorArtifactId)
+                ? "Compatibility follows retained-history posture until a successor artifact is attached."
+                : $"Compatibility now routes through successor artifact {successorArtifactId} while this publication stays retained."),
+            _ => ("draft", "Compatibility stays draft-scoped until the publication enters review.")
+        };
+    }
+
+    private static (string RevocationState, string RevocationSummary) BuildRevocationProjection(
+        PublicationState state,
+        string? lifecycleNote,
+        string? artifactStateReason)
+    {
+        if (state == PublicationState.Delisted)
+        {
+            var reason = FirstNonEmpty(lifecycleNote, artifactStateReason, "Moderation delisted this publication.");
+            return ("revoked", $"Revocation is active: {reason}");
+        }
+
+        return ("not_revoked", "No publication revocation marker is active.");
+    }
+
+    private static string FirstNonEmpty(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim()
+        ?? string.Empty;
 }

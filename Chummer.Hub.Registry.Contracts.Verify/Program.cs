@@ -21,6 +21,12 @@ VerifySealedRecord(typeof(ReleaseDesktopTupleCoverage));
 VerifySealedRecord(typeof(InstallAwareConciergeArtifactIdentity));
 VerifySealedRecord(typeof(ArtifactFamilyIdentityRegistryRow));
 VerifySealedRecord(typeof(ArtifactPublicationBindingRow));
+VerifySealedRecord(typeof(ReleaseActiveRevocationFact));
+VerifySealedRecord(typeof(ReleaseChannelTrustProjection));
+VerifySealedRecord(typeof(ReleaseAdoptionHealthProjection));
+VerifySealedRecord(typeof(ReleaseProofFreshnessProjection));
+VerifySealedRecord(typeof(ReleaseRevocationFactsProjection));
+VerifySealedRecord(typeof(ReleasePublicTrustMetricsProjection));
 VerifySealedRecord(typeof(ReleaseChannelHeadProjection));
 VerifySealedRecord(typeof(DownloadReceiptDto));
 VerifySealedRecord(typeof(InstallClaimTicketDto));
@@ -357,7 +363,12 @@ ArtifactFamilyIdentityRegistryRow artifactIdentity = new(
     Kind: releaseArtifact.Kind,
     PreviewRef: "registry-preview:avalonia-win-x64-installer:avalonia:windows:win-x64",
     CaptionRef: "registry-caption:preview:2026.03.23-preview.1:avalonia:windows:win-x64",
+    PacketRef: "registry-packet:preview:2026.03.23-preview.1:avalonia-win-x64-installer",
+    LocaleRef: "registry-locale:preview:2026.03.23-preview.1:avalonia-win-x64-installer",
+    RetentionRef: "registry-retention:preview:2026.03.23-preview.1:avalonia-win-x64-installer",
+    RetentionState: "current",
     PublicationBindingId: "binding:preview:2026.03.23-preview.1:avalonia:windows:win-x64",
+    PublicationState: "published",
     SignedInShelfRef: "shelf:signed-in:preview:2026.03.23-preview.1:avalonia-win-x64-installer",
     PublicShelfRef: "shelf:public:preview:2026.03.23-preview.1:avalonia-win-x64-installer",
     PublicInstallRoute: routeTruth.PublicInstallRoute);
@@ -380,8 +391,60 @@ ArtifactPublicationBindingRow artifactPublicationBinding = new(
     PublicShelfRef: artifactIdentity.PublicShelfRef,
     PreviewRef: artifactIdentity.PreviewRef,
     CaptionRef: artifactIdentity.CaptionRef,
+    PacketRef: artifactIdentity.PacketRef,
+    LocaleRef: artifactIdentity.LocaleRef,
+    RetentionRef: artifactIdentity.RetentionRef,
+    RetentionState: artifactIdentity.RetentionState,
     PublicInstallRoute: artifactIdentity.PublicInstallRoute,
     Rationale: "preview keeps tuple avalonia:windows:win-x64 published so signed-in and public shelves cite the same governed refs.");
+
+ReleasePublicTrustMetricsProjection publicTrustMetrics = new(
+    ReleaseChannel: new ReleaseChannelTrustProjection(
+        ChannelId: "preview",
+        Posture: "preview",
+        PublicationStatus: ReleaseChannelStatuses.Published,
+        RolloutState: ReleaseRolloutStates.CoverageIncomplete,
+        SupportabilityState: ReleaseSupportabilityStates.ReviewRequired,
+        RecommendedRouteCount: 1,
+        BlockedRouteCount: 0,
+        RevokedRouteCount: 1,
+        Summary: "Channel preview is preview with 1 recommended primary route, 0 promoted fallback recovery routes, 0 blocked routes, and 1 active revocations."),
+    AdoptionHealth: new ReleaseAdoptionHealthProjection(
+        Status: "limited",
+        PrimaryPromotedCount: 1,
+        PublicInstallCount: 1,
+        AccountLinkedInstallCount: 0,
+        FallbackRecoveryCount: 0,
+        BlockedRouteCount: 0,
+        RevokedRouteCount: 1,
+        Summary: "1 primary routes are promoted; 1 are guest-readable, 0 require account-linked install handoff, 0 fallback recovery routes are promoted, and 0 routes are still blocked on proof."),
+    ProofFreshness: new ReleaseProofFreshnessProjection(
+        Status: "fresh",
+        ReleaseProofGeneratedAt: "1970-01-01T00:00:00+00:00",
+        ReleaseProofAgeSeconds: 0,
+        ReleaseProofMaxAgeSeconds: 604800,
+        UiLocalizationGeneratedAt: "1970-01-01T00:00:00+00:00",
+        UiLocalizationAgeSeconds: 0,
+        UiLocalizationMaxAgeSeconds: 604800,
+        Summary: "Release proof age is 0s (max 604800s) and UI localization gate age is 0s (max 604800s)."),
+    RevocationFacts: new ReleaseRevocationFactsProjection(
+        Status: "revoked",
+        ChannelRevoked: false,
+        ActiveRevocationCount: 1,
+        ActiveRevocations:
+        [
+            new ReleaseActiveRevocationFact(
+                TupleId: routeTruth.TupleId,
+                Head: routeTruth.Head,
+                Platform: routeTruth.Platform,
+                Rid: routeTruth.Rid,
+                ArtifactId: routeTruth.ArtifactId,
+                RevokeSource: routeTruth.RevokeSource,
+                RevokeReasonCode: routeTruth.RevokeReasonCode,
+                RevokeReason: routeTruth.RevokeReason,
+                PublicInstallRoute: routeTruth.PublicInstallRoute)
+        ],
+        Summary: "1 active route revocations are present on channel preview."));
 
 ReleaseChannelHeadProjection releaseChannel = new(
     Product: "chummer6",
@@ -423,7 +486,8 @@ ReleaseChannelHeadProjection releaseChannel = new(
         Complete: false),
     InstallAwareArtifactRegistry: [conciergeArtifactIdentity],
     ArtifactIdentityRegistry: [artifactIdentity],
-    ArtifactPublicationBindings: [artifactPublicationBinding]);
+    ArtifactPublicationBindings: [artifactPublicationBinding],
+    PublicTrustMetrics: publicTrustMetrics);
 
 HubPublicationResult<RuntimeBundleHeadProjection> implemented = HubPublicationResult<RuntimeBundleHeadProjection>.Implemented(head);
 Assert(implemented.IsImplemented, "Implemented result wrappers must report IsImplemented.");
@@ -456,6 +520,10 @@ Assert(string.Equals(releaseChannel.RolloutState, ReleaseRolloutStates.CoverageI
     "Release channel projections must retain coverage_incomplete rollout posture.");
 Assert(string.Equals(releaseChannel.SupportabilityState, ReleaseSupportabilityStates.ReviewRequired, StringComparison.Ordinal),
     "Release channel projections must retain supportability posture.");
+Assert(string.Equals(releaseChannel.PublicTrustMetrics?.ReleaseChannel.Posture, "preview", StringComparison.Ordinal),
+    "Release channel projections must retain public-trust release posture.");
+Assert(releaseChannel.PublicTrustMetrics?.RevocationFacts.ActiveRevocationCount == 1,
+    "Release channel projections must retain public-trust active revocation counts.");
 InstallAwareConciergeArtifactIdentity retainedConciergeArtifactIdentity = releaseChannel.InstallAwareArtifactRegistry?.Single()
     ?? throw new InvalidOperationException("Release channel projections must retain install-aware concierge artifact identities.");
 Assert(string.Equals(retainedConciergeArtifactIdentity.ArtifactId, releaseArtifact.ArtifactId, StringComparison.Ordinal),

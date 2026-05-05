@@ -430,6 +430,9 @@ public sealed class PublicationWorkflowService : IPublicationWorkflowService
         var successorArtifactId = !string.IsNullOrWhiteSpace(row.SupersededByArtifactId)
             ? row.SupersededByArtifactId
             : artifactMetadata?.SupersededByArtifactId;
+        var lineageAnchorArtifactId = !string.IsNullOrWhiteSpace(successorArtifactId)
+            ? successorArtifactId
+            : row.ArtifactId;
         var discoverable = row.State == PublicationState.Published
             && visibility is not ArtifactVisibilityModes.Private
             && visibility is not ArtifactVisibilityModes.LocalOnly;
@@ -473,11 +476,28 @@ public sealed class PublicationWorkflowService : IPublicationWorkflowService
             _ => "Draft publications stay off discovery surfaces."
         };
 
+        var (compatibilityState, compatibilitySummary) = BuildCompatibilityProjection(
+            row.State,
+            visibility,
+            successorArtifactId,
+            artifactMetadata?.State);
+        var (revocationState, revocationSummary) = BuildRevocationProjection(
+            row.State,
+            artifactMetadata?.State,
+            row.LifecycleNote,
+            artifactMetadata?.StateReason);
+
         return new PublicationTrustProjection(
             RankingBand: rankingBand,
             TrustSummary: trustSummary,
             DiscoverySummary: discoverySummary,
             LineageSummary: BuildLineageSummary(row.State, successorArtifactId),
+            LineageAnchorArtifactId: lineageAnchorArtifactId,
+            SuccessorArtifactId: successorArtifactId,
+            CompatibilityState: compatibilityState,
+            CompatibilitySummary: compatibilitySummary,
+            RevocationState: revocationState,
+            RevocationSummary: revocationSummary,
             Discoverable: discoverable);
     }
 
@@ -543,6 +563,68 @@ public sealed class PublicationWorkflowService : IPublicationWorkflowService
 
     private static string NormalizeTrustTier(string? trustTier) =>
         string.IsNullOrWhiteSpace(trustTier) ? ArtifactTrustTiers.Curated : trustTier.Trim();
+
+    private static (string CompatibilityState, string CompatibilitySummary) BuildCompatibilityProjection(
+        PublicationState publicationState,
+        string visibility,
+        string? successorArtifactId,
+        HubArtifactState? artifactState)
+    {
+        if (artifactState == HubArtifactState.BannedButRetained || publicationState == PublicationState.Delisted)
+        {
+            return ("revoked", "Compatibility is revoked while the publication stays under moderation removal.");
+        }
+
+        if (artifactState == HubArtifactState.Deprecated || publicationState == PublicationState.Deprecated)
+        {
+            return ("successor_required", string.IsNullOrWhiteSpace(successorArtifactId)
+                ? "Compatibility now requires an explicit successor artifact before this publication should rank as current."
+                : $"Compatibility now routes through successor artifact {successorArtifactId}.");
+        }
+
+        if (artifactState == HubArtifactState.Superseded || publicationState == PublicationState.Superseded)
+        {
+            return ("superseded", string.IsNullOrWhiteSpace(successorArtifactId)
+                ? "Compatibility follows retained-history posture until a successor artifact is attached."
+                : $"Compatibility now routes through successor artifact {successorArtifactId} while this publication stays retained.");
+        }
+
+        return publicationState switch
+        {
+            PublicationState.PendingReview => ("approval_pending", "Compatibility stays provisional until approval review completes."),
+            PublicationState.Approved => ("approval_backed", "Compatibility is approval-backed and ready for governed publication."),
+            PublicationState.Rejected => ("revision_required", "Compatibility is blocked until the creator revises and resubmits the publication."),
+            PublicationState.Published when visibility is ArtifactVisibilityModes.Private or ArtifactVisibilityModes.LocalOnly
+                => ("visibility_limited", $"Compatibility is limited to {visibility} surfaces until publication visibility widens."),
+            PublicationState.Published => ("compatible", "Compatibility is live for governed discovery on the published shelf."),
+            _ => ("draft", "Compatibility stays draft-scoped until the publication enters review.")
+        };
+    }
+
+    private static (string RevocationState, string RevocationSummary) BuildRevocationProjection(
+        PublicationState publicationState,
+        HubArtifactState? artifactState,
+        string? lifecycleNote,
+        string? artifactStateReason)
+    {
+        if (artifactState == HubArtifactState.BannedButRetained)
+        {
+            var reason = FirstNonEmpty(artifactStateReason, lifecycleNote, "Artifact retention is revoked by registry moderation.");
+            return ("revoked", $"Revocation is active: {reason}");
+        }
+
+        if (publicationState == PublicationState.Delisted || artifactState == HubArtifactState.Delisted)
+        {
+            var reason = FirstNonEmpty(lifecycleNote, artifactStateReason, "Moderation delisted this publication.");
+            return ("revoked", $"Revocation is active: {reason}");
+        }
+
+        return ("not_revoked", "No publication revocation marker is active.");
+    }
+
+    private static string FirstNonEmpty(params string?[] values) =>
+        values.FirstOrDefault(value => !string.IsNullOrWhiteSpace(value))?.Trim()
+        ?? string.Empty;
 
     private static string BuildConcurrencyToken(PublicationStateRow row) =>
         $"\"pub:{row.PublicationId}:v{row.Version}\"";
