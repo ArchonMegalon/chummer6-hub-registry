@@ -3163,10 +3163,18 @@ items:
   task: Add mobile artifact shelf views for campaign, travel, and recap artifacts.
   package_id: next90-m117-mobile-artifact-shelf
   work_task_id: 117.4
+  frontier_id: 3440617449
   milestone_id: 117
-  status: in_progress
+  status: complete
   wave: W13
   repo: chummer6-mobile
+  completion_action: verify_closed_package_only
+  do_not_reopen_reason: M117 chummer6-mobile artifact shelf is complete; future shards must verify this receipt, registry row, queue row, and design-queue row instead of reopening the mobile artifact shelf package.
+  proof:
+  - /docker/chummercomplete/chummer-play/docs/next90-m117-mobile-artifact-shelf.proof.md
+  - /docker/chummercomplete/chummer-play/scripts/verify_next90_m117_mobile_artifact_shelf.py
+  - /docker/chummercomplete/chummer-play/scripts/materialize_mobile_local_release_proof.py
+  - /docker/chummercomplete/chummer-play/.codex-studio/published/MOBILE_LOCAL_RELEASE_PROOF.generated.json
   allowed_paths:
   - src
   - tests
@@ -3521,7 +3529,7 @@ items:
   owned_surfaces:
   - onboarding_metrics
   - onboarding_claims
-- title: Publish public trust, status, release, and proof-shelf surfaces from governor truth
+- title: Publish public trust, status, release, and proof-shelf surfaces from registry and governor truth.
   task: Compile live, preview, fallback, revoked, fixed, blocked, proof freshness, support pulse, and adoption health into
     public status surfaces.
   package_id: next90-m120-hub-public-launch-health
@@ -3660,9 +3668,27 @@ items:
   work_task_id: '121.3'
   frontier_id: 7834909683
   milestone_id: 121
-  status: not_started
+  status: complete
   wave: W15
   repo: chummer6-ui
+  completion_action: verify_closed_package_only
+  do_not_reopen_reason: M121 chummer6-ui desktop GM Runboard route is complete; future shards must verify the desktop
+    runboard proof, focused guard tests, canonical registry row, and queue mirrors instead of reopening this slice.
+  proof:
+  - /docker/chummercomplete/chummer-presentation/Chummer.Avalonia/DesktopCampaignWorkspaceWindow.cs
+  - /docker/chummercomplete/chummer-presentation/Chummer.Avalonia/DesktopHomeWindow.cs
+  - /docker/chummercomplete/chummer-presentation/Chummer.Avalonia/DesktopOrganizerOperationsWindow.cs
+  - /docker/chummercomplete/chummer-presentation/Chummer.Avalonia/App.axaml.cs
+  - /docker/chummercomplete/chummer-presentation/Chummer.Desktop.Runtime/DesktopStartupSurfaceCatalog.cs
+  - /docker/chummercomplete/chummer-presentation/Chummer.Tests/Presentation/AccessibilitySignoffSmokeTests.cs
+  - /docker/chummercomplete/chummer-presentation/Chummer.Tests/Compliance/Next90M121GmRunboardRouteGuardTests.cs
+  - /docker/chummercomplete/chummer-presentation/.codex-studio/published/NEXT90_M121_UI_GM_RUNBOARD_ROUTE.generated.json
+  - /docker/chummercomplete/chummer-presentation/scripts/ai/milestones/next90-m121-ui-gm-runboard-route-check.sh
+  - bash scripts/ai/milestones/next90-m121-ui-gm-runboard-route-check.sh
+  - dotnet test Chummer.Tests/Chummer.Tests.csproj --filter "FullyQualifiedName~Next90M121GmRunboardRouteGuardTests"
+    --no-restore
+  - dotnet test Chummer.Tests/Presentation/Chummer.Presentation.Signoff.Tests.csproj --filter "FullyQualifiedName~AccessibilitySignoffSmokeTests"
+    --no-restore
   allowed_paths:
   - Chummer.Avalonia
   - Chummer.Desktop.Runtime
@@ -3706,9 +3732,21 @@ items:
   task: Bind live action economy and GM Runboard proof into journey gates, acceptance language, and no-VTT boundary policy.
   package_id: next90-m121-design-bind-live-action-economy-and-gm-runboard-proof-into-jour
   work_task_id: '121.6'
-  frontier_id: 1062733633
+  frontier_id: 1797015630
   milestone_id: 121
-  status: not_started
+  status: complete
+  completion_action: verify_closed_package_only
+  do_not_reopen_reason: M121 chummer6-design live action economy and GM Runboard proof into journey gates, acceptance language, and no-VTT boundary policy is complete. Future shards must verify the journey-gate links, acceptance-language proof posture, no-VTT boundary policy, and queue/registry lock markers before reopening this package.
+  proof:
+    - /docker/chummercomplete/chummer-design/products/chummer/LIVE_ACTION_ECONOMY_AND_TURN_ASSIST.md
+    - /docker/chummercomplete/chummer-design/products/chummer/GM_RUNBOARD_LIVE_OPERATIONS.md
+    - /docker/chummercomplete/chummer-design/products/chummer/SOURCE_ANCHOR_AND_LOCAL_RULEBOOK_BINDING.md
+    - /docker/chummercomplete/chummer-design/products/chummer/GOLDEN_JOURNEY_RELEASE_GATES.yaml
+    - /docker/chummercomplete/chummer-design/products/chummer/maintenance/feedback_archive/2026-05-05-next90-m121-design-bind-live-action-economy-and-gm-runboard-proof-into-jour-closeout.md
+    - /docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_QUEUE_STAGING.generated.yaml
+    - /docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_PRODUCT_ADVANCE_REGISTRY.yaml
+    - /docker/chummercomplete/chummer-design/scripts/ai/validate_next90_m121_design_bind_live_action_economy_and_gm_runboard_proof.py
+    - /docker/chummercomplete/chummer-design/scripts/ai/verify.sh
   wave: W15
   repo: chummer6-design
   allowed_paths:
@@ -3806,7 +3844,20 @@ items:
   work_task_id: '122.6'
   frontier_id: 2050325965
   milestone_id: 122
-  status: not_started
+  status: complete
+  completion_action: verify_closed_package_only
+  do_not_reopen_reason: M122 chummer6-design BLACK LEDGER MVP receipt semantics, spoiler policy, and adoption confidence gates are complete. Future shards must verify the adoption receipt gate, consequence spoiler policy, and queue/registry lock markers before reopening this package.
+  proof:
+    - /docker/chummercomplete/chummer-design/products/chummer/CAMPAIGN_ADOPTION_WIZARD.md
+    - /docker/chummercomplete/chummer-design/products/chummer/CAMPAIGN_ADOPTION_START_FROM_TODAY_FLOW.md
+    - /docker/chummercomplete/chummer-design/products/chummer/BLACK_LEDGER_MVP_001.md
+    - /docker/chummercomplete/chummer-design/products/chummer/NEWSREEL_AND_CITY_TICKER_MODEL.md
+    - /docker/chummercomplete/chummer-design/products/chummer/GOLDEN_JOURNEY_RELEASE_GATES.yaml
+    - /docker/chummercomplete/chummer-design/products/chummer/maintenance/feedback_archive/2026-05-05-next90-m122-design-finalize-black-ledger-mvp-receipt-semantics-spoiler-poli-closeout.md
+    - /docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_QUEUE_STAGING.generated.yaml
+    - /docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_PRODUCT_ADVANCE_REGISTRY.yaml
+    - /docker/chummercomplete/chummer-design/scripts/ai/validate_next90_m122_design_black_ledger_receipt_semantics.py
+    - /docker/chummercomplete/chummer-design/scripts/ai/verify.sh
   wave: W15
   repo: chummer6-design
   allowed_paths:
@@ -5313,9 +5364,23 @@ items:
   work_task_id: '135.5'
   frontier_id: 1800141525
   milestone_id: 135
-  status: not_started
+  status: complete
   wave: W22
   repo: chummer6-hub-registry
+  completion_action: verify_closed_package_only
+  do_not_reopen_reason: M135.5 chummer6-hub-registry registry boundary coverage is complete; future shards must verify the canonical registryBoundaryCoverage projection, queue row, mirror row, closeout, and package verifier instead of reopening the persistence, release-channel, artifact-lineage, publication, entitlement, and compatibility boundary slice.
+  proof:
+  - /docker/chummercomplete/chummer-hub-registry/docs/RELEASE_CHANNEL_PIPELINE.md
+  - /docker/chummercomplete/chummer-hub-registry/docs/next90-m135-registry-boundary-coverage.closeout.md
+  - /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py
+  - /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py
+  - /docker/chummercomplete/chummer-hub-registry/scripts/test_verify_public_release_channel.py
+  - /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m135_registry_boundary_coverage.py
+  - /docker/chummercomplete/chummer-hub-registry/scripts/test_verify_next90_m135_registry_boundary_coverage.py
+  - /docker/chummercomplete/chummer-hub-registry/.codex-studio/published/RELEASE_CHANNEL.generated.json
+  - /docker/chummercomplete/chummer-hub-registry/.codex-studio/published/releases.json
+  - python3 scripts/verify_public_release_channel.py .codex-studio/published
+  - python3 -m unittest scripts/test_verify_public_release_channel.py scripts/test_verify_next90_m120_registry_launch_truth.py scripts/test_verify_next90_m135_registry_boundary_coverage.py
   allowed_paths:
   - Chummer.Hub.Registry
   - scripts

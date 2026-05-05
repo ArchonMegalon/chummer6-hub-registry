@@ -38,14 +38,14 @@ if [ -z "${CHUMMER_PRESENTATION_ROOT:-}" ] || [ ! -d "$CHUMMER_PRESENTATION_ROOT
   exit 1
 fi
 
-# Fail closed if the checked-in published release-channel receipt drifts from verifier truth.
-published_release_channel_path="/docker/chummercomplete/chummer-hub-registry/.codex-studio/published/RELEASE_CHANNEL.generated.json"
-if [ ! -f "$published_release_channel_path" ]; then
-  echo "verify gate failed: expected published release-channel receipt is missing at $published_release_channel_path." >&2
+# Fail closed if the checked-in published release-channel bundle drifts from verifier truth.
+published_release_channel_path="/docker/chummercomplete/chummer-hub-registry/.codex-studio/published"
+if [ ! -d "$published_release_channel_path" ]; then
+  echo "verify gate failed: expected published release-channel bundle is missing at $published_release_channel_path." >&2
   exit 1
 fi
 if ! python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py "$published_release_channel_path" >/dev/null; then
-  echo "verify gate failed: published release-channel receipt must pass verify_public_release_channel.py." >&2
+  echo "verify gate failed: published release-channel bundle must pass verify_public_release_channel.py." >&2
   exit 1
 fi
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m101_registry_promotion_discipline.py >/dev/null
@@ -58,6 +58,10 @@ python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m116_
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m116_registry_creator_trust.py --self-test >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m117_registry_artifact_shelf.py >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m117_registry_artifact_shelf.py --self-test >/dev/null
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m120_registry_launch_truth.py >/dev/null
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m120_registry_launch_truth.py --self-test >/dev/null
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m135_registry_boundary_coverage.py >/dev/null
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m135_registry_boundary_coverage.py --self-test >/dev/null
 
 # Default verify must fail when consumer repos still source-own registry contracts.
 export CHUMMER_ENFORCE_CONSUMER_OWNERSHIP="${CHUMMER_ENFORCE_CONSUMER_OWNERSHIP:-1}"

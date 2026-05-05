@@ -218,6 +218,34 @@ Release artifact kinds are deliberate:
 Registry-owned release truth should also answer:
 
 * what rollout state the shelf is currently in
+
+## Public trust metrics
+
+`RELEASE_CHANNEL.generated.json` is also the canonical normalization point for public launch-health facts that downstream `/downloads`, help, release-status, and governor surfaces can project without inventing local copy posture.
+
+The `publicTrustMetrics` object is required when a published release channel is materialized. It contains four normalized slices:
+
+* `releaseChannel`: the public posture for the channel itself (`live`, `preview`, `blocked`, or `revoked`) plus published rollout/supportability counts for recommended, blocked, and revoked routes
+* `adoptionHealth`: promoted-primary, guest-readable, account-linked, fallback-recovery, blocked, and revoked route counts in one adoption-health summary
+* `proofFreshness`: release-proof and UI-localization timestamps, age counters, max-age budgets, and the derived `fresh`/`stale`/`missing` posture
+* `revocationFacts`: channel-level revoke posture plus the sorted list of active tuple revocations that public surfaces must treat as withdrawn
+
+This slice is generated in `scripts/materialize_public_release_channel.py`, fail-closed in `scripts/verify_public_release_channel.py`, loaded into typed consumers by `Chummer.Run.Registry/Services/ReleaseChannelManifestStore.cs`, and pinned by both registry verifier projects.
+
+## Registry boundary coverage
+
+`RELEASE_CHANNEL.generated.json` also publishes `registryBoundaryCoverage` so repo-local closeout proof can point at one canonical registry-owned boundary projection instead of inventing a second status file.
+
+The `registryBoundaryCoverage` object is required when a published release channel is materialized. It contains six normalized slices:
+
+* `persistence`: artifact, runtime-bundle, and projection counts that prove registry persistence owns the canonical release record
+* `releaseChannel`: publication, rollout, supportability, tuple-completeness, and public-trust posture for the current channel/version
+* `artifactLineage`: artifact-identity, publication-binding, and exchange-lineage counts that keep lineage and retention facts in one registry-owned graph
+* `publication`: published vs retained bindings plus shared shelf/ref counts for public and signed-in publication surfaces
+* `entitlement`: install-aware and desktop-surface ref counts, including open-public vs account-required handoff posture
+* `compatibility`: compatible vs unknown artifact, runtime-bundle, and exchange-lineage counts so compatibility-boundary truth stays explicit beside release-channel truth
+
+This slice is generated in `scripts/materialize_public_release_channel.py`, fail-closed in `scripts/verify_public_release_channel.py`, mirrored into `releases.json`, and pinned by `scripts/verify_next90_m135_registry_boundary_coverage.py`.
 * whether the shelf is supportable today or still review-required
 * what known-issue posture the current shelf carries
 * whether fixes are actually available on the published channel

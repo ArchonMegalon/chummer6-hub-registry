@@ -3381,6 +3381,198 @@ def public_trust_metrics(
     }
 
 
+def registry_boundary_coverage(
+    *,
+    channel_id: str,
+    release_version: str,
+    contract_name: str,
+    status: str,
+    rollout_state: str,
+    supportability_state: str,
+    artifacts: list[dict[str, Any]],
+    runtime_bundle_heads: list[dict[str, Any]],
+    tuple_coverage: dict[str, Any],
+    install_aware_registry: list[dict[str, Any]],
+    desktop_surface_ref_rows: list[dict[str, Any]],
+    artifact_identity_registry_rows: list[dict[str, Any]],
+    artifact_publication_binding_rows: list[dict[str, Any]],
+    exchange_lineage_registry_rows: list[dict[str, Any]],
+    public_trust_metrics: dict[str, Any],
+) -> dict[str, Any]:
+    promoted_installer_tuples = tuple_coverage.get("promotedInstallerTuples") if isinstance(tuple_coverage, dict) else []
+    if not isinstance(promoted_installer_tuples, list):
+        promoted_installer_tuples = []
+    route_truth = tuple_coverage.get("desktopRouteTruth") if isinstance(tuple_coverage, dict) else []
+    if not isinstance(route_truth, list):
+        route_truth = []
+
+    compatible_artifact_count = sum(
+        1
+        for item in artifacts
+        if isinstance(item, dict) and normalize_optional_string(item.get("compatibilityState")) == "compatible"
+    )
+    unknown_artifact_count = sum(
+        1
+        for item in artifacts
+        if isinstance(item, dict) and normalize_optional_string(item.get("compatibilityState")) != "compatible"
+    )
+    compatible_runtime_bundle_head_count = sum(
+        1
+        for item in runtime_bundle_heads
+        if isinstance(item, dict) and normalize_optional_string(item.get("compatibilityState")) == "compatible"
+    )
+    unknown_runtime_bundle_head_count = sum(
+        1
+        for item in runtime_bundle_heads
+        if isinstance(item, dict) and normalize_optional_string(item.get("compatibilityState")) != "compatible"
+    )
+    compatible_exchange_artifact_count = sum(
+        1
+        for item in exchange_lineage_registry_rows
+        if isinstance(item, dict) and normalize_optional_string(item.get("compatibilityState")) == "compatible"
+    )
+    published_artifact_count = sum(
+        1
+        for item in artifact_identity_registry_rows
+        if isinstance(item, dict) and normalize_optional_string(item.get("publicationState")) == "published"
+    )
+    retained_artifact_count = sum(
+        1
+        for item in artifact_identity_registry_rows
+        if isinstance(item, dict) and normalize_optional_string(item.get("publicationState")) == "retained"
+    )
+    published_binding_count = sum(
+        1
+        for item in artifact_publication_binding_rows
+        if isinstance(item, dict) and normalize_optional_string(item.get("publicationState")) == "published"
+    )
+    retained_binding_count = sum(
+        1
+        for item in artifact_publication_binding_rows
+        if isinstance(item, dict) and normalize_optional_string(item.get("publicationState")) == "retained"
+    )
+    signed_in_and_public_binding_count = sum(
+        1
+        for item in artifact_publication_binding_rows
+        if isinstance(item, dict) and normalize_optional_string(item.get("publicationScope")) == "signed-in-and-public"
+    )
+    current_retention_count = sum(
+        1
+        for item in artifact_publication_binding_rows
+        if isinstance(item, dict) and normalize_optional_string(item.get("retentionState")) == "current"
+    )
+    open_public_surface_count = sum(
+        1
+        for item in desktop_surface_ref_rows
+        if isinstance(item, dict) and normalize_optional_string(item.get("installAccessClass")) == "open_public"
+    )
+    account_required_surface_count = sum(
+        1
+        for item in desktop_surface_ref_rows
+        if isinstance(item, dict) and normalize_optional_string(item.get("installAccessClass")) == "account_required"
+    )
+    registry_projection_count = (
+        len(install_aware_registry)
+        + len(desktop_surface_ref_rows)
+        + len(artifact_identity_registry_rows)
+        + len(artifact_publication_binding_rows)
+        + len(exchange_lineage_registry_rows)
+    )
+    rollout_state_token = normalize_optional_string(rollout_state) or "unknown"
+
+    return {
+        "status": "closed",
+        "owner": "chummer6-hub-registry",
+        "channelId": channel_id,
+        "releaseVersion": release_version,
+        "persistence": {
+            "contractName": contract_name,
+            "artifactCount": len(artifacts),
+            "runtimeBundleHeadCount": len(runtime_bundle_heads),
+            "registryProjectionCount": registry_projection_count,
+            "summary": (
+                f"Registry persistence owns {len(artifacts)} published artifacts, "
+                f"{len(runtime_bundle_heads)} runtime bundle heads, and "
+                f"{registry_projection_count} governed projection rows for "
+                f"{channel_id}/{release_version}."
+            ),
+        },
+        "releaseChannel": {
+            "publicationStatus": normalize_optional_string(status) or "unknown",
+            "rolloutState": rollout_state_token,
+            "supportabilityState": normalize_optional_string(supportability_state) or "unknown",
+            "desktopTupleComplete": bool(tuple_coverage.get("complete")),
+            "promotedInstallerTupleCount": len(promoted_installer_tuples),
+            "desktopRouteTruthCount": len(route_truth),
+            "publicTrustPosture": (
+                normalize_optional_string(public_trust_metrics.get("releaseChannel", {}).get("posture"))
+                or "unknown"
+            ),
+            "summary": (
+                f"Release-channel truth for {channel_id}/{release_version} keeps "
+                f"{len(promoted_installer_tuples)} promoted installer tuples and "
+                f"{len(route_truth)} explicit desktop route-truth rows under "
+                f"{rollout_state_token} rollout posture."
+            ),
+        },
+        "artifactLineage": {
+            "artifactIdentityCount": len(artifact_identity_registry_rows),
+            "publicationBindingCount": len(artifact_publication_binding_rows),
+            "exchangeLineageCount": len(exchange_lineage_registry_rows),
+            "publishedArtifactCount": published_artifact_count,
+            "retainedArtifactCount": retained_artifact_count,
+            "summary": (
+                f"Artifact-lineage truth covers {len(artifact_identity_registry_rows)} artifact "
+                f"identity rows, {len(artifact_publication_binding_rows)} publication bindings, "
+                f"and {len(exchange_lineage_registry_rows)} exchange-lineage rows."
+            ),
+        },
+        "publication": {
+            "publishedBindingCount": published_binding_count,
+            "retainedBindingCount": retained_binding_count,
+            "signedInAndPublicBindingCount": signed_in_and_public_binding_count,
+            "currentRetentionCount": current_retention_count,
+            "summary": (
+                f"Publication boundary keeps {published_binding_count} published bindings, "
+                f"{retained_binding_count} retained bindings, and "
+                f"{signed_in_and_public_binding_count} signed-in/public shared shelf refs."
+            ),
+        },
+        "entitlement": {
+            "installAwareArtifactCount": len(install_aware_registry),
+            "desktopSurfaceRefCount": len(desktop_surface_ref_rows),
+            "openPublicSurfaceCount": open_public_surface_count,
+            "accountRequiredSurfaceCount": account_required_surface_count,
+            "summary": (
+                f"Entitlement and install-hand-off truth spans "
+                f"{len(install_aware_registry)} install-aware registry rows, "
+                f"{len(desktop_surface_ref_rows)} desktop surface refs, "
+                f"{open_public_surface_count} guest-readable surfaces, and "
+                f"{account_required_surface_count} account-required surfaces."
+            ),
+        },
+        "compatibility": {
+            "compatibleArtifactCount": compatible_artifact_count,
+            "compatibleRuntimeBundleHeadCount": compatible_runtime_bundle_head_count,
+            "compatibleExchangeArtifactCount": compatible_exchange_artifact_count,
+            "unknownArtifactCount": unknown_artifact_count,
+            "unknownRuntimeBundleHeadCount": unknown_runtime_bundle_head_count,
+            "summary": (
+                f"Compatibility boundary tracks {compatible_artifact_count} compatible "
+                f"artifacts, {compatible_runtime_bundle_head_count} compatible runtime bundle "
+                f"heads, and {compatible_exchange_artifact_count} compatible exchange-lineage "
+                f"rows while {unknown_artifact_count} artifact rows and "
+                f"{unknown_runtime_bundle_head_count} runtime bundle heads remain unknown."
+            ),
+        },
+        "summary": (
+            f"Registry boundary coverage is closed for {channel_id}/{release_version} "
+            f"across persistence, release-channel, artifact-lineage, publication, "
+            f"entitlement, and compatibility surfaces."
+        ),
+    }
+
+
 def derive_default_compatibility_state(status: str, proof: dict[str, Any] | None) -> str:
     if status == "published" and proof and str(proof.get("status") or "").strip().lower() == "passed":
         return "compatible"
@@ -3880,6 +4072,23 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         artifacts=artifacts,
         tuple_coverage=tuple_coverage,
     )
+    boundary_coverage = registry_boundary_coverage(
+        channel_id=channel,
+        release_version=version,
+        contract_name=contract_name,
+        status=status,
+        rollout_state=rollout_state,
+        supportability_state=supportability_state,
+        artifacts=artifacts,
+        runtime_bundle_heads=runtime_bundle_heads,
+        tuple_coverage=tuple_coverage,
+        install_aware_registry=install_aware_registry,
+        desktop_surface_ref_rows=desktop_surface_ref_rows,
+        artifact_identity_registry_rows=artifact_identity_registry_rows,
+        artifact_publication_binding_rows=artifact_publication_binding_rows,
+        exchange_lineage_registry_rows=exchange_lineage_registry_rows,
+        public_trust_metrics=trust_metrics,
+    )
     return {
         "generated_at": generated_at,
         "generatedAt": generated_at,
@@ -3909,6 +4118,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "artifactPublicationBindings": artifact_publication_binding_rows,
         "exchangeLineageRegistry": exchange_lineage_registry_rows,
         "publicTrustMetrics": trust_metrics,
+        "registryBoundaryCoverage": boundary_coverage,
     }
 
 
@@ -3943,6 +4153,7 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
                 "platformId": f"{platform}-{arch}" if platform and arch else platform or None,
                 "arch": arch or None,
                 "fileName": artifact.get("fileName"),
+                "compatibilityState": artifact.get("compatibilityState"),
                 "installAccessClass": (
                     str(artifact.get("installAccessClass") or "").strip()
                     or default_install_access_class(platform, kind)
@@ -3969,12 +4180,14 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         "fixAvailabilitySummary": canonical.get("fixAvailabilitySummary"),
         "releaseProof": canonical.get("releaseProof"),
         "desktopTupleCoverage": canonical.get("desktopTupleCoverage"),
+        "runtimeBundleHeads": canonical.get("runtimeBundleHeads"),
         "installAwareArtifactRegistry": canonical.get("installAwareArtifactRegistry"),
         "desktopSurfaceRefs": canonical.get("desktopSurfaceRefs"),
         "artifactIdentityRegistry": canonical.get("artifactIdentityRegistry"),
         "artifactPublicationBindings": canonical.get("artifactPublicationBindings"),
         "exchangeLineageRegistry": canonical.get("exchangeLineageRegistry"),
         "publicTrustMetrics": canonical.get("publicTrustMetrics"),
+        "registryBoundaryCoverage": canonical.get("registryBoundaryCoverage"),
     }
 
 

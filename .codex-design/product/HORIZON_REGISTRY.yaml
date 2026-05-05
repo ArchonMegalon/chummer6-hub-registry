@@ -24,6 +24,14 @@ optional_fields:
 - booster_nudge
 - free_later_intent
 - recognition_eligible
+required_doc_sections:
+- Table pain
+- Bounded product move
+- Likely owners
+- Foundations
+- Build path
+- Owner handoff gate
+- Why still a horizon
 horizons:
 - id: nexus-pan
   title: NEXUS-PAN
