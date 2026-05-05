@@ -323,7 +323,8 @@
         "installPostureReason": "Do not present blazor-desktop:windows:win-x64 as installable until the missing tuple proof is captured.",
         "publicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer"
       }
-    ]
+    ],
+    "complete": false
   },
   "runtimeBundleHeads": [],
   "installAwareArtifactRegistry": [
