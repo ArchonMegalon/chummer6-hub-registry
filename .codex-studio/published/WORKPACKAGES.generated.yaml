@@ -1,0 +1,21 @@
+source_queue_fingerprint: 63cfe6e85c12c3ae99c49fd3a810351cd56a170f
+work_packages:
+- package_id: hub-registry-package-compile-63cfe6e85c12
+  package_kind: package_compile
+  horizon_family: package-compile
+  title: Compile booster-ready work packages from queue truth
+  allowed_lanes:
+  - easy
+  - groundwork
+  allow_credit_burn: false
+  premium_required: false
+  required_reviewer_lane: core_authority
+  final_reviewer_lane: core_authority
+  landing_lane: core_authority
+  allowed_paths:
+  - .codex-studio/published/WORKPACKAGES.generated.yaml
+  denied_paths: []
+  owned_surfaces:
+  - package_compile:hub-registry
+  dependencies: []
+  max_touched_files: 1

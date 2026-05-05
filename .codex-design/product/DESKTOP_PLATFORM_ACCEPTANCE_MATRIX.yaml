@@ -1,0 +1,47 @@
+product: chummer
+surface: desktop_delivery
+version: 1
+flagship_head: Chummer.Avalonia
+gold_release_head_policy:
+  primary_public_route_must_be_unique: true
+  independent_flagship_proof_required_for_all_shipped_heads: true
+  secondary_head_must_not_ship_on_thinner_proof: true
+  preview_only_fallback_exceptions_do_not_satisfy_gold: true
+head_policies:
+  - head: Chummer.Avalonia
+    role: flagship_primary
+    pass_conditions:
+      - The promoted shelf names Avalonia as the primary desktop route for the lane.
+      - Avalonia clears the full desktop flagship bar for the platform scope it is promoted on.
+    fail_conditions:
+      - Avalonia is treated as primary but the public shelf silently routes users to another head without explicit bounded fallback wording.
+platforms:
+  - id: windows
+    public_shelf_status: promoted_preview
+    primary_package_kind: installer
+    fallback_package_kinds:
+      - portable_exe
+    startup_smoke_gate: required
+    signing_posture: required_for_promoted_release
+    updater_mode: in_app_apply_helper
+    supportability: primary
+  - id: linux
+    public_shelf_status: preview_support_directed
+    primary_package_kind: deb
+    fallback_package_kinds:
+      - archive
+    startup_smoke_gate: required
+    signing_posture: package_integrity_required
+    updater_mode: in_app_or_installer_handoff
+    supportability: secondary
+  - id: macOS
+    public_shelf_status: account_gated_setup_script_preview
+    primary_package_kind: setup_script
+    fallback_package_kinds:
+      - none
+    startup_smoke_gate: required
+    signing_posture: codesign_and_notarization_required
+    updater_mode: claimed_setup_script_then_dmg_handoff
+    supportability: account_gated_setup_script_preview
+    public_manifest_visibility: visible_as_account_gated_setup_script_preview
+    public_promotion_gate: account_gated_setup_script_with_bounded_preview_truth

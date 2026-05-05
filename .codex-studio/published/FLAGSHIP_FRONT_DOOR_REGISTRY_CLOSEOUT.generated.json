@@ -1,0 +1,98 @@
+{
+  "contract_name": "chummer6-hub-registry.flagship_front_door_registry_closeout",
+  "schema_version": 1,
+  "generated_at": "2026-04-23T17:18:00Z",
+  "status": "passed",
+  "frontier_id": 2541792707,
+  "frontier_title": "Hub, registry, and public front door flagship finish",
+  "owner": "chummer6-hub-registry",
+  "proof_kind": "registry_public_front_door_closeout",
+  "closes_readiness_coverage": [
+    "ui_kit_and_flagship_polish",
+    "media_artifacts"
+  ],
+  "source_truth": {
+    "release_channel": ".codex-studio/published/RELEASE_CHANNEL.generated.json",
+    "compatibility_shelf": ".codex-studio/published/releases.json",
+    "artifact_publication_certification": ".codex-studio/published/ARTIFACT_PUBLICATION_CERTIFICATION.generated.json",
+    "media_local_release_proof": "/docker/fleet/repos/chummer-media-factory/.codex-studio/published/MEDIA_LOCAL_RELEASE_PROOF.generated.json",
+    "public_media_briefs": "/docker/chummercomplete/chummer-design/products/chummer/PUBLIC_MEDIA_BRIEFS.yaml",
+    "media_artifact_recipe_registry": "/docker/chummercomplete/chummer-design/products/chummer/MEDIA_ARTIFACT_RECIPE_REGISTRY.yaml",
+    "ui_kit_scope": "/docker/chummercomplete/chummer-design/products/chummer/projects/ui-kit.md",
+    "hub_registry_scope": "/docker/chummercomplete/chummer-design/products/chummer/projects/hub-registry.md"
+  },
+  "public_happy_path": {
+    "primary_route": "guided_chummer_product_installer",
+    "required_installer_routes": [
+      "/downloads/install/avalonia-linux-x64-installer",
+      "/downloads/install/avalonia-win-x64-installer",
+      "/downloads/install/avalonia-osx-arm64-installer"
+    ],
+    "fallback_policy": "fallback rows stay explicit recovery/manual truth in desktopTupleCoverage.desktopRouteTruth and must not replace the flagship Avalonia installer path",
+    "browser_claim_code_ritual": "not_required_for_primary_claim_restore",
+    "framework_first_choice": "not_allowed"
+  },
+  "proof_shelf_routes": [
+    "/downloads/install/avalonia-linux-x64-installer",
+    "/home/access",
+    "/home/work",
+    "/account/work",
+    "/account/support",
+    "/contact",
+    "/downloads"
+  ],
+  "ui_kit_and_flagship_polish": {
+    "status": "passed",
+    "registry_binding": "releaseProof plus desktopTupleCoverage.desktopRouteTruth",
+    "required_journey": "build_explain_publish",
+    "localization_gate_required": true,
+    "required_localization_domains": [
+      "app_chrome",
+      "install_update_support",
+      "explain_receipts",
+      "data_rules_names",
+      "generated_artifacts"
+    ],
+    "required_surface_routes": [
+      "/home/work",
+      "/account/work",
+      "/account/support",
+      "/contact",
+      "/downloads"
+    ],
+    "owner_boundary": "chummer6-ui-kit owns shared primitives; chummer6-hub-registry owns only the publishable release proof and route truth consumed by public surfaces"
+  },
+  "media_artifacts": {
+    "status": "passed",
+    "registry_binding": "media publication refs and artifact shelf truth",
+    "required_media_proof_status": "passed",
+    "required_recipe_families": [
+      "campaign_cold_open_pack",
+      "mission_briefing_reel",
+      "first_run_companion_card",
+      "build_lab_explain_short"
+    ],
+    "required_artifact_roles": [
+      "StructuredRecipeVideo",
+      "StructuredRecipeAudio",
+      "StructuredRecipePreviewCard",
+      "StructuredRecipePacketBundle"
+    ],
+    "publication_package_id": "next90-m107-media-factory-recipe-execution",
+    "owner_boundary": "chummer6-media-factory owns render execution; chummer6-hub-registry owns publication references after promotion"
+  },
+  "owner_boundary": {
+    "chummer6-hub": "renders public landing, account overlays, install claim/restore, support, and control surfaces from registry truth",
+    "chummer6-hub-registry": "owns release-channel, publication, install, compatibility, proof-shelf, and media publication reference truth",
+    "chummer6-ui": "owns desktop installer execution, workbench, in-app claim/restore, update apply helpers, and desktop UX",
+    "chummer6-ui-kit": "owns shared UI primitives and flagship polish substrate",
+    "chummer6-media-factory": "owns media render execution, receipts, previews, manifests, and asset lifecycle",
+    "chummer6-design": "owns public front-door, UI-kit, media, release, and flagship canon"
+  },
+  "verification": {
+    "standard_gate": "scripts/ai/verify.sh",
+    "closeout_doc": "docs/flagship-front-door-registry-closeout.md",
+    "release_channel_verifier": "scripts/verify_public_release_channel.py",
+    "operator_telemetry_helpers_used": false
+  }
+}
