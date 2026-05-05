@@ -259,6 +259,10 @@ def add_public_trust_metrics(payload: dict) -> None:
     payload["publicTrustMetrics"] = MODULE.expected_public_trust_metrics(payload)
 
 
+def add_registry_boundary_coverage(payload: dict) -> None:
+    payload["registryBoundaryCoverage"] = MODULE.expected_registry_boundary_coverage(payload)
+
+
 def test_verify_contract_identity_rejects_noncanonical_contract_name() -> None:
     with pytest.raises(SystemExit, match="must declare canonical contract_name/contractName"):
         MODULE.verify_contract_identity(
@@ -293,6 +297,41 @@ def test_verify_desktop_surface_refs_rejects_drifted_reward_publication_ref() ->
 
     with pytest.raises(SystemExit, match="does not match canonical desktop surface truth"):
         MODULE.verify_desktop_surface_refs(payload, "fixture")
+
+
+def test_verify_registry_boundary_coverage_accepts_canonical_projection() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    payload["installAwareArtifactRegistry"] = MODULE.expected_install_aware_artifact_registry_rows(payload)
+    add_desktop_surface_refs(payload)
+    payload["artifactIdentityRegistry"] = MODULE.expected_artifact_identity_registry_rows(payload)
+    payload["artifactPublicationBindings"] = MODULE.expected_artifact_publication_binding_rows(payload)
+    add_public_trust_metrics(payload)
+    add_registry_boundary_coverage(payload)
+
+    MODULE.verify_registry_boundary_coverage(payload, "release-channel.json")
+
+
+def test_verify_registry_boundary_coverage_rejects_missing_projection() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+
+    with pytest.raises(SystemExit, match="registryBoundaryCoverage must be an object"):
+        MODULE.verify_registry_boundary_coverage(payload, "release-channel.json")
+
+
+def test_verify_registry_boundary_coverage_rejects_drifted_compatibility_count() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    payload["installAwareArtifactRegistry"] = MODULE.expected_install_aware_artifact_registry_rows(payload)
+    add_desktop_surface_refs(payload)
+    payload["artifactIdentityRegistry"] = MODULE.expected_artifact_identity_registry_rows(payload)
+    payload["artifactPublicationBindings"] = MODULE.expected_artifact_publication_binding_rows(payload)
+    add_public_trust_metrics(payload)
+    add_registry_boundary_coverage(payload)
+    payload["registryBoundaryCoverage"]["compatibility"]["compatibleArtifactCount"] = 99
+
+    with pytest.raises(SystemExit, match="does not match canonical registry boundary coverage"):
+        MODULE.verify_registry_boundary_coverage(payload, "release-channel.json")
 
 
 def test_startup_smoke_channel_matches_expected_accepts_preview_receipt_for_docker_channel() -> None:
@@ -562,6 +601,39 @@ def test_verify_public_trust_metrics_rejects_canonical_drift() -> None:
 
     with pytest.raises(SystemExit, match="publicTrustMetrics does not match canonical launch-truth metrics"):
         MODULE.verify_public_trust_metrics(payload, "release-channel.json")
+
+
+def test_expected_public_trust_metrics_counts_account_linked_and_revoked_routes() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["artifacts"][0]["installAccessClass"] = "account_required"
+    payload["desktopTupleCoverage"]["desktopRouteTruth"].append(
+        {
+            "tupleId": "avalonia:macos:osx-arm64",
+            "head": "avalonia",
+            "platform": "macos",
+            "rid": "osx-arm64",
+            "arch": "arm64",
+            "artifactId": "avalonia-osx-arm64-installer",
+            "routeRole": "primary",
+            "promotionState": "revoked",
+            "revokeState": "revoked",
+            "revokeSource": "artifact",
+            "revokeReasonCode": "registry_revoke_marker_active",
+            "revokeReason": "Startup smoke regressed for macOS.",
+            "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
+        }
+    )
+
+    metrics = MODULE.expected_public_trust_metrics(payload)
+
+    assert metrics["adoptionHealth"]["publicInstallCount"] == 0
+    assert metrics["adoptionHealth"]["accountLinkedInstallCount"] == 1
+    assert metrics["adoptionHealth"]["revokedRouteCount"] == 1
+    assert metrics["revocationFacts"]["status"] == "revoked"
+    assert metrics["revocationFacts"]["activeRevocationCount"] == 1
+    assert metrics["revocationFacts"]["activeRevocations"][0]["tupleId"] == "avalonia:macos:osx-arm64"
 
 
 def test_verify_required_desktop_heads_accepts_primary_head_set() -> None:

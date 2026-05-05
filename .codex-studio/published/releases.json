@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-05-05T15:55:24Z",
-  "generatedAt": "2026-05-05T15:55:24Z",
+  "generated_at": "2026-05-05T19:17:52Z",
+  "generatedAt": "2026-05-05T19:17:52Z",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "version": "run-20260503-163502",
@@ -20,6 +20,7 @@
       "platformId": "linux-x64",
       "arch": "x64",
       "fileName": "chummer-avalonia-linux-x64-installer.deb",
+      "compatibilityState": "compatible",
       "installAccessClass": "open_public"
     },
     {
@@ -35,6 +36,7 @@
       "platformId": "windows-x64",
       "arch": "x64",
       "fileName": "chummer-avalonia-win-x64-installer.exe",
+      "compatibilityState": "compatible",
       "installAccessClass": "account_required"
     },
     {
@@ -50,6 +52,7 @@
       "platformId": "macos-arm64",
       "arch": "arm64",
       "fileName": "chummer-avalonia-osx-arm64.tar.gz",
+      "compatibilityState": "compatible",
       "installAccessClass": "open_public"
     },
     {
@@ -65,6 +68,7 @@
       "platformId": "macos-arm64",
       "arch": "arm64",
       "fileName": "chummer-blazor-desktop-osx-arm64.tar.gz",
+      "compatibilityState": "compatible",
       "installAccessClass": "open_public"
     },
     {
@@ -80,6 +84,7 @@
       "platformId": "windows-x64",
       "arch": "x64",
       "fileName": "chummer-avalonia-win-x64.exe",
+      "compatibilityState": "compatible",
       "installAccessClass": "account_required"
     },
     {
@@ -95,6 +100,7 @@
       "platformId": "windows-x64",
       "arch": "x64",
       "fileName": "chummer-avalonia-win-x64.zip",
+      "compatibilityState": "compatible",
       "installAccessClass": "open_public"
     }
   ],
@@ -429,6 +435,7 @@
     ],
     "complete": true
   },
+  "runtimeBundleHeads": [],
   "installAwareArtifactRegistry": [
     {
       "registryId": "concierge:preview:run-20260503-163502:avalonia-linux-x64-installer",
@@ -843,12 +850,12 @@
     "proofFreshness": {
       "status": "fresh",
       "releaseProofGeneratedAt": "2026-05-01T05:02:11Z",
-      "releaseProofAgeSeconds": 384793,
+      "releaseProofAgeSeconds": 396941,
       "releaseProofMaxAgeSeconds": 604800,
       "uiLocalizationGeneratedAt": "2026-05-02T14:05:06Z",
-      "uiLocalizationAgeSeconds": 265818,
+      "uiLocalizationAgeSeconds": 277966,
       "uiLocalizationMaxAgeSeconds": 604800,
-      "summary": "Release proof age is 384793s (max 604800s) and UI localization gate age is 265818s (max 604800s)."
+      "summary": "Release proof age is 396941s (max 604800s) and UI localization gate age is 277966s (max 604800s)."
     },
     "revocationFacts": {
       "status": "clear",
@@ -857,5 +864,59 @@
       "activeRevocations": [],
       "summary": "No channel or route revocations are active on channel preview."
     }
+  },
+  "registryBoundaryCoverage": {
+    "status": "closed",
+    "owner": "chummer6-hub-registry",
+    "channelId": "preview",
+    "releaseVersion": "run-20260503-163502",
+    "persistence": {
+      "contractName": "Chummer.Hub.Registry.Contracts",
+      "artifactCount": 6,
+      "runtimeBundleHeadCount": 0,
+      "registryProjectionCount": 16,
+      "summary": "Registry persistence owns 6 published artifacts, 0 runtime bundle heads, and 16 governed projection rows for preview/run-20260503-163502."
+    },
+    "releaseChannel": {
+      "publicationStatus": "published",
+      "rolloutState": "promoted_preview",
+      "supportabilityState": "preview_supported",
+      "desktopTupleComplete": true,
+      "promotedInstallerTupleCount": 2,
+      "desktopRouteTruthCount": 4,
+      "publicTrustPosture": "preview",
+      "summary": "Release-channel truth for preview/run-20260503-163502 keeps 2 promoted installer tuples and 4 explicit desktop route-truth rows under promoted_preview rollout posture."
+    },
+    "artifactLineage": {
+      "artifactIdentityCount": 4,
+      "publicationBindingCount": 4,
+      "exchangeLineageCount": 0,
+      "publishedArtifactCount": 2,
+      "retainedArtifactCount": 2,
+      "summary": "Artifact-lineage truth covers 4 artifact identity rows, 4 publication bindings, and 0 exchange-lineage rows."
+    },
+    "publication": {
+      "publishedBindingCount": 2,
+      "retainedBindingCount": 2,
+      "signedInAndPublicBindingCount": 4,
+      "currentRetentionCount": 2,
+      "summary": "Publication boundary keeps 2 published bindings, 2 retained bindings, and 4 signed-in/public shared shelf refs."
+    },
+    "entitlement": {
+      "installAwareArtifactCount": 4,
+      "desktopSurfaceRefCount": 4,
+      "openPublicSurfaceCount": 2,
+      "accountRequiredSurfaceCount": 2,
+      "summary": "Entitlement and install-hand-off truth spans 4 install-aware registry rows, 4 desktop surface refs, 2 guest-readable surfaces, and 2 account-required surfaces."
+    },
+    "compatibility": {
+      "compatibleArtifactCount": 6,
+      "compatibleRuntimeBundleHeadCount": 0,
+      "compatibleExchangeArtifactCount": 0,
+      "unknownArtifactCount": 0,
+      "unknownRuntimeBundleHeadCount": 0,
+      "summary": "Compatibility boundary tracks 6 compatible artifacts, 0 compatible runtime bundle heads, and 0 compatible exchange-lineage rows while 0 artifact rows and 0 runtime bundle heads remain unknown."
+    },
+    "summary": "Registry boundary coverage is closed for preview/run-20260503-163502 across persistence, release-channel, artifact-lineage, publication, entitlement, and compatibility surfaces."
   }
 }

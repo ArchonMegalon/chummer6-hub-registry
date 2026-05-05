@@ -1120,8 +1120,13 @@ def verify_queue_staging(path: Path) -> None:
 
 def run_release_channel_verifier(path: Path) -> None:
     verifier = REPO_ROOT / "scripts/verify_public_release_channel.py"
+    verifier_target = (
+        path.parent
+        if path.name in {"RELEASE_CHANNEL.generated.json", "releases.json"} and path.parent.name == "published"
+        else path
+    )
     result = subprocess.run(
-        [sys.executable, str(verifier), str(path)],
+        [sys.executable, str(verifier), str(verifier_target)],
         cwd=str(REPO_ROOT),
         text=True,
         stdout=subprocess.PIPE,
@@ -2489,7 +2494,12 @@ def main() -> int:
     verify_no_active_run_helper_evidence(args.successor_registry, label="successor registry")
     verify_no_active_run_helper_evidence(args.queue_staging, label="Fleet queue staging")
     verify_no_active_run_helper_evidence(args.source_queue_staging, label="design queue staging")
-    run_release_channel_verifier(args.release_channel)
+    release_channel_verifier_target = (
+        args.release_channel.parent
+        if args.release_channel.name == "RELEASE_CHANNEL.generated.json"
+        else args.release_channel
+    )
+    run_release_channel_verifier(release_channel_verifier_target)
     run_release_channel_verifier(args.releases_manifest)
     verify_release_channel_route_truth(args.release_channel)
     verify_release_channel_route_truth(args.releases_manifest)
