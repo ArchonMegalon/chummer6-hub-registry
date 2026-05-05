@@ -293,6 +293,31 @@ public sealed record InstallAwareConciergeArtifactIdentity(
     IReadOnlyList<string> RecoveryProofRefs,
     IReadOnlyDictionary<string, string> ConciergeAssetRefs);
 
+/// <summary>
+/// Desktop-consumable registry refs for one published tuple.
+/// These rows let desktop explain channel, install, participation, and reward
+/// posture without leaking provider auth or control-plane details.
+/// </summary>
+public sealed record DesktopSurfaceReferenceRow(
+    string RegistryId,
+    string ArtifactId,
+    string ChannelId,
+    string ReleaseVersion,
+    string TupleId,
+    string Head,
+    string Platform,
+    string Rid,
+    string Arch,
+    string Kind,
+    string InstallAccessClass,
+    string DesktopChannelRef,
+    string InstallGuidanceRef,
+    string ParticipationReceiptRef,
+    string RewardPublicationRef,
+    string PublicationBindingId,
+    string? PublicInstallRoute = null,
+    string? Rationale = null);
+
 public sealed record ArtifactFamilyIdentityRegistryRow(
     string RegistryId,
     string ArtifactFamilyId,
@@ -307,7 +332,12 @@ public sealed record ArtifactFamilyIdentityRegistryRow(
     string Kind,
     string PreviewRef,
     string CaptionRef,
+    string PacketRef,
+    string LocaleRef,
+    string RetentionRef,
+    string RetentionState,
     string PublicationBindingId,
+    string PublicationState,
     string SignedInShelfRef,
     string PublicShelfRef,
     string? PublicInstallRoute = null);
@@ -330,8 +360,89 @@ public sealed record ArtifactPublicationBindingRow(
     string PublicShelfRef,
     string PreviewRef,
     string CaptionRef,
+    string PacketRef,
+    string LocaleRef,
+    string RetentionRef,
+    string RetentionState,
     string? PublicInstallRoute = null,
     string? Rationale = null);
+
+public sealed record ExchangeArtifactLineageRegistryRow(
+    string RegistryId,
+    string ArtifactId,
+    string ArtifactKind,
+    string ChannelId,
+    string ReleaseVersion,
+    string LineageRef,
+    IReadOnlyList<string> ParentLineageRefs,
+    string ProvenanceRef,
+    string CompatibilityState,
+    string CompatibilityRef,
+    string BoundedLossPosture,
+    string BoundedLossRef,
+    string PublicationBindingId,
+    string PublicationState,
+    string PacketRef,
+    string LocaleRef,
+    string RetentionRef,
+    string RetentionState,
+    string SignedInShelfRef,
+    string PublicShelfRef);
+
+public sealed record ReleaseActiveRevocationFact(
+    string TupleId,
+    string Head,
+    string Platform,
+    string Rid,
+    string? ArtifactId,
+    string RevokeSource,
+    string RevokeReasonCode,
+    string RevokeReason,
+    string? PublicInstallRoute = null);
+
+public sealed record ReleaseChannelTrustProjection(
+    string ChannelId,
+    string Posture,
+    string PublicationStatus,
+    string RolloutState,
+    string SupportabilityState,
+    int RecommendedRouteCount,
+    int BlockedRouteCount,
+    int RevokedRouteCount,
+    string Summary);
+
+public sealed record ReleaseAdoptionHealthProjection(
+    string Status,
+    int PrimaryPromotedCount,
+    int PublicInstallCount,
+    int AccountLinkedInstallCount,
+    int FallbackRecoveryCount,
+    int BlockedRouteCount,
+    int RevokedRouteCount,
+    string Summary);
+
+public sealed record ReleaseProofFreshnessProjection(
+    string Status,
+    string? ReleaseProofGeneratedAt,
+    int? ReleaseProofAgeSeconds,
+    int ReleaseProofMaxAgeSeconds,
+    string? UiLocalizationGeneratedAt,
+    int? UiLocalizationAgeSeconds,
+    int UiLocalizationMaxAgeSeconds,
+    string Summary);
+
+public sealed record ReleaseRevocationFactsProjection(
+    string Status,
+    bool ChannelRevoked,
+    int ActiveRevocationCount,
+    IReadOnlyList<ReleaseActiveRevocationFact> ActiveRevocations,
+    string Summary);
+
+public sealed record ReleasePublicTrustMetricsProjection(
+    ReleaseChannelTrustProjection ReleaseChannel,
+    ReleaseAdoptionHealthProjection AdoptionHealth,
+    ReleaseProofFreshnessProjection ProofFreshness,
+    ReleaseRevocationFactsProjection RevocationFacts);
 
 public sealed record ReleaseChannelHeadProjection(
     string Product,
@@ -352,5 +463,8 @@ public sealed record ReleaseChannelHeadProjection(
     ReleaseProofProjection? ReleaseProof = null,
     ReleaseDesktopTupleCoverage? DesktopTupleCoverage = null,
     IReadOnlyList<InstallAwareConciergeArtifactIdentity>? InstallAwareArtifactRegistry = null,
+    IReadOnlyList<DesktopSurfaceReferenceRow>? DesktopSurfaceRefs = null,
     IReadOnlyList<ArtifactFamilyIdentityRegistryRow>? ArtifactIdentityRegistry = null,
-    IReadOnlyList<ArtifactPublicationBindingRow>? ArtifactPublicationBindings = null);
+    IReadOnlyList<ArtifactPublicationBindingRow>? ArtifactPublicationBindings = null,
+    IReadOnlyList<ExchangeArtifactLineageRegistryRow>? ExchangeLineageRegistry = null,
+    ReleasePublicTrustMetricsProjection? PublicTrustMetrics = null);

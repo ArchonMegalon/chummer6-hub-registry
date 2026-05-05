@@ -701,6 +701,12 @@ public sealed class HubRegistryController : ControllerBase
             PublicationTrustSummary = publication.TrustProjection?.TrustSummary,
             PublicationDiscoverySummary = publication.TrustProjection?.DiscoverySummary,
             PublicationLineageSummary = publication.TrustProjection?.LineageSummary,
+            PublicationLineageAnchorArtifactId = publication.TrustProjection?.LineageAnchorArtifactId,
+            PublicationSuccessorArtifactId = publication.TrustProjection?.SuccessorArtifactId,
+            PublicationCompatibilityState = publication.TrustProjection?.CompatibilityState,
+            PublicationCompatibilitySummary = publication.TrustProjection?.CompatibilitySummary,
+            PublicationRevocationState = publication.TrustProjection?.RevocationState,
+            PublicationRevocationSummary = publication.TrustProjection?.RevocationSummary,
             PublicationDiscoverable = publication.TrustProjection?.Discoverable
         };
     }
@@ -727,6 +733,12 @@ public sealed class HubRegistryController : ControllerBase
             PublicationTrustSummary = publication.TrustProjection?.TrustSummary,
             PublicationDiscoverySummary = publication.TrustProjection?.DiscoverySummary,
             PublicationLineageSummary = publication.TrustProjection?.LineageSummary,
+            PublicationLineageAnchorArtifactId = publication.TrustProjection?.LineageAnchorArtifactId,
+            PublicationSuccessorArtifactId = publication.TrustProjection?.SuccessorArtifactId,
+            PublicationCompatibilityState = publication.TrustProjection?.CompatibilityState,
+            PublicationCompatibilitySummary = publication.TrustProjection?.CompatibilitySummary,
+            PublicationRevocationState = publication.TrustProjection?.RevocationState,
+            PublicationRevocationSummary = publication.TrustProjection?.RevocationSummary,
             PublicationDiscoverable = publication.TrustProjection?.Discoverable
         };
     }
@@ -753,6 +765,12 @@ public sealed class HubRegistryController : ControllerBase
             PublicationTrustSummary = publication.TrustProjection?.TrustSummary,
             PublicationDiscoverySummary = publication.TrustProjection?.DiscoverySummary,
             PublicationLineageSummary = publication.TrustProjection?.LineageSummary,
+            PublicationLineageAnchorArtifactId = publication.TrustProjection?.LineageAnchorArtifactId,
+            PublicationSuccessorArtifactId = publication.TrustProjection?.SuccessorArtifactId,
+            PublicationCompatibilityState = publication.TrustProjection?.CompatibilityState,
+            PublicationCompatibilitySummary = publication.TrustProjection?.CompatibilitySummary,
+            PublicationRevocationState = publication.TrustProjection?.RevocationState,
+            PublicationRevocationSummary = publication.TrustProjection?.RevocationSummary,
             PublicationDiscoverable = publication.TrustProjection?.Discoverable
         };
     }

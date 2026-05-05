@@ -10,6 +10,7 @@ import tempfile
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import unittest
 
 try:
     import pytest
@@ -43,7 +44,24 @@ MODULE_SPEC.loader.exec_module(MODULE)
 
 
 def load_tests(loader, tests, pattern):
-    return tests
+    suite = unittest.TestSuite()
+    for name, test_function in sorted(globals().items()):
+        if not name.startswith("test_") or not callable(test_function):
+            continue
+        suite.addTest(unittest.FunctionTestCase(_wrap_test_function(test_function), description=name))
+    return suite
+
+
+def _wrap_test_function(test_function):
+    def run_test() -> None:
+        parameters = inspect.signature(test_function).parameters
+        if "tmp_path" in parameters:
+            with tempfile.TemporaryDirectory(prefix=f"{test_function.__name__}-") as tmp_dir:
+                test_function(tmp_path=Path(tmp_dir))
+            return
+        test_function()
+
+    return run_test
 
 
 def complete_primary_desktop_tuple_payload() -> dict:
@@ -163,8 +181,82 @@ def add_install_aware_route_truth(payload: dict) -> None:
             "promotionState": "promoted",
             "revokeState": "not_revoked",
             "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
+        },
+        {
+            "tupleId": "blazor-desktop:windows:win-x64",
+            "head": "blazor-desktop",
+            "platform": "windows",
+            "rid": "win-x64",
+            "arch": "x64",
+            "artifactId": "blazor-desktop-win-x64-installer",
+            "routeRole": "fallback",
+            "promotionState": "proof_required",
+            "revokeState": "not_revoked",
+            "publicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer",
         }
     ]
+
+
+def add_desktop_surface_refs(payload: dict) -> None:
+    payload["desktopSurfaceRefs"] = MODULE.expected_desktop_surface_ref_rows(payload)
+
+
+def add_public_trust_metrics(payload: dict) -> None:
+    payload["generatedAt"] = "2026-04-14T18:22:04Z"
+    payload["generated_at"] = "2026-04-14T18:22:04Z"
+    payload["status"] = "published"
+    payload["rolloutState"] = "promoted_preview"
+    payload["supportabilityState"] = "preview_supported"
+    payload["releaseProof"] = {
+        "status": "passed",
+        "generatedAt": "2026-04-14T18:12:04Z",
+        "baseUrl": "https://chummer.run",
+        "journeysPassed": list(MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS),
+        "proofRoutes": list(MODULE.REQUIRED_RELEASE_PROOF_ROUTES),
+        "uiLocalizationReleaseGate": {
+            "status": "pass",
+            "generatedAt": "2026-04-14T18:12:04Z",
+            "defaultKeyCount": 383,
+            "explicitFallbackRuntime": "pass",
+            "signoffSmokeRunnerStatus": "pass",
+            "shippingLocales": list(MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES),
+            "acceptanceGates": list(MODULE.REQUIRED_LOCALIZATION_ACCEPTANCE_GATES),
+            "domainCoverage": {
+                "app_chrome": "pass",
+                "data_rules_names": "pass",
+                "explain_receipts": "pass",
+                "generated_artifacts": "pass",
+                "install_update_support": "pass",
+            },
+            "localeDomainCoverage": {
+                locale: {
+                    "app_chrome": "pass",
+                    "data_rules_names": "pass",
+                    "explain_receipts": "pass",
+                    "generated_artifacts": "pass",
+                    "install_update_support": "pass",
+                }
+                for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+            },
+            "blockingFindingsCount": 0,
+            "blockingFindings": [],
+            "translationBacklogFindingsCount": 0,
+            "translationBacklogFindings": [],
+            "localeSummary": [
+                {
+                    "locale": locale,
+                    "untranslatedKeyCount": 0,
+                    "overrideCount": 383,
+                    "minimumOverrideCount": 40 if locale != "en-us" else 383,
+                    "missingReleaseSeedKeys": [],
+                    "legacyXmlPresent": True,
+                    "legacyDataXmlPresent": True,
+                }
+                for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+            ],
+        },
+    }
+    payload["publicTrustMetrics"] = MODULE.expected_public_trust_metrics(payload)
 
 
 def test_verify_contract_identity_rejects_noncanonical_contract_name() -> None:
@@ -175,6 +267,32 @@ def test_verify_contract_identity_rejects_noncanonical_contract_name() -> None:
             },
             "fixture payload",
         )
+
+
+def test_verify_desktop_surface_refs_accepts_canonical_rows() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_desktop_surface_refs(payload)
+
+    MODULE.verify_desktop_surface_refs(payload, "fixture")
+
+
+def test_verify_desktop_surface_refs_rejects_missing_registry_when_route_truth_exists() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+
+    with pytest.raises(SystemExit, match="desktopSurfaceRefs must be a list"):
+        MODULE.verify_desktop_surface_refs(payload, "fixture")
+
+
+def test_verify_desktop_surface_refs_rejects_drifted_reward_publication_ref() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_desktop_surface_refs(payload)
+    payload["desktopSurfaceRefs"][0]["rewardPublicationRef"] = "reward-publication:drifted"
+
+    with pytest.raises(SystemExit, match="does not match canonical desktop surface truth"):
+        MODULE.verify_desktop_surface_refs(payload, "fixture")
 
 
 def test_startup_smoke_channel_matches_expected_accepts_preview_receipt_for_docker_channel() -> None:
@@ -269,6 +387,11 @@ def test_verify_artifact_identity_registry_accepts_canonical_rows() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)
     payload["artifactIdentityRegistry"] = MODULE.expected_artifact_identity_registry_rows(payload)
+    fallback_row = payload["artifactIdentityRegistry"][1]
+
+    assert fallback_row["tupleId"] == "blazor-desktop:windows:win-x64"
+    assert fallback_row["publicationState"] == "retained"
+    assert fallback_row["retentionState"] == "retained"
 
     MODULE.verify_artifact_identity_registry(payload, "release-channel.json")
 
@@ -284,6 +407,20 @@ def test_verify_artifact_publication_bindings_accepts_canonical_rows() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)
     payload["artifactPublicationBindings"] = MODULE.expected_artifact_publication_binding_rows(payload)
+    row = payload["artifactPublicationBindings"][0]
+    fallback_row = payload["artifactPublicationBindings"][1]
+
+    assert row["previewRef"] == "registry-preview:avalonia-linux-x64-installer:avalonia:linux:linux-x64"
+    assert row["captionRef"] == "registry-caption:docker:run-20260414-1836:avalonia:linux:linux-x64"
+    assert row["signedInShelfRef"] == "shelf:signed-in:docker:run-20260414-1836:avalonia-linux-x64-installer"
+    assert row["publicShelfRef"] == "shelf:public:docker:run-20260414-1836:avalonia-linux-x64-installer"
+    assert fallback_row["tupleId"] == "blazor-desktop:windows:win-x64"
+    assert fallback_row["publicationState"] == "retained"
+    assert fallback_row["retentionState"] == "retained"
+    assert (
+        fallback_row["rationale"]
+        == "docker keeps fallback tuple blazor-desktop:windows:win-x64 retained so recovery-only shelf refs stay governed without relabeling the artifact as preview."
+    )
 
     MODULE.verify_artifact_publication_bindings(payload, "release-channel.json")
 
@@ -293,6 +430,138 @@ def test_verify_artifact_publication_bindings_rejects_missing_registry() -> None
 
     with pytest.raises(SystemExit, match="artifactPublicationBindings must be a list"):
         MODULE.verify_artifact_publication_bindings(payload, "release-channel.json")
+
+
+def test_verify_artifact_publication_bindings_rejects_preview_drift_for_retained_fallback() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    payload["artifactPublicationBindings"] = MODULE.expected_artifact_publication_binding_rows(payload)
+    payload["artifactPublicationBindings"][1]["publicationState"] = "preview"
+    payload["artifactPublicationBindings"][1]["retentionState"] = "temporary"
+
+    with pytest.raises(SystemExit, match="artifactPublicationBindings does not match canonical publication binding truth"):
+        MODULE.verify_artifact_publication_bindings(payload, "release-channel.json")
+
+
+def test_verify_exchange_lineage_registry_accepts_canonical_rows() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["exchangeArtifacts"] = [
+        {
+            "artifactId": "campaign-emerald-grid",
+            "artifactKind": "campaign",
+            "lineageRef": "lineage:campaign:emerald-grid",
+            "parentLineageRefs": [],
+            "provenanceRef": "provenance:campaign:emerald-grid",
+            "compatibilityState": "compatible",
+            "compatibilityRef": "compatibility:campaign:emerald-grid",
+            "boundedLossPosture": "lossless",
+            "boundedLossRef": "bounded-loss:campaign:emerald-grid",
+            "publicationState": "published",
+        }
+    ]
+    payload["exchangeLineageRegistry"] = MODULE.expected_exchange_lineage_registry_rows(payload)
+
+    MODULE.verify_exchange_lineage_registry(payload, "release-channel.json")
+
+
+def test_verify_exchange_lineage_registry_rejects_missing_registry() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["exchangeArtifacts"] = [
+        {
+            "artifactId": "campaign-emerald-grid",
+            "artifactKind": "campaign",
+            "lineageRef": "lineage:campaign:emerald-grid",
+            "parentLineageRefs": [],
+            "provenanceRef": "provenance:campaign:emerald-grid",
+            "compatibilityState": "compatible",
+            "compatibilityRef": "compatibility:campaign:emerald-grid",
+            "boundedLossPosture": "lossless",
+            "boundedLossRef": "bounded-loss:campaign:emerald-grid",
+            "publicationState": "published",
+        }
+    ]
+
+    with pytest.raises(SystemExit, match="exchangeLineageRegistry must be a list"):
+        MODULE.verify_exchange_lineage_registry(payload, "release-channel.json")
+
+
+def test_verify_exchange_lineage_registry_accepts_registry_only_rows() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["exchangeLineageRegistry"] = [
+        {
+            "registryId": "exchange-lineage:docker:run-20260414-1836:campaign:campaign-emerald-grid",
+            "artifactId": "campaign-emerald-grid",
+            "artifactKind": "campaign",
+            "channelId": "docker",
+            "releaseVersion": "run-20260414-1836",
+            "lineageRef": "lineage:campaign:emerald-grid",
+            "parentLineageRefs": [],
+            "provenanceRef": "provenance:campaign:emerald-grid",
+            "compatibilityState": "compatible",
+            "compatibilityRef": "compatibility:campaign:emerald-grid",
+            "boundedLossPosture": "lossless",
+            "boundedLossRef": "bounded-loss:campaign:emerald-grid",
+            "publicationBindingId": "binding:docker:run-20260414-1836:campaign:campaign-emerald-grid",
+            "publicationState": "published",
+            "packetRef": "registry-packet:docker:run-20260414-1836:campaign-emerald-grid",
+            "localeRef": "registry-locale:docker:run-20260414-1836:campaign-emerald-grid",
+            "retentionRef": "registry-retention:docker:run-20260414-1836:campaign-emerald-grid",
+            "retentionState": "current",
+            "signedInShelfRef": "shelf:signed-in:docker:run-20260414-1836:campaign-emerald-grid",
+            "publicShelfRef": "shelf:public:docker:run-20260414-1836:campaign-emerald-grid",
+        }
+    ]
+
+    MODULE.verify_exchange_lineage_registry(payload, "release-channel.json")
+
+
+def test_verify_exchange_lineage_registry_rejects_noncanonical_publication_refs() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["exchangeLineageRegistry"] = [
+        {
+            "registryId": "exchange-lineage:docker:run-20260414-1836:campaign:campaign-emerald-grid",
+            "artifactId": "campaign-emerald-grid",
+            "artifactKind": "campaign",
+            "channelId": "docker",
+            "releaseVersion": "run-20260414-1836",
+            "lineageRef": "lineage:campaign:emerald-grid",
+            "parentLineageRefs": [],
+            "provenanceRef": "provenance:campaign:emerald-grid",
+            "compatibilityState": "compatible",
+            "compatibilityRef": "compatibility:campaign:emerald-grid",
+            "boundedLossPosture": "lossless",
+            "boundedLossRef": "bounded-loss:campaign:emerald-grid",
+            "publicationBindingId": "binding:wrong:campaign",
+            "publicationState": "published",
+            "packetRef": "registry-packet:docker:run-20260414-1836:campaign-emerald-grid",
+            "localeRef": "registry-locale:docker:run-20260414-1836:campaign-emerald-grid",
+            "retentionRef": "registry-retention:docker:run-20260414-1836:campaign-emerald-grid",
+            "retentionState": "current",
+            "signedInShelfRef": "shelf:signed-in:wrong:campaign",
+            "publicShelfRef": "shelf:public:wrong:campaign",
+        }
+    ]
+
+    with pytest.raises(SystemExit, match="exchangeLineageRegistry does not match canonical exchange lineage truth"):
+        MODULE.verify_exchange_lineage_registry(payload, "release-channel.json")
+
+
+def test_verify_public_trust_metrics_accepts_canonical_rows() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+
+    MODULE.verify_public_trust_metrics(payload, "release-channel.json")
+
+
+def test_verify_public_trust_metrics_rejects_canonical_drift() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["publicTrustMetrics"]["proofFreshness"]["releaseProofAgeSeconds"] = 601
+
+    with pytest.raises(SystemExit, match="publicTrustMetrics does not match canonical launch-truth metrics"):
+        MODULE.verify_public_trust_metrics(payload, "release-channel.json")
 
 
 def test_verify_required_desktop_heads_accepts_primary_head_set() -> None:
@@ -2455,25 +2724,4 @@ def test_expected_desktop_route_truth_rows_treat_artifact_rollout_state_as_tuple
 
 
 if __name__ == "__main__":
-    test_functions = sorted(
-        (
-            name,
-            value,
-        )
-        for name, value in globals().items()
-        if name.startswith("test_") and callable(value)
-    )
-    failures: list[str] = []
-    for name, test_function in test_functions:
-        try:
-            parameters = inspect.signature(test_function).parameters
-            if "tmp_path" in parameters:
-                with tempfile.TemporaryDirectory(prefix=f"{name}-") as tmp_dir:
-                    test_function(tmp_path=Path(tmp_dir))
-            else:
-                test_function()
-        except Exception as error:  # pragma: no cover - command-line execution only.
-            failures.append(f"{name}: {error}")
-    if failures:
-        raise SystemExit("\n".join(failures))
-    print(f"ok: {len(test_functions)} tests passed")
+    unittest.main()

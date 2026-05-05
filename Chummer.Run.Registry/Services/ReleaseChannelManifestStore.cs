@@ -218,6 +218,28 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
                         ? new Dictionary<string, string>(StringComparer.Ordinal)
                         : new Dictionary<string, string>(item.ConciergeAssetRefs, StringComparer.Ordinal)))
                 .ToArray(),
+            DesktopSurfaceRefs: (parsed.DesktopSurfaceRefs ?? [])
+                .Where(static item => !string.IsNullOrWhiteSpace(item.RegistryId))
+                .Select(static item => new DesktopSurfaceReferenceRow(
+                    RegistryId: item.RegistryId ?? string.Empty,
+                    ArtifactId: item.ArtifactId ?? string.Empty,
+                    ChannelId: item.ChannelId ?? string.Empty,
+                    ReleaseVersion: item.ReleaseVersion ?? string.Empty,
+                    TupleId: item.TupleId ?? string.Empty,
+                    Head: item.Head ?? string.Empty,
+                    Platform: item.Platform ?? string.Empty,
+                    Rid: item.Rid ?? string.Empty,
+                    Arch: item.Arch ?? string.Empty,
+                    Kind: item.Kind ?? string.Empty,
+                    InstallAccessClass: item.InstallAccessClass ?? string.Empty,
+                    DesktopChannelRef: item.DesktopChannelRef ?? string.Empty,
+                    InstallGuidanceRef: item.InstallGuidanceRef ?? string.Empty,
+                    ParticipationReceiptRef: item.ParticipationReceiptRef ?? string.Empty,
+                    RewardPublicationRef: item.RewardPublicationRef ?? string.Empty,
+                    PublicationBindingId: item.PublicationBindingId ?? string.Empty,
+                    PublicInstallRoute: item.PublicInstallRoute,
+                    Rationale: item.Rationale))
+                .ToArray(),
             ArtifactIdentityRegistry: (parsed.ArtifactIdentityRegistry ?? [])
                 .Where(static item => !string.IsNullOrWhiteSpace(item.RegistryId))
                 .Select(static item => new ArtifactFamilyIdentityRegistryRow(
@@ -234,7 +256,12 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
                     Kind: item.Kind ?? string.Empty,
                     PreviewRef: item.PreviewRef ?? string.Empty,
                     CaptionRef: item.CaptionRef ?? string.Empty,
+                    PacketRef: item.PacketRef ?? string.Empty,
+                    LocaleRef: item.LocaleRef ?? string.Empty,
+                    RetentionRef: item.RetentionRef ?? string.Empty,
+                    RetentionState: item.RetentionState ?? string.Empty,
                     PublicationBindingId: item.PublicationBindingId ?? string.Empty,
+                    PublicationState: item.PublicationState ?? string.Empty,
                     SignedInShelfRef: item.SignedInShelfRef ?? string.Empty,
                     PublicShelfRef: item.PublicShelfRef ?? string.Empty,
                     PublicInstallRoute: item.PublicInstallRoute))
@@ -259,9 +286,86 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
                     PublicShelfRef: item.PublicShelfRef ?? string.Empty,
                     PreviewRef: item.PreviewRef ?? string.Empty,
                     CaptionRef: item.CaptionRef ?? string.Empty,
+                    PacketRef: item.PacketRef ?? string.Empty,
+                    LocaleRef: item.LocaleRef ?? string.Empty,
+                    RetentionRef: item.RetentionRef ?? string.Empty,
+                    RetentionState: item.RetentionState ?? string.Empty,
                     PublicInstallRoute: item.PublicInstallRoute,
                     Rationale: item.Rationale))
-                .ToArray());
+                .ToArray(),
+            ExchangeLineageRegistry: (parsed.ExchangeLineageRegistry ?? [])
+                .Where(static item => !string.IsNullOrWhiteSpace(item.RegistryId))
+                .Select(static item => new ExchangeArtifactLineageRegistryRow(
+                    RegistryId: item.RegistryId ?? string.Empty,
+                    ArtifactId: item.ArtifactId ?? string.Empty,
+                    ArtifactKind: item.ArtifactKind ?? string.Empty,
+                    ChannelId: item.ChannelId ?? string.Empty,
+                    ReleaseVersion: item.ReleaseVersion ?? string.Empty,
+                    LineageRef: item.LineageRef ?? string.Empty,
+                    ParentLineageRefs: item.ParentLineageRefs ?? [],
+                    ProvenanceRef: item.ProvenanceRef ?? string.Empty,
+                    CompatibilityState: item.CompatibilityState ?? string.Empty,
+                    CompatibilityRef: item.CompatibilityRef ?? string.Empty,
+                    BoundedLossPosture: item.BoundedLossPosture ?? string.Empty,
+                    BoundedLossRef: item.BoundedLossRef ?? string.Empty,
+                    PublicationBindingId: item.PublicationBindingId ?? string.Empty,
+                    PublicationState: item.PublicationState ?? string.Empty,
+                    PacketRef: item.PacketRef ?? string.Empty,
+                    LocaleRef: item.LocaleRef ?? string.Empty,
+                    RetentionRef: item.RetentionRef ?? string.Empty,
+                    RetentionState: item.RetentionState ?? string.Empty,
+                    SignedInShelfRef: item.SignedInShelfRef ?? string.Empty,
+                    PublicShelfRef: item.PublicShelfRef ?? string.Empty))
+                .ToArray(),
+            PublicTrustMetrics: parsed.PublicTrustMetrics is null
+                ? null
+                : new ReleasePublicTrustMetricsProjection(
+                    ReleaseChannel: new ReleaseChannelTrustProjection(
+                        ChannelId: parsed.PublicTrustMetrics.ReleaseChannel?.ChannelId ?? string.Empty,
+                        Posture: parsed.PublicTrustMetrics.ReleaseChannel?.Posture ?? string.Empty,
+                        PublicationStatus: parsed.PublicTrustMetrics.ReleaseChannel?.PublicationStatus ?? string.Empty,
+                        RolloutState: parsed.PublicTrustMetrics.ReleaseChannel?.RolloutState ?? string.Empty,
+                        SupportabilityState: parsed.PublicTrustMetrics.ReleaseChannel?.SupportabilityState ?? string.Empty,
+                        RecommendedRouteCount: parsed.PublicTrustMetrics.ReleaseChannel?.RecommendedRouteCount ?? 0,
+                        BlockedRouteCount: parsed.PublicTrustMetrics.ReleaseChannel?.BlockedRouteCount ?? 0,
+                        RevokedRouteCount: parsed.PublicTrustMetrics.ReleaseChannel?.RevokedRouteCount ?? 0,
+                        Summary: parsed.PublicTrustMetrics.ReleaseChannel?.Summary ?? string.Empty),
+                    AdoptionHealth: new ReleaseAdoptionHealthProjection(
+                        Status: parsed.PublicTrustMetrics.AdoptionHealth?.Status ?? string.Empty,
+                        PrimaryPromotedCount: parsed.PublicTrustMetrics.AdoptionHealth?.PrimaryPromotedCount ?? 0,
+                        PublicInstallCount: parsed.PublicTrustMetrics.AdoptionHealth?.PublicInstallCount ?? 0,
+                        AccountLinkedInstallCount: parsed.PublicTrustMetrics.AdoptionHealth?.AccountLinkedInstallCount ?? 0,
+                        FallbackRecoveryCount: parsed.PublicTrustMetrics.AdoptionHealth?.FallbackRecoveryCount ?? 0,
+                        BlockedRouteCount: parsed.PublicTrustMetrics.AdoptionHealth?.BlockedRouteCount ?? 0,
+                        RevokedRouteCount: parsed.PublicTrustMetrics.AdoptionHealth?.RevokedRouteCount ?? 0,
+                        Summary: parsed.PublicTrustMetrics.AdoptionHealth?.Summary ?? string.Empty),
+                    ProofFreshness: new ReleaseProofFreshnessProjection(
+                        Status: parsed.PublicTrustMetrics.ProofFreshness?.Status ?? string.Empty,
+                        ReleaseProofGeneratedAt: parsed.PublicTrustMetrics.ProofFreshness?.ReleaseProofGeneratedAt,
+                        ReleaseProofAgeSeconds: parsed.PublicTrustMetrics.ProofFreshness?.ReleaseProofAgeSeconds,
+                        ReleaseProofMaxAgeSeconds: parsed.PublicTrustMetrics.ProofFreshness?.ReleaseProofMaxAgeSeconds ?? 0,
+                        UiLocalizationGeneratedAt: parsed.PublicTrustMetrics.ProofFreshness?.UiLocalizationGeneratedAt,
+                        UiLocalizationAgeSeconds: parsed.PublicTrustMetrics.ProofFreshness?.UiLocalizationAgeSeconds,
+                        UiLocalizationMaxAgeSeconds: parsed.PublicTrustMetrics.ProofFreshness?.UiLocalizationMaxAgeSeconds ?? 0,
+                        Summary: parsed.PublicTrustMetrics.ProofFreshness?.Summary ?? string.Empty),
+                    RevocationFacts: new ReleaseRevocationFactsProjection(
+                        Status: parsed.PublicTrustMetrics.RevocationFacts?.Status ?? string.Empty,
+                        ChannelRevoked: parsed.PublicTrustMetrics.RevocationFacts?.ChannelRevoked ?? false,
+                        ActiveRevocationCount: parsed.PublicTrustMetrics.RevocationFacts?.ActiveRevocationCount ?? 0,
+                        ActiveRevocations: (parsed.PublicTrustMetrics.RevocationFacts?.ActiveRevocations ?? [])
+                            .Where(static item => !string.IsNullOrWhiteSpace(item.TupleId))
+                            .Select(static item => new ReleaseActiveRevocationFact(
+                                TupleId: item.TupleId ?? string.Empty,
+                                Head: item.Head ?? string.Empty,
+                                Platform: item.Platform ?? string.Empty,
+                                Rid: item.Rid ?? string.Empty,
+                                ArtifactId: item.ArtifactId,
+                                RevokeSource: item.RevokeSource ?? string.Empty,
+                                RevokeReasonCode: item.RevokeReasonCode ?? string.Empty,
+                                RevokeReason: item.RevokeReason ?? string.Empty,
+                                PublicInstallRoute: item.PublicInstallRoute))
+                            .ToArray(),
+                        Summary: parsed.PublicTrustMetrics.RevocationFacts?.Summary ?? string.Empty)));
     }
 
     private sealed record RegistryReleaseChannelManifest(
@@ -282,8 +386,11 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
         IReadOnlyList<RegistryReleaseArtifact>? Artifacts,
         RegistryDesktopTupleCoverage? DesktopTupleCoverage,
         IReadOnlyList<RegistryInstallAwareConciergeArtifactIdentity>? InstallAwareArtifactRegistry,
+        IReadOnlyList<RegistryDesktopSurfaceReferenceRow>? DesktopSurfaceRefs,
         IReadOnlyList<RegistryArtifactFamilyIdentityRegistryRow>? ArtifactIdentityRegistry,
         IReadOnlyList<RegistryArtifactPublicationBindingRow>? ArtifactPublicationBindings,
+        IReadOnlyList<RegistryExchangeArtifactLineageRegistryRow>? ExchangeLineageRegistry,
+        RegistryPublicTrustMetrics? PublicTrustMetrics,
         IReadOnlyList<RegistryRuntimeBundleHead>? RuntimeBundleHeads);
 
     private sealed record RegistryReleaseProof(
@@ -422,6 +529,26 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
         IReadOnlyList<string>? RecoveryProofRefs,
         Dictionary<string, string>? ConciergeAssetRefs);
 
+    private sealed record RegistryDesktopSurfaceReferenceRow(
+        string? RegistryId,
+        string? ArtifactId,
+        string? ChannelId,
+        string? ReleaseVersion,
+        string? TupleId,
+        string? Head,
+        string? Platform,
+        string? Rid,
+        string? Arch,
+        string? Kind,
+        string? InstallAccessClass,
+        string? DesktopChannelRef,
+        string? InstallGuidanceRef,
+        string? ParticipationReceiptRef,
+        string? RewardPublicationRef,
+        string? PublicationBindingId,
+        string? PublicInstallRoute,
+        string? Rationale);
+
     private sealed record RegistryArtifactFamilyIdentityRegistryRow(
         string? RegistryId,
         string? ArtifactFamilyId,
@@ -436,7 +563,12 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
         string? Kind,
         string? PreviewRef,
         string? CaptionRef,
+        string? PacketRef,
+        string? LocaleRef,
+        string? RetentionRef,
+        string? RetentionState,
         string? PublicationBindingId,
+        string? PublicationState,
         string? SignedInShelfRef,
         string? PublicShelfRef,
         string? PublicInstallRoute);
@@ -459,8 +591,89 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
         string? PublicShelfRef,
         string? PreviewRef,
         string? CaptionRef,
+        string? PacketRef,
+        string? LocaleRef,
+        string? RetentionRef,
+        string? RetentionState,
         string? PublicInstallRoute,
         string? Rationale);
+
+    private sealed record RegistryExchangeArtifactLineageRegistryRow(
+        string? RegistryId,
+        string? ArtifactId,
+        string? ArtifactKind,
+        string? ChannelId,
+        string? ReleaseVersion,
+        string? LineageRef,
+        IReadOnlyList<string>? ParentLineageRefs,
+        string? ProvenanceRef,
+        string? CompatibilityState,
+        string? CompatibilityRef,
+        string? BoundedLossPosture,
+        string? BoundedLossRef,
+        string? PublicationBindingId,
+        string? PublicationState,
+        string? PacketRef,
+        string? LocaleRef,
+        string? RetentionRef,
+        string? RetentionState,
+        string? SignedInShelfRef,
+        string? PublicShelfRef);
+
+    private sealed record RegistryPublicTrustMetrics(
+        RegistryReleaseChannelTrust? ReleaseChannel,
+        RegistryReleaseAdoptionHealth? AdoptionHealth,
+        RegistryReleaseProofFreshness? ProofFreshness,
+        RegistryReleaseRevocationFacts? RevocationFacts);
+
+    private sealed record RegistryReleaseChannelTrust(
+        string? ChannelId,
+        string? Posture,
+        string? PublicationStatus,
+        string? RolloutState,
+        string? SupportabilityState,
+        int? RecommendedRouteCount,
+        int? BlockedRouteCount,
+        int? RevokedRouteCount,
+        string? Summary);
+
+    private sealed record RegistryReleaseAdoptionHealth(
+        string? Status,
+        int? PrimaryPromotedCount,
+        int? PublicInstallCount,
+        int? AccountLinkedInstallCount,
+        int? FallbackRecoveryCount,
+        int? BlockedRouteCount,
+        int? RevokedRouteCount,
+        string? Summary);
+
+    private sealed record RegistryReleaseProofFreshness(
+        string? Status,
+        string? ReleaseProofGeneratedAt,
+        int? ReleaseProofAgeSeconds,
+        int? ReleaseProofMaxAgeSeconds,
+        string? UiLocalizationGeneratedAt,
+        int? UiLocalizationAgeSeconds,
+        int? UiLocalizationMaxAgeSeconds,
+        string? Summary);
+
+    private sealed record RegistryReleaseRevocationFacts(
+        string? Status,
+        bool? ChannelRevoked,
+        int? ActiveRevocationCount,
+        IReadOnlyList<RegistryActiveRevocationFact>? ActiveRevocations,
+        string? Summary);
+
+    private sealed record RegistryActiveRevocationFact(
+        string? TupleId,
+        string? Head,
+        string? Platform,
+        string? Rid,
+        string? ArtifactId,
+        string? RevokeSource,
+        string? RevokeReasonCode,
+        string? RevokeReason,
+        string? PublicInstallRoute);
 
     private sealed record RegistryRuntimeBundleHead(
         string? HeadId,

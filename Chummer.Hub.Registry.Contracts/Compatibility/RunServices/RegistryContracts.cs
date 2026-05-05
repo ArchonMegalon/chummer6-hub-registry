@@ -24,6 +24,12 @@ public sealed record RegistrySearchItem(
     string? PublicationTrustSummary = null,
     string? PublicationDiscoverySummary = null,
     string? PublicationLineageSummary = null,
+    string? PublicationLineageAnchorArtifactId = null,
+    string? PublicationSuccessorArtifactId = null,
+    string? PublicationCompatibilityState = null,
+    string? PublicationCompatibilitySummary = null,
+    string? PublicationRevocationState = null,
+    string? PublicationRevocationSummary = null,
     bool? PublicationDiscoverable = null);
 
 public sealed record RegistrySearchResponse(
@@ -56,6 +62,12 @@ public sealed record RegistryPreviewResponse(
     string? PublicationTrustSummary = null,
     string? PublicationDiscoverySummary = null,
     string? PublicationLineageSummary = null,
+    string? PublicationLineageAnchorArtifactId = null,
+    string? PublicationSuccessorArtifactId = null,
+    string? PublicationCompatibilityState = null,
+    string? PublicationCompatibilitySummary = null,
+    string? PublicationRevocationState = null,
+    string? PublicationRevocationSummary = null,
     bool? PublicationDiscoverable = null);
 
 public sealed record RegistryProjectionResponse(
@@ -87,6 +99,12 @@ public sealed record RegistryProjectionResponse(
     string? PublicationTrustSummary = null,
     string? PublicationDiscoverySummary = null,
     string? PublicationLineageSummary = null,
+    string? PublicationLineageAnchorArtifactId = null,
+    string? PublicationSuccessorArtifactId = null,
+    string? PublicationCompatibilityState = null,
+    string? PublicationCompatibilitySummary = null,
+    string? PublicationRevocationState = null,
+    string? PublicationRevocationSummary = null,
     bool? PublicationDiscoverable = null);
 
 public sealed record RegistryProjectionListResponse(
