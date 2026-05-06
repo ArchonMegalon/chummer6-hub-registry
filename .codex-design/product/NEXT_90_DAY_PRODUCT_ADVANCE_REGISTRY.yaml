@@ -120,13 +120,13 @@ waves:
       - 104
   - id: W8
     name: Make continuity and product-governor boring
-    status: in_progress
+    status: complete
     milestone_ids:
       - 105
       - 106
   - id: W9
     name: Make artifact proof and concierge first-party
-    status: in_progress
+    status: complete
     milestone_ids:
       - 107
       - 109
@@ -2288,7 +2288,7 @@ milestones:
       - chummer6-ui
       - chummer6-mobile
       - chummer6-design
-    status: in_progress
+    status: complete
     dependencies:
       - 107
       - 108
@@ -2302,14 +2302,23 @@ milestones:
       - id: 117.1
         owner: chummer6-hub
         title: Build artifact shelf APIs and audience filters for personal, campaign, creator, and public views.
+        status: complete
+        evidence:
+          - /docker/chummercomplete/chummer6-hub/Chummer.Run.Api/Controllers/PublicLandingController.cs now serves the governed artifact shelf page, versioned public shelf APIs, compatibility shelf APIs, and public creator-publication detail route from one bounded controller path.
+          - /docker/chummercomplete/chummer6-hub/Chummer.Run.Api/Services/Community/CampaignWorkspaceServerPlaneService.cs and /docker/chummercomplete/chummer6-hub/Chummer.Run.Api/Services/Community/CampaignSpineService.cs now stamp recap entries with audience and publication posture before signed-in personal, campaign, creator, and public filters are applied.
+          - /docker/chummercomplete/chummer6-hub/Chummer.Run.Api/Services/Community/PublicCreatorPublicationDiscoveryService.cs and /docker/chummercomplete/chummer6-hub/Chummer.Run.Api/Services/Community/CreatorPublicationRegistryBridge.cs keep public creator discovery published-only, manifest-authority-backed, and sibling-packet-aware before those packets widen onto the shared shelf.
+          - /docker/chummercomplete/chummer6-hub/Chummer.Run.Api/Views/PublicLanding/Shelf.cshtml keeps audience, publication state, caption, trust, moderation, and next-step posture visible on the governed signed-in and public artifact shelf rails.
+          - /docker/chummercomplete/chummer6-hub/tests/RunServicesSmoke/Program.cs proves personal, campaign, creator, and public artifact views plus the mirrored shelf APIs keep proof, preview, caption, sibling-packet, locale, retention, and publication-state truth attached to the shared artifact lane.
+          - /docker/chummercomplete/chummer6-hub/scripts/materialize_hub_local_release_proof.py, /docker/chummercomplete/chummer6-hub/scripts/verify_next90_m117_hub_artifact_shelf_v2.py, and /docker/chummercomplete/chummer6-hub/tests/test_next90_m117_hub_artifact_shelf_v2.py keep the closed-package queue, registry, and release-proof receipts executable inside the repo.
+          - python3 scripts/verify_next90_m117_hub_artifact_shelf_v2.py exits 0, python3 -m unittest tests/test_next90_m117_hub_artifact_shelf_v2.py exits 0, and bash scripts/ai/run_services_smoke.sh keeps the dedicated M117 verifier on the shared verify lane.
       - id: 117.2
         owner: chummer6-hub-registry
         title: Normalize shelf refs for preview, caption, packet, locale, retention, and publication state.
         status: complete
         completion_action: verify_closed_package_only
         do_not_reopen_reason: M117 chummer6-hub-registry shelf ref normalization is complete;
-          future shards must verify the registry contract surface, release-channel projection,
-          queue mirrors, and proof hooks instead of reopening this slice.
+          future shards must verify the registry contracts, manifest projection, queue mirrors,
+          and proof hooks instead of reopening this slice.
         evidence:
           - /docker/chummercomplete/chummer-hub-registry/Chummer.Hub.Registry.Contracts/ReleaseChannelContracts.cs defines the normalized preview, caption, packet, locale, retention, shelf, and publication-state fields for artifact-identity, publication-binding, and exchange-lineage registry rows.
           - /docker/chummercomplete/chummer-hub-registry/Chummer.Run.Registry/Services/ReleaseChannelManifestStore.cs preserves the same normalized shelf refs and publication posture when runtime consumers load the published release-channel manifest.
@@ -2670,6 +2679,10 @@ milestones:
       owner: chummer6-core
       title: Add deterministic reward, downtime, goal-update, and consequence receipt contracts consumed by adoption and BLACK
         LEDGER flows.
+    - id: '122.2'
+      owner: chummer6-core
+      title: Add deterministic reward, downtime, goal-update, and consequence receipt contracts consumed by adoption and BLACK
+        LEDGER flows.
     - id: '122.3'
       owner: chummer6-ui
       title: Surface campaign adoption, runner goal pins, ResolutionReport closeout, and BLACK LEDGER consequence proof on desktop.
@@ -2963,6 +2976,23 @@ milestones:
       owner: chummer6-design
       title: Close localization, telemetry, privacy, retention, feedback, crash, support-status, and experience-metrics canon
         coverage.
+      status: complete
+      evidence:
+      - /docker/chummercomplete/chummer-design/products/chummer/LOCALIZATION_AND_LANGUAGE_SYSTEM.md and /docker/chummercomplete/chummer-design/products/chummer/LOCALIZATION_PARITY_MATRIX.yaml
+        now keep locale scope, fallback rules, translation domains, and parity-matrix expectations explicit for desktop and hosted surfaces.
+      - /docker/chummercomplete/chummer-design/products/chummer/PRODUCT_USAGE_TELEMETRY_MODEL.md and /docker/chummercomplete/chummer-design/products/chummer/PRODUCT_USAGE_TELEMETRY_EVENT_SCHEMA.md
+        now keep telemetry value, event-shape, opt-out posture, and bounded hosted product-improvement telemetry canonized in design.
+      - /docker/chummercomplete/chummer-design/products/chummer/PRIVACY_AND_RETENTION_BOUNDARIES.md now binds telemetry, support,
+        crash, install-linking, survey, and provider traces to explicit privacy, retention, redaction, and release-gate posture.
+      - /docker/chummercomplete/chummer-design/products/chummer/FEEDBACK_AND_CRASH_REPORTING_SYSTEM.md and /docker/chummercomplete/chummer-design/products/chummer/FEEDBACK_AND_CRASH_STATUS_MODEL.md
+        now keep intake, support-case truth, crash handling, and reporter-visible status communication anchored to canonical release truth.
+      - /docker/chummercomplete/chummer-design/products/chummer/EXPERIENCE_SUCCESS_METRICS.md and /docker/chummercomplete/chummer-design/products/chummer/METRICS_AND_SLOS.yaml
+        now close the user-facing experience-metrics and release-scorecard canon for this trust wave.
+      - /docker/chummercomplete/chummer-design/scripts/ai/validate_next90_m128_design_trust_completion_canon.py fail-closes
+        drift in the canon docs, validator wiring, feedback closeout note, canonical registry row, design queue row, and Fleet queue mirror for this completed package.
+      - /docker/chummercomplete/chummer-design/scripts/ai/verify.sh now requires the M128 trust-completion validator during standard design-repo verification.
+      - /docker/chummercomplete/chummer-design/products/chummer/maintenance/feedback_archive/2026-05-05-next90-m128-design-trust-completion-canon-closeout.md
+        records the package scope, validation commands, and do-not-reopen posture for future shards.
   - id: 129
     title: Account, identity, channel linking, participation, entitlements, and community ledger completion
     wave: W19
@@ -3010,6 +3040,16 @@ milestones:
       owner: chummer6-design
       title: Close public-auth, identity/channel-linking, participation, account-aware front-door, and community-ledger canon
         coverage.
+      status: complete
+      evidence:
+        - /docker/chummercomplete/chummer-design/products/chummer/PUBLIC_AUTH_FLOW.md now states that `/participate` is the guest-readable account-aware front door while `/home` and `/account` remain the signed-in community-ledger shell.
+        - /docker/chummercomplete/chummer-design/products/chummer/PUBLIC_USER_MODEL.md now defines community-ledger relationship states for claim, membership, participation, reward, entitlement, linked-channel, and recovery posture without implying ledger membership for guests.
+        - /docker/chummercomplete/chummer-design/products/chummer/IDENTITY_AND_CHANNEL_LINKING_MODEL.md now states that linked identities and linked channels attach to the Hub community ledger and cannot stand in for reward, entitlement, or sponsor-session truth.
+        - /docker/chummercomplete/chummer-design/products/chummer/ACCOUNT_AWARE_INSTALL_AND_SUPPORT_LINKING.md now binds account-aware front-door posture to Hub community-ledger plus Registry-backed channel truth instead of local auth folklore.
+        - /docker/chummercomplete/chummer-design/products/chummer/NEXT_WAVE_ACCOUNT_AWARE_FRONT_DOOR.md, /docker/chummercomplete/chummer-design/products/chummer/COMMUNITY_SPONSORSHIP_BACKLOG.md, and /docker/chummercomplete/chummer-design/products/chummer/PUBLIC_PART_REGISTRY.yaml now close the public front door, community-ledger split, and Hub surface summary into one canon bundle.
+        - /docker/chummercomplete/chummer-design/scripts/ai/validate_next90_m129_design_account_community_canon.py fail-closes doc drift, standard verifier drift, feedback closeout drift, and canonical registry plus design queue drift for this completed package.
+        - /docker/chummercomplete/chummer-design/scripts/ai/verify.sh now requires the M129 validator during standard repo verification.
+        - /docker/chummercomplete/chummer-design/products/chummer/maintenance/feedback_archive/2026-05-05-next90-m129-design-account-community-canon-closeout.md records the package closeout posture and do-not-reopen rule for future shards.
   - id: 130
     title: External tools, LTD provider stewardship, and governed integration adapter completion
     wave: W19
@@ -3306,17 +3346,18 @@ milestones:
       owner: chummer6-hub-registry
       title: Close registry persistence, release-channel, artifact lineage, publication, entitlement, and compatibility-boundary
         coverage.
-      status: complete
-      evidence:
-      - /docker/chummercomplete/chummer-hub-registry/.codex-studio/published/RELEASE_CHANNEL.generated.json and /docker/chummercomplete/chummer-hub-registry/.codex-studio/published/releases.json now publish canonical `registryBoundaryCoverage` closure truth for persistence, release-channel, artifact-lineage, publication, entitlement, and compatibility boundaries.
-      - /docker/chummercomplete/chummer-hub-registry/docs/RELEASE_CHANNEL_PIPELINE.md now documents `registryBoundaryCoverage` as the registry-owned closure projection for boundary coverage instead of a second status file.
-      - /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py plus /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py derive and fail-close the canonical `registryBoundaryCoverage` payload, and /docker/chummercomplete/chummer-hub-registry/scripts/test_verify_public_release_channel.py pins the projection counts.
-      - /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m135_registry_boundary_coverage.py plus /docker/chummercomplete/chummer-hub-registry/scripts/test_verify_next90_m135_registry_boundary_coverage.py keep queue, mirror, closeout, published-manifest, and verify-harness proof executable for this completed package.
-      - /docker/chummercomplete/chummer-hub-registry/docs/next90-m135-registry-boundary-coverage.closeout.md records the shipped proof anchors and do-not-reopen scope for this package.
     - id: '135.6'
       owner: chummer6-ui
       title: Close desktop workbench, Build Lab, GM Runboard, publication, restore, support, and veteran-familiarity surface
         coverage.
+      status: complete
+      evidence:
+      - /docker/chummercomplete/chummer-presentation/Chummer.Avalonia/DesktopHomeWindow.cs and /docker/chummercomplete/chummer-presentation/Chummer.Avalonia/DesktopCampaignWorkspaceWindow.cs now keep desktop workbench follow-through for creator publication, GM Runboard, restore continuity, support recovery, and Build Lab review visible from the home and campaign shells instead of hiding them behind a generic reopen route.
+      - /docker/chummercomplete/chummer-presentation/Chummer.Avalonia/DesktopCreatorPublicationWindow.cs, /docker/chummercomplete/chummer-presentation/Chummer.Avalonia/DesktopOrganizerOperationsWindow.cs, /docker/chummercomplete/chummer-presentation/Chummer.Avalonia/DesktopRuleEnvironmentStudioWindow.cs, and /docker/chummercomplete/chummer-presentation/Chummer.Avalonia/DesktopSupportWindow.cs now provide the dedicated publication, escalation, build-path/explain, and support surfaces named by this closure slice.
+      - /docker/chummercomplete/chummer-presentation/Chummer.Avalonia/App.axaml.cs and /docker/chummercomplete/chummer-presentation/Chummer.Desktop.Runtime/DesktopStartupSurfaceCatalog.cs keep GM Runboard, organizer operations, rule-environment studio, support, and support-case routes available as explicit desktop startup surfaces instead of collapsing veteran follow-through back into a single launcher path.
+      - /docker/chummercomplete/chummer-presentation/Chummer.Tests/Presentation/AccessibilitySignoffSmokeTests.cs, /docker/chummercomplete/chummer-presentation/Chummer.Tests/Compliance/Next90M135DesktopSurfaceCoverageGuardTests.cs, and /docker/chummercomplete/chummer-presentation/scripts/ai/milestones/next90-m135-ui-desktop-surface-coverage-check.sh now fail closed when the canonical registry row, queue mirrors, veteran-familiarity guardrails, or top-level desktop route markers drift from the closed package contract.
+      - /docker/chummercomplete/chummer-presentation/.codex-studio/published/NEXT90_M105_UI_RESTORE_CONTINUITY.generated.json, /docker/chummercomplete/chummer-presentation/.codex-studio/published/NEXT90_M114_UI_RULE_STUDIO.generated.json, /docker/chummercomplete/chummer-presentation/.codex-studio/published/NEXT90_M116_UI_CREATOR_PUBLICATION.generated.json, /docker/chummercomplete/chummer-presentation/.codex-studio/published/NEXT90_M118_UI_ORGANIZER_OPS.generated.json, /docker/chummercomplete/chummer-presentation/.codex-studio/published/NEXT90_M121_UI_GM_RUNBOARD_ROUTE.generated.json, and /docker/chummercomplete/chummer-presentation/.codex-studio/published/NEXT90_M145_UI_DESKTOP_EXPLAIN_DRAWER_AND_FOLLOW_UP.generated.json remain pass receipts and anchor the M135 closure bundle on real shipped sub-slice evidence.
+      - /docker/chummercomplete/chummer-presentation/.codex-studio/published/NEXT90_M135_UI_DESKTOP_SURFACE_COVERAGE.generated.json records the closed-package receipt for `next90-m135-ui-close-desktop-workbench-build-lab-gm-runboard-publicatio`.
     - id: '135.7'
       owner: chummer6-mobile
       title: Close mobile play shell, reconnect, replay, travel cache, table cards, recap, and offline/degraded-state coverage.
@@ -3327,10 +3368,34 @@ milestones:
     - id: '135.9'
       owner: chummer6-media-factory
       title: Close media contracts, render jobs, previews, manifests, archive, provider adapters, and asset lifecycle coverage.
+      status: complete
+      evidence:
+      - /docker/fleet/repos/chummer-media-factory/scripts/ai/materialize_media_release_proof.py now publishes one
+        repo-wide M135 closure package that pins media contracts, render jobs, previews, manifests, archive posture,
+        provider adapters, and asset lifecycle proof on top of the existing media-factory successor floors.
+      - /docker/fleet/repos/chummer-media-factory/docs/NEXT90_M135_MEDIA_COVERAGE_PROOF_FLOOR.md,
+        /docker/fleet/repos/chummer-media-factory/tests/test_m135_media_coverage_proof.py, and
+        /docker/fleet/repos/chummer-media-factory/scripts/ai/verify_m135_media_coverage.sh now fail closed on canonical
+        queue or registry drift, duplicate package rows, stale published proof snapshots, and missing repo-local proof
+        citations for the M135 closure bundle.
+      - /docker/fleet/repos/chummer-media-factory/src/Chummer.Media.Contracts/Compatibility/RunServices/MediaFactoryContracts.cs,
+        /docker/fleet/repos/chummer-media-factory/src/Chummer.Media.Contracts/Rendering/MediaRenderKind.cs,
+        /docker/fleet/repos/chummer-media-factory/src/Chummer.Media.Factory.Runtime/Assets/MediaRenderJobService.cs, and
+        /docker/fleet/repos/chummer-media-factory/src/Chummer.Media.Factory.Runtime/Assets/StructuredMediaRecipeExecutionService.cs
+        keep contract, render-job, preview, and lifecycle truth explicit for the closure slice without widening ownership.
+      - /docker/fleet/repos/chummer-media-factory/.codex-studio/published/MEDIA_LOCAL_RELEASE_PROOF.generated.json and
+        /docker/fleet/repos/chummer-media-factory/.codex-studio/published/ARTIFACT_PUBLICATION_CERTIFICATION.generated.json
+        now carry the current M135 closure package entry as published proof.
     - id: '135.10'
       owner: executive-assistant
-      title: Close EA compile, signal, companion, public copy, operator packet, provider digest, and followthrough coverage
-        without canon authority.
+      title: Close EA compile, signal, companion, public copy, operator packet, provider digest, and followthrough coverage without canon authority.
+      status: complete
+      evidence:
+      - /docker/EA/docs/chummer_closure_coverage/CHUMMER_CLOSURE_COVERAGE_PACK.yaml, /docker/EA/docs/chummer_closure_coverage/SUCCESSOR_HANDOFF_CLOSEOUT.yaml, /docker/EA/scripts/materialize_next90_m135_ea_closure_coverage.py, and /docker/EA/scripts/verify_next90_m135_ea_closure_coverage.py now publish one verify-only EA closure bundle that binds compile, signal, companion, public copy, operator packet, provider digest, and followthrough coverage to existing packet and design truth without widening authority.
+      - /docker/EA/.codex-studio/published/NEXT90_M135_EA_CLOSURE_COVERAGE.generated.json now summarizes the live M106, M113, M118, M120, M129, and M145 source contracts, plus provider-digest and public-copy guard markers, as one fail-closed closure receipt.
+      - /docker/EA/scripts/chummer6_provider_readiness.py and /docker/EA/scripts/chummer6_guide_worker.py remain explicit bounded source surfaces for provider digest and public copy coverage by requiring readiness-state output, overlay checks, anti-planning language guards, blank-CTA guards, and truncated-copy guards instead of freeform copy.
+      - `python3 scripts/materialize_next90_m135_ea_closure_coverage.py`, `python3 scripts/verify_next90_m135_ea_closure_coverage.py`, `python3 scripts/verify_next90_m113_operator_safe_packets.py`, `python3 scripts/verify_next90_m118_ea_organizer_packets.py`, `python3 scripts/verify_next90_m129_ea_participation_followthrough_packets.py`, `python3 tests/test_chummer_governor_packet_pack.py`, `python3 tests/test_next90_m120_ea_launch_pulse_followthrough.py`, `python3 tests/test_next90_m145_grounded_explain_narration_packs.py`, and `python3 -m py_compile scripts/chummer6_provider_readiness.py scripts/chummer6_guide_worker.py` all exit 0.
+
   - id: 136
     title: Calm-under-pressure payoff, veteran-depth parity, and campaign continuity closure
     wave: W23
@@ -3837,6 +3902,13 @@ milestones:
     - id: '144.2'
       owner: chummer6-hub-registry
       title: Keep release-channel tuple coverage, startup-smoke receipt identity, and local verifier routing fail-closed on proof drift.
+      status: complete
+      evidence:
+      - /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py keeps promoted tuple coverage, startup-smoke receipt identity, and receipt freshness fail-closed against the published release-channel bundle instead of allowing carried-forward proof drift.
+      - /docker/chummercomplete/chummer-hub-registry/.codex-studio/published/RELEASE_CHANNEL.generated.json, /docker/chummercomplete/chummer-hub-registry/.codex-studio/published/releases.json, and /docker/chummercomplete/chummer-hub-registry/.codex-studio/published/startup-smoke/ remain the repo-local proof bundle consumed by the verifier for this slice.
+      - /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py plus /docker/chummercomplete/chummer-hub-registry/scripts/test_verify_next90_m144_registry_release_tuple_proof.py keep the local successor mirror row, queue row, closeout, published proof, and verifier-routing hook executable for this completed package.
+      - /docker/chummercomplete/chummer-hub-registry/scripts/ai/verify.sh now routes through the published-bundle verifier and the M144 package verifier before repo builds/tests run, so local verification cannot bypass tuple-proof drift checks.
+      - /docker/chummercomplete/chummer-hub-registry/docs/next90-m144-registry-release-tuple-proof.closeout.md records the shipped proof anchors and the do-not-reopen verification commands for this package.
     - id: '144.3'
       owner: chummer6-hub
       title: Keep public and signed-in shelf bytes, proof routes, and release truth aligned with the same promoted tuple receipts.
@@ -3854,7 +3926,7 @@ milestones:
     - executive-assistant
     - fleet
     - chummer6-design
-    status: in_progress
+    status: complete
     dependencies:
     - 104
     - 109
@@ -3963,3 +4035,5 @@ milestones:
         records the shipped canon, proof anchors, and do-not-reopen scope for the design-owned slice.
       - /docker/chummercomplete/chummer-design/scripts/ai/verify.sh now checks the new canon doc and README reference so the
         contract cannot quietly disappear from standard design verification.
+      - /docker/chummercomplete/chummer-design/products/chummer/maintenance/feedback_archive/2026-05-05-next90-m145-design-explain-every-value-canon-closeout.md
+        records the package closeout posture, validation commands, and do-not-reopen rule for future shards.
