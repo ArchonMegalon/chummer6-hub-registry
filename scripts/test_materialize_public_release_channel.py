@@ -256,6 +256,136 @@ def test_public_trust_metrics_reports_preview_launch_truth() -> None:
     assert metrics["revocationFacts"]["activeRevocationCount"] == 0
 
 
+def test_artifact_publication_bindings_downgrade_output_readiness_when_proof_is_stale() -> None:
+    artifacts, coverage = install_aware_payload()
+    rows = MODULE.artifact_publication_bindings(
+        coverage,
+        channel_id="preview",
+        release_version="run-20260414-1836",
+        proof_freshness_status="stale",
+    )
+
+    assert [row["publicationState"] for row in rows] == ["preview", "preview"]
+    assert [row["retentionState"] for row in rows] == ["temporary", "temporary"]
+    assert all("proof receipts are stale or incomplete" in row["rationale"] for row in rows)
+
+
+def test_artifact_identity_registry_downgrades_output_readiness_when_proof_is_stale() -> None:
+    artifacts, coverage = install_aware_payload()
+    rows = MODULE.artifact_identity_registry(
+        coverage,
+        channel_id="preview",
+        release_version="run-20260414-1836",
+        proof_freshness_status="stale",
+    )
+
+    assert [row["publicationState"] for row in rows] == ["preview", "preview"]
+    assert [row["retentionState"] for row in rows] == ["temporary", "temporary"]
+
+
+def test_exchange_lineage_registry_downgrades_output_readiness_when_proof_is_missing() -> None:
+    rows = MODULE.exchange_lineage_registry(
+        [
+            {
+                "artifactId": "campaign-emerald-grid",
+                "artifactKind": "campaign",
+                "lineageRef": "lineage:campaign:emerald-grid",
+                "parentLineageRefs": [],
+                "provenanceRef": "provenance:campaign:emerald-grid",
+                "compatibilityState": "compatible",
+                "compatibilityRef": "compatibility:campaign:emerald-grid",
+                "boundedLossPosture": "lossless",
+                "boundedLossRef": "bounded-loss:campaign:emerald-grid",
+                "publicationState": "published",
+            }
+        ],
+        channel_id="preview",
+        release_version="run-20260414-1836",
+        proof_freshness_status="missing",
+    )
+
+    assert rows[0]["publicationState"] == "preview"
+    assert rows[0]["retentionState"] == "temporary"
+
+
+def test_canonical_payload_downgrades_stale_proof_supportability() -> None:
+    proof = valid_release_proof_payload()
+    proof["generatedAt"] = "2026-04-14T18:12:04Z"
+    proof["uiLocalizationReleaseGate"]["generatedAt"] = "2026-04-14T18:12:04Z"
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        downloads_dir = root / "downloads"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        startup_smoke_dir = root / "startup-smoke"
+        startup_smoke_dir.mkdir(parents=True, exist_ok=True)
+        installer_path = downloads_dir / "chummer-avalonia-win-x64-installer.exe"
+        payload = b"\n".join(MODULE.WINDOWS_INSTALLER_PAYLOAD_MARKERS) + b"\n"
+        installer_path.write_bytes(payload)
+        receipt_path = startup_smoke_dir / "startup-smoke-avalonia-win-x64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": MODULE.utc_now().replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+                    "headId": "avalonia",
+                    "platform": "windows",
+                    "arch": "x64",
+                    "hostClass": "windows-host",
+                    "operatingSystem": "Windows 11",
+                    "channelId": "docker",
+                    "artifactDigest": f"sha256:{hashlib.sha256(payload).hexdigest()}",
+                    "artifactId": "avalonia-win-x64-installer",
+                    "artifactFileName": installer_path.name,
+                }
+            ),
+            encoding="utf-8",
+        )
+        manifest_path = root / "source-manifest.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "channelId": "docker",
+                    "version": "run-20260504-0902",
+                    "publishedAt": "2026-05-04T09:02:00Z",
+                    "status": "published",
+                    "rolloutState": "promoted_preview",
+                    "supportabilityState": "preview_supported",
+                    "releaseProof": proof,
+                    "artifacts": [
+                        {
+                            "artifactId": "avalonia-win-x64-installer",
+                            "fileName": installer_path.name,
+                            "downloadUrl": f"/downloads/files/{installer_path.name}",
+                            "kind": "installer",
+                            "sha256": hashlib.sha256(payload).hexdigest(),
+                            "sizeBytes": len(payload),
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        canonical = MODULE.canonical_payload(
+            canonical_args(
+                manifest=manifest_path,
+                downloads_dir=downloads_dir,
+                startup_smoke_dir=startup_smoke_dir,
+            )
+        )
+
+    assert canonical["supportabilityState"] == "review_required"
+    assert "stale or incomplete proof receipts" in canonical["rolloutReason"].lower()
+    assert "stale or incomplete proof receipts" in canonical["supportabilitySummary"].lower()
+    assert "stale or incomplete proof receipts" in canonical["knownIssueSummary"].lower()
+    assert "stale or incomplete proof receipts" in canonical["fixAvailabilitySummary"].lower()
+    assert canonical["publicTrustMetrics"]["proofFreshness"]["status"] == "stale"
+    assert canonical["publicTrustMetrics"]["releaseChannel"]["posture"] == "blocked"
+    assert canonical["publicTrustMetrics"]["releaseChannel"]["recommendedRouteCount"] == 0
+    assert canonical["publicTrustMetrics"]["releaseChannel"]["blockedRouteCount"] == 2
+
+
 def test_canonical_payload_downgrades_stale_published_posture_when_startup_smoke_proof_is_missing() -> None:
     proof = valid_release_proof_payload()
     with tempfile.TemporaryDirectory() as tmp:
@@ -338,6 +468,9 @@ def test_canonical_payload_downgrades_stale_published_posture_when_startup_smoke
 
 def test_canonical_payload_rederives_stale_published_copy_when_coverage_recovers() -> None:
     proof = valid_release_proof_payload()
+    fresh_generated_at = MODULE.utc_now().replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    proof["generatedAt"] = fresh_generated_at
+    proof["uiLocalizationReleaseGate"]["generatedAt"] = fresh_generated_at
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         downloads_dir = root / "downloads"

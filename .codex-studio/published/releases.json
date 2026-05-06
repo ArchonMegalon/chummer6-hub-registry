@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-05-05T19:17:52Z",
-  "generatedAt": "2026-05-05T19:17:52Z",
+  "generated_at": "2026-05-06T19:36:59Z",
+  "generatedAt": "2026-05-06T19:36:59Z",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "version": "run-20260503-163502",
@@ -850,12 +850,12 @@
     "proofFreshness": {
       "status": "fresh",
       "releaseProofGeneratedAt": "2026-05-01T05:02:11Z",
-      "releaseProofAgeSeconds": 396941,
+      "releaseProofAgeSeconds": 484488,
       "releaseProofMaxAgeSeconds": 604800,
       "uiLocalizationGeneratedAt": "2026-05-02T14:05:06Z",
-      "uiLocalizationAgeSeconds": 277966,
+      "uiLocalizationAgeSeconds": 365513,
       "uiLocalizationMaxAgeSeconds": 604800,
-      "summary": "Release proof age is 396941s (max 604800s) and UI localization gate age is 277966s (max 604800s)."
+      "summary": "Release proof age is 484488s (max 604800s) and UI localization gate age is 365513s (max 604800s)."
     },
     "revocationFacts": {
       "status": "clear",
