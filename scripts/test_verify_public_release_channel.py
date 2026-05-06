@@ -585,6 +585,84 @@ def test_verify_exchange_lineage_registry_rejects_noncanonical_publication_refs(
         MODULE.verify_exchange_lineage_registry(payload, "release-channel.json")
 
 
+def test_verify_artifact_publication_bindings_rejects_stale_proof_output_readiness_drift() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["publicTrustMetrics"]["proofFreshness"]["status"] = "stale"
+    payload["generatedAt"] = "2026-05-20T18:22:04Z"
+    payload["generated_at"] = "2026-05-20T18:22:04Z"
+    payload["artifactPublicationBindings"] = MODULE.expected_artifact_publication_binding_rows(payload)
+    payload["artifactPublicationBindings"][0]["publicationState"] = "published"
+    payload["artifactPublicationBindings"][0]["retentionState"] = "current"
+
+    with pytest.raises(SystemExit, match="artifactPublicationBindings does not match canonical publication binding truth"):
+        MODULE.verify_artifact_publication_bindings(payload, "release-channel.json")
+
+
+def test_verify_artifact_identity_registry_rejects_stale_proof_output_readiness_drift() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["publicTrustMetrics"]["proofFreshness"]["status"] = "stale"
+    payload["generatedAt"] = "2026-05-20T18:22:04Z"
+    payload["generated_at"] = "2026-05-20T18:22:04Z"
+    payload["artifactIdentityRegistry"] = MODULE.expected_artifact_identity_registry_rows(payload)
+    payload["artifactIdentityRegistry"][0]["publicationState"] = "published"
+    payload["artifactIdentityRegistry"][0]["retentionState"] = "current"
+
+    with pytest.raises(SystemExit, match="artifactIdentityRegistry does not match canonical artifact identity truth"):
+        MODULE.verify_artifact_identity_registry(payload, "release-channel.json")
+
+
+def test_verify_exchange_lineage_registry_rejects_stale_proof_output_readiness_drift() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_public_trust_metrics(payload)
+    payload["publicTrustMetrics"]["proofFreshness"]["status"] = "stale"
+    payload["generatedAt"] = "2026-05-20T18:22:04Z"
+    payload["generated_at"] = "2026-05-20T18:22:04Z"
+    payload["exchangeArtifacts"] = [
+        {
+            "artifactId": "campaign-emerald-grid",
+            "artifactKind": "campaign",
+            "lineageRef": "lineage:campaign:emerald-grid",
+            "parentLineageRefs": [],
+            "provenanceRef": "provenance:campaign:emerald-grid",
+            "compatibilityState": "compatible",
+            "compatibilityRef": "compatibility:campaign:emerald-grid",
+            "boundedLossPosture": "lossless",
+            "boundedLossRef": "bounded-loss:campaign:emerald-grid",
+            "publicationState": "published",
+        }
+    ]
+    payload["exchangeLineageRegistry"] = MODULE.expected_exchange_lineage_registry_rows(payload)
+    payload["exchangeLineageRegistry"][0]["publicationState"] = "published"
+    payload["exchangeLineageRegistry"][0]["retentionState"] = "current"
+
+    with pytest.raises(SystemExit, match="exchangeLineageRegistry does not match canonical exchange lineage truth"):
+        MODULE.verify_exchange_lineage_registry(payload, "release-channel.json")
+
+
+def test_verify_output_readiness_honesty_rejects_stale_supported_copy() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["status"] = "published"
+    payload["generatedAt"] = "2026-05-20T18:22:04Z"
+    payload["generated_at"] = "2026-05-20T18:22:04Z"
+    payload["publicTrustMetrics"]["proofFreshness"]["status"] = "stale"
+    payload["supportabilityState"] = "preview_supported"
+    payload["rolloutReason"] = "Current release shelf was exercised by the local docker release proof harness before publication."
+    payload["supportabilitySummary"] = "Local release proof passed for the current shelf."
+    payload["knownIssueSummary"] = "Preview caveats still apply, but the current shelf has recent install proof."
+    payload["fixAvailabilitySummary"] = (
+        "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf."
+    )
+
+    with pytest.raises(SystemExit, match="supportabilityState='review_required' when proof receipts are stale"):
+        MODULE.verify_output_readiness_honesty(payload, "release-channel.json", {})
+
+
 def test_verify_public_trust_metrics_accepts_canonical_rows() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)

@@ -62,6 +62,10 @@ python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m120_
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m120_registry_launch_truth.py --self-test >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m135_registry_boundary_coverage.py >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m135_registry_boundary_coverage.py --self-test >/dev/null
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m143_registry_output_readiness.py >/dev/null
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m143_registry_output_readiness.py --self-test >/dev/null
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py >/dev/null
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py --self-test >/dev/null
 
 # Default verify must fail when consumer repos still source-own registry contracts.
 export CHUMMER_ENFORCE_CONSUMER_OWNERSHIP="${CHUMMER_ENFORCE_CONSUMER_OWNERSHIP:-1}"
