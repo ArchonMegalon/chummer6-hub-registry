@@ -89,6 +89,18 @@ public sealed record PublicationTrustProjection(
     string RevocationSummary,
     bool Discoverable);
 
+public sealed record PublicationSurfaceRoutes(
+    string PublicShelfRoute,
+    string CreatorConciergeRoute,
+    string? TestimonialConciergeRoute = null,
+    string? SignedInShelfRoute = null);
+
+public sealed record PublicationMediaAssetRefs(
+    IReadOnlyDictionary<string, string>? CreatorAssetRefs = null,
+    IReadOnlyDictionary<string, string>? ModeratedPublicProofAssetRefs = null,
+    string? ModerationState = null,
+    DateTimeOffset? ModeratedAtUtc = null);
+
 public sealed record PublicationRecordResponse(
     string PublicationId,
     string ArtifactId,
@@ -107,7 +119,9 @@ public sealed record PublicationRecordResponse(
     IReadOnlyList<PublicationEvent> Events,
     IReadOnlyList<PublicationApprovalAuditEntry> ApprovalAuditTrail,
     PublicationModerationTimelineProjection ModerationTimeline,
-    PublicationTrustProjection? TrustProjection = null)
+    PublicationTrustProjection? TrustProjection = null,
+    PublicationSurfaceRoutes? SurfaceRoutes = null,
+    PublicationMediaAssetRefs? MediaAssetRefs = null)
 {
     // Backward-compatible constructor for consumers compiled against the prior 15-parameter shape.
     public PublicationRecordResponse(
@@ -144,7 +158,9 @@ public sealed record PublicationRecordResponse(
             Events: events,
             ApprovalAuditTrail: Array.Empty<PublicationApprovalAuditEntry>(),
             ModerationTimeline: BuildLegacyModerationTimeline(state, updatedAtUtc),
-            TrustProjection: BuildLegacyTrustProjection(artifactId, state, supersededByArtifactId))
+            TrustProjection: BuildLegacyTrustProjection(artifactId, state, supersededByArtifactId),
+            SurfaceRoutes: null,
+            MediaAssetRefs: null)
     {
     }
 

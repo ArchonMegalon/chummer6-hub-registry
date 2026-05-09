@@ -159,6 +159,18 @@ public sealed record HubModerationCaseRecord(
     string? Summary = null,
     string? Notes = null);
 
+public sealed record PublicationSurfaceRoutes(
+    string PublicShelfRoute,
+    string CreatorConciergeRoute,
+    string? TestimonialConciergeRoute = null,
+    string? SignedInShelfRoute = null);
+
+public sealed record PublicationMediaAssetRefs(
+    IReadOnlyDictionary<string, string>? CreatorAssetRefs = null,
+    IReadOnlyDictionary<string, string>? ModeratedPublicProofAssetRefs = null,
+    string? ModerationState = null,
+    DateTimeOffset? ModeratedAtUtc = null);
+
 public sealed record HubPublicationReceipt(
     ArtifactCoordinate Artifact,
     string PublicationStatus,
@@ -166,7 +178,9 @@ public sealed record HubPublicationReceipt(
     string ReviewState,
     IReadOnlyList<string> ModerationCaseIds,
     string? PublisherId = null,
-    DateTimeOffset? PublishedAtUtc = null);
+    DateTimeOffset? PublishedAtUtc = null,
+    PublicationSurfaceRoutes? SurfaceRoutes = null,
+    PublicationMediaAssetRefs? MediaAssetRefs = null);
 
 public sealed record HubPublicationNotImplementedReceipt(
     string Error,

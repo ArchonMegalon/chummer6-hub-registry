@@ -362,7 +362,9 @@ public sealed class PublicationWorkflowService : IPublicationWorkflowService
             Events: GetOrderedEvents(row),
             ApprovalAuditTrail: BuildApprovalAuditTrail(row),
             ModerationTimeline: BuildModerationTimeline(row),
-            TrustProjection: BuildTrustProjection(row, artifactMetadata));
+            TrustProjection: BuildTrustProjection(row, artifactMetadata),
+            SurfaceRoutes: BuildSurfaceRoutes(row),
+            MediaAssetRefs: BuildMediaAssetRefs(row, artifactMetadata));
     }
 
     private static IReadOnlyList<PublicationEvent> GetOrderedEvents(PublicationStateRow row) =>
@@ -499,6 +501,78 @@ public sealed class PublicationWorkflowService : IPublicationWorkflowService
             RevocationState: revocationState,
             RevocationSummary: revocationSummary,
             Discoverable: discoverable);
+    }
+
+    private static PublicationSurfaceRoutes BuildSurfaceRoutes(PublicationStateRow row)
+    {
+        var publicationId = Uri.EscapeDataString(row.PublicationId);
+        var publicShelfRoute = $"/artifacts/publications/{publicationId}";
+        return new PublicationSurfaceRoutes(
+            PublicShelfRoute: publicShelfRoute,
+            CreatorConciergeRoute: $"{publicShelfRoute}/concierge",
+            TestimonialConciergeRoute: row.State == PublicationState.Published
+                ? $"/testimonials/concierge?publicationId={publicationId}"
+                : null,
+            SignedInShelfRoute: $"/account/work/publications/{publicationId}");
+    }
+
+    private static PublicationMediaAssetRefs BuildMediaAssetRefs(PublicationStateRow row, HubArtifactMetadata? artifactMetadata)
+    {
+        var publicationId = Uri.EscapeDataString(row.PublicationId);
+        var artifactId = Uri.EscapeDataString(row.ArtifactId);
+        var creatorAssetRefs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+        {
+            ["public-shelf"] = $"/artifacts/publications/{publicationId}",
+            ["creator-concierge"] = $"/artifacts/publications/{publicationId}/concierge",
+            ["signed-in-shelf"] = $"/account/work/publications/{publicationId}",
+            ["artifact-coordinate"] = $"registry://artifacts/{artifactId}"
+        };
+
+        if (!string.IsNullOrWhiteSpace(artifactMetadata?.PublisherId))
+        {
+            creatorAssetRefs["publisher"] = $"registry://publishers/{Uri.EscapeDataString(artifactMetadata.PublisherId)}";
+        }
+
+        Dictionary<string, string>? moderatedPublicProofAssetRefs = null;
+        if (row.State is PublicationState.Approved
+            or PublicationState.Published
+            or PublicationState.Delisted
+            or PublicationState.Deprecated
+            or PublicationState.Superseded)
+        {
+            moderatedPublicProofAssetRefs = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase)
+            {
+                ["route-receipt"] = $"public-shelf:/artifacts/publications/{publicationId}",
+                ["trust-projection"] = $"registry://publications/{publicationId}/trust",
+                ["moderation-timeline"] = $"registry://publications/{publicationId}/moderation"
+            };
+
+            if (row.State == PublicationState.Published)
+            {
+                moderatedPublicProofAssetRefs["testimonial-concierge"] = $"/testimonials/concierge?publicationId={publicationId}";
+            }
+        }
+
+        return new PublicationMediaAssetRefs(
+            CreatorAssetRefs: creatorAssetRefs,
+            ModeratedPublicProofAssetRefs: moderatedPublicProofAssetRefs,
+            ModerationState: row.State.ToString().ToLowerInvariant(),
+            ModeratedAtUtc: BuildModeratedAtUtc(row));
+    }
+
+    private static DateTimeOffset? BuildModeratedAtUtc(PublicationStateRow row)
+    {
+        DateTimeOffset? moderatedAtUtc = row.Events
+            .Where(static evt => evt.EventType is PublicationEventType.Reviewed
+                or PublicationEventType.Published
+                or PublicationEventType.Delisted
+                or PublicationEventType.Deprecated
+                or PublicationEventType.Superseded)
+            .OrderByDescending(static evt => evt.AtUtc)
+            .Select(static evt => (DateTimeOffset?)evt.AtUtc)
+            .FirstOrDefault();
+
+        return moderatedAtUtc ?? row.PublishedAtUtc;
     }
 
     private static string MapStage(PublicationEventType eventType) =>
