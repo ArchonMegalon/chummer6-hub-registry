@@ -1,0 +1,3 @@
+wine: created the configuration directory '/tmp/chummer-startup-home.Tyw5jQ/.wine'
+wine: configuration in L"/tmp/chummer-startup-home.Tyw5jQ/.wine" has been updated.
+startup smoke ready: head=avalonia platform=windows arch=x64 checkpoint=pre_ui_event_loop

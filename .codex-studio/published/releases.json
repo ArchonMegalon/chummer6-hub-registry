@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-05-06T19:36:59Z",
-  "generatedAt": "2026-05-06T19:36:59Z",
+  "generated_at": "2026-05-08T20:43:31Z",
+  "generatedAt": "2026-05-08T20:43:31Z",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "version": "run-20260503-163502",
   "channel": "preview",
-  "publishedAt": "2026-05-03T16:35:02.366961Z",
+  "publishedAt": "2026-05-07T21:12:55Z",
   "downloads": [
     {
       "id": "avalonia-linux-x64-installer",
@@ -27,8 +27,8 @@
       "id": "avalonia-win-x64-installer",
       "platform": "Avalonia Desktop Windows X64 Installer",
       "url": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
-      "sha256": "bb9b31fcf3bf1386b6f968029f312ca30681f1a02b2c536b6a4d8cb8fe4109fe",
-      "sizeBytes": 142037086,
+      "sha256": "da9deba01191f61940d018ded710b867cc1e3d05fd7d76c2d5e5a314c60ed341",
+      "sizeBytes": 149963960,
       "format": "exe",
       "flavor": "installer",
       "kind": "installer",
@@ -75,8 +75,8 @@
       "id": "avalonia-win-x64-portable",
       "platform": "Avalonia Desktop Windows X64 Portable",
       "url": "/downloads/files/chummer-avalonia-win-x64.exe",
-      "sha256": "414ba2c2db61c459920ea3b92aeb28442a0b84dbcdf3cd3725042c42ebc15ee6",
-      "sizeBytes": 433152,
+      "sha256": "8567c0700fa449a718b88aa81f295b57fc75fb49472a5eaf9ce4903bbee55fc8",
+      "sizeBytes": 108673963,
       "format": "exe",
       "flavor": "portable",
       "kind": "portable",
@@ -91,8 +91,8 @@
       "id": "avalonia-win-x64-archive",
       "platform": "Avalonia Desktop Windows X64 Portable",
       "url": "/downloads/files/chummer-avalonia-win-x64.zip",
-      "sha256": "1b9092b1d2a631b29c2edbe7882d835cb3a4337ef8fb2abf224c8c848e061468",
-      "sizeBytes": 45044846,
+      "sha256": "d415514b86998b2bf27c15fd2835b043d6b2b327f682d12b38f5e746659c8b52",
+      "sizeBytes": 49025673,
       "format": "zip",
       "flavor": "archive",
       "kind": "archive",
@@ -115,7 +115,7 @@
   "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
   "releaseProof": {
     "status": "passed",
-    "generatedAt": "2026-05-01T05:02:11Z",
+    "generatedAt": "2026-05-08T15:24:51Z",
     "baseUrl": "https://chummer.run",
     "journeysPassed": [
       "install_claim_restore_continue",
@@ -138,7 +138,7 @@
     ],
     "uiLocalizationReleaseGate": {
       "status": "pass",
-      "generatedAt": "2026-05-02T14:05:06Z",
+      "generatedAt": "2026-05-07T20:27:21Z",
       "defaultKeyCount": 386,
       "explicitFallbackRuntime": "pass",
       "signoffSmokeRunnerStatus": "pass",
@@ -849,13 +849,13 @@
     },
     "proofFreshness": {
       "status": "fresh",
-      "releaseProofGeneratedAt": "2026-05-01T05:02:11Z",
-      "releaseProofAgeSeconds": 484488,
+      "releaseProofGeneratedAt": "2026-05-08T15:24:51Z",
+      "releaseProofAgeSeconds": 19120,
       "releaseProofMaxAgeSeconds": 604800,
-      "uiLocalizationGeneratedAt": "2026-05-02T14:05:06Z",
-      "uiLocalizationAgeSeconds": 365513,
+      "uiLocalizationGeneratedAt": "2026-05-07T20:27:21Z",
+      "uiLocalizationAgeSeconds": 87370,
       "uiLocalizationMaxAgeSeconds": 604800,
-      "summary": "Release proof age is 484488s (max 604800s) and UI localization gate age is 365513s (max 604800s)."
+      "summary": "Release proof age is 19120s (max 604800s) and UI localization gate age is 87370s (max 604800s)."
     },
     "revocationFacts": {
       "status": "clear",

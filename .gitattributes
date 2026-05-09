@@ -1,0 +1,2 @@
+.codex-studio/published/startup-smoke/installed-launch-avalonia-linux-x64.bin filter=lfs diff=lfs merge=lfs -text
+.codex-studio/published/startup-smoke/smoke-install-inspect/Chummer.Avalonia.exe filter=lfs diff=lfs merge=lfs -text
