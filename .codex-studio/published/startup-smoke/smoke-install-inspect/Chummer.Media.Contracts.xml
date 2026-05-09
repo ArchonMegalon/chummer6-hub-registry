@@ -1,0 +1,209 @@
+<?xml version="1.0"?>
+<doc>
+    <assembly>
+        <name>Chummer.Media.Contracts</name>
+    </assembly>
+    <members>
+        <member name="T:Chummer.Media.Contracts.Assets.AssetApprovalStatus">
+            <summary>
+            Approval result for a rendered asset after factory-side review state is persisted.
+            </summary>
+        </member>
+        <member name="F:Chummer.Media.Contracts.Assets.AssetApprovalStatus.Pending">
+            <summary>
+            Awaiting a factory-side review decision.
+            </summary>
+        </member>
+        <member name="F:Chummer.Media.Contracts.Assets.AssetApprovalStatus.Approved">
+            <summary>
+            Accepted for persisted/canonical downstream usage.
+            </summary>
+        </member>
+        <member name="F:Chummer.Media.Contracts.Assets.AssetApprovalStatus.Rejected">
+            <summary>
+            Explicitly declined during review.
+            </summary>
+        </member>
+        <member name="T:Chummer.Media.Contracts.Assets.MediaAssetCatalogEntry">
+            <summary>
+            Catalog-facing asset metadata used to index manifests without taking ownership of delivery policy.
+            </summary>
+        </member>
+        <member name="M:Chummer.Media.Contracts.Assets.MediaAssetCatalogEntry.#ctor(System.String,System.String,System.String,System.String,System.String,System.String,System.String,System.DateTimeOffset,System.Nullable{System.DateTimeOffset})">
+            <summary>
+            Catalog-facing asset metadata used to index manifests without taking ownership of delivery policy.
+            </summary>
+        </member>
+        <member name="T:Chummer.Media.Contracts.Assets.MediaAssetLifecycleState">
+            <summary>
+            Asset lifecycle state owned by media-factory, including approval and persistence checkpoints.
+            </summary>
+        </member>
+        <member name="M:Chummer.Media.Contracts.Assets.MediaAssetLifecycleState.#ctor(Chummer.Media.Contracts.Assets.AssetApprovalStatus,System.DateTimeOffset,System.Nullable{System.DateTimeOffset},System.Nullable{System.DateTimeOffset},System.Nullable{System.DateTimeOffset},System.Nullable{System.DateTimeOffset},System.Nullable{System.DateTimeOffset})">
+            <summary>
+            Asset lifecycle state owned by media-factory, including approval and persistence checkpoints.
+            </summary>
+        </member>
+        <member name="T:Chummer.Media.Contracts.Assets.MediaAssetManifest">
+            <summary>
+            Canonical manifest for a rendered asset, including storage, previews, retention, and lineage metadata.
+            </summary>
+        </member>
+        <member name="M:Chummer.Media.Contracts.Assets.MediaAssetManifest.#ctor(System.String,System.String,System.String,Chummer.Media.Contracts.Rendering.MediaRenderKind,System.String,System.String,System.String,System.Int64,System.String,System.String,System.String,Chummer.Media.Contracts.Assets.MediaAssetLifecycleState,System.Collections.Generic.IReadOnlyList{System.String})">
+            <summary>
+            Canonical manifest for a rendered asset, including storage, previews, retention, and lineage metadata.
+            </summary>
+        </member>
+        <member name="T:Chummer.Media.Contracts.ContractsAssemblyMarker">
+            <summary>
+            Marker type for the canonical render-only contracts assembly.
+            Narrative authoring, routing, approvals policy, delivery, and orchestration stay upstream.
+            </summary>
+        </member>
+        <member name="T:Chummer.Media.Contracts.Jobs.RenderJobContract">
+            <summary>
+            Queue-owned job envelope for deterministic render execution and dedupe tracking.
+            </summary>
+        </member>
+        <member name="M:Chummer.Media.Contracts.Jobs.RenderJobContract.#ctor(System.String,System.String,System.String,Chummer.Media.Contracts.Jobs.RenderJobDedupeScope,Chummer.Media.Contracts.Rendering.MediaRenderRequest,Chummer.Media.Contracts.Jobs.RenderJobStatus,System.Int32,System.Int32,System.DateTimeOffset,System.DateTimeOffset,System.Nullable{System.DateTimeOffset},System.Nullable{System.DateTimeOffset},System.Nullable{System.DateTimeOffset},System.Nullable{System.DateTimeOffset},System.String,System.String)">
+            <summary>
+            Queue-owned job envelope for deterministic render execution and dedupe tracking.
+            </summary>
+        </member>
+        <member name="T:Chummer.Media.Contracts.Jobs.RenderJobDedupeScope">
+            <summary>
+            Defines the ownership boundary for dedupe decisions within the factory job queue.
+            </summary>
+        </member>
+        <member name="F:Chummer.Media.Contracts.Jobs.RenderJobDedupeScope.Request">
+            <summary>
+            Dedupe by the exact render request payload.
+            </summary>
+        </member>
+        <member name="F:Chummer.Media.Contracts.Jobs.RenderJobDedupeScope.TemplateVersion">
+            <summary>
+            Dedupe within a template/version lineage.
+            </summary>
+        </member>
+        <member name="F:Chummer.Media.Contracts.Jobs.RenderJobDedupeScope.OutputAsset">
+            <summary>
+            Dedupe by intended output asset identity.
+            </summary>
+        </member>
+        <member name="T:Chummer.Media.Contracts.Jobs.RenderJobStatus">
+            <summary>
+            Lifecycle states for render job execution.
+            </summary>
+        </member>
+        <member name="F:Chummer.Media.Contracts.Jobs.RenderJobStatus.Queued">
+            <summary>
+            Accepted by the queue and waiting for claim.
+            </summary>
+        </member>
+        <member name="F:Chummer.Media.Contracts.Jobs.RenderJobStatus.Claimed">
+            <summary>
+            Claimed by a worker but not yet rendering.
+            </summary>
+        </member>
+        <member name="F:Chummer.Media.Contracts.Jobs.RenderJobStatus.Rendering">
+            <summary>
+            Actively executing a render attempt.
+            </summary>
+        </member>
+        <member name="F:Chummer.Media.Contracts.Jobs.RenderJobStatus.Succeeded">
+            <summary>
+            Completed successfully and emitted output artifacts.
+            </summary>
+        </member>
+        <member name="F:Chummer.Media.Contracts.Jobs.RenderJobStatus.Failed">
+            <summary>
+            Completed with failure after an attempt.
+            </summary>
+        </member>
+        <member name="F:Chummer.Media.Contracts.Jobs.RenderJobStatus.Cancelled">
+            <summary>
+            Stopped by caller/system cancellation.
+            </summary>
+        </member>
+        <member name="T:Chummer.Media.Contracts.Kernel.CreateManifestRequest">
+            <summary>
+            Contract for creating a new immutable manifest with initial lifecycle state.
+            </summary>
+        </member>
+        <member name="M:Chummer.Media.Contracts.Kernel.CreateManifestRequest.#ctor(System.String,Chummer.Media.Contracts.Assets.MediaAssetManifest)">
+            <summary>
+            Contract for creating a new immutable manifest with initial lifecycle state.
+            </summary>
+        </member>
+        <member name="T:Chummer.Media.Contracts.Kernel.GetManifestRequest">
+            <summary>
+            Contract for fetching a manifest by identity.
+            </summary>
+        </member>
+        <member name="M:Chummer.Media.Contracts.Kernel.GetManifestRequest.#ctor(System.String)">
+            <summary>
+            Contract for fetching a manifest by identity.
+            </summary>
+        </member>
+        <member name="T:Chummer.Media.Contracts.Kernel.UpdateManifestLifecycleRequest">
+            <summary>
+            Contract for mutating lifecycle metadata without changing immutable byte identity fields.
+            </summary>
+        </member>
+        <member name="M:Chummer.Media.Contracts.Kernel.UpdateManifestLifecycleRequest.#ctor(System.String,System.Int32,Chummer.Media.Contracts.Assets.MediaAssetLifecycleState,System.String)">
+            <summary>
+            Contract for mutating lifecycle metadata without changing immutable byte identity fields.
+            </summary>
+        </member>
+        <member name="T:Chummer.Media.Contracts.Kernel.PreviewLink">
+            <summary>
+            Link between a source asset and a derived preview-class asset.
+            </summary>
+        </member>
+        <member name="M:Chummer.Media.Contracts.Kernel.PreviewLink.#ctor(System.String,System.String,Chummer.Media.Contracts.Kernel.PreviewRelationType,System.DateTimeOffset)">
+            <summary>
+            Link between a source asset and a derived preview-class asset.
+            </summary>
+        </member>
+        <member name="T:Chummer.Media.Contracts.Rendering.MediaRenderKind">
+            <summary>
+            Supported render-only output families owned by media-factory.
+            </summary>
+        </member>
+        <member name="F:Chummer.Media.Contracts.Rendering.MediaRenderKind.Document">
+            <summary>
+            Deterministic document rendering.
+            </summary>
+        </member>
+        <member name="F:Chummer.Media.Contracts.Rendering.MediaRenderKind.Portrait">
+            <summary>
+            Portrait image generation/rendering.
+            </summary>
+        </member>
+        <member name="F:Chummer.Media.Contracts.Rendering.MediaRenderKind.Video">
+            <summary>
+            Bounded video rendering.
+            </summary>
+        </member>
+        <member name="T:Chummer.Media.Contracts.Rendering.MediaRenderRequest">
+            <summary>
+            Deterministic render input passed into media-factory after upstream orchestration is complete.
+            </summary>
+        </member>
+        <member name="M:Chummer.Media.Contracts.Rendering.MediaRenderRequest.#ctor(System.String,Chummer.Media.Contracts.Rendering.MediaRenderKind,System.String,System.String,System.String,System.String,System.String,System.Collections.Generic.IReadOnlyDictionary{System.String,System.String},System.DateTimeOffset)">
+            <summary>
+            Deterministic render input passed into media-factory after upstream orchestration is complete.
+            </summary>
+        </member>
+        <member name="T:Chummer.Media.Contracts.Storage.BinaryLocator">
+            <summary>
+            Provider-neutral locator for immutable binary bytes.
+            </summary>
+        </member>
+        <member name="M:Chummer.Media.Contracts.Storage.BinaryLocator.#ctor(System.String,System.String,System.String,System.String)">
+            <summary>
+            Provider-neutral locator for immutable binary bytes.
+            </summary>
+        </member>
+    </members>
+</doc>
