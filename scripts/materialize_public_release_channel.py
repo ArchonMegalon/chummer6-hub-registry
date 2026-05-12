@@ -4254,6 +4254,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "fixAvailabilitySummary": fix_availability_summary,
         "releaseProof": release_proof,
         "artifacts": artifacts,
+        "desktopRouteTruth": (tuple_coverage or {}).get("desktopRouteTruth"),
         "desktopTupleCoverage": tuple_coverage,
         "runtimeBundleHeads": runtime_bundle_heads,
         "installAwareArtifactRegistry": install_aware_registry,
@@ -4323,6 +4324,11 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         "knownIssueSummary": canonical.get("knownIssueSummary"),
         "fixAvailabilitySummary": canonical.get("fixAvailabilitySummary"),
         "releaseProof": canonical.get("releaseProof"),
+        "desktopRouteTruth": (
+            canonical.get("desktopRouteTruth")
+            if canonical.get("desktopRouteTruth") is not None
+            else (canonical.get("desktopTupleCoverage") or {}).get("desktopRouteTruth")
+        ),
         "desktopTupleCoverage": canonical.get("desktopTupleCoverage"),
         "runtimeBundleHeads": canonical.get("runtimeBundleHeads"),
         "installAwareArtifactRegistry": canonical.get("installAwareArtifactRegistry"),
