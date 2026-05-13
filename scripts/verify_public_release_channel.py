@@ -1550,6 +1550,7 @@ def verify_desktop_route_state_matrix(
     if route_role == "primary":
         expected_reason_by_state = {
             "fallback_available": "promoted_fallback_available",
+            "primary_reinstall_available": "primary_installer_reinstall_available",
             "manual_recovery_required": {
                 "fallback_missing_artifact_or_startup_smoke_proof",
                 "fallback_revoked_for_tuple",
@@ -1559,7 +1560,7 @@ def verify_desktop_route_state_matrix(
         if expected_rollback_reason is None:
             raise SystemExit(
                 f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackState "
-                "must be fallback_available or manual_recovery_required for primary routes"
+                "must be fallback_available, primary_reinstall_available, or manual_recovery_required for primary routes"
             )
         if isinstance(expected_rollback_reason, set):
             if normalized_row["rollbackReasonCode"] not in expected_rollback_reason:
@@ -1696,6 +1697,7 @@ def verify_desktop_route_promotion_rationale(
 def verify_primary_rollback_matches_fallback_route_truth(
     normalized_rows: list[dict[str, str]],
     *,
+    rollout_state: str,
     source: str,
 ) -> None:
     fallback_rows_by_tuple = {
@@ -1716,13 +1718,23 @@ def verify_primary_rollback_matches_fallback_route_truth(
             fallback_row["promotionState"] == "promoted"
             and fallback_row["revokeState"] != "revoked"
         )
-        expected_state = "fallback_available" if fallback_promoted else "manual_recovery_required"
+        expected_state = "fallback_available" if fallback_promoted else (
+            "primary_reinstall_available"
+            if normalized_token(rollout_state) == "public_stable"
+            and row["promotionState"] == "promoted"
+            and fallback_row["revokeState"] != "revoked"
+            else "manual_recovery_required"
+        )
         if fallback_promoted:
             expected_reason_code = "promoted_fallback_available"
         elif fallback_row["revokeState"] == "revoked":
             expected_reason_code = "fallback_revoked_for_tuple"
         else:
-            expected_reason_code = "fallback_missing_artifact_or_startup_smoke_proof"
+            expected_reason_code = (
+                "primary_installer_reinstall_available"
+                if expected_state == "primary_reinstall_available"
+                else "fallback_missing_artifact_or_startup_smoke_proof"
+            )
         if row["rollbackState"] != expected_state:
             raise SystemExit(
                 f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackState "
@@ -1888,13 +1900,21 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
                             f"{route_tuple_label} requires manual recovery: {fallback_revoke_reason}"
                         )
                     else:
-                        rollback_state = "manual_recovery_required"
-                        rollback_reason_code = "fallback_missing_artifact_or_startup_smoke_proof"
-                        rollback_reason = (
-                            f"Fallback route {fallback_route_tuple_label} is not promoted for {tuple_label} because "
-                            "matching artifact bytes and fresh startup-smoke proof are still required; "
-                            f"primary route {route_tuple_label} therefore requires manual recovery."
-                        )
+                        if normalized_token(payload.get("rolloutState")) == "public_stable" and promoted:
+                            rollback_state = "primary_reinstall_available"
+                            rollback_reason_code = "primary_installer_reinstall_available"
+                            rollback_reason = (
+                                f"Fallback route {fallback_route_tuple_label} remains an unpromoted compatibility lane for {tuple_label}; "
+                                f"recover {route_tuple_label} from the promoted primary installer {artifact_id} until a separately proved fallback is published."
+                            )
+                        else:
+                            rollback_state = "manual_recovery_required"
+                            rollback_reason_code = "fallback_missing_artifact_or_startup_smoke_proof"
+                            rollback_reason = (
+                                f"Fallback route {fallback_route_tuple_label} is not promoted for {tuple_label} because "
+                                "matching artifact bytes and fresh startup-smoke proof are still required; "
+                                f"primary route {route_tuple_label} therefore requires manual recovery."
+                            )
                 else:
                     parity_posture = "explicit_fallback"
                     if promoted:
@@ -2738,6 +2758,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         normalized_desktop_route_truth.append(normalized_row)
     verify_primary_rollback_matches_fallback_route_truth(
         normalized_desktop_route_truth,
+        rollout_state=normalized_token(payload.get("rolloutState")),
         source=source,
     )
     expected_desktop_route_truth = expected_desktop_route_truth_rows(payload)
@@ -3555,9 +3576,19 @@ def release_channel_public_posture(
         return "blocked"
     if normalized_status != "published":
         return "blocked"
-    if normalized_channel == "stable" and normalized_rollout == "public_stable":
+    if normalized_channel in {"stable", "public_stable"} and normalized_rollout == "public_stable":
         return "live"
     return "preview"
+
+
+def route_truth_is_preview_only_fallback(row: dict[str, Any]) -> bool:
+    return (
+        isinstance(row, dict)
+        and normalized_token(row.get("routeRole")) == "fallback"
+        and normalized_token(row.get("promotionState")) == "proof_required"
+        and normalized_token(row.get("parityPosture")) == "explicit_fallback"
+        and normalized_token(row.get("revokeState")) != "revoked"
+    )
 
 
 def release_version_for_registry(payload: dict[str, Any], *, source: str) -> str:
@@ -4182,7 +4213,11 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
     ]
     blocked_routes = [
         row for row in route_truth
-        if isinstance(row, dict) and normalized_token(row.get("promotionState")) == "proof_required"
+        if (
+            isinstance(row, dict)
+            and normalized_token(row.get("promotionState")) == "proof_required"
+            and not route_truth_is_preview_only_fallback(row)
+        )
     ]
     fallback_recovery_routes = [
         row for row in route_truth

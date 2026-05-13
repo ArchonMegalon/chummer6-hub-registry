@@ -578,7 +578,7 @@ EXPECTED_PROOF_RECEIPT_LISTS = {
     "route_truth_state_floor": [
         "avalonia:linux:linux-x64 primary promoted eligible fallback_available not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed promoted_fallback_available no_registry_revoke_marker",
         "blazor-desktop:linux:linux-x64 fallback promoted manual_fallback fallback_available not_revoked none fallback_recovery_head installer_smoke_and_release_proof_passed fallback_promoted_for_recovery no_registry_revoke_marker",
-        "avalonia:windows:win-x64 primary promoted eligible manual_recovery_required not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker",
+        "avalonia:windows:win-x64 primary promoted eligible primary_reinstall_available not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed primary_installer_reinstall_available no_registry_revoke_marker",
         "blazor-desktop:windows:win-x64 fallback proof_required blocked_missing_proof fallback_not_promoted not_revoked none fallback_recovery_head missing_artifact_or_startup_smoke_proof fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker",
         "avalonia:macos:osx-arm64 primary promoted eligible fallback_available not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed promoted_fallback_available no_registry_revoke_marker",
         "blazor-desktop:macos:osx-arm64 fallback promoted manual_fallback fallback_available not_revoked none fallback_recovery_head installer_smoke_and_release_proof_passed fallback_promoted_for_recovery no_registry_revoke_marker",

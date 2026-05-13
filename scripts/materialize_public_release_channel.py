@@ -1819,13 +1819,21 @@ def desktop_route_truth(
                             f"{route_tuple_label} requires manual recovery: {fallback_revoke_reason}"
                         )
                     else:
-                        rollback_state = "manual_recovery_required"
-                        rollback_reason_code = "fallback_missing_artifact_or_startup_smoke_proof"
-                        rollback_reason = (
-                            f"Fallback route {fallback_route_tuple_label} is not promoted for {tuple_label} because "
-                            "matching artifact bytes and fresh startup-smoke proof are still required; "
-                            f"primary route {route_tuple_label} therefore requires manual recovery."
-                        )
+                        if normalized_token(rollout_state) == "public_stable" and promoted:
+                            rollback_state = "primary_reinstall_available"
+                            rollback_reason_code = "primary_installer_reinstall_available"
+                            rollback_reason = (
+                                f"Fallback route {fallback_route_tuple_label} remains an unpromoted compatibility lane for {tuple_label}; "
+                                f"recover {route_tuple_label} from the promoted primary installer {artifact_id} until a separately proved fallback is published."
+                            )
+                        else:
+                            rollback_state = "manual_recovery_required"
+                            rollback_reason_code = "fallback_missing_artifact_or_startup_smoke_proof"
+                            rollback_reason = (
+                                f"Fallback route {fallback_route_tuple_label} is not promoted for {tuple_label} because "
+                                "matching artifact bytes and fresh startup-smoke proof are still required; "
+                                f"primary route {route_tuple_label} therefore requires manual recovery."
+                            )
                 else:
                     parity_posture = "explicit_fallback"
                     if promoted:
@@ -3330,9 +3338,19 @@ def release_channel_public_posture(
         return "blocked"
     if normalized_status != "published":
         return "blocked"
-    if normalized_channel == "stable" and normalized_rollout == "public_stable":
+    if normalized_channel in {"stable", "public_stable"} and normalized_rollout == "public_stable":
         return "live"
     return "preview"
+
+
+def route_truth_is_preview_only_fallback(row: dict[str, Any]) -> bool:
+    return (
+        isinstance(row, dict)
+        and normalize_token(row.get("routeRole")) == "fallback"
+        and normalize_token(row.get("promotionState")) == "proof_required"
+        and normalize_token(row.get("parityPosture")) == "explicit_fallback"
+        and normalize_token(row.get("revokeState")) != "revoked"
+    )
 
 
 def public_trust_metrics(
@@ -3364,7 +3382,11 @@ def public_trust_metrics(
     ]
     blocked_routes = [
         row for row in route_truth
-        if isinstance(row, dict) and normalize_token(row.get("promotionState")) == "proof_required"
+        if (
+            isinstance(row, dict)
+            and normalize_token(row.get("promotionState")) == "proof_required"
+            and not route_truth_is_preview_only_fallback(row)
+        )
     ]
     fallback_recovery_routes = [
         row for row in route_truth
@@ -3773,6 +3795,7 @@ def derive_rollout_reason(
 
 
 def derive_supportability_state(
+    channel: str,
     status: str,
     proof: dict[str, Any] | None,
     *,
@@ -3786,11 +3809,12 @@ def derive_supportability_state(
     if proof_freshness_blocks_output_readiness(proof_freshness_status):
         return "review_required"
     if proof and str(proof.get("status") or "").strip().lower() == "passed":
-        return "preview_supported"
+        return "gold_supported" if normalize_token(channel) in {"stable", "public_stable"} else "preview_supported"
     return "review_required"
 
 
 def derive_supportability_summary(
+    channel: str,
     status: str,
     proof: dict[str, Any] | None,
     *,
@@ -3828,8 +3852,13 @@ def derive_supportability_summary(
                     "Community organizer closure stayed grounded on the current shelf."
                 )
             note_suffix = (" " + " ".join(proof_notes)) if proof_notes else ""
-            return f"Local release proof passed for: {journey_list}.{note_suffix}"
-        return "Local release proof passed for the current shelf."
+            prefix = "Gold release proof passed" if normalize_token(channel) in {"stable", "public_stable"} else "Local release proof passed"
+            return f"{prefix} for: {journey_list}.{note_suffix}"
+        return (
+            "Gold release proof passed for the current shelf."
+            if normalize_token(channel) in {"stable", "public_stable"}
+            else "Local release proof passed for the current shelf."
+        )
     return "Treat the current shelf as review-required until release proof and support closure checks pass."
 
 
@@ -3862,6 +3891,12 @@ def derive_known_issue_summary(
             proof_notes.append("community closure")
         proof_note_text = ", ".join(proof_notes)
         proof_note_clause = f", {proof_note_text}" if proof_note_text else ""
+        if normalize_token(channel) in {"stable", "public_stable"}:
+            return (
+                "No blocking release caveat is mirrored for the current public shelf. "
+                "The promoted routes have recent install"
+                f"{proof_note_clause}, bounded offline prefetch, and support proof instead of only manifest presence."
+            )
         return (
             "Preview caveats still apply, but the current shelf has recent install"
             f"{proof_note_clause}, bounded offline prefetch, and support proof instead of only manifest presence."
@@ -3907,6 +3942,7 @@ def normalize_release_channel_posture(
         desktop_coverage_complete=desktop_coverage_complete,
     )
     derived_supportability_state = derive_supportability_state(
+        channel,
         status,
         proof,
         desktop_coverage_complete=desktop_coverage_complete,
@@ -3951,6 +3987,13 @@ def normalize_release_channel_posture(
         and desktop_coverage_complete
         and supportability_state == "local_docker_proven"
         and derived_supportability_state == "preview_supported"
+    ):
+        supportability_state = derived_supportability_state
+    if (
+        status == "published"
+        and desktop_coverage_complete
+        and supportability_state == "preview_supported"
+        and derived_supportability_state == "gold_supported"
     ):
         supportability_state = derived_supportability_state
 
@@ -4117,12 +4160,14 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         proof_freshness_status=proof_freshness_status,
     )
     derived_supportability_state = derive_supportability_state(
+        channel,
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
         proof_freshness_status=proof_freshness_status,
     )
     derived_supportability_summary = derive_supportability_summary(
+        channel,
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
