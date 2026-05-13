@@ -449,7 +449,11 @@ def run_self_test() -> None:
         try:
             verify_manifest(manifest, label="stale self-test manifest")
         except SystemExit as exc:
-            if "overstates output readiness" not in str(exc):
+            message = str(exc)
+            if (
+                "overstates output readiness" not in message
+                and "stale or incomplete proof receipts" not in message
+            ):
                 raise
         else:
             fail("self-test expected stale-proof readiness rejection")

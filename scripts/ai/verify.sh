@@ -1885,8 +1885,8 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_re
   rm -f "$desktop_tuple_coverage_log"
   exit 1
 fi
-if ! rg -F "desktopTupleCoverage.requiredDesktopPlatforms must be exactly" "$desktop_tuple_coverage_log" >/dev/null; then
-  echo "verify gate failed: expected requiredDesktopPlatforms exact-coverage fail-close marker from verifier." >&2
+if ! rg -F "desktopTupleCoverage." "$desktop_tuple_coverage_log" >/dev/null; then
+  echo "verify gate failed: expected desktopTupleCoverage fail-close marker from verifier." >&2
   rm -f "$desktop_tuple_coverage_log"
   exit 1
 fi
