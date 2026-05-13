@@ -2399,14 +2399,19 @@ def desktop_tuple_coverage(
 
 def derive_required_desktop_platforms(artifacts: list[dict[str, Any]]) -> list[str]:
     promoted_platforms = {
-        normalized_token(item.get("platform"))
+        normalize_platform_token(item.get("platform"))
         for item in artifacts
         if isinstance(item, dict)
-        and is_desktop_install_media(normalized_token(item.get("platform")), item.get("kind"))
+        and normalize_platform_token(item.get("platform"))
         and not desktop_route_artifact_is_revoked(item)
     }
-    ordered = [platform for platform in DEFAULT_REQUIRED_DESKTOP_PLATFORMS if platform in promoted_platforms]
-    return ordered or list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS)
+    ordered = list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS)
+    ordered.extend(
+        platform
+        for platform in sorted(promoted_platforms)
+        if platform and platform not in ordered
+    )
+    return ordered
 
 
 def desktop_tuple_coverage_is_complete(coverage: dict[str, Any] | None) -> bool:
@@ -4201,6 +4206,49 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         status=status,
         proof=release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
+    )
+    tuple_coverage = desktop_tuple_coverage(
+        artifacts,
+        required_heads=required_heads,
+        required_platforms=required_platforms,
+        channel_id=channel,
+        release_version=version,
+        channel_status=status,
+        rollout_state=rollout_state,
+        rollout_reason=loaded_rollout_reason or derived_rollout_reason,
+        known_issue_summary=loaded_known_issue_summary or derived_known_issue_summary,
+        downloads_dir=args.downloads_dir,
+    )
+    desktop_coverage_complete = desktop_tuple_coverage_is_complete(tuple_coverage)
+    derived_rollout_reason = derive_rollout_reason(
+        channel,
+        status,
+        release_proof,
+        desktop_coverage_complete=desktop_coverage_complete,
+        coverage=tuple_coverage,
+        proof_freshness_status=proof_freshness_status,
+    )
+    derived_supportability_summary = derive_supportability_summary(
+        channel,
+        status,
+        release_proof,
+        desktop_coverage_complete=desktop_coverage_complete,
+        coverage=tuple_coverage,
+        proof_freshness_status=proof_freshness_status,
+    )
+    derived_known_issue_summary = derive_known_issue_summary(
+        channel,
+        status,
+        release_proof,
+        desktop_coverage_complete=desktop_coverage_complete,
+        coverage=tuple_coverage,
+        proof_freshness_status=proof_freshness_status,
+    )
+    derived_fix_availability_summary = derive_fix_availability_summary(
+        status,
+        release_proof,
+        desktop_coverage_complete=desktop_coverage_complete,
+        proof_freshness_status=proof_freshness_status,
     )
     if status == "published" and proof_freshness_blocks_output_readiness(proof_freshness_status):
         supportability_state = derived_supportability_state

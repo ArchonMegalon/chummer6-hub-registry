@@ -446,11 +446,35 @@ def test_canonical_payload_downgrades_stale_proof_supportability() -> None:
             )
         )
 
+    coverage = canonical["desktopTupleCoverage"]
+    assert coverage["complete"] is False
     assert canonical["supportabilityState"] == "review_required"
-    assert "stale or incomplete proof receipts" in canonical["rolloutReason"].lower()
-    assert "stale or incomplete proof receipts" in canonical["supportabilitySummary"].lower()
-    assert "stale or incomplete proof receipts" in canonical["knownIssueSummary"].lower()
-    assert "stale or incomplete proof receipts" in canonical["fixAvailabilitySummary"].lower()
+    assert canonical["rolloutReason"] == MODULE.derive_rollout_reason(
+        "docker",
+        "published",
+        proof,
+        desktop_coverage_complete=False,
+        coverage=coverage,
+    )
+    assert canonical["supportabilitySummary"] == MODULE.derive_supportability_summary(
+        "docker",
+        "published",
+        proof,
+        desktop_coverage_complete=False,
+        coverage=coverage,
+    )
+    assert canonical["knownIssueSummary"] == MODULE.derive_known_issue_summary(
+        "docker",
+        "published",
+        proof,
+        desktop_coverage_complete=False,
+        coverage=coverage,
+    )
+    assert canonical["fixAvailabilitySummary"] == MODULE.derive_fix_availability_summary(
+        "published",
+        proof,
+        desktop_coverage_complete=False,
+    )
     assert canonical["publicTrustMetrics"]["proofFreshness"]["status"] == "stale"
     assert canonical["publicTrustMetrics"]["releaseChannel"]["posture"] == "blocked"
     assert canonical["publicTrustMetrics"]["releaseChannel"]["recommendedRouteCount"] == 0
@@ -538,7 +562,7 @@ def test_canonical_payload_downgrades_stale_published_posture_when_startup_smoke
     )
 
 
-def test_canonical_payload_rederives_stale_published_copy_when_coverage_recovers() -> None:
+def test_canonical_payload_rederives_stale_published_copy_against_canonical_platform_floor() -> None:
     proof = valid_release_proof_payload()
     fresh_generated_at = MODULE.utc_now().replace(microsecond=0).isoformat().replace("+00:00", "Z")
     proof["generatedAt"] = fresh_generated_at
@@ -611,34 +635,34 @@ def test_canonical_payload_rederives_stale_published_copy_when_coverage_recovers
         )
 
     coverage = canonical["desktopTupleCoverage"]
-    assert coverage["complete"] is True
-    assert canonical["rolloutState"] == "promoted_preview"
-    assert canonical["supportabilityState"] == "preview_supported"
+    assert coverage["complete"] is False
+    assert canonical["rolloutState"] == "coverage_incomplete"
+    assert canonical["supportabilityState"] == "review_required"
     assert canonical["rolloutReason"] == MODULE.derive_rollout_reason(
         "docker",
         "published",
         proof,
-        desktop_coverage_complete=True,
+        desktop_coverage_complete=False,
         coverage=coverage,
     )
     assert canonical["supportabilitySummary"] == MODULE.derive_supportability_summary(
         "docker",
         "published",
         proof,
-        desktop_coverage_complete=True,
+        desktop_coverage_complete=False,
         coverage=coverage,
     )
     assert canonical["knownIssueSummary"] == MODULE.derive_known_issue_summary(
         "docker",
         "published",
         proof,
-        desktop_coverage_complete=True,
+        desktop_coverage_complete=False,
         coverage=coverage,
     )
     assert canonical["fixAvailabilitySummary"] == MODULE.derive_fix_availability_summary(
         "published",
         proof,
-        desktop_coverage_complete=True,
+        desktop_coverage_complete=False,
     )
 
 
@@ -671,7 +695,7 @@ def test_desktop_tuple_coverage_gap_summary_reports_missing_rid_tuples() -> None
     )
 
 
-def test_derive_required_desktop_platforms_tracks_published_installers_only() -> None:
+def test_derive_required_desktop_platforms_keeps_canonical_platform_floor() -> None:
     artifacts = [
         {
             "artifactId": "avalonia-win-x64-installer",
@@ -691,7 +715,7 @@ def test_derive_required_desktop_platforms_tracks_published_installers_only() ->
         },
     ]
 
-    assert MODULE.derive_required_desktop_platforms(artifacts) == ["windows"]
+    assert MODULE.derive_required_desktop_platforms(artifacts) == ["linux", "windows", "macos"]
 
 
 def test_load_startup_smoke_receipts_rejects_future_dated_receipts_beyond_skew() -> None:
