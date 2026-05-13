@@ -189,11 +189,24 @@ def test_derive_rollout_state_uses_promoted_preview_for_complete_published_docke
 def test_derive_supportability_state_uses_preview_supported_for_complete_published_release() -> None:
     assert (
         MODULE.derive_supportability_state(
+            "preview",
             "published",
             {"status": "passed"},
             desktop_coverage_complete=True,
         )
         == "preview_supported"
+    )
+
+
+def test_derive_supportability_state_uses_gold_supported_for_public_stable_release() -> None:
+    assert (
+        MODULE.derive_supportability_state(
+            "public_stable",
+            "published",
+            {"status": "passed"},
+            desktop_coverage_complete=True,
+        )
+        == "gold_supported"
     )
 
 
@@ -245,13 +258,71 @@ def test_public_trust_metrics_reports_preview_launch_truth() -> None:
     )
 
     assert metrics["releaseChannel"]["posture"] == "preview"
+
+
+def test_public_trust_metrics_does_not_count_preview_only_fallback_rows_as_gold_blockers() -> None:
+    artifacts, coverage = install_aware_payload()
+    proof = valid_release_proof_payload()
+    proof["generatedAt"] = "2026-05-13T00:35:00Z"
+    proof["uiLocalizationReleaseGate"]["generatedAt"] = "2026-05-13T00:35:00Z"
+    coverage["desktopRouteTruth"] = [
+        {
+            "tupleId": "avalonia:windows:win-x64",
+            "head": "avalonia",
+            "platform": "windows",
+            "rid": "win-x64",
+            "arch": "x64",
+            "artifactId": "avalonia-win-x64-installer",
+            "routeRole": "primary",
+            "promotionState": "promoted",
+            "parityPosture": "flagship_primary",
+            "rollbackState": "primary_reinstall_available",
+            "rollbackReasonCode": "primary_installer_reinstall_available",
+            "rollbackReason": (
+                "Fallback route blazor-desktop:windows:win-x64 remains an unpromoted compatibility lane for windows/win-x64; "
+                "recover avalonia:windows:win-x64 from the promoted primary installer avalonia-win-x64-installer until a separately proved fallback is published."
+            ),
+            "revokeState": "not_revoked",
+            "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
+        },
+        {
+            "tupleId": "blazor-desktop:windows:win-x64",
+            "head": "blazor-desktop",
+            "platform": "windows",
+            "rid": "win-x64",
+            "arch": "x64",
+            "artifactId": "",
+            "routeRole": "fallback",
+            "promotionState": "proof_required",
+            "parityPosture": "explicit_fallback",
+            "rollbackState": "fallback_not_promoted",
+            "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
+            "rollbackReason": "Fallback route blazor-desktop:windows:win-x64 needs artifact and startup-smoke proof before rollback use.",
+            "revokeState": "not_revoked",
+            "publicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer",
+        },
+    ]
+    metrics = MODULE.public_trust_metrics(
+        generated_at="2026-05-13T00:36:30Z",
+        channel_id="public_stable",
+        status="published",
+        rollout_state="public_stable",
+        supportability_state="gold_supported",
+        release_proof=proof,
+        artifacts=artifacts,
+        tuple_coverage=coverage,
+    )
+
+    assert metrics["releaseChannel"]["posture"] == "live"
+    assert metrics["releaseChannel"]["blockedRouteCount"] == 0
+    assert metrics["adoptionHealth"]["blockedRouteCount"] == 0
     assert metrics["releaseChannel"]["recommendedRouteCount"] == 1
-    assert metrics["adoptionHealth"]["status"] == "limited"
+    assert metrics["adoptionHealth"]["status"] == "healthy"
     assert metrics["adoptionHealth"]["publicInstallCount"] == 1
-    assert metrics["adoptionHealth"]["blockedRouteCount"] == 1
+    assert metrics["adoptionHealth"]["blockedRouteCount"] == 0
     assert metrics["proofFreshness"]["status"] == "fresh"
-    assert metrics["proofFreshness"]["releaseProofAgeSeconds"] == 600
-    assert metrics["proofFreshness"]["uiLocalizationAgeSeconds"] == 600
+    assert metrics["proofFreshness"]["releaseProofAgeSeconds"] == 90
+    assert metrics["proofFreshness"]["uiLocalizationAgeSeconds"] == 90
     assert metrics["revocationFacts"]["status"] == "clear"
     assert metrics["revocationFacts"]["activeRevocationCount"] == 0
 
@@ -375,15 +446,39 @@ def test_canonical_payload_downgrades_stale_proof_supportability() -> None:
             )
         )
 
+    coverage = canonical["desktopTupleCoverage"]
+    assert coverage["complete"] is False
     assert canonical["supportabilityState"] == "review_required"
-    assert "stale or incomplete proof receipts" in canonical["rolloutReason"].lower()
-    assert "stale or incomplete proof receipts" in canonical["supportabilitySummary"].lower()
-    assert "stale or incomplete proof receipts" in canonical["knownIssueSummary"].lower()
-    assert "stale or incomplete proof receipts" in canonical["fixAvailabilitySummary"].lower()
+    assert canonical["rolloutReason"] == MODULE.derive_rollout_reason(
+        "docker",
+        "published",
+        proof,
+        desktop_coverage_complete=False,
+        coverage=coverage,
+    )
+    assert canonical["supportabilitySummary"] == MODULE.derive_supportability_summary(
+        "docker",
+        "published",
+        proof,
+        desktop_coverage_complete=False,
+        coverage=coverage,
+    )
+    assert canonical["knownIssueSummary"] == MODULE.derive_known_issue_summary(
+        "docker",
+        "published",
+        proof,
+        desktop_coverage_complete=False,
+        coverage=coverage,
+    )
+    assert canonical["fixAvailabilitySummary"] == MODULE.derive_fix_availability_summary(
+        "published",
+        proof,
+        desktop_coverage_complete=False,
+    )
     assert canonical["publicTrustMetrics"]["proofFreshness"]["status"] == "stale"
     assert canonical["publicTrustMetrics"]["releaseChannel"]["posture"] == "blocked"
     assert canonical["publicTrustMetrics"]["releaseChannel"]["recommendedRouteCount"] == 0
-    assert canonical["publicTrustMetrics"]["releaseChannel"]["blockedRouteCount"] == 2
+    assert canonical["publicTrustMetrics"]["releaseChannel"]["blockedRouteCount"] == 3
 
 
 def test_canonical_payload_downgrades_stale_published_posture_when_startup_smoke_proof_is_missing() -> None:
@@ -447,6 +542,7 @@ def test_canonical_payload_downgrades_stale_published_posture_when_startup_smoke
         coverage=coverage,
     )
     assert canonical["supportabilitySummary"] == MODULE.derive_supportability_summary(
+        "docker",
         "published",
         proof,
         desktop_coverage_complete=False,
@@ -466,7 +562,7 @@ def test_canonical_payload_downgrades_stale_published_posture_when_startup_smoke
     )
 
 
-def test_canonical_payload_rederives_stale_published_copy_when_coverage_recovers() -> None:
+def test_canonical_payload_rederives_stale_published_copy_against_canonical_platform_floor() -> None:
     proof = valid_release_proof_payload()
     fresh_generated_at = MODULE.utc_now().replace(microsecond=0).isoformat().replace("+00:00", "Z")
     proof["generatedAt"] = fresh_generated_at
@@ -539,33 +635,34 @@ def test_canonical_payload_rederives_stale_published_copy_when_coverage_recovers
         )
 
     coverage = canonical["desktopTupleCoverage"]
-    assert coverage["complete"] is True
-    assert canonical["rolloutState"] == "promoted_preview"
-    assert canonical["supportabilityState"] == "preview_supported"
+    assert coverage["complete"] is False
+    assert canonical["rolloutState"] == "coverage_incomplete"
+    assert canonical["supportabilityState"] == "review_required"
     assert canonical["rolloutReason"] == MODULE.derive_rollout_reason(
         "docker",
         "published",
         proof,
-        desktop_coverage_complete=True,
+        desktop_coverage_complete=False,
         coverage=coverage,
     )
     assert canonical["supportabilitySummary"] == MODULE.derive_supportability_summary(
+        "docker",
         "published",
         proof,
-        desktop_coverage_complete=True,
+        desktop_coverage_complete=False,
         coverage=coverage,
     )
     assert canonical["knownIssueSummary"] == MODULE.derive_known_issue_summary(
         "docker",
         "published",
         proof,
-        desktop_coverage_complete=True,
+        desktop_coverage_complete=False,
         coverage=coverage,
     )
     assert canonical["fixAvailabilitySummary"] == MODULE.derive_fix_availability_summary(
         "published",
         proof,
-        desktop_coverage_complete=True,
+        desktop_coverage_complete=False,
     )
 
 
@@ -598,7 +695,7 @@ def test_desktop_tuple_coverage_gap_summary_reports_missing_rid_tuples() -> None
     )
 
 
-def test_derive_required_desktop_platforms_tracks_published_installers_only() -> None:
+def test_derive_required_desktop_platforms_keeps_canonical_platform_floor() -> None:
     artifacts = [
         {
             "artifactId": "avalonia-win-x64-installer",
@@ -618,7 +715,7 @@ def test_derive_required_desktop_platforms_tracks_published_installers_only() ->
         },
     ]
 
-    assert MODULE.derive_required_desktop_platforms(artifacts) == ["windows"]
+    assert MODULE.derive_required_desktop_platforms(artifacts) == ["linux", "windows", "macos"]
 
 
 def test_load_startup_smoke_receipts_rejects_future_dated_receipts_beyond_skew() -> None:
@@ -1475,6 +1572,30 @@ def test_desktop_tuple_coverage_marks_primary_manual_recovery_when_fallback_is_r
     assert "Fallback signature failed Windows smoke after publication." in primary["rollbackReason"]
     assert fallback["revokeState"] == "revoked"
     assert fallback["revokeSource"] == "artifact"
+
+
+def test_desktop_tuple_coverage_uses_primary_reinstall_for_public_stable_when_fallback_is_unshipped() -> None:
+    coverage = MODULE.desktop_tuple_coverage(
+        [
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "platform": "windows",
+                "rid": "win-x64",
+                "arch": "x64",
+                "kind": "installer",
+            },
+        ],
+        required_heads=["avalonia"],
+        required_platforms=["windows"],
+        channel_id="public_stable",
+        rollout_state="public_stable",
+    )
+
+    primary = next(row for row in coverage["desktopRouteTruth"] if row["head"] == "avalonia")
+    assert primary["rollbackState"] == "primary_reinstall_available"
+    assert primary["rollbackReasonCode"] == "primary_installer_reinstall_available"
+    assert "promoted primary installer avalonia-win-x64-installer" in primary["rollbackReason"]
 
 
 def test_desktop_tuple_coverage_does_not_count_revoked_primary_as_promoted() -> None:
