@@ -5,7 +5,7 @@ cards:
   - id: productlift_feedback
     bucket: supporting_reads
     title: Public feedback
-    summary: Public ideas and voting remain a projection of Chummer-owned truth.
+    summary: Public ideas and voting stay on a Chummer-owned signal board and never become product truth by themselves.
     href: /feedback
     badge: Public input
     audience: public
@@ -13,7 +13,7 @@ cards:
   - id: productlift_roadmap
     bucket: supporting_reads
     title: Public roadmap
-    summary: Public roadmap cards project public direction without becoming roadmap truth.
+    summary: Public roadmap cards show direction without becoming roadmap truth.
     href: /roadmap
     badge: Projection
     audience: public
@@ -201,6 +201,15 @@ cards:
     audience: public
     image_family: streetfront
     action_label: Open mobile projection
+  - id: real_anarchy_preview
+    bucket: whats_real_now
+    title: Shadowrun Anarchy preview
+    summary: A dedicated rules-light lane for Black Ledger, dispatches, and mobile continuity now exists as a first-party preview.
+    href: /anarchy
+    badge: Playable preview
+    audience: public
+    image_family: streetfront
+    action_label: Open Anarchy
   - id: real_release_shelf
     bucket: whats_real_now
     title: Preview releases, channels, and notes
