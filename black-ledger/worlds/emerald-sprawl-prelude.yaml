@@ -334,6 +334,82 @@ ai_personalities:
       - count bounded closeout witnesses
       - keep public summaries non-identifying
     risk_appetite: low
+  - id: ai_ledger_architect
+    role: ledger_gm
+    tone: deterministic, receipt-first, handoff-aware
+    goals:
+      - keep the world tick bounded
+      - preserve human takeover priority
+      - require a receipt before state changes
+    risk_appetite: low
+  - id: ai_public_intel_provider
+    role: public_intel_provider
+    tone: concise, redacted, proof-aware
+    goals:
+      - summarize pressure safely
+      - separate rumor from proof
+      - avoid private details
+    risk_appetite: low
+  - id: ai_package_factor
+    role: package_pressure_analyst
+    tone: comparative, package-lane focused, conservative
+    goals:
+      - explain package pressure
+      - avoid roadmap overclaim
+      - keep release truth separate
+    risk_appetite: low
+  - id: ai_privacy_marshal
+    role: privacy_marshal
+    tone: defensive, blocking, exact
+    goals:
+      - stop private leakage
+      - block sourcebook text
+      - fail closed on unsafe output
+    risk_appetite: low
+  - id: ai_closeout_clerk
+    role: closeout_clerk
+    tone: procedural, auditable, publication-safe
+    goals:
+      - keep closeout motion receipt-backed
+      - preserve publication provenance
+      - make rollback visible
+    risk_appetite: low
+global_posts:
+  - id: ledger_gm
+    holder_type: ai
+    fallback_personality: ai_ledger_architect
+    public_label: Ledger GM
+    public_summary: Runs the deterministic world-turn shell until verified human stewards take over.
+  - id: public_intel_provider
+    holder_type: ai
+    fallback_personality: ai_public_intel_provider
+    public_label: Public Intel Provider
+    public_summary: Turns world movement into public-safe summaries without leaking private or operator data.
+  - id: package_pressure_analyst
+    holder_type: ai
+    fallback_personality: ai_package_factor
+    public_label: Package Pressure Analyst
+    public_summary: Explains package demand as governed pressure, not shipped truth.
+  - id: privacy_marshal
+    holder_type: ai
+    fallback_personality: ai_privacy_marshal
+    public_label: Privacy Marshal
+    public_summary: Blocks private, identifying, sourcebook, support, or operator data from public rendering.
+  - id: closeout_clerk
+    holder_type: ai
+    fallback_personality: ai_closeout_clerk
+    public_label: Closeout Clerk
+    public_summary: Keeps closeout movement tied to first-party receipts before it appears publicly.
+stewardship_transfer_preview:
+  receipt_type: stewardship_transfer
+  post_id: ledger_gm
+  old_holder: ai_ledger_architect
+  new_holder: verified_human_steward_pending
+  new_holder_type: human
+  occurred_at: "2026-05-14T12:00:00Z"
+  reason: Preview handoff receipt proves that verified human takeover outranks interim AI stewardship.
+  operator_id: stewarding_operator
+  public_visibility: public_safe
 turns:
   - turn: 0
     state: seeded_initial_state
@@ -376,6 +452,41 @@ turns:
         status: candidate
       - package_id: debt-ledger-visibility
         pressure: 5
+        status: candidate
+deterministic_test_ticks:
+  - turn: 2
+    seed_id: emerald-sprawl-turn-0002-test
+    mode: deterministic_test
+    state: deterministic_turn_two_preview
+    summary: Ghostline proof filters calm rumor noise while Rust Bazaar debt spills into contested transit packages.
+    receipt_id: ledger_tick_0002_deterministic
+    created_at_utc: "2026-05-14T12:05:00Z"
+    effects:
+      - target: ghostline_network
+        metric: false_signal_suppression
+        delta: 4
+        public_reason: Ghostline burned three unstable rumor lanes before they became package truth.
+      - target: rust_market_syndicate
+        metric: debt_heat
+        delta: 5
+        public_reason: Debt recovery pressure spilled into contested transit support packages.
+      - target: neon_docks_union
+        metric: vehicle_package_demand
+        delta: 3
+        public_reason: Cargo-route tension kept vehicle overlays visible for another cycle.
+      - target: glass_tower_compact
+        metric: public_trust
+        delta: 2
+        public_reason: A bounded contract rollback regained some public confidence after receipt publication.
+    package_pressure:
+      - package_id: debt-ledger-visibility
+        pressure: 8
+        status: candidate
+      - package_id: drone-logistics-overlay
+        pressure: 7
+        status: candidate
+      - package_id: rumor-filter-ops
+        pressure: 6
         status: candidate
 e2e:
   deterministic_tick_seed: emerald-sprawl-turn-0001
