@@ -384,7 +384,7 @@ global_posts:
     holder_type: ai
     fallback_personality: ai_public_intel_provider
     public_label: Public Intel Provider
-    public_summary: Turns world movement into public-safe summaries without leaking private or operator data.
+    public_summary: Turns world movement into public-safe summaries without leaking private or administrative data.
   - id: package_pressure_analyst
     holder_type: ai
     fallback_personality: ai_package_factor
@@ -394,7 +394,7 @@ global_posts:
     holder_type: ai
     fallback_personality: ai_privacy_marshal
     public_label: Privacy Marshal
-    public_summary: Blocks private, identifying, sourcebook, support, or operator data from public rendering.
+    public_summary: Blocks private, identifying, sourcebook, support, or administrative data from public rendering.
   - id: closeout_clerk
     holder_type: ai
     fallback_personality: ai_closeout_clerk
