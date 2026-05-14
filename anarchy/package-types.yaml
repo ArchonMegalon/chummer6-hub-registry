@@ -1,0 +1,7 @@
+ruleset_id: shadowrun_anarchy
+package_types:
+  - anarchy_runner_template
+  - anarchy_scene_pack
+  - anarchy_contract_brief
+  - anarchy_faction_overlay
+  - anarchy_shadow_amp_pack
