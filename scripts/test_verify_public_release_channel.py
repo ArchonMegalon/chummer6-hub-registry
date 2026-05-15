@@ -744,6 +744,31 @@ def test_verify_public_trust_metrics_accepts_reordered_semantic_lists() -> None:
     MODULE.verify_public_trust_metrics(payload, "release-channel.json")
 
 
+def test_verify_public_trust_metrics_preserves_embedded_flagship_block_without_timestamp() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+
+    proof_freshness = payload["publicTrustMetrics"]["proofFreshness"]
+    proof_freshness["flagshipReadinessGeneratedAt"] = None
+    proof_freshness["flagshipReadinessAgeSeconds"] = 94
+    proof_freshness["flagshipReadinessMaxAgeSeconds"] = 604800
+    proof_freshness["flagshipReadinessStatus"] = "pass"
+    proof_freshness["flagshipReadinessCoverageGapKeys"] = ["desktop_client"]
+    proof_freshness["flagshipDesktopClientReady"] = True
+    proof_freshness["flagshipReadinessReason"] = "Desktop readiness is green."
+
+    expected = MODULE.expected_public_trust_metrics(payload)
+
+    assert "flagshipReadinessStatus" in expected["proofFreshness"]
+    assert expected["proofFreshness"]["flagshipReadinessGeneratedAt"] is None
+    assert expected["proofFreshness"]["flagshipReadinessAgeSeconds"] == 94
+    assert expected["proofFreshness"]["flagshipReadinessMaxAgeSeconds"] == 604800
+
+    payload["publicTrustMetrics"] = expected
+    MODULE.verify_public_trust_metrics(payload, "release-channel.json")
+
+
 def test_verify_public_trust_metrics_includes_diff_when_mismatch_remains() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)
