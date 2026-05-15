@@ -699,6 +699,63 @@ def test_verify_public_trust_metrics_rejects_fresh_status_when_flagship_desktop_
         MODULE.verify_public_trust_metrics(payload, "release-channel.json")
 
 
+def test_verify_public_trust_metrics_accepts_reordered_semantic_lists() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessGeneratedAt"] = "2026-05-20T18:20:30Z"
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessAgeSeconds"] = 94
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessMaxAgeSeconds"] = 604800
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessStatus"] = "pass"
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessCoverageGapKeys"] = [
+        "desktop_client",
+        "ux_bundle",
+    ]
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipDesktopClientReady"] = True
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessReason"] = "Desktop readiness is green."
+    payload["desktopTupleCoverage"]["desktopRouteTruth"].append(
+        {
+            "tupleId": "avalonia:macos:osx-arm64",
+            "head": "avalonia",
+            "platform": "macos",
+            "rid": "osx-arm64",
+            "arch": "arm64",
+            "artifactId": "avalonia-osx-arm64-installer",
+            "routeRole": "primary",
+            "promotionState": "revoked",
+            "revokeState": "revoked",
+            "revokeSource": "artifact",
+            "revokeReasonCode": "registry_revoke_marker_active",
+            "revokeReason": "Startup smoke regressed for macOS.",
+            "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
+        }
+    )
+
+    canonical = MODULE.expected_public_trust_metrics(payload)
+    payload["publicTrustMetrics"] = canonical
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessCoverageGapKeys"] = [
+        "ux_bundle",
+        "desktop_client",
+    ]
+    payload["publicTrustMetrics"]["revocationFacts"]["activeRevocations"] = list(
+        reversed(payload["publicTrustMetrics"]["revocationFacts"]["activeRevocations"])
+    )
+
+    MODULE.verify_public_trust_metrics(payload, "release-channel.json")
+
+
+def test_verify_public_trust_metrics_includes_diff_when_mismatch_remains() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["publicTrustMetrics"]["releaseChannel"]["recommendedRouteCount"] = 999
+
+    with pytest.raises(SystemExit, match="expected_publicTrustMetrics") as excinfo:
+        MODULE.verify_public_trust_metrics(payload, "release-channel.json")
+
+    assert "actual_publicTrustMetrics" in str(excinfo.value)
+
+
 def test_expected_public_trust_metrics_counts_account_linked_and_revoked_routes() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)

@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import hashlib
 import os
@@ -4424,6 +4425,61 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+def _public_trust_metrics_list_sort_key(path: tuple[str, ...], item: Any) -> tuple[Any, ...] | None:
+    if path == ("revocationFacts", "activeRevocations") and isinstance(item, dict):
+        return (
+            normalized_platform_token(item.get("platform")),
+            normalized_token(item.get("head")),
+            normalized_token(item.get("rid")),
+            normalized_token(item.get("tupleId")),
+            normalized_token(item.get("artifactId")),
+        )
+    return None
+
+
+def normalize_public_trust_metrics(value: Any, path: tuple[str, ...] = ()) -> Any:
+    if isinstance(value, dict):
+        return {
+            str(key): normalize_public_trust_metrics(value[key], (*path, str(key)))
+            for key in sorted(value.keys(), key=lambda item: str(item))
+        }
+    if isinstance(value, list):
+        normalized_items = [normalize_public_trust_metrics(item, path) for item in value]
+        if path == ("proofFreshness", "flagshipReadinessCoverageGapKeys"):
+            return sorted(str(item) for item in normalized_items)
+        decorated: list[tuple[tuple[Any, ...], Any]] = []
+        for item in normalized_items:
+            sort_key = _public_trust_metrics_list_sort_key(path, item)
+            if sort_key is None:
+                return normalized_items
+            decorated.append((sort_key, item))
+        decorated.sort(key=lambda entry: entry[0])
+        return [item for _, item in decorated]
+    return value
+
+
+def public_trust_metrics_diff(actual: dict[str, Any], expected: dict[str, Any]) -> str:
+    actual_lines = json.dumps(
+        normalize_public_trust_metrics(actual),
+        indent=2,
+        sort_keys=True,
+    ).splitlines()
+    expected_lines = json.dumps(
+        normalize_public_trust_metrics(expected),
+        indent=2,
+        sort_keys=True,
+    ).splitlines()
+    return "\n".join(
+        difflib.unified_diff(
+            expected_lines,
+            actual_lines,
+            fromfile="expected_publicTrustMetrics",
+            tofile="actual_publicTrustMetrics",
+            lineterm="",
+        )
+    )
+
+
 def verify_public_trust_metrics(payload: dict[str, Any], source: str) -> None:
     metrics = payload.get("publicTrustMetrics")
     expected_metrics = expected_public_trust_metrics(payload)
@@ -4463,8 +4519,14 @@ def verify_public_trust_metrics(payload: dict[str, Any], source: str) -> None:
             raise SystemExit(
                 f"{source} publicTrustMetrics.revocationFacts.activeRevocations[{index}] has unexpected keys ({', '.join(unexpected_keys)})"
             )
-    if metrics != expected_metrics:
-        raise SystemExit(f"{source} publicTrustMetrics does not match canonical launch-truth metrics")
+    normalized_metrics = normalize_public_trust_metrics(metrics)
+    normalized_expected_metrics = normalize_public_trust_metrics(expected_metrics)
+    if normalized_metrics != normalized_expected_metrics:
+        diff = public_trust_metrics_diff(metrics, expected_metrics)
+        detail = f"\n{diff}" if diff else ""
+        raise SystemExit(
+            f"{source} publicTrustMetrics does not match canonical launch-truth metrics{detail}"
+        )
 
 
 def expected_registry_boundary_coverage(payload: dict[str, Any]) -> dict[str, Any]:
