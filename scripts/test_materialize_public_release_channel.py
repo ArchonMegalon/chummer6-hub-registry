@@ -145,6 +145,35 @@ def valid_release_proof_payload() -> dict[str, object]:
     }
 
 
+def valid_flagship_product_readiness_payload(
+    *,
+    status: str = "pass",
+    missing_keys: list[str] | None = None,
+    generated_at: str = "2026-04-14T18:12:04Z",
+) -> dict[str, object]:
+    return {
+        "status": status,
+        "generated_at": generated_at,
+        "missing_keys": list(missing_keys or []),
+        "flagship_readiness_audit": {
+            "status": status,
+            "reason": (
+                "flagship product readiness proof is not green: fail; missing coverage: desktop_client"
+                if missing_keys
+                else "flagship product readiness proof is green."
+            ),
+        },
+        "completion_audit": {
+            "status": status,
+            "reason": (
+                "Flagship product readiness planes are not green: desktop_client."
+                if missing_keys
+                else "Flagship product readiness planes are green."
+            ),
+        },
+    }
+
+
 def canonical_args(
     *,
     manifest: Path,
@@ -162,6 +191,7 @@ def canonical_args(
         compat_output=None,
         runtime_bundles=None,
         proof=None,
+        flagship_product_readiness=None,
         ui_localization_release_gate=None,
         product="chummer6",
         channel="",
@@ -246,6 +276,7 @@ def test_normalize_release_channel_posture_downgrades_stale_promoted_states_when
 def test_public_trust_metrics_reports_preview_launch_truth() -> None:
     artifacts, coverage = install_aware_payload()
     proof = valid_release_proof_payload()
+    readiness = valid_flagship_product_readiness_payload()
     metrics = MODULE.public_trust_metrics(
         generated_at="2026-04-14T18:22:04Z",
         channel_id="preview",
@@ -253,6 +284,7 @@ def test_public_trust_metrics_reports_preview_launch_truth() -> None:
         rollout_state="promoted_preview",
         supportability_state="preview_supported",
         release_proof=proof,
+        flagship_product_readiness=readiness,
         artifacts=artifacts,
         tuple_coverage=coverage,
     )
@@ -309,6 +341,7 @@ def test_public_trust_metrics_does_not_count_preview_only_fallback_rows_as_gold_
         rollout_state="public_stable",
         supportability_state="gold_supported",
         release_proof=proof,
+        flagship_product_readiness=valid_flagship_product_readiness_payload(generated_at="2026-05-13T00:35:00Z"),
         artifacts=artifacts,
         tuple_coverage=coverage,
     )
@@ -323,8 +356,33 @@ def test_public_trust_metrics_does_not_count_preview_only_fallback_rows_as_gold_
     assert metrics["proofFreshness"]["status"] == "fresh"
     assert metrics["proofFreshness"]["releaseProofAgeSeconds"] == 90
     assert metrics["proofFreshness"]["uiLocalizationAgeSeconds"] == 90
+    assert metrics["proofFreshness"]["flagshipDesktopClientReady"] is True
     assert metrics["revocationFacts"]["status"] == "clear"
     assert metrics["revocationFacts"]["activeRevocationCount"] == 0
+
+
+def test_public_trust_metrics_downgrades_when_flagship_desktop_readiness_is_missing() -> None:
+    artifacts, coverage = install_aware_payload()
+    proof = valid_release_proof_payload()
+    readiness = valid_flagship_product_readiness_payload(status="fail", missing_keys=["desktop_client"])
+    metrics = MODULE.public_trust_metrics(
+        generated_at="2026-04-14T18:22:04Z",
+        channel_id="preview",
+        status="published",
+        rollout_state="promoted_preview",
+        supportability_state="preview_supported",
+        release_proof=proof,
+        flagship_product_readiness=readiness,
+        artifacts=artifacts,
+        tuple_coverage=coverage,
+    )
+
+    assert metrics["proofFreshness"]["status"] == "stale"
+    assert metrics["proofFreshness"]["flagshipReadinessStatus"] == "fail"
+    assert metrics["proofFreshness"]["flagshipReadinessCoverageGapKeys"] == ["desktop_client"]
+    assert metrics["proofFreshness"]["flagshipDesktopClientReady"] is False
+    assert metrics["releaseChannel"]["posture"] == "blocked"
+    assert metrics["releaseChannel"]["recommendedRouteCount"] == 0
 
 
 def test_artifact_publication_bindings_downgrade_output_readiness_when_proof_is_stale() -> None:
@@ -377,6 +435,22 @@ def test_exchange_lineage_registry_downgrades_output_readiness_when_proof_is_mis
 
     assert rows[0]["publicationState"] == "preview"
     assert rows[0]["retentionState"] == "temporary"
+
+
+def test_release_proof_freshness_snapshot_turns_stale_when_flagship_readiness_has_desktop_gap() -> None:
+    snapshot = MODULE.release_proof_freshness_snapshot(
+        projection_generated_at="2026-04-14T18:22:04Z",
+        release_proof=valid_release_proof_payload(),
+        flagship_product_readiness=valid_flagship_product_readiness_payload(
+            status="fail",
+            missing_keys=["desktop_client"],
+        ),
+    )
+
+    assert snapshot["status"] == "stale"
+    assert snapshot["flagshipReadinessStatus"] == "fail"
+    assert snapshot["flagshipReadinessCoverageGapKeys"] == ["desktop_client"]
+    assert snapshot["flagshipDesktopClientReady"] is False
 
 
 def test_canonical_payload_downgrades_stale_proof_supportability() -> None:
@@ -478,7 +552,7 @@ def test_canonical_payload_downgrades_stale_proof_supportability() -> None:
     assert canonical["publicTrustMetrics"]["proofFreshness"]["status"] == "stale"
     assert canonical["publicTrustMetrics"]["releaseChannel"]["posture"] == "blocked"
     assert canonical["publicTrustMetrics"]["releaseChannel"]["recommendedRouteCount"] == 0
-    assert canonical["publicTrustMetrics"]["releaseChannel"]["blockedRouteCount"] == 1
+    assert canonical["publicTrustMetrics"]["releaseChannel"]["blockedRouteCount"] == 3
 
 
 def test_canonical_payload_downgrades_stale_published_posture_when_startup_smoke_proof_is_missing() -> None:
@@ -695,7 +769,7 @@ def test_desktop_tuple_coverage_gap_summary_reports_missing_rid_tuples() -> None
     )
 
 
-def test_derive_required_desktop_platforms_keeps_canonical_platform_floor() -> None:
+def test_derive_required_desktop_platforms_tracks_publishable_install_media() -> None:
     artifacts = [
         {
             "artifactId": "avalonia-win-x64-installer",
@@ -715,7 +789,7 @@ def test_derive_required_desktop_platforms_keeps_canonical_platform_floor() -> N
         },
     ]
 
-    assert MODULE.derive_required_desktop_platforms(artifacts) == ["linux", "windows", "macos"]
+    assert MODULE.derive_required_desktop_platforms(artifacts) == ["windows"]
 
 
 def test_load_startup_smoke_receipts_rejects_future_dated_receipts_beyond_skew() -> None:
