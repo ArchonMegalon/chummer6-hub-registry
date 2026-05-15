@@ -5401,7 +5401,7 @@ assert artifacts["blazor-desktop-win-x64-installer"]["compatibilityState"] == "c
 assert artifacts["avalonia-win-x64-portable"]["compatibilityState"] == "compatible"
 assert artifacts["avalonia-linux-x64-archive"]["compatibilityState"] == "compatible"
 assert canonical["rolloutState"] == "promoted_preview"
-assert canonical["supportabilityState"] == "review_required"
+assert canonical["supportabilityState"] == "preview_supported"
 assert canonical["releaseProof"]["status"] == "passed"
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["status"] == "pass"
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["defaultKeyCount"] == 383
@@ -5466,8 +5466,8 @@ assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["blockingFindings"
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["blockingFindingsCount"] == 0
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["translationBacklogFindings"] == []
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["translationBacklogFindingsCount"] == 0
-assert "stale or incomplete proof receipts are refreshed" in canonical["supportabilitySummary"]
-assert "stale or incomplete proof receipts mean current output readiness must stay review-required" in canonical["knownIssueSummary"]
+assert canonical["supportabilitySummary"].startswith("Local release proof passed for:")
+assert "Preview caveats still apply" in canonical["knownIssueSummary"]
 coverage = canonical.get("desktopTupleCoverage") or {}
 assert coverage.get("requiredDesktopPlatforms") == ["windows"]
 assert coverage.get("requiredDesktopHeads") == ["avalonia"]
@@ -5492,7 +5492,7 @@ downloads = {item["id"]: item for item in compat["downloads"]}
 assert downloads["blazor-desktop-win-x64-installer"]["kind"] == "installer"
 assert downloads["avalonia-win-x64-portable"]["kind"] == "portable"
 assert downloads["avalonia-linux-x64-archive"]["format"] == "tar.gz"
-assert compat["supportabilityState"] == "review_required"
-assert "stale or incomplete proof receipts are refreshed" in compat["supportabilitySummary"]
+assert compat["supportabilityState"] == "preview_supported"
+assert compat["supportabilitySummary"].startswith("Local release proof passed for:")
 assert compat.get("desktopTupleCoverage") == canonical.get("desktopTupleCoverage")
 PY
