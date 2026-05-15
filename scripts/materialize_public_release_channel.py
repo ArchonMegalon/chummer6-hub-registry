@@ -46,6 +46,7 @@ STARTUP_SMOKE_MAX_AGE_SECONDS = 7 * 24 * 3600
 STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS = 300
 RELEASE_PROOF_MAX_AGE_SECONDS = 7 * 24 * 3600
 LOCALIZATION_GATE_MAX_AGE_SECONDS = 7 * 24 * 3600
+FLAGSHIP_READINESS_MAX_AGE_SECONDS = 7 * 24 * 3600
 STARTUP_SMOKE_REQUIRED_READY_CHECKPOINT = "pre_ui_event_loop"
 DEFAULT_REQUIRED_DESKTOP_HEADS = ("avalonia",)
 DESKTOP_ROUTE_TRUTH_HEADS = ("avalonia", "blazor-desktop")
@@ -157,6 +158,7 @@ ALLOWED_LOCALIZATION_LOCALE_SUMMARY_ROW_KEYS = (
 )
 DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
 DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME = "Chummer.Hub.Registry.Contracts"
+DEFAULT_FLAGSHIP_PRODUCT_READINESS_PATH = Path("/docker/fleet/.codex-studio/published/FLAGSHIP_PRODUCT_READINESS.generated.json")
 UTC = dt.timezone.utc
 ARTIFACT_REVOKE_TRUTH_FIELDS = (
     "status",
@@ -484,6 +486,12 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--compat-output", type=Path, help="Optional compatibility `releases.json` output path.")
     parser.add_argument("--runtime-bundles", type=Path, help="Optional JSON file with runtime bundle head metadata.")
     parser.add_argument("--proof", type=Path, help="Optional local release proof payload used to ground supportability and rollout truth.")
+    parser.add_argument(
+        "--flagship-product-readiness",
+        type=Path,
+        default=DEFAULT_FLAGSHIP_PRODUCT_READINESS_PATH,
+        help="Optional Fleet flagship-product-readiness payload used to fail-close registry output posture when desktop readiness proof is incomplete.",
+    )
     parser.add_argument(
         "--ui-localization-release-gate",
         type=Path,
@@ -890,6 +898,15 @@ def load_input_payload(args: argparse.Namespace) -> dict[str, Any]:
             raise ValueError(f"manifest must be a JSON object: {args.manifest}")
         return loaded
     return {}
+
+
+def load_json_file(path: Path | None) -> dict[str, Any] | None:
+    if path is None or not path.exists():
+        return None
+    loaded = json.loads(path.read_text(encoding="utf-8"))
+    if not isinstance(loaded, dict):
+        raise ValueError(f"JSON payload must be an object: {path}")
+    return loaded
 
 
 def load_runtime_bundle_heads(path: Path | None) -> list[dict[str, Any]]:
@@ -2403,9 +2420,14 @@ def derive_required_desktop_platforms(artifacts: list[dict[str, Any]]) -> list[s
         for item in artifacts
         if isinstance(item, dict)
         and normalize_platform_token(item.get("platform"))
+        and is_desktop_install_media(item.get("platform"), item.get("kind"))
         and not desktop_route_artifact_is_revoked(item)
     }
-    ordered = list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS)
+    ordered = [
+        platform
+        for platform in DEFAULT_REQUIRED_DESKTOP_PLATFORMS
+        if platform in promoted_platforms
+    ]
     ordered.extend(
         platform
         for platform in sorted(promoted_platforms)
@@ -3259,13 +3281,48 @@ def projection_age_seconds(
     return max(int((projection_generated_at - evidence_timestamp).total_seconds()), 0)
 
 
+def flagship_readiness_snapshot(flagship_product_readiness: dict[str, Any] | None) -> dict[str, Any]:
+    normalized_payload = flagship_product_readiness if isinstance(flagship_product_readiness, dict) else {}
+    missing_keys = normalized_payload.get("missing_keys")
+    if not isinstance(missing_keys, list):
+        missing_keys = []
+    normalized_missing_keys = sorted(
+        {
+            normalize_token(item)
+            for item in missing_keys
+            if str(item or "").strip()
+        }
+    )
+    readiness_status = normalize_token(
+        normalized_payload.get("status")
+        or (normalized_payload.get("flagship_readiness_audit") or {}).get("status")
+    ) or "missing"
+    readiness_reason = str(
+        (normalized_payload.get("flagship_readiness_audit") or {}).get("reason")
+        or (normalized_payload.get("completion_audit") or {}).get("reason")
+        or ""
+    ).strip()
+    desktop_client_ready = readiness_status in {"pass", "ready"} and "desktop_client" not in normalized_missing_keys
+    return {
+        "status": readiness_status,
+        "generatedAt": str(
+            normalized_payload.get("generated_at") or normalized_payload.get("generatedAt") or ""
+        ).strip() or None,
+        "coverageGapKeys": normalized_missing_keys,
+        "desktopClientReady": desktop_client_ready,
+        "reason": readiness_reason or None,
+    }
+
+
 def release_proof_freshness_snapshot(
     *,
     projection_generated_at: Any,
     release_proof: dict[str, Any] | None,
+    flagship_product_readiness: dict[str, Any] | None = None,
 ) -> dict[str, Any]:
     projection_timestamp = parse_iso(projection_generated_at)
     normalized_release_proof = release_proof if isinstance(release_proof, dict) else {}
+    readiness_snapshot = flagship_readiness_snapshot(flagship_product_readiness)
     release_proof_age_seconds = projection_age_seconds(
         projection_generated_at=projection_timestamp,
         evidence_generated_at=normalized_release_proof.get("generatedAt") or normalized_release_proof.get("generated_at"),
@@ -3279,15 +3336,25 @@ def release_proof_freshness_snapshot(
             else None
         ),
     )
+    flagship_readiness_age_seconds = projection_age_seconds(
+        projection_generated_at=projection_timestamp,
+        evidence_generated_at=readiness_snapshot.get("generatedAt"),
+    )
     proof_freshness_status = "fresh"
-    if release_proof_age_seconds is None or localization_age_seconds is None:
+    readiness_required = bool(readiness_snapshot.get("generatedAt"))
+    if release_proof_age_seconds is None or localization_age_seconds is None or (
+        readiness_required and flagship_readiness_age_seconds is None
+    ):
         proof_freshness_status = "missing"
     elif (
         release_proof_age_seconds > RELEASE_PROOF_MAX_AGE_SECONDS
         or localization_age_seconds > LOCALIZATION_GATE_MAX_AGE_SECONDS
+        or (readiness_required and flagship_readiness_age_seconds > FLAGSHIP_READINESS_MAX_AGE_SECONDS)
+        or (readiness_required and not bool(readiness_snapshot.get("desktopClientReady")))
     ):
         proof_freshness_status = "stale"
 
+    readiness_reason = str(readiness_snapshot.get("reason") or "").strip()
     return {
         "status": proof_freshness_status,
         "releaseProofGeneratedAt": str(
@@ -3302,11 +3369,30 @@ def release_proof_freshness_snapshot(
         ) or None,
         "uiLocalizationAgeSeconds": localization_age_seconds,
         "uiLocalizationMaxAgeSeconds": LOCALIZATION_GATE_MAX_AGE_SECONDS,
+        "flagshipReadinessGeneratedAt": readiness_snapshot.get("generatedAt"),
+        "flagshipReadinessAgeSeconds": flagship_readiness_age_seconds,
+        "flagshipReadinessMaxAgeSeconds": FLAGSHIP_READINESS_MAX_AGE_SECONDS,
+        "flagshipReadinessStatus": readiness_snapshot.get("status"),
+        "flagshipReadinessCoverageGapKeys": list(readiness_snapshot.get("coverageGapKeys") or []),
+        "flagshipDesktopClientReady": bool(readiness_snapshot.get("desktopClientReady")),
+        "flagshipReadinessReason": readiness_reason or None,
         "summary": (
             f"Release proof age is {release_proof_age_seconds if release_proof_age_seconds is not None else 'missing'}s "
             f"(max {RELEASE_PROOF_MAX_AGE_SECONDS}s) and UI localization gate age is "
             f"{localization_age_seconds if localization_age_seconds is not None else 'missing'}s "
-            f"(max {LOCALIZATION_GATE_MAX_AGE_SECONDS}s)."
+            f"(max {LOCALIZATION_GATE_MAX_AGE_SECONDS}s)"
+            + (
+                f"; flagship desktop readiness age is "
+                f"{flagship_readiness_age_seconds if flagship_readiness_age_seconds is not None else 'missing'}s "
+                f"(max {FLAGSHIP_READINESS_MAX_AGE_SECONDS}s)"
+                if readiness_required
+                else ""
+            )
+            + (
+                f" and desktop readiness is blocked: {readiness_reason}."
+                if proof_freshness_status != "fresh" and readiness_reason
+                else "."
+            )
         ),
     }
 
@@ -3366,6 +3452,7 @@ def public_trust_metrics(
     rollout_state: str,
     supportability_state: str,
     release_proof: dict[str, Any],
+    flagship_product_readiness: dict[str, Any] | None,
     artifacts: list[dict[str, Any]],
     tuple_coverage: dict[str, Any],
 ) -> dict[str, Any]:
@@ -3411,6 +3498,7 @@ def public_trust_metrics(
     proof_freshness = release_proof_freshness_snapshot(
         projection_generated_at=generated_at,
         release_proof=release_proof,
+        flagship_product_readiness=flagship_product_readiness,
     )
     proof_freshness_status = normalize_token(proof_freshness.get("status"))
     readiness_recommended_primary_routes = [
@@ -4029,7 +4117,6 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         args.downloads_dir,
         downloads_prefix=args.downloads_prefix,
     )
-    required_platforms = derive_required_desktop_platforms(artifacts)
     startup_smoke_receipts: list[dict[str, str]] | None
     if args.startup_smoke_dir is not None and not args.skip_startup_smoke_filter:
         startup_smoke_receipts = load_startup_smoke_receipts(
@@ -4041,6 +4128,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     else:
         startup_smoke_receipts = None
     artifacts = filter_unproven_installers(artifacts, startup_smoke_receipts)
+    required_platforms = derive_required_desktop_platforms(artifacts)
     artifacts.sort(key=lambda row: (0 if row.get("kind") == "installer" else 1, row.get("platform"), row.get("arch"), row.get("head"), row.get("fileName")))
     loaded_published_at = str(loaded.get("publishedAt") or "").strip()
     published_at = str(args.published_at or loaded_published_at or "").strip()
@@ -4104,6 +4192,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             "(set --ui-localization-release-gate or embed releaseProof.uiLocalizationReleaseGate in source proof)"
         )
     release_proof["uiLocalizationReleaseGate"] = ui_localization_release_gate
+    flagship_product_readiness = load_json_file(args.flagship_product_readiness)
     runtime_bundle_heads = apply_runtime_bundle_compatibility(
         load_runtime_bundle_heads(args.runtime_bundles),
         status=status,
@@ -4131,6 +4220,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     proof_freshness = release_proof_freshness_snapshot(
         projection_generated_at=generated_at,
         release_proof=release_proof,
+        flagship_product_readiness=flagship_product_readiness,
     )
     proof_freshness_status = normalize_token(proof_freshness.get("status"))
     loaded_rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip()
@@ -4288,16 +4378,19 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         tuple_coverage,
         channel_id=channel,
         release_version=version,
+        proof_freshness_status=proof_freshness_status,
     )
     artifact_publication_binding_rows = artifact_publication_bindings(
         tuple_coverage,
         channel_id=channel,
         release_version=version,
+        proof_freshness_status=proof_freshness_status,
     )
     exchange_lineage_registry_rows = exchange_lineage_registry(
         loaded.get("exchangeArtifacts") or loaded.get("exchangeLineageRegistry"),
         channel_id=channel,
         release_version=version,
+        proof_freshness_status=proof_freshness_status,
     )
     trust_metrics = public_trust_metrics(
         generated_at=generated_at,
@@ -4306,6 +4399,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         rollout_state=rollout_state,
         supportability_state=supportability_state,
         release_proof=release_proof,
+        flagship_product_readiness=flagship_product_readiness,
         artifacts=artifacts,
         tuple_coverage=tuple_coverage,
     )

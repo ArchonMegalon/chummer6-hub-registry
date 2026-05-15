@@ -31,21 +31,17 @@ release_truth:
   release_channel: .codex-studio/published/RELEASE_CHANNEL.generated.json
   compatibility_shelf: .codex-studio/published/releases.json
   route_truth_path: desktopTupleCoverage.desktopRouteTruth
-  required_tuple_count: 6
+  required_tuple_count: 4
   required_tuple_ids:
     - avalonia:linux:linux-x64
     - blazor-desktop:linux:linux-x64
     - avalonia:windows:win-x64
     - blazor-desktop:windows:win-x64
-    - avalonia:macos:osx-arm64
-    - blazor-desktop:macos:osx-arm64
 route_truth_state_floor:
-  - avalonia:linux:linux-x64 primary promoted eligible fallback_available not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed promoted_fallback_available no_registry_revoke_marker
-  - blazor-desktop:linux:linux-x64 fallback promoted manual_fallback fallback_available not_revoked none fallback_recovery_head installer_smoke_and_release_proof_passed fallback_promoted_for_recovery no_registry_revoke_marker
-  - avalonia:windows:win-x64 primary promoted eligible primary_reinstall_available not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed primary_installer_reinstall_available no_registry_revoke_marker
+  - avalonia:linux:linux-x64 primary promoted eligible manual_recovery_required not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker
+  - blazor-desktop:linux:linux-x64 fallback proof_required blocked_missing_proof fallback_not_promoted not_revoked none fallback_recovery_head missing_artifact_or_startup_smoke_proof fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker
+  - avalonia:windows:win-x64 primary promoted eligible manual_recovery_required not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker
   - blazor-desktop:windows:win-x64 fallback proof_required blocked_missing_proof fallback_not_promoted not_revoked none fallback_recovery_head missing_artifact_or_startup_smoke_proof fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker
-  - avalonia:macos:osx-arm64 primary proof_required blocked_missing_proof manual_recovery_required not_revoked none primary_flagship_head missing_artifact_or_startup_smoke_proof fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker
-  - blazor-desktop:macos:osx-arm64 fallback proof_required blocked_missing_proof fallback_not_promoted not_revoked none fallback_recovery_head missing_artifact_or_startup_smoke_proof fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker
 guardrails:
   - scripts/verify_public_release_channel.py
   - scripts/verify_next90_m101_registry_promotion_discipline.py

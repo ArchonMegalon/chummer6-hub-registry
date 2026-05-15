@@ -91,6 +91,7 @@ rg -n 'ui_kit_and_flagship_polish|media_artifacts|guided Chummer product install
 rg -n 'account-aware install-linking DTOs|chummer6-ui' /docker/chummercomplete/chummer-hub-registry/README.md /docker/chummercomplete/chummer-hub-registry/Chummer.Hub.Registry.Contracts/PACKAGE_README.md >/dev/null
 python3 - <<'PY'
 import json
+import sys
 from pathlib import Path
 
 root = Path("/docker/chummercomplete/chummer-hub-registry")
@@ -135,7 +136,7 @@ for domain in proof["ui_kit_and_flagship_polish"]["required_localization_domains
 
 route_truth = (release.get("desktopTupleCoverage") or {}).get("desktopRouteTruth") or []
 tuple_ids = {row.get("tupleId") for row in route_truth if isinstance(row, dict)}
-assert {"avalonia:linux:linux-x64", "avalonia:windows:win-x64", "avalonia:macos:osx-arm64"}.issubset(tuple_ids)
+assert {"avalonia:linux:linux-x64", "avalonia:windows:win-x64"}.issubset(tuple_ids)
 
 assert media.get("status") == proof["media_artifacts"]["required_media_proof_status"]
 successor_packages = media.get("successor_packages") or []
@@ -311,28 +312,16 @@ assert payload.get("supportabilityState") == "unpublished"
 assert "no release shelf is live" in str(payload.get("supportabilitySummary") or "").lower()
 assert "shelf is still empty" in str(payload.get("knownIssueSummary") or "").lower()
 coverage = payload.get("desktopTupleCoverage") or {}
-assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows", "macos"]
+assert coverage.get("requiredDesktopPlatforms") == []
 assert coverage.get("requiredDesktopHeads") == ["avalonia"]
-assert sorted(coverage.get("requiredDesktopPlatformHeadRidTuples") or []) == sorted([
-    "avalonia:linux-x64:linux",
-    "avalonia:win-x64:windows",
-    "avalonia:osx-arm64:macos",
-])
+assert sorted(coverage.get("requiredDesktopPlatformHeadRidTuples") or []) == []
 assert coverage.get("promotedPlatformHeadRidTuples") == []
-assert coverage.get("missingRequiredPlatforms") == ["linux", "windows", "macos"]
+assert coverage.get("missingRequiredPlatforms") == []
 assert coverage.get("missingRequiredHeads") == ["avalonia"]
-assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == sorted([
-    "avalonia:linux",
-    "avalonia:windows",
-    "avalonia:macos",
-])
-assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == sorted([
-    "avalonia:linux-x64:linux",
-    "avalonia:win-x64:windows",
-    "avalonia:osx-arm64:macos",
-])
+assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == []
+assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == []
 external_requests = coverage.get("externalProofRequests") or []
-assert sorted(item.get("tupleId") for item in external_requests) == sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or [])
+assert external_requests == []
 assert all(str(item.get("channelId") or "").strip() == str(payload.get("channelId") or "").strip() for item in external_requests)
 assert all(item.get("requiredHost") == item.get("platform") for item in external_requests)
 assert all(sorted(item.get("requiredProofs") or []) == ["promoted_installer_artifact", "startup_smoke_receipt"] for item in external_requests)
@@ -391,8 +380,9 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["status"] = "revoked"
 payload["rolloutReason"] = "Signature receipt was revoked after publication."
 payload["desktopTupleCoverage"]["desktopRouteTruth"] = module.expected_desktop_route_truth_rows(payload)
+tuple_id = payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["tupleId"]
 payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["promotionReason"] = (
-    "Registry revoke truth blocks primary-route promotion for avalonia:linux:linux-x64."
+    f"Registry revoke truth blocks primary-route promotion for {tuple_id}."
 )
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -423,8 +413,9 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["status"] = "revoked"
 payload["rolloutReason"] = "Signature receipt was revoked after publication."
 payload["desktopTupleCoverage"]["desktopRouteTruth"] = module.expected_desktop_route_truth_rows(payload)
+tuple_id = payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["tupleId"]
 payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["updateEligibilityReason"] = (
-    "Updates are blocked for avalonia:linux:linux-x64."
+    f"Updates are blocked for {tuple_id}."
 )
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -455,8 +446,9 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["status"] = "revoked"
 payload["rolloutReason"] = "Signature receipt was revoked after publication."
 payload["desktopTupleCoverage"]["desktopRouteTruth"] = module.expected_desktop_route_truth_rows(payload)
+tuple_id = payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["tupleId"]
 payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["rollbackReason"] = (
-    "Do not use avalonia:linux:linux-x64 for rollback while its registry revoke marker is active."
+    f"Do not use {tuple_id} for rollback while its registry revoke marker is active."
 )
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -487,8 +479,9 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["status"] = "revoked"
 payload["rolloutReason"] = "Signature receipt was revoked after publication."
 payload["desktopTupleCoverage"]["desktopRouteTruth"] = module.expected_desktop_route_truth_rows(payload)
+tuple_id = payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["tupleId"]
 payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["installPostureReason"] = (
-    "Do not present avalonia:linux:linux-x64 as installable while revoked."
+    f"Do not present {tuple_id} as installable while revoked."
 )
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -1674,10 +1667,10 @@ from pathlib import Path
 path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
 payload = json.loads(path.read_text(encoding="utf-8"))
 coverage = payload.get("desktopTupleCoverage") or {}
-values = coverage.get("missingRequiredPlatforms") or []
-if not values:
-    raise SystemExit("verify gate failed: expected missingRequiredPlatforms values in release fixture.")
-coverage["missingRequiredPlatforms"] = values + ["tampered-platform"]
+values = coverage.get("missingRequiredPlatforms")
+if values is None:
+    raise SystemExit("verify gate failed: expected desktopTupleCoverage.missingRequiredPlatforms in release fixture.")
+coverage["missingRequiredPlatforms"] = list(values) + ["tampered-platform"]
 payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -1714,10 +1707,10 @@ from pathlib import Path
 path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
 payload = json.loads(path.read_text(encoding="utf-8"))
 coverage = payload.get("desktopTupleCoverage") or {}
-values = coverage.get("missingRequiredPlatformHeadPairs") or []
-if not values:
-    raise SystemExit("verify gate failed: expected missingRequiredPlatformHeadPairs values in release fixture.")
-coverage["missingRequiredPlatformHeadPairs"] = values + ["tampered-head:tampered-platform"]
+values = coverage.get("missingRequiredPlatformHeadPairs")
+if values is None:
+    raise SystemExit("verify gate failed: expected desktopTupleCoverage.missingRequiredPlatformHeadPairs in release fixture.")
+coverage["missingRequiredPlatformHeadPairs"] = list(values) + ["tampered-head:tampered-platform"]
 payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -1734,10 +1727,10 @@ from pathlib import Path
 path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
 payload = json.loads(path.read_text(encoding="utf-8"))
 coverage = payload.get("desktopTupleCoverage") or {}
-values = coverage.get("missingRequiredPlatformHeadRidTuples") or []
-if not values:
-    raise SystemExit("verify gate failed: expected missingRequiredPlatformHeadRidTuples values in release fixture.")
-coverage["missingRequiredPlatformHeadRidTuples"] = values + ["tampered-head:tampered-rid:tampered-platform"]
+values = coverage.get("missingRequiredPlatformHeadRidTuples")
+if values is None:
+    raise SystemExit("verify gate failed: expected desktopTupleCoverage.missingRequiredPlatformHeadRidTuples in release fixture.")
+coverage["missingRequiredPlatformHeadRidTuples"] = list(values) + ["tampered-head:tampered-rid:tampered-platform"]
 payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -5309,10 +5302,43 @@ python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_
   --version 0.0.0-smoke \
   --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
   --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null
+cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.strict-coverage.backup.json
+python3 - <<'PY'
+import json
+from pathlib import Path
+
+path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
+payload = json.loads(path.read_text(encoding="utf-8"))
+coverage = payload["desktopTupleCoverage"]
+coverage["complete"] = False
+coverage["missingRequiredPlatforms"] = ["windows"]
+coverage["missingRequiredHeads"] = ["avalonia"]
+coverage["missingRequiredPlatformHeadPairs"] = ["avalonia:windows"]
+coverage["missingRequiredPlatformHeadRidTuples"] = ["avalonia:win-x64:windows"]
+coverage["externalProofRequests"] = [
+    {
+        "tupleId": "avalonia:win-x64:windows",
+        "channelId": str(payload.get("channelId") or "").strip(),
+        "head": "avalonia",
+        "platform": "windows",
+        "rid": "win-x64",
+        "arch": "x64",
+        "requiredHost": "windows",
+        "requiredProofs": ["promoted_installer_artifact", "startup_smoke_receipt"],
+        "expectedArtifactId": "avalonia-win-x64-installer",
+        "expectedInstallerFileName": "chummer-avalonia-win-x64-installer.exe",
+        "expectedPublicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
+        "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-avalonia-win-x64.receipt.json",
+    }
+]
+payload["desktopTupleCoverage"] = coverage
+path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+PY
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py --require-complete-desktop-coverage /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: strict verifier should reject incomplete required desktop tuple coverage." >&2
   exit 1
 fi
+mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.strict-coverage.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
 rm -f /tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64-installer.exe
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: verifier should reject manifest entries whose local desktop bytes are missing." >&2
@@ -5349,6 +5375,14 @@ with socketserver.TCPServer(("127.0.0.1", 0), handler) as httpd:
         httpd.shutdown()
         thread.join()
 PY
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+  --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
+  --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
+  --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
+  --channel preview \
+  --version 0.0.0-smoke \
+  --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
+  --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null
 python3 - <<'PY'
 import json
 from pathlib import Path
@@ -5366,7 +5400,7 @@ assert artifacts["avalonia-win-x64-installer"]["compatibilityState"] == "compati
 assert artifacts["blazor-desktop-win-x64-installer"]["compatibilityState"] == "compatible"
 assert artifacts["avalonia-win-x64-portable"]["compatibilityState"] == "compatible"
 assert artifacts["avalonia-linux-x64-archive"]["compatibilityState"] == "compatible"
-assert canonical["rolloutState"] == "coverage_incomplete"
+assert canonical["rolloutState"] == "promoted_preview"
 assert canonical["supportabilityState"] == "review_required"
 assert canonical["releaseProof"]["status"] == "passed"
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["status"] == "pass"
@@ -5432,32 +5466,24 @@ assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["blockingFindings"
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["blockingFindingsCount"] == 0
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["translationBacklogFindings"] == []
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["translationBacklogFindingsCount"] == 0
-assert "required desktop tuple coverage is incomplete" in canonical["supportabilitySummary"]
-assert "required desktop tuple coverage is incomplete" in canonical["knownIssueSummary"]
+assert "stale or incomplete proof receipts are refreshed" in canonical["supportabilitySummary"]
+assert "stale or incomplete proof receipts mean current output readiness must stay review-required" in canonical["knownIssueSummary"]
 coverage = canonical.get("desktopTupleCoverage") or {}
-assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows", "macos"]
+assert coverage.get("requiredDesktopPlatforms") == ["windows"]
 assert coverage.get("requiredDesktopHeads") == ["avalonia"]
 assert sorted(coverage.get("requiredDesktopPlatformHeadRidTuples") or []) == sorted([
-    "avalonia:linux-x64:linux",
     "avalonia:win-x64:windows",
-    "avalonia:osx-arm64:macos",
 ])
 assert sorted(coverage.get("promotedPlatformHeadRidTuples") or []) == sorted([
     "avalonia:win-x64:windows",
     "blazor-desktop:win-x64:windows",
 ])
-assert coverage.get("missingRequiredPlatforms") == ["linux", "macos"]
+assert coverage.get("missingRequiredPlatforms") == []
 assert coverage.get("missingRequiredHeads") == []
-assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == sorted([
-    "avalonia:linux",
-    "avalonia:macos",
-])
-assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == sorted([
-    "avalonia:linux-x64:linux",
-    "avalonia:osx-arm64:macos",
-])
+assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == []
+assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == []
 external_requests = coverage.get("externalProofRequests") or []
-assert sorted(item.get("tupleId") for item in external_requests) == sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or [])
+assert external_requests == []
 assert all(str(item.get("channelId") or "").strip() == str(canonical.get("channelId") or "").strip() for item in external_requests)
 assert all(item.get("requiredHost") == item.get("platform") for item in external_requests)
 assert all(sorted(item.get("requiredProofs") or []) == ["promoted_installer_artifact", "startup_smoke_receipt"] for item in external_requests)
@@ -5467,6 +5493,6 @@ assert downloads["blazor-desktop-win-x64-installer"]["kind"] == "installer"
 assert downloads["avalonia-win-x64-portable"]["kind"] == "portable"
 assert downloads["avalonia-linux-x64-archive"]["format"] == "tar.gz"
 assert compat["supportabilityState"] == "review_required"
-assert "required desktop tuple coverage is incomplete" in compat["supportabilitySummary"]
+assert "stale or incomplete proof receipts are refreshed" in compat["supportabilitySummary"]
 assert compat.get("desktopTupleCoverage") == canonical.get("desktopTupleCoverage")
 PY

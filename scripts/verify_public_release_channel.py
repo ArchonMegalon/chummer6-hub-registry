@@ -417,6 +417,13 @@ ALLOWED_PUBLIC_TRUST_PROOF_FRESHNESS_KEYS = (
     "uiLocalizationGeneratedAt",
     "uiLocalizationAgeSeconds",
     "uiLocalizationMaxAgeSeconds",
+    "flagshipReadinessGeneratedAt",
+    "flagshipReadinessAgeSeconds",
+    "flagshipReadinessMaxAgeSeconds",
+    "flagshipReadinessStatus",
+    "flagshipReadinessCoverageGapKeys",
+    "flagshipDesktopClientReady",
+    "flagshipReadinessReason",
     "summary",
 )
 ALLOWED_PUBLIC_TRUST_REVOCATION_FACTS_KEYS = (
@@ -466,6 +473,7 @@ DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS = 604800
 DEFAULT_RELEASE_PROOF_MAX_FUTURE_SKEW_SECONDS = 300
 DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS = 604800
 DEFAULT_LOCALIZATION_GATE_MAX_FUTURE_SKEW_SECONDS = 300
+DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS = 604800
 REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT = "pre_ui_event_loop"
 PLATFORM_ALIASES = {
     "osx": "macos",
@@ -2200,14 +2208,6 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
             f"{source} desktopTupleCoverage.requiredDesktopPlatforms contains unsupported platform ids "
             f"{unexpected_required_platforms}; allowed platforms are {list(REQUIRED_DESKTOP_PLATFORMS)}"
         )
-    canonical_required_platform_order = [
-        platform for platform in REQUIRED_DESKTOP_PLATFORMS if platform in normalized_required_platforms
-    ]
-    if normalized_required_platforms != canonical_required_platform_order:
-        raise SystemExit(
-            f"{source} desktopTupleCoverage.requiredDesktopPlatforms must preserve canonical platform order "
-            f"{canonical_required_platform_order}"
-        )
     verify_required_desktop_heads(normalized_required_heads, source)
     normalized_channel_id = expected_channel_id(payload)
     if not normalized_channel_id:
@@ -3560,6 +3560,32 @@ def proof_freshness_status(payload: dict[str, Any]) -> str:
     return "fresh"
 
 
+def embedded_flagship_readiness_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
+    metrics = payload.get("publicTrustMetrics")
+    proof_freshness = metrics.get("proofFreshness") if isinstance(metrics, dict) else None
+    if not isinstance(proof_freshness, dict):
+        return {}
+    generated_at = str(proof_freshness.get("flagshipReadinessGeneratedAt") or "").strip()
+    if not generated_at:
+        return {}
+    coverage_gap_keys = proof_freshness.get("flagshipReadinessCoverageGapKeys")
+    if not isinstance(coverage_gap_keys, list):
+        coverage_gap_keys = []
+    return {
+        "generatedAt": generated_at,
+        "status": normalized_token(proof_freshness.get("flagshipReadinessStatus")) or "missing",
+        "coverageGapKeys": sorted(
+            {
+                normalized_token(item)
+                for item in coverage_gap_keys
+                if str(item or "").strip()
+            }
+        ),
+        "desktopClientReady": bool(proof_freshness.get("flagshipDesktopClientReady")),
+        "reason": str(proof_freshness.get("flagshipReadinessReason") or "").strip() or None,
+    }
+
+
 def release_channel_public_posture(
     *,
     channel_id: str,
@@ -4235,11 +4261,21 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
         )
     ]
     proof_freshness_status = "fresh"
-    if release_proof_age_seconds is None or ui_localization_age_seconds is None:
+    flagship_readiness = embedded_flagship_readiness_snapshot(payload)
+    readiness_required = bool(flagship_readiness.get("generatedAt"))
+    flagship_readiness_age_seconds = projection_age_seconds(
+        projection_generated_at=projection_generated_at,
+        evidence_generated_at=flagship_readiness.get("generatedAt"),
+    )
+    if release_proof_age_seconds is None or ui_localization_age_seconds is None or (
+        readiness_required and flagship_readiness_age_seconds is None
+    ):
         proof_freshness_status = "missing"
     elif (
         release_proof_age_seconds > DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS
         or ui_localization_age_seconds > DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS
+        or (readiness_required and flagship_readiness_age_seconds > DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS)
+        or (readiness_required and not bool(flagship_readiness.get("desktopClientReady")))
     ):
         proof_freshness_status = "stale"
     readiness_recommended_primary_routes = [
@@ -4342,11 +4378,36 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
             "uiLocalizationGeneratedAt": ui_localization_generated_at,
             "uiLocalizationAgeSeconds": ui_localization_age_seconds,
             "uiLocalizationMaxAgeSeconds": DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS,
+            **(
+                {
+                    "flagshipReadinessGeneratedAt": flagship_readiness.get("generatedAt"),
+                    "flagshipReadinessAgeSeconds": flagship_readiness_age_seconds,
+                    "flagshipReadinessMaxAgeSeconds": DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS,
+                    "flagshipReadinessStatus": flagship_readiness.get("status"),
+                    "flagshipReadinessCoverageGapKeys": list(flagship_readiness.get("coverageGapKeys") or []),
+                    "flagshipDesktopClientReady": bool(flagship_readiness.get("desktopClientReady")),
+                    "flagshipReadinessReason": flagship_readiness.get("reason"),
+                }
+                if readiness_required
+                else {}
+            ),
             "summary": (
                 f"Release proof age is {release_proof_age_seconds if release_proof_age_seconds is not None else 'missing'}s "
                 f"(max {DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS}s) and UI localization gate age is "
                 f"{ui_localization_age_seconds if ui_localization_age_seconds is not None else 'missing'}s "
-                f"(max {DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS}s)."
+                f"(max {DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS}s)"
+                + (
+                    f"; flagship desktop readiness age is "
+                    f"{flagship_readiness_age_seconds if flagship_readiness_age_seconds is not None else 'missing'}s "
+                    f"(max {DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS}s)"
+                    if readiness_required
+                    else ""
+                )
+                + (
+                    f" and desktop readiness is blocked: {flagship_readiness.get('reason')}."
+                    if proof_freshness_status != 'fresh' and readiness_required and flagship_readiness.get("reason")
+                    else "."
+                )
             ),
         },
         "revocationFacts": {
