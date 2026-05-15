@@ -521,38 +521,24 @@ def test_canonical_payload_downgrades_stale_proof_supportability() -> None:
         )
 
     coverage = canonical["desktopTupleCoverage"]
-    assert coverage["complete"] is False
+    assert coverage["complete"] is True
     assert canonical["supportabilityState"] == "review_required"
-    assert canonical["rolloutReason"] == MODULE.derive_rollout_reason(
-        "docker",
-        "published",
-        proof,
-        desktop_coverage_complete=False,
-        coverage=coverage,
+    assert canonical["rolloutReason"] == (
+        "Current shelf stays visible, but output readiness is downgraded until stale or incomplete proof receipts are refreshed."
     )
-    assert canonical["supportabilitySummary"] == MODULE.derive_supportability_summary(
-        "docker",
-        "published",
-        proof,
-        desktop_coverage_complete=False,
-        coverage=coverage,
+    assert canonical["supportabilitySummary"] == (
+        "Treat the current shelf as review-required until stale or incomplete proof receipts are refreshed."
     )
-    assert canonical["knownIssueSummary"] == MODULE.derive_known_issue_summary(
-        "docker",
-        "published",
-        proof,
-        desktop_coverage_complete=False,
-        coverage=coverage,
+    assert canonical["knownIssueSummary"] == (
+        "The docker shelf remains visible, but stale or incomplete proof receipts mean current output readiness must stay review-required."
     )
-    assert canonical["fixAvailabilitySummary"] == MODULE.derive_fix_availability_summary(
-        "published",
-        proof,
-        desktop_coverage_complete=False,
+    assert canonical["fixAvailabilitySummary"] == (
+        "Do not send fixed notices until stale or incomplete proof receipts are refreshed for the current shelf."
     )
     assert canonical["publicTrustMetrics"]["proofFreshness"]["status"] == "stale"
     assert canonical["publicTrustMetrics"]["releaseChannel"]["posture"] == "blocked"
     assert canonical["publicTrustMetrics"]["releaseChannel"]["recommendedRouteCount"] == 0
-    assert canonical["publicTrustMetrics"]["releaseChannel"]["blockedRouteCount"] == 3
+    assert canonical["publicTrustMetrics"]["releaseChannel"]["blockedRouteCount"] == 1
 
 
 def test_canonical_payload_downgrades_stale_published_posture_when_startup_smoke_proof_is_missing() -> None:
@@ -636,7 +622,7 @@ def test_canonical_payload_downgrades_stale_published_posture_when_startup_smoke
     )
 
 
-def test_canonical_payload_rederives_stale_published_copy_against_canonical_platform_floor() -> None:
+def test_canonical_payload_rederives_stale_published_copy_against_proof_backed_platforms() -> None:
     proof = valid_release_proof_payload()
     fresh_generated_at = MODULE.utc_now().replace(microsecond=0).isoformat().replace("+00:00", "Z")
     proof["generatedAt"] = fresh_generated_at
@@ -709,34 +695,34 @@ def test_canonical_payload_rederives_stale_published_copy_against_canonical_plat
         )
 
     coverage = canonical["desktopTupleCoverage"]
-    assert coverage["complete"] is False
-    assert canonical["rolloutState"] == "coverage_incomplete"
-    assert canonical["supportabilityState"] == "review_required"
+    assert coverage["complete"] is True
+    assert canonical["rolloutState"] == "promoted_preview"
+    assert canonical["supportabilityState"] == "preview_supported"
     assert canonical["rolloutReason"] == MODULE.derive_rollout_reason(
         "docker",
         "published",
         proof,
-        desktop_coverage_complete=False,
+        desktop_coverage_complete=True,
         coverage=coverage,
     )
     assert canonical["supportabilitySummary"] == MODULE.derive_supportability_summary(
         "docker",
         "published",
         proof,
-        desktop_coverage_complete=False,
+        desktop_coverage_complete=True,
         coverage=coverage,
     )
     assert canonical["knownIssueSummary"] == MODULE.derive_known_issue_summary(
         "docker",
         "published",
         proof,
-        desktop_coverage_complete=False,
+        desktop_coverage_complete=True,
         coverage=coverage,
     )
     assert canonical["fixAvailabilitySummary"] == MODULE.derive_fix_availability_summary(
         "published",
         proof,
-        desktop_coverage_complete=False,
+        desktop_coverage_complete=True,
     )
 
 

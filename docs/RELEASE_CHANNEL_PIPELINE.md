@@ -234,6 +234,8 @@ This slice is generated in `scripts/materialize_public_release_channel.py`, fail
 
 When `publicTrustMetrics.proofFreshness.status` is `stale` or `missing`, public or signed-in release and exchange shelves must not keep published or retained output-readiness posture. `artifactIdentityRegistry`, `artifactPublicationBindings`, and `exchangeLineageRegistry` must downgrade non-revoked output surfaces to `publicationState=preview` with temporary retention so governed refs stay available without overstating current release or exchange readiness.
 
+That freshness gate is not limited to repo-local release-proof age. The registry materializer must also honor Fleet's published `FLAGSHIP_PRODUCT_READINESS.generated.json` receipt: if desktop readiness is stale, failing, or still missing `desktop_client` coverage, registry shelves must degrade to review-required posture instead of advertising current release or exchange truth.
+
 The same stale-or-missing proof downgrade also applies to top-level release posture: `supportabilityState` must return to `review_required`, `rolloutReason`/`supportabilitySummary`/`knownIssueSummary`/`fixAvailabilitySummary` must say that stale or incomplete proof receipts are blocking current readiness claims, and `publicTrustMetrics.releaseChannel.recommendedRouteCount` must drop to zero until proof is refreshed.
 
 ## Registry boundary coverage

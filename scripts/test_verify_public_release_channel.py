@@ -681,6 +681,24 @@ def test_verify_public_trust_metrics_rejects_canonical_drift() -> None:
         MODULE.verify_public_trust_metrics(payload, "release-channel.json")
 
 
+def test_verify_public_trust_metrics_rejects_fresh_status_when_flagship_desktop_readiness_is_blocked() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessGeneratedAt"] = "2026-05-20T18:20:30Z"
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessAgeSeconds"] = 94
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessMaxAgeSeconds"] = 604800
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessStatus"] = "fail"
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessCoverageGapKeys"] = ["desktop_client"]
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipDesktopClientReady"] = False
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessReason"] = (
+        "flagship product readiness proof is not green: fail; missing coverage: desktop_client"
+    )
+
+    with pytest.raises(SystemExit, match="publicTrustMetrics does not match canonical launch-truth metrics"):
+        MODULE.verify_public_trust_metrics(payload, "release-channel.json")
+
+
 def test_expected_public_trust_metrics_counts_account_linked_and_revoked_routes() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)
