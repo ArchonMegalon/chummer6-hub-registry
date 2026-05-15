@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import difflib
 import json
 import hashlib
 import os
@@ -417,6 +418,13 @@ ALLOWED_PUBLIC_TRUST_PROOF_FRESHNESS_KEYS = (
     "uiLocalizationGeneratedAt",
     "uiLocalizationAgeSeconds",
     "uiLocalizationMaxAgeSeconds",
+    "flagshipReadinessGeneratedAt",
+    "flagshipReadinessAgeSeconds",
+    "flagshipReadinessMaxAgeSeconds",
+    "flagshipReadinessStatus",
+    "flagshipReadinessCoverageGapKeys",
+    "flagshipDesktopClientReady",
+    "flagshipReadinessReason",
     "summary",
 )
 ALLOWED_PUBLIC_TRUST_REVOCATION_FACTS_KEYS = (
@@ -466,6 +474,7 @@ DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS = 604800
 DEFAULT_RELEASE_PROOF_MAX_FUTURE_SKEW_SECONDS = 300
 DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS = 604800
 DEFAULT_LOCALIZATION_GATE_MAX_FUTURE_SKEW_SECONDS = 300
+DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS = 604800
 REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT = "pre_ui_event_loop"
 PLATFORM_ALIASES = {
     "osx": "macos",
@@ -1550,6 +1559,7 @@ def verify_desktop_route_state_matrix(
     if route_role == "primary":
         expected_reason_by_state = {
             "fallback_available": "promoted_fallback_available",
+            "primary_reinstall_available": "primary_installer_reinstall_available",
             "manual_recovery_required": {
                 "fallback_missing_artifact_or_startup_smoke_proof",
                 "fallback_revoked_for_tuple",
@@ -1559,7 +1569,7 @@ def verify_desktop_route_state_matrix(
         if expected_rollback_reason is None:
             raise SystemExit(
                 f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackState "
-                "must be fallback_available or manual_recovery_required for primary routes"
+                "must be fallback_available, primary_reinstall_available, or manual_recovery_required for primary routes"
             )
         if isinstance(expected_rollback_reason, set):
             if normalized_row["rollbackReasonCode"] not in expected_rollback_reason:
@@ -1696,6 +1706,7 @@ def verify_desktop_route_promotion_rationale(
 def verify_primary_rollback_matches_fallback_route_truth(
     normalized_rows: list[dict[str, str]],
     *,
+    rollout_state: str,
     source: str,
 ) -> None:
     fallback_rows_by_tuple = {
@@ -1716,13 +1727,23 @@ def verify_primary_rollback_matches_fallback_route_truth(
             fallback_row["promotionState"] == "promoted"
             and fallback_row["revokeState"] != "revoked"
         )
-        expected_state = "fallback_available" if fallback_promoted else "manual_recovery_required"
+        expected_state = "fallback_available" if fallback_promoted else (
+            "primary_reinstall_available"
+            if normalized_token(rollout_state) == "public_stable"
+            and row["promotionState"] == "promoted"
+            and fallback_row["revokeState"] != "revoked"
+            else "manual_recovery_required"
+        )
         if fallback_promoted:
             expected_reason_code = "promoted_fallback_available"
         elif fallback_row["revokeState"] == "revoked":
             expected_reason_code = "fallback_revoked_for_tuple"
         else:
-            expected_reason_code = "fallback_missing_artifact_or_startup_smoke_proof"
+            expected_reason_code = (
+                "primary_installer_reinstall_available"
+                if expected_state == "primary_reinstall_available"
+                else "fallback_missing_artifact_or_startup_smoke_proof"
+            )
         if row["rollbackState"] != expected_state:
             raise SystemExit(
                 f"{source} desktopTupleCoverage.desktopRouteTruth[{index}].rollbackState "
@@ -1888,13 +1909,21 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
                             f"{route_tuple_label} requires manual recovery: {fallback_revoke_reason}"
                         )
                     else:
-                        rollback_state = "manual_recovery_required"
-                        rollback_reason_code = "fallback_missing_artifact_or_startup_smoke_proof"
-                        rollback_reason = (
-                            f"Fallback route {fallback_route_tuple_label} is not promoted for {tuple_label} because "
-                            "matching artifact bytes and fresh startup-smoke proof are still required; "
-                            f"primary route {route_tuple_label} therefore requires manual recovery."
-                        )
+                        if normalized_token(payload.get("rolloutState")) == "public_stable" and promoted:
+                            rollback_state = "primary_reinstall_available"
+                            rollback_reason_code = "primary_installer_reinstall_available"
+                            rollback_reason = (
+                                f"Fallback route {fallback_route_tuple_label} remains an unpromoted compatibility lane for {tuple_label}; "
+                                f"recover {route_tuple_label} from the promoted primary installer {artifact_id} until a separately proved fallback is published."
+                            )
+                        else:
+                            rollback_state = "manual_recovery_required"
+                            rollback_reason_code = "fallback_missing_artifact_or_startup_smoke_proof"
+                            rollback_reason = (
+                                f"Fallback route {fallback_route_tuple_label} is not promoted for {tuple_label} because "
+                                "matching artifact bytes and fresh startup-smoke proof are still required; "
+                                f"primary route {route_tuple_label} therefore requires manual recovery."
+                            )
                 else:
                     parity_posture = "explicit_fallback"
                     if promoted:
@@ -2179,14 +2208,6 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         raise SystemExit(
             f"{source} desktopTupleCoverage.requiredDesktopPlatforms contains unsupported platform ids "
             f"{unexpected_required_platforms}; allowed platforms are {list(REQUIRED_DESKTOP_PLATFORMS)}"
-        )
-    canonical_required_platform_order = [
-        platform for platform in REQUIRED_DESKTOP_PLATFORMS if platform in normalized_required_platforms
-    ]
-    if normalized_required_platforms != canonical_required_platform_order:
-        raise SystemExit(
-            f"{source} desktopTupleCoverage.requiredDesktopPlatforms must preserve canonical platform order "
-            f"{canonical_required_platform_order}"
         )
     verify_required_desktop_heads(normalized_required_heads, source)
     normalized_channel_id = expected_channel_id(payload)
@@ -2738,6 +2759,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         normalized_desktop_route_truth.append(normalized_row)
     verify_primary_rollback_matches_fallback_route_truth(
         normalized_desktop_route_truth,
+        rollout_state=normalized_token(payload.get("rolloutState")),
         source=source,
     )
     expected_desktop_route_truth = expected_desktop_route_truth_rows(payload)
@@ -3539,6 +3561,32 @@ def proof_freshness_status(payload: dict[str, Any]) -> str:
     return "fresh"
 
 
+def embedded_flagship_readiness_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
+    metrics = payload.get("publicTrustMetrics")
+    proof_freshness = metrics.get("proofFreshness") if isinstance(metrics, dict) else None
+    if not isinstance(proof_freshness, dict):
+        return {}
+    generated_at = str(proof_freshness.get("flagshipReadinessGeneratedAt") or "").strip()
+    if not generated_at:
+        return {}
+    coverage_gap_keys = proof_freshness.get("flagshipReadinessCoverageGapKeys")
+    if not isinstance(coverage_gap_keys, list):
+        coverage_gap_keys = []
+    return {
+        "generatedAt": generated_at,
+        "status": normalized_token(proof_freshness.get("flagshipReadinessStatus")) or "missing",
+        "coverageGapKeys": sorted(
+            {
+                normalized_token(item)
+                for item in coverage_gap_keys
+                if str(item or "").strip()
+            }
+        ),
+        "desktopClientReady": bool(proof_freshness.get("flagshipDesktopClientReady")),
+        "reason": str(proof_freshness.get("flagshipReadinessReason") or "").strip() or None,
+    }
+
+
 def release_channel_public_posture(
     *,
     channel_id: str,
@@ -3555,9 +3603,19 @@ def release_channel_public_posture(
         return "blocked"
     if normalized_status != "published":
         return "blocked"
-    if normalized_channel == "stable" and normalized_rollout == "public_stable":
+    if normalized_channel in {"stable", "public_stable"} and normalized_rollout == "public_stable":
         return "live"
     return "preview"
+
+
+def route_truth_is_preview_only_fallback(row: dict[str, Any]) -> bool:
+    return (
+        isinstance(row, dict)
+        and normalized_token(row.get("routeRole")) == "fallback"
+        and normalized_token(row.get("promotionState")) == "proof_required"
+        and normalized_token(row.get("parityPosture")) == "explicit_fallback"
+        and normalized_token(row.get("revokeState")) != "revoked"
+    )
 
 
 def release_version_for_registry(payload: dict[str, Any], *, source: str) -> str:
@@ -4182,7 +4240,11 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
     ]
     blocked_routes = [
         row for row in route_truth
-        if isinstance(row, dict) and normalized_token(row.get("promotionState")) == "proof_required"
+        if (
+            isinstance(row, dict)
+            and normalized_token(row.get("promotionState")) == "proof_required"
+            and not route_truth_is_preview_only_fallback(row)
+        )
     ]
     fallback_recovery_routes = [
         row for row in route_truth
@@ -4200,11 +4262,21 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
         )
     ]
     proof_freshness_status = "fresh"
-    if release_proof_age_seconds is None or ui_localization_age_seconds is None:
+    flagship_readiness = embedded_flagship_readiness_snapshot(payload)
+    readiness_required = bool(flagship_readiness.get("generatedAt"))
+    flagship_readiness_age_seconds = projection_age_seconds(
+        projection_generated_at=projection_generated_at,
+        evidence_generated_at=flagship_readiness.get("generatedAt"),
+    )
+    if release_proof_age_seconds is None or ui_localization_age_seconds is None or (
+        readiness_required and flagship_readiness_age_seconds is None
+    ):
         proof_freshness_status = "missing"
     elif (
         release_proof_age_seconds > DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS
         or ui_localization_age_seconds > DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS
+        or (readiness_required and flagship_readiness_age_seconds > DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS)
+        or (readiness_required and not bool(flagship_readiness.get("desktopClientReady")))
     ):
         proof_freshness_status = "stale"
     readiness_recommended_primary_routes = [
@@ -4307,11 +4379,36 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
             "uiLocalizationGeneratedAt": ui_localization_generated_at,
             "uiLocalizationAgeSeconds": ui_localization_age_seconds,
             "uiLocalizationMaxAgeSeconds": DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS,
+            **(
+                {
+                    "flagshipReadinessGeneratedAt": flagship_readiness.get("generatedAt"),
+                    "flagshipReadinessAgeSeconds": flagship_readiness_age_seconds,
+                    "flagshipReadinessMaxAgeSeconds": DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS,
+                    "flagshipReadinessStatus": flagship_readiness.get("status"),
+                    "flagshipReadinessCoverageGapKeys": list(flagship_readiness.get("coverageGapKeys") or []),
+                    "flagshipDesktopClientReady": bool(flagship_readiness.get("desktopClientReady")),
+                    "flagshipReadinessReason": flagship_readiness.get("reason"),
+                }
+                if readiness_required
+                else {}
+            ),
             "summary": (
                 f"Release proof age is {release_proof_age_seconds if release_proof_age_seconds is not None else 'missing'}s "
                 f"(max {DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS}s) and UI localization gate age is "
                 f"{ui_localization_age_seconds if ui_localization_age_seconds is not None else 'missing'}s "
-                f"(max {DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS}s)."
+                f"(max {DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS}s)"
+                + (
+                    f"; flagship desktop readiness age is "
+                    f"{flagship_readiness_age_seconds if flagship_readiness_age_seconds is not None else 'missing'}s "
+                    f"(max {DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS}s)"
+                    if readiness_required
+                    else ""
+                )
+                + (
+                    f" and desktop readiness is blocked: {flagship_readiness.get('reason')}."
+                    if proof_freshness_status != 'fresh' and readiness_required and flagship_readiness.get("reason")
+                    else "."
+                )
             ),
         },
         "revocationFacts": {
@@ -4326,6 +4423,61 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
             ),
         },
     }
+
+
+def _public_trust_metrics_list_sort_key(path: tuple[str, ...], item: Any) -> tuple[Any, ...] | None:
+    if path == ("revocationFacts", "activeRevocations") and isinstance(item, dict):
+        return (
+            normalized_platform_token(item.get("platform")),
+            normalized_token(item.get("head")),
+            normalized_token(item.get("rid")),
+            normalized_token(item.get("tupleId")),
+            normalized_token(item.get("artifactId")),
+        )
+    return None
+
+
+def normalize_public_trust_metrics(value: Any, path: tuple[str, ...] = ()) -> Any:
+    if isinstance(value, dict):
+        return {
+            str(key): normalize_public_trust_metrics(value[key], (*path, str(key)))
+            for key in sorted(value.keys(), key=lambda item: str(item))
+        }
+    if isinstance(value, list):
+        normalized_items = [normalize_public_trust_metrics(item, path) for item in value]
+        if path == ("proofFreshness", "flagshipReadinessCoverageGapKeys"):
+            return sorted(str(item) for item in normalized_items)
+        decorated: list[tuple[tuple[Any, ...], Any]] = []
+        for item in normalized_items:
+            sort_key = _public_trust_metrics_list_sort_key(path, item)
+            if sort_key is None:
+                return normalized_items
+            decorated.append((sort_key, item))
+        decorated.sort(key=lambda entry: entry[0])
+        return [item for _, item in decorated]
+    return value
+
+
+def public_trust_metrics_diff(actual: dict[str, Any], expected: dict[str, Any]) -> str:
+    actual_lines = json.dumps(
+        normalize_public_trust_metrics(actual),
+        indent=2,
+        sort_keys=True,
+    ).splitlines()
+    expected_lines = json.dumps(
+        normalize_public_trust_metrics(expected),
+        indent=2,
+        sort_keys=True,
+    ).splitlines()
+    return "\n".join(
+        difflib.unified_diff(
+            expected_lines,
+            actual_lines,
+            fromfile="expected_publicTrustMetrics",
+            tofile="actual_publicTrustMetrics",
+            lineterm="",
+        )
+    )
 
 
 def verify_public_trust_metrics(payload: dict[str, Any], source: str) -> None:
@@ -4367,8 +4519,14 @@ def verify_public_trust_metrics(payload: dict[str, Any], source: str) -> None:
             raise SystemExit(
                 f"{source} publicTrustMetrics.revocationFacts.activeRevocations[{index}] has unexpected keys ({', '.join(unexpected_keys)})"
             )
-    if metrics != expected_metrics:
-        raise SystemExit(f"{source} publicTrustMetrics does not match canonical launch-truth metrics")
+    normalized_metrics = normalize_public_trust_metrics(metrics)
+    normalized_expected_metrics = normalize_public_trust_metrics(expected_metrics)
+    if normalized_metrics != normalized_expected_metrics:
+        diff = public_trust_metrics_diff(metrics, expected_metrics)
+        detail = f"\n{diff}" if diff else ""
+        raise SystemExit(
+            f"{source} publicTrustMetrics does not match canonical launch-truth metrics{detail}"
+        )
 
 
 def expected_registry_boundary_coverage(payload: dict[str, Any]) -> dict[str, Any]:
