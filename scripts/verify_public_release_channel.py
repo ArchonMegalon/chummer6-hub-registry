@@ -3566,14 +3566,35 @@ def embedded_flagship_readiness_snapshot(payload: dict[str, Any]) -> dict[str, A
     proof_freshness = metrics.get("proofFreshness") if isinstance(metrics, dict) else None
     if not isinstance(proof_freshness, dict):
         return {}
-    generated_at = str(proof_freshness.get("flagshipReadinessGeneratedAt") or "").strip()
-    if not generated_at:
+    has_flagship_fields = any(
+        key in proof_freshness
+        for key in (
+            "flagshipReadinessGeneratedAt",
+            "flagshipReadinessAgeSeconds",
+            "flagshipReadinessMaxAgeSeconds",
+            "flagshipReadinessStatus",
+            "flagshipReadinessCoverageGapKeys",
+            "flagshipDesktopClientReady",
+            "flagshipReadinessReason",
+        )
+    )
+    if not has_flagship_fields:
         return {}
+    generated_at = str(proof_freshness.get("flagshipReadinessGeneratedAt") or "").strip()
     coverage_gap_keys = proof_freshness.get("flagshipReadinessCoverageGapKeys")
     if not isinstance(coverage_gap_keys, list):
         coverage_gap_keys = []
+    age_seconds = proof_freshness.get("flagshipReadinessAgeSeconds")
+    if not isinstance(age_seconds, int):
+        age_seconds = None
+    max_age_seconds = proof_freshness.get("flagshipReadinessMaxAgeSeconds")
+    if not isinstance(max_age_seconds, int):
+        max_age_seconds = None
     return {
+        "present": True,
         "generatedAt": generated_at,
+        "ageSeconds": age_seconds,
+        "maxAgeSeconds": max_age_seconds,
         "status": normalized_token(proof_freshness.get("flagshipReadinessStatus")) or "missing",
         "coverageGapKeys": sorted(
             {
@@ -4263,11 +4284,18 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
     ]
     proof_freshness_status = "fresh"
     flagship_readiness = embedded_flagship_readiness_snapshot(payload)
-    readiness_required = bool(flagship_readiness.get("generatedAt"))
+    readiness_required = bool(flagship_readiness.get("present"))
+    flagship_readiness_generated_at = str(flagship_readiness.get("generatedAt") or "").strip() or None
     flagship_readiness_age_seconds = projection_age_seconds(
         projection_generated_at=projection_generated_at,
-        evidence_generated_at=flagship_readiness.get("generatedAt"),
+        evidence_generated_at=flagship_readiness_generated_at,
     )
+    if readiness_required and flagship_readiness_age_seconds is None:
+        embedded_age_seconds = flagship_readiness.get("ageSeconds")
+        flagship_readiness_age_seconds = embedded_age_seconds if isinstance(embedded_age_seconds, int) else None
+    flagship_readiness_max_age_seconds = flagship_readiness.get("maxAgeSeconds")
+    if not isinstance(flagship_readiness_max_age_seconds, int):
+        flagship_readiness_max_age_seconds = DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS
     if release_proof_age_seconds is None or ui_localization_age_seconds is None or (
         readiness_required and flagship_readiness_age_seconds is None
     ):
@@ -4275,7 +4303,7 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
     elif (
         release_proof_age_seconds > DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS
         or ui_localization_age_seconds > DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS
-        or (readiness_required and flagship_readiness_age_seconds > DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS)
+        or (readiness_required and flagship_readiness_age_seconds > flagship_readiness_max_age_seconds)
         or (readiness_required and not bool(flagship_readiness.get("desktopClientReady")))
     ):
         proof_freshness_status = "stale"
@@ -4381,9 +4409,9 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
             "uiLocalizationMaxAgeSeconds": DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS,
             **(
                 {
-                    "flagshipReadinessGeneratedAt": flagship_readiness.get("generatedAt"),
+                    "flagshipReadinessGeneratedAt": flagship_readiness_generated_at,
                     "flagshipReadinessAgeSeconds": flagship_readiness_age_seconds,
-                    "flagshipReadinessMaxAgeSeconds": DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS,
+                    "flagshipReadinessMaxAgeSeconds": flagship_readiness_max_age_seconds,
                     "flagshipReadinessStatus": flagship_readiness.get("status"),
                     "flagshipReadinessCoverageGapKeys": list(flagship_readiness.get("coverageGapKeys") or []),
                     "flagshipDesktopClientReady": bool(flagship_readiness.get("desktopClientReady")),
@@ -4400,7 +4428,7 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
                 + (
                     f"; flagship desktop readiness age is "
                     f"{flagship_readiness_age_seconds if flagship_readiness_age_seconds is not None else 'missing'}s "
-                    f"(max {DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS}s)"
+                    f"(max {flagship_readiness_max_age_seconds}s)"
                     if readiness_required
                     else ""
                 )
