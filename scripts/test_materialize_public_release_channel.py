@@ -17,6 +17,12 @@ assert MODULE_SPEC and MODULE_SPEC.loader
 MODULE = importlib.util.module_from_spec(MODULE_SPEC)
 MODULE_SPEC.loader.exec_module(MODULE)
 
+VERIFIER_SCRIPT = Path(__file__).resolve().parent / "verify_public_release_channel.py"
+VERIFIER_SPEC = importlib.util.spec_from_file_location("verify_public_release_channel_module", VERIFIER_SCRIPT)
+assert VERIFIER_SPEC and VERIFIER_SPEC.loader
+VERIFIER_MODULE = importlib.util.module_from_spec(VERIFIER_SPEC)
+VERIFIER_SPEC.loader.exec_module(VERIFIER_MODULE)
+
 
 def load_tests(loader, tests, pattern):
     suite = unittest.TestSuite()
@@ -382,6 +388,46 @@ def test_public_trust_metrics_downgrades_when_flagship_desktop_readiness_is_miss
     assert metrics["proofFreshness"]["flagshipReadinessCoverageGapKeys"] == ["desktop_client"]
     assert metrics["proofFreshness"]["flagshipDesktopClientReady"] is False
     assert metrics["releaseChannel"]["posture"] == "blocked"
+
+
+def test_public_trust_metrics_matches_verifier_canonical_projection() -> None:
+    artifacts, coverage = install_aware_payload()
+    proof = valid_release_proof_payload()
+    readiness = valid_flagship_product_readiness_payload()
+
+    metrics = MODULE.public_trust_metrics(
+        generated_at="2026-05-16T21:48:29Z",
+        channel_id="preview",
+        status="published",
+        rollout_state="promoted_preview",
+        supportability_state="preview_supported",
+        release_proof=proof,
+        flagship_product_readiness=readiness,
+        artifacts=artifacts,
+        tuple_coverage=coverage,
+    )
+
+    payload = {
+        "generatedAt": "2026-05-16T21:48:29Z",
+        "generated_at": "2026-05-16T21:48:29Z",
+        "channelId": "preview",
+        "status": "published",
+        "rolloutState": "promoted_preview",
+        "supportabilityState": "preview_supported",
+        "releaseProof": proof,
+        "artifacts": artifacts,
+        "desktopTupleCoverage": coverage,
+        "publicTrustMetrics": {
+            "proofFreshness": MODULE.release_proof_freshness_snapshot(
+                projection_generated_at="2026-05-16T21:48:29Z",
+                release_proof=proof,
+                flagship_product_readiness=readiness,
+            ),
+        },
+    }
+    expected = VERIFIER_MODULE.expected_public_trust_metrics(payload)
+
+    assert metrics == expected
     assert metrics["releaseChannel"]["recommendedRouteCount"] == 0
 
 
