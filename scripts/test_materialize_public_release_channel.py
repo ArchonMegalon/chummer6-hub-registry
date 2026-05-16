@@ -668,6 +668,95 @@ def test_canonical_payload_downgrades_stale_published_posture_when_startup_smoke
     )
 
 
+def test_canonical_payload_downgrades_missing_proof_supportability() -> None:
+    proof = valid_release_proof_payload()
+    proof["generatedAt"] = ""
+    proof["generated_at"] = ""
+    proof["uiLocalizationReleaseGate"]["generatedAt"] = ""
+    proof["uiLocalizationReleaseGate"]["generated_at"] = ""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        downloads_dir = root / "downloads"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        startup_smoke_dir = root / "startup-smoke"
+        startup_smoke_dir.mkdir(parents=True, exist_ok=True)
+        installer_path = downloads_dir / "chummer-avalonia-win-x64-installer.exe"
+        payload = b"\n".join(MODULE.WINDOWS_INSTALLER_PAYLOAD_MARKERS) + b"\n"
+        installer_path.write_bytes(payload)
+        receipt_path = startup_smoke_dir / "startup-smoke-avalonia-win-x64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": MODULE.utc_now().replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+                    "headId": "avalonia",
+                    "platform": "windows",
+                    "arch": "x64",
+                    "hostClass": "windows-host",
+                    "operatingSystem": "Windows 11",
+                    "channelId": "docker",
+                    "artifactDigest": f"sha256:{hashlib.sha256(payload).hexdigest()}",
+                    "artifactId": "avalonia-win-x64-installer",
+                    "artifactFileName": installer_path.name,
+                }
+            ),
+            encoding="utf-8",
+        )
+        manifest_path = root / "source-manifest.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "channelId": "docker",
+                    "version": "run-20260516-220824",
+                    "publishedAt": "2026-05-16T22:08:24Z",
+                    "status": "published",
+                    "rolloutState": "promoted_preview",
+                    "supportabilityState": "preview_supported",
+                    "rolloutReason": "Current release shelf was exercised by the local docker release proof harness before publication.",
+                    "supportabilitySummary": "Local release proof passed for the current shelf.",
+                    "knownIssueSummary": "Preview caveats still apply, but the current shelf has recent install proof.",
+                    "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
+                    "releaseProof": proof,
+                    "artifacts": [
+                        {
+                            "artifactId": "avalonia-win-x64-installer",
+                            "fileName": installer_path.name,
+                            "downloadUrl": f"/downloads/files/{installer_path.name}",
+                            "kind": "installer",
+                            "sha256": hashlib.sha256(payload).hexdigest(),
+                            "sizeBytes": len(payload),
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        canonical = MODULE.canonical_payload(
+            canonical_args(
+                manifest=manifest_path,
+                downloads_dir=downloads_dir,
+                startup_smoke_dir=startup_smoke_dir,
+            )
+        )
+
+    assert canonical["supportabilityState"] == "review_required"
+    assert canonical["publicTrustMetrics"]["proofFreshness"]["status"] == "missing"
+    assert canonical["rolloutReason"] == (
+        "Current shelf stays visible, but output readiness is downgraded until stale or incomplete proof receipts are refreshed."
+    )
+    assert canonical["supportabilitySummary"] == (
+        "Treat the current shelf as review-required until stale or incomplete proof receipts are refreshed."
+    )
+    assert canonical["knownIssueSummary"] == (
+        "The docker shelf remains visible, but stale or incomplete proof receipts mean current output readiness must stay review-required."
+    )
+    assert canonical["fixAvailabilitySummary"] == (
+        "Do not send fixed notices until stale or incomplete proof receipts are refreshed for the current shelf."
+    )
+
+
 def test_canonical_payload_rederives_stale_published_copy_against_proof_backed_platforms() -> None:
     proof = valid_release_proof_payload()
     fresh_generated_at = MODULE.utc_now().replace(microsecond=0).isoformat().replace("+00:00", "Z")
