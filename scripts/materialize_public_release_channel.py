@@ -4302,6 +4302,43 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         artifacts=artifacts,
         tuple_coverage=tuple_coverage,
     )
+    final_proof_freshness_status = normalize_token(
+        (trust_metrics.get("proofFreshness") or {}).get("status")
+        if isinstance(trust_metrics, dict)
+        else None
+    )
+    if status == "published" and proof_freshness_blocks_output_readiness(final_proof_freshness_status):
+        supportability_state = "review_required"
+        rollout_reason = derive_rollout_reason(
+            channel,
+            status,
+            release_proof,
+            desktop_coverage_complete=desktop_coverage_complete,
+            coverage=tuple_coverage,
+            proof_freshness_status=final_proof_freshness_status,
+        )
+        supportability_summary = derive_supportability_summary(
+            channel,
+            status,
+            release_proof,
+            desktop_coverage_complete=desktop_coverage_complete,
+            coverage=tuple_coverage,
+            proof_freshness_status=final_proof_freshness_status,
+        )
+        known_issue_summary = derive_known_issue_summary(
+            channel,
+            status,
+            release_proof,
+            desktop_coverage_complete=desktop_coverage_complete,
+            coverage=tuple_coverage,
+            proof_freshness_status=final_proof_freshness_status,
+        )
+        fix_availability_summary = derive_fix_availability_summary(
+            status,
+            release_proof,
+            desktop_coverage_complete=desktop_coverage_complete,
+            proof_freshness_status=final_proof_freshness_status,
+        )
     boundary_coverage = registry_boundary_coverage(
         channel_id=channel,
         release_version=version,
