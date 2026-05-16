@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -11,6 +12,9 @@ import shlex
 import urllib.parse
 from pathlib import Path
 from typing import Any
+
+
+_VERIFY_PUBLIC_RELEASE_CHANNEL_MODULE: Any | None = None
 
 
 APP_LABELS = {
@@ -3397,6 +3401,22 @@ def release_proof_freshness_snapshot(
     }
 
 
+def load_verify_public_release_channel_module() -> Any:
+    global _VERIFY_PUBLIC_RELEASE_CHANNEL_MODULE
+    if _VERIFY_PUBLIC_RELEASE_CHANNEL_MODULE is not None:
+        return _VERIFY_PUBLIC_RELEASE_CHANNEL_MODULE
+
+    verifier_path = Path(__file__).resolve().parent / "verify_public_release_channel.py"
+    spec = importlib.util.spec_from_file_location("verify_public_release_channel", verifier_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"could not load verifier module from {verifier_path}")
+
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    _VERIFY_PUBLIC_RELEASE_CHANNEL_MODULE = module
+    return module
+
+
 def output_readiness_publication_state(
     publication_state: str,
     *,
@@ -3456,148 +3476,27 @@ def public_trust_metrics(
     artifacts: list[dict[str, Any]],
     tuple_coverage: dict[str, Any],
 ) -> dict[str, Any]:
-    projection_generated_at = parse_iso(generated_at)
-    route_truth = tuple_coverage.get("desktopRouteTruth") if isinstance(tuple_coverage, dict) else []
-    if not isinstance(route_truth, list):
-        route_truth = []
-    artifact_by_id = {
-        str(item.get("artifactId") or "").strip(): item
-        for item in artifacts
-        if isinstance(item, dict) and str(item.get("artifactId") or "").strip()
-    }
-    recommended_primary_routes = [
-        row for row in route_truth
-        if isinstance(row, dict)
-        and normalize_token(row.get("routeRole")) == "primary"
-        and normalize_token(row.get("promotionState")) == "promoted"
-        and normalize_token(row.get("revokeState")) != "revoked"
-    ]
-    blocked_routes = [
-        row for row in route_truth
-        if (
-            isinstance(row, dict)
-            and normalize_token(row.get("promotionState")) == "proof_required"
-            and not route_truth_is_preview_only_fallback(row)
-        )
-    ]
-    fallback_recovery_routes = [
-        row for row in route_truth
-        if isinstance(row, dict)
-        and normalize_token(row.get("routeRole")) == "fallback"
-        and normalize_token(row.get("promotionState")) == "promoted"
-        and normalize_token(row.get("revokeState")) != "revoked"
-    ]
-    revoked_routes = [
-        row for row in route_truth
-        if isinstance(row, dict)
-        and (
-            normalize_token(row.get("revokeState")) == "revoked"
-            or normalize_token(row.get("promotionState")) == "revoked"
-        )
-    ]
     proof_freshness = release_proof_freshness_snapshot(
         projection_generated_at=generated_at,
         release_proof=release_proof,
         flagship_product_readiness=flagship_product_readiness,
     )
-    proof_freshness_status = normalize_token(proof_freshness.get("status"))
-    readiness_recommended_primary_routes = [
-        row
-        for row in recommended_primary_routes
-        if artifact_publication_state(row, proof_freshness_status=proof_freshness_status) == "published"
-    ]
-    readiness_fallback_recovery_routes = [
-        row
-        for row in fallback_recovery_routes
-        if artifact_publication_state(row, proof_freshness_status=proof_freshness_status) == "retained"
-    ]
-    readiness_blocked_routes = list(blocked_routes)
-    for row in [*recommended_primary_routes, *fallback_recovery_routes]:
-        if row not in readiness_recommended_primary_routes and row not in readiness_fallback_recovery_routes:
-            readiness_blocked_routes.append(row)
-
-    public_install_count = 0
-    account_linked_install_count = 0
-    for row in readiness_recommended_primary_routes:
-        artifact = artifact_by_id.get(str(row.get("artifactId") or "").strip())
-        install_access_class = normalize_token(artifact.get("installAccessClass") if isinstance(artifact, dict) else "")
-        if install_access_class == "account_required":
-            account_linked_install_count += 1
-        else:
-            public_install_count += 1
-    adoption_status = "healthy"
-    if not readiness_recommended_primary_routes:
-        adoption_status = "blocked"
-    elif readiness_blocked_routes or revoked_routes or proof_freshness_blocks_output_readiness(proof_freshness_status):
-        adoption_status = "limited"
-
-    active_revocations = [
-        {
-            "tupleId": str(row.get("tupleId") or "").strip(),
-            "head": normalize_token(row.get("head")),
-            "platform": normalize_platform_token(row.get("platform")),
-            "rid": normalize_token(row.get("rid")),
-            "artifactId": str(row.get("artifactId") or "").strip() or None,
-            "revokeSource": normalize_token(row.get("revokeSource")),
-            "revokeReasonCode": normalize_token(row.get("revokeReasonCode")),
-            "revokeReason": str(row.get("revokeReason") or "").strip(),
-            "publicInstallRoute": str(row.get("publicInstallRoute") or "").strip() or None,
-        }
-        for row in revoked_routes
-    ]
-    active_revocations.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["tupleId"]))
-    channel_revoked = normalize_token(status) == "revoked" or normalize_token(rollout_state) == "revoked"
-    release_channel_posture = release_channel_public_posture(
-        channel_id=channel_id,
-        status=status,
-        rollout_state=rollout_state,
-        proof_freshness_status=proof_freshness_status,
-    )
-    return {
-        "releaseChannel": {
-            "channelId": channel_id,
-            "posture": release_channel_posture,
-            "publicationStatus": normalize_token(status),
-            "rolloutState": normalize_token(rollout_state),
-            "supportabilityState": normalize_token(supportability_state),
-            "recommendedRouteCount": len(readiness_recommended_primary_routes),
-            "blockedRouteCount": len(readiness_blocked_routes),
-            "revokedRouteCount": len(active_revocations),
-            "summary": (
-                f"Channel {channel_id} is {release_channel_posture} with {len(readiness_recommended_primary_routes)} recommended primary routes, "
-                f"{len(readiness_fallback_recovery_routes)} promoted fallback recovery routes, {len(readiness_blocked_routes)} blocked routes, "
-                f"and {len(active_revocations)} active revocations."
-            ),
-        },
-        "adoptionHealth": {
-            "status": adoption_status,
-            "primaryPromotedCount": len(readiness_recommended_primary_routes),
-            "publicInstallCount": public_install_count,
-            "accountLinkedInstallCount": account_linked_install_count,
-            "fallbackRecoveryCount": len(readiness_fallback_recovery_routes),
-            "blockedRouteCount": len(readiness_blocked_routes),
-            "revokedRouteCount": len(active_revocations),
-            "summary": (
-                f"{len(readiness_recommended_primary_routes)} primary routes are promoted; {public_install_count} are guest-readable, "
-                f"{account_linked_install_count} require account-linked install handoff, {len(readiness_fallback_recovery_routes)} fallback recovery routes are promoted, "
-                f"and {len(readiness_blocked_routes)} routes are still blocked on proof."
-            ),
-        },
-        "proofFreshness": {
-            **proof_freshness,
-        },
-        "revocationFacts": {
-            "status": "revoked" if channel_revoked or active_revocations else "clear",
-            "channelRevoked": channel_revoked,
-            "activeRevocationCount": len(active_revocations),
-            "activeRevocations": active_revocations,
-            "summary": (
-                f"{len(active_revocations)} active route revocations are present on channel {channel_id}."
-                if channel_revoked or active_revocations
-                else f"No channel or route revocations are active on channel {channel_id}."
-            ),
+    verifier = load_verify_public_release_channel_module()
+    payload = {
+        "generatedAt": generated_at,
+        "generated_at": generated_at,
+        "channelId": channel_id,
+        "status": status,
+        "rolloutState": rollout_state,
+        "supportabilityState": supportability_state,
+        "releaseProof": release_proof,
+        "artifacts": artifacts,
+        "desktopTupleCoverage": tuple_coverage,
+        "publicTrustMetrics": {
+            "proofFreshness": proof_freshness,
         },
     }
+    return verifier.expected_public_trust_metrics(payload)
 
 
 def registry_boundary_coverage(
