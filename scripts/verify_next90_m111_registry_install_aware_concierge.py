@@ -226,8 +226,13 @@ def verify_queue_staging(path: Path) -> None:
 
 
 def run_public_release_channel_verifier(path: Path) -> None:
+    verifier_target = (
+        path.parent
+        if path.name in {"RELEASE_CHANNEL.generated.json", "releases.json"} and path.parent.name == "published"
+        else path
+    )
     result = subprocess.run(
-        [sys.executable, str(DEFAULT_PUBLIC_VERIFIER), str(path)],
+        [sys.executable, str(DEFAULT_PUBLIC_VERIFIER), str(verifier_target)],
         cwd=str(REPO_ROOT),
         text=True,
         stdout=subprocess.PIPE,
