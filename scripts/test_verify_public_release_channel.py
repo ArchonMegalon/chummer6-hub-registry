@@ -615,6 +615,32 @@ def test_verify_artifact_identity_registry_rejects_stale_proof_output_readiness_
         MODULE.verify_artifact_identity_registry(payload, "release-channel.json")
 
 
+def test_verify_artifact_identity_registry_writes_local_audit_bundle(tmp_path: Path) -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["generatedAt"] = "2026-05-20T18:22:04Z"
+    payload["generated_at"] = "2026-05-20T18:22:04Z"
+    payload["artifactIdentityRegistry"] = MODULE.expected_artifact_identity_registry_rows(payload)
+    payload["artifactIdentityRegistry"][0]["artifactId"] = "tampered-artifact-id"
+    manifest_path = tmp_path / "RELEASE_CHANNEL.generated.json"
+    manifest_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    try:
+        MODULE.verify_artifact_identity_registry(payload, str(manifest_path))
+    except SystemExit as exc:
+        message = str(exc)
+    else:  # pragma: no cover - defensive
+        raise AssertionError("expected verify_artifact_identity_registry to fail")
+
+    assert "artifactIdentityRegistry does not match canonical artifact identity truth" in message
+    audit_dir = tmp_path / "manifest-validation-audit"
+    assert audit_dir.is_dir()
+    assert (audit_dir / "artifact-identity-registry.actual.json").is_file()
+    assert (audit_dir / "artifact-identity-registry.expected.json").is_file()
+    assert (audit_dir / "artifact-identity-registry.diff.txt").is_file()
+
+
 def test_verify_exchange_lineage_registry_rejects_stale_proof_output_readiness_drift() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_public_trust_metrics(payload)
