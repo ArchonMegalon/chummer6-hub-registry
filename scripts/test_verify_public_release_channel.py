@@ -2923,6 +2923,61 @@ def test_expected_desktop_route_truth_rows_prefers_non_revoked_tuple_artifact() 
     assert fallback["revokeReason"] == "No registry revoke marker is active for blazor-desktop:linux:linux-x64."
 
 
+def test_verify_desktop_tuple_coverage_dedupes_multiple_macos_install_media_per_tuple() -> None:
+    payload = {
+        "channelId": "preview",
+        "version": "run-20260517-213340",
+        "desktopTupleCoverage": {
+            "requiredDesktopPlatforms": ["macos"],
+            "requiredDesktopHeads": ["avalonia"],
+            "promotedInstallerTuples": [
+                {
+                    "tupleId": "avalonia:macos:osx-arm64",
+                    "head": "avalonia",
+                    "platform": "macos",
+                    "rid": "osx-arm64",
+                    "arch": "arm64",
+                    "kind": "dmg",
+                    "artifactId": "avalonia-osx-arm64-installer",
+                }
+            ],
+            "promotedPlatformHeads": {"macos": ["avalonia"]},
+            "requiredDesktopPlatformHeadRidTuples": ["avalonia:osx-arm64:macos"],
+            "promotedPlatformHeadRidTuples": ["avalonia:osx-arm64:macos"],
+            "missingRequiredPlatforms": [],
+            "missingRequiredHeads": [],
+            "missingRequiredPlatformHeadPairs": [],
+            "missingRequiredPlatformHeadRidTuples": [],
+            "externalProofRequests": [],
+            "desktopRouteTruth": [],
+            "complete": True,
+        },
+        "artifacts": [
+            {
+                "artifactId": "avalonia-osx-arm64-installer",
+                "head": "avalonia",
+                "rid": "osx-arm64",
+                "platform": "macos",
+                "arch": "arm64",
+                "kind": "dmg",
+                "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
+            },
+            {
+                "artifactId": "avalonia-osx-arm64-installer",
+                "head": "avalonia",
+                "rid": "osx-arm64",
+                "platform": "macos",
+                "arch": "arm64",
+                "kind": "pkg",
+                "fileName": "chummer-avalonia-osx-arm64-installer.pkg",
+            },
+        ],
+    }
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = MODULE.expected_desktop_route_truth_rows(payload)
+
+    MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
 def test_expected_desktop_route_truth_rows_treat_artifact_rollout_state_as_tuple_revoke() -> None:
     payload = {
         "channelId": "docker",
