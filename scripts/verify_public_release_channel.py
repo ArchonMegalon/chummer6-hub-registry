@@ -83,6 +83,31 @@ def write_registry_mismatch_audit(
         return audit_dir
     except OSError:
         return None
+
+
+def summarize_registry_row_mismatch(
+    *,
+    actual_rows: list[dict[str, Any]],
+    expected_rows: list[dict[str, Any]],
+) -> str:
+    if len(actual_rows) != len(expected_rows):
+        return f"row_count actual={len(actual_rows)} expected={len(expected_rows)}"
+    for index, (actual_row, expected_row) in enumerate(zip(actual_rows, expected_rows)):
+        if actual_row == expected_row:
+            continue
+        keys = sorted(set(actual_row.keys()) | set(expected_row.keys()))
+        for key in keys:
+            actual_value = actual_row.get(key)
+            expected_value = expected_row.get(key)
+            if actual_value != expected_value:
+                tuple_id = actual_row.get("tupleId") or expected_row.get("tupleId") or f"index={index}"
+                return (
+                    f"first_diff tupleId={tuple_id} field={key} "
+                    f"actual={actual_value!r} expected={expected_value!r}"
+                )
+        tuple_id = actual_row.get("tupleId") or expected_row.get("tupleId") or f"index={index}"
+        return f"first_diff tupleId={tuple_id} row_content_mismatch"
+    return "rows differ but no first-diff summary was derived"
 REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
 REQUIRED_DESKTOP_HEADS = ("avalonia",)
 DESKTOP_ROUTE_TRUTH_HEADS = ("avalonia", "blazor-desktop")
@@ -4087,6 +4112,7 @@ def verify_artifact_identity_registry(payload: dict[str, Any], source: str) -> N
             expected_rows=expected_rows,
         )
         details = f"{source} artifactIdentityRegistry does not match canonical artifact identity truth"
+        details += f": {summarize_registry_row_mismatch(actual_rows=normalized_rows, expected_rows=expected_rows)}"
         if audit_dir is not None:
             details += f" (audit written to {audit_dir})"
         raise SystemExit(details)
