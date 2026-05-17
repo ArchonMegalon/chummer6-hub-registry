@@ -4,11 +4,13 @@ import hashlib
 import inspect
 import importlib.util
 import json
+import os
 import re
 import tempfile
 from contextlib import contextmanager
 from datetime import datetime, timedelta, timezone
 from pathlib import Path
+import unittest
 
 try:
     import pytest
@@ -39,6 +41,27 @@ MODULE_SPEC = importlib.util.spec_from_file_location("verify_public_release_chan
 assert MODULE_SPEC and MODULE_SPEC.loader
 MODULE = importlib.util.module_from_spec(MODULE_SPEC)
 MODULE_SPEC.loader.exec_module(MODULE)
+
+
+def load_tests(loader, tests, pattern):
+    suite = unittest.TestSuite()
+    for name, test_function in sorted(globals().items()):
+        if not name.startswith("test_") or not callable(test_function):
+            continue
+        suite.addTest(unittest.FunctionTestCase(_wrap_test_function(test_function), description=name))
+    return suite
+
+
+def _wrap_test_function(test_function):
+    def run_test() -> None:
+        parameters = inspect.signature(test_function).parameters
+        if "tmp_path" in parameters:
+            with tempfile.TemporaryDirectory(prefix=f"{test_function.__name__}-") as tmp_dir:
+                test_function(tmp_path=Path(tmp_dir))
+            return
+        test_function()
+
+    return run_test
 
 
 def complete_primary_desktop_tuple_payload() -> dict:
@@ -125,6 +148,26 @@ def complete_primary_desktop_tuple_payload() -> dict:
     }
 
 
+def windows_only_primary_desktop_tuple_payload() -> dict:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["desktopTupleCoverage"]["requiredDesktopPlatforms"] = ["windows"]
+    payload["desktopTupleCoverage"]["promotedInstallerTuples"] = [
+        item for item in payload["desktopTupleCoverage"]["promotedInstallerTuples"] if item["platform"] == "windows"
+    ]
+    payload["desktopTupleCoverage"]["promotedPlatformHeads"] = {"windows": ["avalonia"]}
+    payload["desktopTupleCoverage"]["requiredDesktopPlatformHeadRidTuples"] = ["avalonia:win-x64:windows"]
+    payload["desktopTupleCoverage"]["promotedPlatformHeadRidTuples"] = ["avalonia:win-x64:windows"]
+    payload["desktopTupleCoverage"]["missingRequiredPlatforms"] = []
+    payload["desktopTupleCoverage"]["missingRequiredHeads"] = []
+    payload["desktopTupleCoverage"]["missingRequiredPlatformHeadPairs"] = []
+    payload["desktopTupleCoverage"]["missingRequiredPlatformHeadRidTuples"] = []
+    payload["desktopTupleCoverage"]["externalProofRequests"] = []
+    payload["desktopTupleCoverage"]["complete"] = True
+    payload["artifacts"] = [item for item in payload["artifacts"] if item["platform"] == "windows"]
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = MODULE.expected_desktop_route_truth_rows(payload)
+    return payload
+
+
 def add_install_aware_route_truth(payload: dict) -> None:
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = [
         {
@@ -138,8 +181,86 @@ def add_install_aware_route_truth(payload: dict) -> None:
             "promotionState": "promoted",
             "revokeState": "not_revoked",
             "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
+        },
+        {
+            "tupleId": "blazor-desktop:windows:win-x64",
+            "head": "blazor-desktop",
+            "platform": "windows",
+            "rid": "win-x64",
+            "arch": "x64",
+            "artifactId": "blazor-desktop-win-x64-installer",
+            "routeRole": "fallback",
+            "promotionState": "proof_required",
+            "revokeState": "not_revoked",
+            "publicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer",
         }
     ]
+
+
+def add_desktop_surface_refs(payload: dict) -> None:
+    payload["desktopSurfaceRefs"] = MODULE.expected_desktop_surface_ref_rows(payload)
+
+
+def add_public_trust_metrics(payload: dict) -> None:
+    payload["generatedAt"] = "2026-04-14T18:22:04Z"
+    payload["generated_at"] = "2026-04-14T18:22:04Z"
+    payload["status"] = "published"
+    payload["rolloutState"] = "promoted_preview"
+    payload["supportabilityState"] = "preview_supported"
+    payload["releaseProof"] = {
+        "status": "passed",
+        "generatedAt": "2026-04-14T18:12:04Z",
+        "baseUrl": "https://chummer.run",
+        "journeysPassed": list(MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS),
+        "proofRoutes": list(MODULE.REQUIRED_RELEASE_PROOF_ROUTES),
+        "uiLocalizationReleaseGate": {
+            "status": "pass",
+            "generatedAt": "2026-04-14T18:12:04Z",
+            "defaultKeyCount": 383,
+            "explicitFallbackRuntime": "pass",
+            "signoffSmokeRunnerStatus": "pass",
+            "shippingLocales": list(MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES),
+            "acceptanceGates": list(MODULE.REQUIRED_LOCALIZATION_ACCEPTANCE_GATES),
+            "domainCoverage": {
+                "app_chrome": "pass",
+                "data_rules_names": "pass",
+                "explain_receipts": "pass",
+                "generated_artifacts": "pass",
+                "install_update_support": "pass",
+            },
+            "localeDomainCoverage": {
+                locale: {
+                    "app_chrome": "pass",
+                    "data_rules_names": "pass",
+                    "explain_receipts": "pass",
+                    "generated_artifacts": "pass",
+                    "install_update_support": "pass",
+                }
+                for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+            },
+            "blockingFindingsCount": 0,
+            "blockingFindings": [],
+            "translationBacklogFindingsCount": 0,
+            "translationBacklogFindings": [],
+            "localeSummary": [
+                {
+                    "locale": locale,
+                    "untranslatedKeyCount": 0,
+                    "overrideCount": 383,
+                    "minimumOverrideCount": 40 if locale != "en-us" else 383,
+                    "missingReleaseSeedKeys": [],
+                    "legacyXmlPresent": True,
+                    "legacyDataXmlPresent": True,
+                }
+                for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+            ],
+        },
+    }
+    payload["publicTrustMetrics"] = MODULE.expected_public_trust_metrics(payload)
+
+
+def add_registry_boundary_coverage(payload: dict) -> None:
+    payload["registryBoundaryCoverage"] = MODULE.expected_registry_boundary_coverage(payload)
 
 
 def test_verify_contract_identity_rejects_noncanonical_contract_name() -> None:
@@ -150,6 +271,123 @@ def test_verify_contract_identity_rejects_noncanonical_contract_name() -> None:
             },
             "fixture payload",
         )
+
+
+def test_verify_desktop_surface_refs_accepts_canonical_rows() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_desktop_surface_refs(payload)
+
+    MODULE.verify_desktop_surface_refs(payload, "fixture")
+
+
+def test_verify_desktop_surface_refs_rejects_missing_registry_when_route_truth_exists() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+
+    with pytest.raises(SystemExit, match="desktopSurfaceRefs must be a list"):
+        MODULE.verify_desktop_surface_refs(payload, "fixture")
+
+
+def test_verify_desktop_surface_refs_rejects_drifted_reward_publication_ref() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_desktop_surface_refs(payload)
+    payload["desktopSurfaceRefs"][0]["rewardPublicationRef"] = "reward-publication:drifted"
+
+    with pytest.raises(SystemExit, match="does not match canonical desktop surface truth"):
+        MODULE.verify_desktop_surface_refs(payload, "fixture")
+
+
+def test_verify_registry_boundary_coverage_accepts_canonical_projection() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    payload["installAwareArtifactRegistry"] = MODULE.expected_install_aware_artifact_registry_rows(payload)
+    add_desktop_surface_refs(payload)
+    payload["artifactIdentityRegistry"] = MODULE.expected_artifact_identity_registry_rows(payload)
+    payload["artifactPublicationBindings"] = MODULE.expected_artifact_publication_binding_rows(payload)
+    add_public_trust_metrics(payload)
+    add_registry_boundary_coverage(payload)
+
+    MODULE.verify_registry_boundary_coverage(payload, "release-channel.json")
+
+
+def test_verify_registry_boundary_coverage_rejects_missing_projection() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+
+    with pytest.raises(SystemExit, match="registryBoundaryCoverage must be an object"):
+        MODULE.verify_registry_boundary_coverage(payload, "release-channel.json")
+
+
+def test_verify_registry_boundary_coverage_rejects_drifted_compatibility_count() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    payload["installAwareArtifactRegistry"] = MODULE.expected_install_aware_artifact_registry_rows(payload)
+    add_desktop_surface_refs(payload)
+    payload["artifactIdentityRegistry"] = MODULE.expected_artifact_identity_registry_rows(payload)
+    payload["artifactPublicationBindings"] = MODULE.expected_artifact_publication_binding_rows(payload)
+    add_public_trust_metrics(payload)
+    add_registry_boundary_coverage(payload)
+    payload["registryBoundaryCoverage"]["compatibility"]["compatibleArtifactCount"] = 99
+
+    with pytest.raises(SystemExit, match="does not match canonical registry boundary coverage"):
+        MODULE.verify_registry_boundary_coverage(payload, "release-channel.json")
+
+
+def test_startup_smoke_channel_matches_expected_accepts_preview_receipt_for_docker_channel() -> None:
+    assert MODULE.startup_smoke_channel_matches_expected("docker", "preview") is True
+
+
+def test_load_payload_uses_run_services_downloads_root_for_registry_published_manifest() -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        registry_manifest = temp_root / "docker" / "chummercomplete" / "chummer-hub-registry" / ".codex-studio" / "published" / "RELEASE_CHANNEL.generated.json"
+        registry_manifest.parent.mkdir(parents=True, exist_ok=True)
+        registry_manifest.write_text("{}", encoding="utf-8")
+
+        run_services_root = temp_root / "run-services"
+        downloads_root = run_services_root / "Chummer.Portal" / "downloads"
+        downloads_root.mkdir(parents=True, exist_ok=True)
+        (downloads_root / "RELEASE_CHANNEL.generated.json").write_text("{}", encoding="utf-8")
+
+        previous = os.environ.get("CHUMMER_RUN_SERVICES_ROOT")
+        os.environ["CHUMMER_RUN_SERVICES_ROOT"] = str(run_services_root)
+        try:
+            payload, source, local_root = MODULE.load_payload(str(registry_manifest))
+        finally:
+            if previous is None:
+                os.environ.pop("CHUMMER_RUN_SERVICES_ROOT", None)
+            else:
+                os.environ["CHUMMER_RUN_SERVICES_ROOT"] = previous
+
+        assert payload == {}
+        assert source == str(registry_manifest)
+        assert local_root == downloads_root
+
+
+def test_load_payload_auto_detects_sibling_run_services_root_for_registry_published_manifest() -> None:
+    with tempfile.TemporaryDirectory() as temp_dir:
+        temp_root = Path(temp_dir)
+        complete_root = temp_root / "docker" / "chummercomplete"
+        registry_manifest = complete_root / "chummer-hub-registry" / ".codex-studio" / "published" / "RELEASE_CHANNEL.generated.json"
+        registry_manifest.parent.mkdir(parents=True, exist_ok=True)
+        registry_manifest.write_text("{}", encoding="utf-8")
+
+        downloads_root = complete_root / "chummer.run-services" / "Chummer.Portal" / "downloads"
+        downloads_root.mkdir(parents=True, exist_ok=True)
+        (downloads_root / "RELEASE_CHANNEL.generated.json").write_text("{}", encoding="utf-8")
+
+        previous = os.environ.get("CHUMMER_RUN_SERVICES_ROOT")
+        os.environ.pop("CHUMMER_RUN_SERVICES_ROOT", None)
+        try:
+            payload, source, local_root = MODULE.load_payload(str(registry_manifest))
+        finally:
+            if previous is not None:
+                os.environ["CHUMMER_RUN_SERVICES_ROOT"] = previous
+
+        assert payload == {}
+        assert source == str(registry_manifest)
+        assert local_root == downloads_root
 
 
 def add_promoted_linux_fallback_tuple(payload: dict) -> None:
@@ -184,6 +422,424 @@ def test_verify_install_aware_artifact_registry_accepts_canonical_rows() -> None
     MODULE.verify_install_aware_artifact_registry(payload, "release-channel.json")
 
 
+def test_verify_artifact_identity_registry_accepts_canonical_rows() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    payload["artifactIdentityRegistry"] = MODULE.expected_artifact_identity_registry_rows(payload)
+    fallback_row = payload["artifactIdentityRegistry"][1]
+
+    assert fallback_row["tupleId"] == "blazor-desktop:windows:win-x64"
+    assert fallback_row["publicationState"] == "retained"
+    assert fallback_row["retentionState"] == "retained"
+
+    MODULE.verify_artifact_identity_registry(payload, "release-channel.json")
+
+
+def test_verify_artifact_identity_registry_rejects_missing_registry() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+
+    with pytest.raises(SystemExit, match="artifactIdentityRegistry must be a list"):
+        MODULE.verify_artifact_identity_registry(payload, "release-channel.json")
+
+
+def test_verify_artifact_publication_bindings_accepts_canonical_rows() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    payload["artifactPublicationBindings"] = MODULE.expected_artifact_publication_binding_rows(payload)
+    row = payload["artifactPublicationBindings"][0]
+    fallback_row = payload["artifactPublicationBindings"][1]
+
+    assert row["previewRef"] == "registry-preview:avalonia-linux-x64-installer:avalonia:linux:linux-x64"
+    assert row["captionRef"] == "registry-caption:docker:run-20260414-1836:avalonia:linux:linux-x64"
+    assert row["signedInShelfRef"] == "shelf:signed-in:docker:run-20260414-1836:avalonia-linux-x64-installer"
+    assert row["publicShelfRef"] == "shelf:public:docker:run-20260414-1836:avalonia-linux-x64-installer"
+    assert fallback_row["tupleId"] == "blazor-desktop:windows:win-x64"
+    assert fallback_row["publicationState"] == "retained"
+    assert fallback_row["retentionState"] == "retained"
+    assert (
+        fallback_row["rationale"]
+        == "docker keeps fallback tuple blazor-desktop:windows:win-x64 retained so recovery-only shelf refs stay governed without relabeling the artifact as preview."
+    )
+
+    MODULE.verify_artifact_publication_bindings(payload, "release-channel.json")
+
+
+def test_verify_artifact_publication_bindings_rejects_missing_registry() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+
+    with pytest.raises(SystemExit, match="artifactPublicationBindings must be a list"):
+        MODULE.verify_artifact_publication_bindings(payload, "release-channel.json")
+
+
+def test_verify_artifact_publication_bindings_rejects_preview_drift_for_retained_fallback() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    payload["artifactPublicationBindings"] = MODULE.expected_artifact_publication_binding_rows(payload)
+    payload["artifactPublicationBindings"][1]["publicationState"] = "preview"
+    payload["artifactPublicationBindings"][1]["retentionState"] = "temporary"
+
+    with pytest.raises(SystemExit, match="artifactPublicationBindings does not match canonical publication binding truth"):
+        MODULE.verify_artifact_publication_bindings(payload, "release-channel.json")
+
+
+def test_verify_exchange_lineage_registry_accepts_canonical_rows() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["exchangeArtifacts"] = [
+        {
+            "artifactId": "campaign-emerald-grid",
+            "artifactKind": "campaign",
+            "lineageRef": "lineage:campaign:emerald-grid",
+            "parentLineageRefs": [],
+            "provenanceRef": "provenance:campaign:emerald-grid",
+            "compatibilityState": "compatible",
+            "compatibilityRef": "compatibility:campaign:emerald-grid",
+            "boundedLossPosture": "lossless",
+            "boundedLossRef": "bounded-loss:campaign:emerald-grid",
+            "publicationState": "published",
+        }
+    ]
+    payload["exchangeLineageRegistry"] = MODULE.expected_exchange_lineage_registry_rows(payload)
+
+    MODULE.verify_exchange_lineage_registry(payload, "release-channel.json")
+
+
+def test_verify_exchange_lineage_registry_rejects_missing_registry() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["exchangeArtifacts"] = [
+        {
+            "artifactId": "campaign-emerald-grid",
+            "artifactKind": "campaign",
+            "lineageRef": "lineage:campaign:emerald-grid",
+            "parentLineageRefs": [],
+            "provenanceRef": "provenance:campaign:emerald-grid",
+            "compatibilityState": "compatible",
+            "compatibilityRef": "compatibility:campaign:emerald-grid",
+            "boundedLossPosture": "lossless",
+            "boundedLossRef": "bounded-loss:campaign:emerald-grid",
+            "publicationState": "published",
+        }
+    ]
+
+    with pytest.raises(SystemExit, match="exchangeLineageRegistry must be a list"):
+        MODULE.verify_exchange_lineage_registry(payload, "release-channel.json")
+
+
+def test_verify_exchange_lineage_registry_accepts_registry_only_rows() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["exchangeLineageRegistry"] = [
+        {
+            "registryId": "exchange-lineage:docker:run-20260414-1836:campaign:campaign-emerald-grid",
+            "artifactId": "campaign-emerald-grid",
+            "artifactKind": "campaign",
+            "channelId": "docker",
+            "releaseVersion": "run-20260414-1836",
+            "lineageRef": "lineage:campaign:emerald-grid",
+            "parentLineageRefs": [],
+            "provenanceRef": "provenance:campaign:emerald-grid",
+            "compatibilityState": "compatible",
+            "compatibilityRef": "compatibility:campaign:emerald-grid",
+            "boundedLossPosture": "lossless",
+            "boundedLossRef": "bounded-loss:campaign:emerald-grid",
+            "publicationBindingId": "binding:docker:run-20260414-1836:campaign:campaign-emerald-grid",
+            "publicationState": "published",
+            "packetRef": "registry-packet:docker:run-20260414-1836:campaign-emerald-grid",
+            "localeRef": "registry-locale:docker:run-20260414-1836:campaign-emerald-grid",
+            "retentionRef": "registry-retention:docker:run-20260414-1836:campaign-emerald-grid",
+            "retentionState": "current",
+            "signedInShelfRef": "shelf:signed-in:docker:run-20260414-1836:campaign-emerald-grid",
+            "publicShelfRef": "shelf:public:docker:run-20260414-1836:campaign-emerald-grid",
+        }
+    ]
+
+    MODULE.verify_exchange_lineage_registry(payload, "release-channel.json")
+
+
+def test_verify_exchange_lineage_registry_rejects_noncanonical_publication_refs() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["exchangeLineageRegistry"] = [
+        {
+            "registryId": "exchange-lineage:docker:run-20260414-1836:campaign:campaign-emerald-grid",
+            "artifactId": "campaign-emerald-grid",
+            "artifactKind": "campaign",
+            "channelId": "docker",
+            "releaseVersion": "run-20260414-1836",
+            "lineageRef": "lineage:campaign:emerald-grid",
+            "parentLineageRefs": [],
+            "provenanceRef": "provenance:campaign:emerald-grid",
+            "compatibilityState": "compatible",
+            "compatibilityRef": "compatibility:campaign:emerald-grid",
+            "boundedLossPosture": "lossless",
+            "boundedLossRef": "bounded-loss:campaign:emerald-grid",
+            "publicationBindingId": "binding:wrong:campaign",
+            "publicationState": "published",
+            "packetRef": "registry-packet:docker:run-20260414-1836:campaign-emerald-grid",
+            "localeRef": "registry-locale:docker:run-20260414-1836:campaign-emerald-grid",
+            "retentionRef": "registry-retention:docker:run-20260414-1836:campaign-emerald-grid",
+            "retentionState": "current",
+            "signedInShelfRef": "shelf:signed-in:wrong:campaign",
+            "publicShelfRef": "shelf:public:wrong:campaign",
+        }
+    ]
+
+    with pytest.raises(SystemExit, match="exchangeLineageRegistry does not match canonical exchange lineage truth"):
+        MODULE.verify_exchange_lineage_registry(payload, "release-channel.json")
+
+
+def test_verify_artifact_publication_bindings_rejects_stale_proof_output_readiness_drift() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["publicTrustMetrics"]["proofFreshness"]["status"] = "stale"
+    payload["generatedAt"] = "2026-05-20T18:22:04Z"
+    payload["generated_at"] = "2026-05-20T18:22:04Z"
+    payload["artifactPublicationBindings"] = MODULE.expected_artifact_publication_binding_rows(payload)
+    payload["artifactPublicationBindings"][0]["publicationState"] = "published"
+    payload["artifactPublicationBindings"][0]["retentionState"] = "current"
+
+    with pytest.raises(SystemExit, match="artifactPublicationBindings does not match canonical publication binding truth"):
+        MODULE.verify_artifact_publication_bindings(payload, "release-channel.json")
+
+
+def test_verify_artifact_identity_registry_rejects_stale_proof_output_readiness_drift() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["publicTrustMetrics"]["proofFreshness"]["status"] = "stale"
+    payload["generatedAt"] = "2026-05-20T18:22:04Z"
+    payload["generated_at"] = "2026-05-20T18:22:04Z"
+    payload["artifactIdentityRegistry"] = MODULE.expected_artifact_identity_registry_rows(payload)
+    payload["artifactIdentityRegistry"][0]["publicationState"] = "published"
+    payload["artifactIdentityRegistry"][0]["retentionState"] = "current"
+
+    with pytest.raises(SystemExit, match="artifactIdentityRegistry does not match canonical artifact identity truth"):
+        MODULE.verify_artifact_identity_registry(payload, "release-channel.json")
+
+
+def test_verify_artifact_identity_registry_writes_local_audit_bundle(tmp_path: Path) -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["generatedAt"] = "2026-05-20T18:22:04Z"
+    payload["generated_at"] = "2026-05-20T18:22:04Z"
+    payload["artifactIdentityRegistry"] = MODULE.expected_artifact_identity_registry_rows(payload)
+    payload["artifactIdentityRegistry"][0]["artifactId"] = "tampered-artifact-id"
+    manifest_path = tmp_path / "RELEASE_CHANNEL.generated.json"
+    manifest_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    try:
+        MODULE.verify_artifact_identity_registry(payload, str(manifest_path))
+    except SystemExit as exc:
+        message = str(exc)
+    else:  # pragma: no cover - defensive
+        raise AssertionError("expected verify_artifact_identity_registry to fail")
+
+    assert "artifactIdentityRegistry does not match canonical artifact identity truth" in message
+    audit_dir = tmp_path / "manifest-validation-audit"
+    assert audit_dir.is_dir()
+    assert (audit_dir / "artifact-identity-registry.actual.json").is_file()
+    assert (audit_dir / "artifact-identity-registry.expected.json").is_file()
+    assert (audit_dir / "artifact-identity-registry.diff.txt").is_file()
+
+
+def test_verify_exchange_lineage_registry_rejects_stale_proof_output_readiness_drift() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_public_trust_metrics(payload)
+    payload["publicTrustMetrics"]["proofFreshness"]["status"] = "stale"
+    payload["generatedAt"] = "2026-05-20T18:22:04Z"
+    payload["generated_at"] = "2026-05-20T18:22:04Z"
+    payload["exchangeArtifacts"] = [
+        {
+            "artifactId": "campaign-emerald-grid",
+            "artifactKind": "campaign",
+            "lineageRef": "lineage:campaign:emerald-grid",
+            "parentLineageRefs": [],
+            "provenanceRef": "provenance:campaign:emerald-grid",
+            "compatibilityState": "compatible",
+            "compatibilityRef": "compatibility:campaign:emerald-grid",
+            "boundedLossPosture": "lossless",
+            "boundedLossRef": "bounded-loss:campaign:emerald-grid",
+            "publicationState": "published",
+        }
+    ]
+    payload["exchangeLineageRegistry"] = MODULE.expected_exchange_lineage_registry_rows(payload)
+    payload["exchangeLineageRegistry"][0]["publicationState"] = "published"
+    payload["exchangeLineageRegistry"][0]["retentionState"] = "current"
+
+    with pytest.raises(SystemExit, match="exchangeLineageRegistry does not match canonical exchange lineage truth"):
+        MODULE.verify_exchange_lineage_registry(payload, "release-channel.json")
+
+
+def test_verify_output_readiness_honesty_rejects_stale_supported_copy() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["status"] = "published"
+    payload["generatedAt"] = "2026-05-20T18:22:04Z"
+    payload["generated_at"] = "2026-05-20T18:22:04Z"
+    payload["publicTrustMetrics"]["proofFreshness"]["status"] = "stale"
+    payload["supportabilityState"] = "preview_supported"
+    payload["rolloutReason"] = "Current release shelf was exercised by the local docker release proof harness before publication."
+    payload["supportabilitySummary"] = "Local release proof passed for the current shelf."
+    payload["knownIssueSummary"] = "Preview caveats still apply, but the current shelf has recent install proof."
+    payload["fixAvailabilitySummary"] = (
+        "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf."
+    )
+
+    with pytest.raises(SystemExit, match="supportabilityState='review_required' when proof receipts are stale"):
+        MODULE.verify_output_readiness_honesty(payload, "release-channel.json", {})
+
+
+def test_verify_public_trust_metrics_accepts_canonical_rows() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+
+    MODULE.verify_public_trust_metrics(payload, "release-channel.json")
+
+
+def test_verify_public_trust_metrics_rejects_canonical_drift() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["publicTrustMetrics"]["proofFreshness"]["releaseProofAgeSeconds"] = 601
+
+    with pytest.raises(SystemExit, match="publicTrustMetrics does not match canonical launch-truth metrics"):
+        MODULE.verify_public_trust_metrics(payload, "release-channel.json")
+
+
+def test_verify_public_trust_metrics_rejects_fresh_status_when_flagship_desktop_readiness_is_blocked() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessGeneratedAt"] = "2026-05-20T18:20:30Z"
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessAgeSeconds"] = 94
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessMaxAgeSeconds"] = 604800
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessStatus"] = "fail"
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessCoverageGapKeys"] = ["desktop_client"]
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipDesktopClientReady"] = False
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessReason"] = (
+        "flagship product readiness proof is not green: fail; missing coverage: desktop_client"
+    )
+
+    with pytest.raises(SystemExit, match="publicTrustMetrics does not match canonical launch-truth metrics"):
+        MODULE.verify_public_trust_metrics(payload, "release-channel.json")
+
+
+def test_verify_public_trust_metrics_accepts_reordered_semantic_lists() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessGeneratedAt"] = "2026-05-20T18:20:30Z"
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessAgeSeconds"] = 94
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessMaxAgeSeconds"] = 604800
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessStatus"] = "pass"
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessCoverageGapKeys"] = [
+        "desktop_client",
+        "ux_bundle",
+    ]
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipDesktopClientReady"] = True
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessReason"] = "Desktop readiness is green."
+    payload["desktopTupleCoverage"]["desktopRouteTruth"].append(
+        {
+            "tupleId": "avalonia:macos:osx-arm64",
+            "head": "avalonia",
+            "platform": "macos",
+            "rid": "osx-arm64",
+            "arch": "arm64",
+            "artifactId": "avalonia-osx-arm64-installer",
+            "routeRole": "primary",
+            "promotionState": "revoked",
+            "revokeState": "revoked",
+            "revokeSource": "artifact",
+            "revokeReasonCode": "registry_revoke_marker_active",
+            "revokeReason": "Startup smoke regressed for macOS.",
+            "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
+        }
+    )
+
+    canonical = MODULE.expected_public_trust_metrics(payload)
+    payload["publicTrustMetrics"] = canonical
+    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessCoverageGapKeys"] = [
+        "ux_bundle",
+        "desktop_client",
+    ]
+    payload["publicTrustMetrics"]["revocationFacts"]["activeRevocations"] = list(
+        reversed(payload["publicTrustMetrics"]["revocationFacts"]["activeRevocations"])
+    )
+
+    MODULE.verify_public_trust_metrics(payload, "release-channel.json")
+
+
+def test_verify_public_trust_metrics_preserves_embedded_flagship_block_without_timestamp() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+
+    proof_freshness = payload["publicTrustMetrics"]["proofFreshness"]
+    proof_freshness["flagshipReadinessGeneratedAt"] = None
+    proof_freshness["flagshipReadinessAgeSeconds"] = 94
+    proof_freshness["flagshipReadinessMaxAgeSeconds"] = 604800
+    proof_freshness["flagshipReadinessStatus"] = "pass"
+    proof_freshness["flagshipReadinessCoverageGapKeys"] = ["desktop_client"]
+    proof_freshness["flagshipDesktopClientReady"] = True
+    proof_freshness["flagshipReadinessReason"] = "Desktop readiness is green."
+
+    expected = MODULE.expected_public_trust_metrics(payload)
+
+    assert "flagshipReadinessStatus" in expected["proofFreshness"]
+    assert expected["proofFreshness"]["flagshipReadinessGeneratedAt"] is None
+    assert expected["proofFreshness"]["flagshipReadinessAgeSeconds"] == 94
+    assert expected["proofFreshness"]["flagshipReadinessMaxAgeSeconds"] == 604800
+
+    payload["publicTrustMetrics"] = expected
+    MODULE.verify_public_trust_metrics(payload, "release-channel.json")
+
+
+def test_verify_public_trust_metrics_includes_diff_when_mismatch_remains() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["publicTrustMetrics"]["releaseChannel"]["recommendedRouteCount"] = 999
+
+    with pytest.raises(SystemExit, match="expected_publicTrustMetrics") as excinfo:
+        MODULE.verify_public_trust_metrics(payload, "release-channel.json")
+
+    assert "actual_publicTrustMetrics" in str(excinfo.value)
+
+
+def test_expected_public_trust_metrics_counts_account_linked_and_revoked_routes() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["artifacts"][0]["installAccessClass"] = "account_required"
+    payload["desktopTupleCoverage"]["desktopRouteTruth"].append(
+        {
+            "tupleId": "avalonia:macos:osx-arm64",
+            "head": "avalonia",
+            "platform": "macos",
+            "rid": "osx-arm64",
+            "arch": "arm64",
+            "artifactId": "avalonia-osx-arm64-installer",
+            "routeRole": "primary",
+            "promotionState": "revoked",
+            "revokeState": "revoked",
+            "revokeSource": "artifact",
+            "revokeReasonCode": "registry_revoke_marker_active",
+            "revokeReason": "Startup smoke regressed for macOS.",
+            "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
+        }
+    )
+
+    metrics = MODULE.expected_public_trust_metrics(payload)
+
+    assert metrics["adoptionHealth"]["publicInstallCount"] == 0
+    assert metrics["adoptionHealth"]["accountLinkedInstallCount"] == 1
+    assert metrics["adoptionHealth"]["revokedRouteCount"] == 1
+    assert metrics["revocationFacts"]["status"] == "revoked"
+    assert metrics["revocationFacts"]["activeRevocationCount"] == 1
+    assert metrics["revocationFacts"]["activeRevocations"][0]["tupleId"] == "avalonia:macos:osx-arm64"
+
+
 def test_verify_required_desktop_heads_accepts_primary_head_set() -> None:
     MODULE.verify_required_desktop_heads(["avalonia"], "release-channel.json")
 
@@ -204,6 +860,15 @@ def test_verify_required_desktop_heads_rejects_unexpected_extra_head() -> None:
 def test_verify_required_desktop_heads_rejects_order_drift() -> None:
     with pytest.raises(SystemExit, match="requiredDesktopHeads must be exactly canonical heads"):
         MODULE.verify_required_desktop_heads(["blazor-desktop", "avalonia"], "release-channel.json")
+
+
+def test_verify_desktop_tuple_coverage_accepts_windows_only_published_primary_route() -> None:
+    payload = windows_only_primary_desktop_tuple_payload()
+
+    coverage = MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+    assert coverage["missing_platforms"] == []
+    assert coverage["missing_platform_head_rid_tuples"] == []
 
 
 def test_verify_desktop_tuple_coverage_complete_flag_rejects_mismatch() -> None:
@@ -2390,25 +3055,4 @@ def test_expected_desktop_route_truth_rows_treat_artifact_rollout_state_as_tuple
 
 
 if __name__ == "__main__":
-    test_functions = sorted(
-        (
-            name,
-            value,
-        )
-        for name, value in globals().items()
-        if name.startswith("test_") and callable(value)
-    )
-    failures: list[str] = []
-    for name, test_function in test_functions:
-        try:
-            parameters = inspect.signature(test_function).parameters
-            if "tmp_path" in parameters:
-                with tempfile.TemporaryDirectory(prefix=f"{name}-") as tmp_dir:
-                    test_function(tmp_path=Path(tmp_dir))
-            else:
-                test_function()
-        except Exception as error:  # pragma: no cover - command-line execution only.
-            failures.append(f"{name}: {error}")
-    if failures:
-        raise SystemExit("\n".join(failures))
-    print(f"ok: {len(test_functions)} tests passed")
+    unittest.main()
