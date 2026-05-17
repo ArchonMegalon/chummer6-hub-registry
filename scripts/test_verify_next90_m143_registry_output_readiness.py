@@ -93,8 +93,8 @@ class VerifyNext90M143RegistryOutputReadinessTests(unittest.TestCase):
             shutil.copyfile(canonical_queue_staging, canonical_queue)
             mutated_queue.write_text(
                 mutated_queue.read_text(encoding="utf-8").replace(
-                    "work_task_id: '143.4'\n  frontier_id: 5248695888",
-                    "work_task_id: '143.4'\n  frontier_id: 5248695889",
+                    "work_task_id: '143.4'\n  frontier_id: 5248695888\n  milestone_id: 143\n  status: complete",
+                    "work_task_id: '143.4'\n  frontier_id: 5248695888\n  milestone_id: 143\n  status: in_progress",
                     1,
                 ),
                 encoding="utf-8",
@@ -119,6 +119,31 @@ class VerifyNext90M143RegistryOutputReadinessTests(unittest.TestCase):
             "queue staging package next90-m143-registry-keep-public-or-signed-in-release-and-exchange-surfaces-from-oversta drifted between repo-local mirror",
             result.stdout,
         )
+
+    def test_reopened_queue_row_is_rejected(self) -> None:
+        queue_staging = REPO_ROOT / ".codex-design/product/NEXT_90_DAY_QUEUE_STAGING.generated.yaml"
+        with tempfile.TemporaryDirectory(prefix="next90-m143-queue-reopen-") as tmp_dir:
+            mutated_queue = Path(tmp_dir) / queue_staging.name
+            shutil.copyfile(queue_staging, mutated_queue)
+            mutated_queue.write_text(
+                mutated_queue.read_text(encoding="utf-8").replace(
+                    "work_task_id: '143.4'\n  frontier_id: 5248695888\n  milestone_id: 143\n  status: complete",
+                    "work_task_id: '143.4'\n  frontier_id: 5248695888\n  milestone_id: 143\n  status: in_progress",
+                    1,
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--queue-staging", str(mutated_queue)],
+                cwd=str(REPO_ROOT),
+                check=False,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("queue staging package", result.stdout)
+        self.assertIn("drifted between repo-local mirror", result.stdout)
 
     def test_release_verifier_missing_proof_freshness_guard_is_rejected(self) -> None:
         release_verifier = REPO_ROOT / "scripts/verify_public_release_channel.py"
@@ -156,7 +181,7 @@ class VerifyNext90M143RegistryOutputReadinessTests(unittest.TestCase):
             shutil.copyfile(canonical_successor_registry, canonical_registry)
             mutated_registry.write_text(
                 mutated_registry.read_text(encoding="utf-8").replace(
-                    "title: Keep public or signed-in release and exchange surfaces from overstating output readiness when proof receipts are stale or incomplete.",
+                    "title: Keep public or signed-in release and exchange surfaces from overstating output readiness when proof receipts are stale or incomplete.\n      status: complete",
                     "title: Keep public or signed-in release and exchange surfaces from overstating output readiness when proof receipts are stale or incomplete.\n      status: in_progress",
                     1,
                 ),
@@ -179,9 +204,34 @@ class VerifyNext90M143RegistryOutputReadinessTests(unittest.TestCase):
             )
         self.assertNotEqual(result.returncode, 0)
         self.assertIn(
-            "successor registry task 143.4 drifted between repo-local mirror",
+            "successor registry task 143.4 is missing required snippet",
             result.stdout,
         )
+
+    def test_reopened_successor_registry_row_is_rejected(self) -> None:
+        successor_registry = REPO_ROOT / ".codex-design/product/NEXT_90_DAY_PRODUCT_ADVANCE_REGISTRY.yaml"
+        with tempfile.TemporaryDirectory(prefix="next90-m143-registry-reopen-") as tmp_dir:
+            mutated_registry = Path(tmp_dir) / successor_registry.name
+            shutil.copyfile(successor_registry, mutated_registry)
+            mutated_registry.write_text(
+                mutated_registry.read_text(encoding="utf-8").replace(
+                    "title: Keep public or signed-in release and exchange surfaces from overstating output readiness when proof receipts are stale or incomplete.\n      status: complete",
+                    "title: Keep public or signed-in release and exchange surfaces from overstating output readiness when proof receipts are stale or incomplete.\n      status: in_progress",
+                    1,
+                ),
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [sys.executable, str(SCRIPT), "--successor-registry", str(mutated_registry)],
+                cwd=str(REPO_ROOT),
+                check=False,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("successor registry task 143.4 is missing required snippet", result.stdout)
+        self.assertIn("status: complete", result.stdout)
 
     def test_stale_manifest_rejects_published_output_readiness(self) -> None:
         manifest = REPO_ROOT / ".codex-studio/published/RELEASE_CHANNEL.generated.json"

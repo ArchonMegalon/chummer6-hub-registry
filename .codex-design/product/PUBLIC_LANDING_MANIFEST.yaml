@@ -2,8 +2,8 @@ product: chummer
 surface: chummer.run
 version: 1
 headline: Build a runner, explain every ruling, and recover the campaign.
-subhead: Start with the current preview, inspect the modifier trail, and keep the next session moving with explainable math, durable state, and visible recovery paths.
-proof_line: Public preview, honest status, and a visible walkthrough of the files, named flows, and recent checks posted today.
+subhead: Start with the current public release, inspect the modifier trail, and keep the next session moving with explainable math, durable state, and visible recovery paths.
+proof_line: Public release, honest status, and a visible walkthrough of the files, named flows, and recent checks posted today.
 no_provider_names: true
 no_ltd_names: true
 hero_ctas:
@@ -27,15 +27,15 @@ secondary_highlights:
   - Local-first continuity
   - Black Ledger turn 1 ran
   - Public signal board stays first-party
-product_proof_eyebrow: Preview snapshot
-product_proof_intro: Open downloads for the current preview, inspect one visible explanation trail, and see what the posted files, named flows, and seeded Black Ledger world already show today without reading that snapshot as a finished-product claim, a fallback recommendation, or a substitute for the install shelf.
+product_proof_eyebrow: Release snapshot
+product_proof_intro: Open downloads for the current public release, inspect one visible explanation trail, and see what the posted files, named flows, and seeded Black Ledger world already show today without reading that snapshot as a blanket finished-product claim, a fallback recommendation, or a substitute for the install shelf.
 product_proof_primary_label: Open downloads
 product_proof_primary_href: /downloads
 product_proof_secondary_label: Inspect the explanation trail
 product_proof_secondary_href: /now#real-rules-truth
-product_proof_topline_label: Posted preview snapshot
+product_proof_topline_label: Posted release snapshot
 product_proof_scope_line: What you see on the public shelf is scoped to the posted files, named flows, and recent checks visible today; it is not a blanket finished-product claim and it does not outrank the recommended install route.
-product_flagship_boundary_line: Preview pages, fallback routes, artifact explainers, and packet-detail artifacts can show real progress, but they are still preview surfaces rather than finished-product claims.
+product_flagship_boundary_line: Public pages, fallback routes, artifact explainers, and packet-detail artifacts can show real progress, but they still have explicit scope boundaries rather than pretending to be blanket finished-product claims.
 product_proof_result_title: Final pool 9
 product_proof_result_summary: Same inputs, same answer, with the explanation trail, posted-shelf posture, and current boundary still attached.
 product_proof_trail:
@@ -209,6 +209,15 @@ public_routes:
     must_exist: true
     placeholder_allowed: false
     placeholder_requirements: bounded role-aware play entry only
+  - path: /play/continuity
+    title: NEXUS-PAN continuity
+    audience: public
+    purpose: continuity_projection
+    requires_auth: false
+    guest_fallback: /play/continuity
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: public-safe claimed install, reconnect, and receipt rail only
   - path: /player
     title: Player alias
     audience: public
@@ -248,6 +257,281 @@ public_routes:
     verification_mode: controller_contract
     verification_file: Chummer.Run.Api/Controllers/PublicLandingController.cs
     verification_pattern: '[HttpGet("/anarchy")]'
+  - path: /ready
+    title: Ready for Tonight
+    audience: public
+    purpose: session_start_mvp
+    requires_auth: false
+    guest_fallback: /ready
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: shipped first-party verdict, packet, and handoff rail
+  - path: /tonight
+    title: Tonight alias
+    audience: public
+    purpose: session_start_preview
+    requires_auth: false
+    guest_fallback: /tonight
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: alias into ready-for-tonight preview only
+  - path: /rules
+    title: Knowledge Fabric
+    audience: public
+    purpose: source_aware_explain_preview
+    requires_auth: false
+    guest_fallback: /rules
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: source-aware explain preview only
+  - path: /knowledge
+    title: Knowledge alias
+    audience: public
+    purpose: source_aware_explain_preview
+    requires_auth: false
+    guest_fallback: /knowledge
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: alias into knowledge fabric preview only
+  - path: /jackpoint
+    title: JACKPOINT
+    audience: public
+    purpose: dossier_packet_preview
+    requires_auth: false
+    guest_fallback: /jackpoint
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: public-safe dossier and mission-brief packet rail only
+  - path: /briefings
+    title: Briefings alias
+    audience: public
+    purpose: dossier_packet_preview
+    requires_auth: false
+    guest_fallback: /briefings
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: alias into briefing preview only
+  - path: /jackpoint/briefings/{briefingId}.md
+    title: JACKPOINT briefing markdown
+    audience: public
+    purpose: dossier_packet_preview
+    requires_auth: false
+    guest_fallback: /jackpoint/briefings/{briefingId}.md
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: player-safe dossier markdown only
+    verification_path: /jackpoint/briefings/emerald-sprawl-briefing.md
+  - path: /jackpoint/briefings/{briefingId}.json
+    title: JACKPOINT briefing JSON
+    audience: public
+    purpose: dossier_packet_preview
+    requires_auth: false
+    guest_fallback: /jackpoint/briefings/{briefingId}.json
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: player-safe dossier json only
+    verification_path: /jackpoint/briefings/emerald-sprawl-briefing.json
+  - path: /runsites
+    title: RUNSITE
+    audience: public
+    purpose: runsite_packet_preview
+    requires_auth: false
+    guest_fallback: /runsites
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: runsite packet, pressure, and site-card rail only
+  - path: /runsites/packs/{packId}.md
+    title: RUNSITE pack markdown
+    audience: public
+    purpose: runsite_packet_preview
+    requires_auth: false
+    guest_fallback: /runsites/packs/{packId}.md
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: site packet markdown only
+    verification_path: /runsites/packs/redmond-dockyard-pack.md
+  - path: /runsites/packs/{packId}.json
+    title: RUNSITE pack JSON
+    audience: public
+    purpose: runsite_packet_preview
+    requires_auth: false
+    guest_fallback: /runsites/packs/{packId}.json
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: site packet json only
+    verification_path: /runsites/packs/redmond-dockyard-pack.json
+  - path: /runbook
+    title: RUNBOOK PRESS
+    audience: public
+    purpose: primer_packet_preview
+    requires_auth: false
+    guest_fallback: /runbook
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: printable primer and onboarding packet rail only
+  - path: /runbook/primers/{primerId}.md
+    title: RUNBOOK primer markdown
+    audience: public
+    purpose: primer_packet_preview
+    requires_auth: false
+    guest_fallback: /runbook/primers/{primerId}.md
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: printable primer markdown only
+    verification_path: /runbook/primers/new-runner-primer.md
+  - path: /runbook/primers/{primerId}.json
+    title: RUNBOOK primer JSON
+    audience: public
+    purpose: primer_packet_preview
+    requires_auth: false
+    guest_fallback: /runbook/primers/{primerId}.json
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: printable primer json only
+    verification_path: /runbook/primers/new-runner-primer.json
+  - path: /primers
+    title: Primers alias
+    audience: public
+    purpose: primer_packet_preview
+    requires_auth: false
+    guest_fallback: /primers
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: alias into primer preview only
+  - path: /community
+    title: Community Hub
+    audience: public
+    purpose: community_hub_mvp
+    requires_auth: false
+    guest_fallback: /community
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: open-run board and moderation packet hub only
+  - path: /community/open-runs/{packetId}.md
+    title: Community Hub packet markdown
+    audience: public
+    purpose: community_hub_mvp
+    requires_auth: false
+    guest_fallback: /community/open-runs/{packetId}.md
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: first-party community packet markdown only
+    verification_path: /community/open-runs/open_run_board.md
+  - path: /community/open-runs/{packetId}.json
+    title: Community Hub packet JSON
+    audience: public
+    purpose: community_hub_mvp
+    requires_auth: false
+    guest_fallback: /community/open-runs/{packetId}.json
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: first-party community packet json only
+    verification_path: /community/open-runs/open_run_board.json
+  - path: /runs
+    title: Open Run alias
+    audience: public
+    purpose: community_preview
+    requires_auth: false
+    guest_fallback: /runs
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: alias into community preview only
+  - path: /organizers
+    title: Organizers alias
+    audience: public
+    purpose: community_preview
+    requires_auth: false
+    guest_fallback: /organizers
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: alias into community preview only
+  - path: /creator
+    title: Creator OS
+    audience: public
+    purpose: creator_os_mvp
+    requires_auth: false
+    guest_fallback: /creator
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: governed creator publication hub only
+  - path: /creator/packets/{packetId}.md
+    title: Creator OS packet markdown
+    audience: public
+    purpose: creator_os_mvp
+    requires_auth: false
+    guest_fallback: /creator/packets/{packetId}.md
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: governed creator packet markdown only
+    verification_path: /creator/packets/publication_board.md
+  - path: /creator/packets/{packetId}.json
+    title: Creator OS packet JSON
+    audience: public
+    purpose: creator_os_mvp
+    requires_auth: false
+    guest_fallback: /creator/packets/{packetId}.json
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: governed creator packet json only
+    verification_path: /creator/packets/publication_board.json
+  - path: /ghostwire
+    title: GHOSTWIRE
+    audience: public
+    purpose: ghostwire_mvp
+    requires_auth: false
+    guest_fallback: /ghostwire
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: public-safe after-action packet hub only
+  - path: /ghostwire/after-action/{packetId}.md
+    title: GHOSTWIRE packet markdown
+    audience: public
+    purpose: ghostwire_mvp
+    requires_auth: false
+    guest_fallback: /ghostwire/after-action/{packetId}.md
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: first-party after-action markdown only
+    verification_path: /ghostwire/after-action/replay_timeline.md
+  - path: /ghostwire/after-action/{packetId}.json
+    title: GHOSTWIRE packet JSON
+    audience: public
+    purpose: ghostwire_mvp
+    requires_auth: false
+    guest_fallback: /ghostwire/after-action/{packetId}.json
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: first-party after-action json only
+    verification_path: /ghostwire/after-action/replay_timeline.json
+  - path: /passport
+    title: Runner Passport
+    audience: public
+    purpose: runner_passport_mvp
+    requires_auth: false
+    guest_fallback: /passport
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: public-safe participation identity hub only
+  - path: /passport/receipts/{receiptId}.md
+    title: Runner Passport receipt markdown
+    audience: public
+    purpose: runner_passport_mvp
+    requires_auth: false
+    guest_fallback: /passport/receipts/{receiptId}.md
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: runner passport markdown receipt only
+    verification_path: /passport/receipts/runner_return_posture.md
+  - path: /passport/receipts/{receiptId}.json
+    title: Runner Passport receipt JSON
+    audience: public
+    purpose: runner_passport_mvp
+    requires_auth: false
+    guest_fallback: /passport/receipts/{receiptId}.json
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: runner passport json receipt only
+    verification_path: /passport/receipts/runner_return_posture.json
   - path: /play/anarchy
     title: Anarchy play shell
     audience: public
@@ -272,6 +556,35 @@ public_routes:
     verification_mode: controller_contract
     verification_file: Chummer.Run.Api/Controllers/PublicLandingController.cs
     verification_pattern: '[HttpGet("/ledger/anarchy")]'
+  - path: /anarchy/export/runner.json
+    title: Anarchy runner export
+    audience: public
+    purpose: dedicated_ruleset_export
+    requires_auth: false
+    guest_fallback: /anarchy/export/runner.json
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: first-party anarchy export json only
+    verification_path: /anarchy/export/runner.json
+  - path: /anarchy/receipts/explain.json
+    title: Anarchy explain receipt
+    audience: public
+    purpose: dedicated_ruleset_export
+    requires_auth: false
+    guest_fallback: /anarchy/receipts/explain.json
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: first-party anarchy explain receipt only
+    verification_path: /anarchy/receipts/explain.json
+  - path: /exports/foundry
+    title: Foundry handoff
+    audience: public
+    purpose: honestly_parked_horizon
+    requires_auth: false
+    guest_fallback: /exports/foundry
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: honestly parked Foundry boundary only
   - path: /session
     title: Legacy session alias
     audience: public
@@ -643,7 +956,7 @@ public_routes:
     guest_fallback: /ledger
     must_exist: true
     placeholder_allowed: false
-    placeholder_requirements: aggregate-only Black Ledger hub
+    placeholder_requirements: globe-first Black Ledger hub with bounded public-safe fallback
     verification_mode: controller_contract
     verification_file: Chummer.Run.Api/Controllers/PublicLandingController.cs
     verification_pattern: '[HttpGet("/ledger")]'
@@ -655,7 +968,7 @@ public_routes:
     guest_fallback: /ledger/map
     must_exist: true
     placeholder_allowed: false
-    placeholder_requirements: public-safe command map and list fallback only
+    placeholder_requirements: globe-first geoscape with reduced-motion and SVG/list fallback
     verification_mode: controller_contract
     verification_file: Chummer.Run.Api/Controllers/PublicLandingController.cs
     verification_pattern: '[HttpGet("/ledger/map")]'
@@ -757,7 +1070,7 @@ public_routes:
     verification_mode: controller_contract
     verification_file: Chummer.Run.Api/Controllers/PublicLandingController.cs
     verification_pattern: '[HttpGet("/ledger/dispatches/{dispatchId}")]'
-    verification_path: /ledger/dispatches/ledger_dispatch_emerald-sprawl-prelude_turn_0001
+    verification_path: /ledger/dispatches/dispatch_turn_0001_main
   - path: /ledger/turns/{turn}
     title: BLACK LEDGER turn replay
     audience: public
@@ -797,6 +1110,55 @@ public_routes:
     verification_file: Chummer.Run.Api/Controllers/PublicLandingController.cs
     verification_pattern: '[HttpGet("/ledger/factions/{factionId}/dispatches")]'
     verification_path: /ledger/factions/ashline-circle/dispatches
+  - path: /ledger/factions/{factionId}/packages
+    title: BLACK LEDGER faction package pressure
+    audience: public
+    purpose: flagship_public_hub
+    requires_auth: false
+    guest_fallback: /ledger/factions/{factionId}/packages
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: public-safe faction package pressure only
+    verification_mode: controller_contract
+    verification_file: Chummer.Run.Api/Controllers/PublicLandingController.cs
+    verification_pattern: '[HttpGet("/ledger/factions/{factionId}/packages")]'
+    verification_path: /ledger/factions/ashline-circle/packages
+  - path: /account/ledger
+    title: BLACK LEDGER faction home
+    audience: signed_in
+    purpose: flagship_account_hub
+    requires_auth: true
+    guest_fallback: /login?next=/account/ledger
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: authenticated allegiance home only
+    verification_mode: controller_contract
+    verification_file: Chummer.Run.Api/Controllers/PublicLandingController.cs
+    verification_pattern: '[HttpGet("/account/ledger")]'
+  - path: /account/ledger/onboarding
+    title: BLACK LEDGER onboarding
+    audience: signed_in
+    purpose: flagship_account_hub
+    requires_auth: true
+    guest_fallback: /login?next=/account/ledger/onboarding
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: authenticated account onboarding wizard only
+    verification_mode: controller_contract
+    verification_file: Chummer.Run.Api/Controllers/PublicLandingController.cs
+    verification_pattern: '[HttpGet("/account/ledger/onboarding")]'
+  - path: /account/ledger/factions/create
+    title: BLACK LEDGER faction charter builder
+    audience: signed_in
+    purpose: flagship_account_hub
+    requires_auth: true
+    guest_fallback: /login?next=/account/ledger/factions/create
+    must_exist: true
+    placeholder_allowed: false
+    placeholder_requirements: authenticated faction charter builder only
+    verification_mode: controller_contract
+    verification_file: Chummer.Run.Api/Controllers/PublicLandingController.cs
+    verification_pattern: '[HttpGet("/account/ledger/factions/create")]'
   - path: /api/v1/ledger/worlds/{worldId}/map
     title: BLACK LEDGER map API
     audience: public

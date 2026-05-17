@@ -3488,7 +3488,7 @@ def release_channel_public_posture(
         return "blocked"
     if normalized_status != "published":
         return "blocked"
-    if normalized_channel in {"stable", "public_stable"} and normalized_rollout == "public_stable":
+    if normalized_rollout == "public_stable":
         return "live"
     return "preview"
 
@@ -3790,7 +3790,11 @@ def derive_rollout_state(
     if not desktop_coverage_complete:
         return "coverage_incomplete"
     if proof and str(proof.get("status") or "").strip().lower() == "passed":
-        return "promoted_preview" if channel in {"preview", "docker"} else channel
+        if channel in {"stable", "public_stable", "docker"}:
+            return "public_stable"
+        if channel == "preview":
+            return "promoted_preview"
+        return channel
     return "promoted_preview" if channel == "preview" else channel
 
 
@@ -3840,7 +3844,7 @@ def derive_supportability_state(
     if proof_freshness_blocks_output_readiness(proof_freshness_status):
         return "review_required"
     if proof and str(proof.get("status") or "").strip().lower() == "passed":
-        return "gold_supported" if normalize_token(channel) in {"stable", "public_stable"} else "preview_supported"
+        return "gold_supported" if normalize_token(channel) in {"stable", "public_stable", "docker"} else "preview_supported"
     return "review_required"
 
 
@@ -3883,11 +3887,11 @@ def derive_supportability_summary(
                     "Community organizer closure stayed grounded on the current shelf."
                 )
             note_suffix = (" " + " ".join(proof_notes)) if proof_notes else ""
-            prefix = "Gold release proof passed" if normalize_token(channel) in {"stable", "public_stable"} else "Local release proof passed"
+            prefix = "Gold release proof passed" if normalize_token(channel) in {"stable", "public_stable", "docker"} else "Local release proof passed"
             return f"{prefix} for: {journey_list}.{note_suffix}"
         return (
             "Gold release proof passed for the current shelf."
-            if normalize_token(channel) in {"stable", "public_stable"}
+            if normalize_token(channel) in {"stable", "public_stable", "docker"}
             else "Local release proof passed for the current shelf."
         )
     return "Treat the current shelf as review-required until release proof and support closure checks pass."
@@ -3922,7 +3926,7 @@ def derive_known_issue_summary(
             proof_notes.append("community closure")
         proof_note_text = ", ".join(proof_notes)
         proof_note_clause = f", {proof_note_text}" if proof_note_text else ""
-        if normalize_token(channel) in {"stable", "public_stable"}:
+        if normalize_token(channel) in {"stable", "public_stable", "docker"}:
             return (
                 "No blocking release caveat is mirrored for the current public shelf. "
                 "The promoted routes have recent install"
@@ -4009,15 +4013,22 @@ def normalize_release_channel_posture(
     if (
         status == "published"
         and desktop_coverage_complete
+        and rollout_state == "promoted_preview"
+        and derived_rollout_state == "public_stable"
+    ):
+        rollout_state = derived_rollout_state
+    if (
+        status == "published"
+        and desktop_coverage_complete
         and rollout_state == "local_docker_preview"
-        and derived_rollout_state == "promoted_preview"
+        and derived_rollout_state in {"promoted_preview", "public_stable"}
     ):
         rollout_state = derived_rollout_state
     if (
         status == "published"
         and desktop_coverage_complete
         and supportability_state == "local_docker_proven"
-        and derived_supportability_state == "preview_supported"
+        and derived_supportability_state in {"preview_supported", "gold_supported"}
     ):
         supportability_state = derived_supportability_state
     if (

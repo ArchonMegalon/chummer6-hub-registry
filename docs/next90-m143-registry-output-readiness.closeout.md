@@ -2,6 +2,8 @@
 
 This proof note records the repo-local evidence for successor task `143.4` in `chummer6-hub-registry`: keep public or signed-in release and exchange surfaces from overstating output readiness when proof receipts are stale or incomplete.
 
+The package is now in closed-package posture. Future shards should verify these anchors instead of reopening the slice unless the registry-owned release or exchange output-readiness contract materially changes.
+
 ## What is anchored here
 
 - canonical successor-registry title: `Keep public or signed-in release and exchange surfaces from overstating output readiness when proof receipts are stale or incomplete.`
@@ -18,6 +20,7 @@ This proof note records the repo-local evidence for successor task `143.4` in `c
 ## Current package boundary
 
 - The canonical successor task remains `143.4` in the next-90 registry and queue mirror.
+- The canonical successor task is marked `status: complete` with `completion_action: verify_closed_package_only` in both the repo-local mirror and the canonical successor-wave registry.
 - Allowed paths stay scoped to `Chummer.Hub.Registry`, `scripts`, and `docs`.
 - Owned surfaces stay scoped to `keep_public_or_signed_in_release_and_exchange_surfaces_f:registry`.
 - This slice does not claim downstream Hub route copy, UI screenshots, or core export receipt generation; it keeps registry-owned release and exchange projections honest when proof freshness degrades.

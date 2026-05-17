@@ -47,6 +47,7 @@ FORBIDDEN_HELPER_MARKERS = (
 )
 REQUIRED_PROOF_SNIPPETS = (
     "successor task `143.4`",
+    "closed-package posture",
     "proof receipts are stale or incomplete",
     "`artifactIdentityRegistry`, `artifactPublicationBindings`, and `exchangeLineageRegistry`",
     "`scripts/verify_next90_m143_registry_output_readiness.py`",
@@ -86,6 +87,8 @@ REQUIRED_PACKAGE_TEST_SNIPPETS = (
     "test_pipeline_doc_missing_verify_gate_note_is_rejected",
     "test_queue_mirror_drift_is_rejected",
     "test_release_verifier_missing_proof_freshness_guard_is_rejected",
+    "test_reopened_queue_row_is_rejected",
+    "test_reopened_successor_registry_row_is_rejected",
     "test_successor_registry_mirror_drift_is_rejected",
     "test_stale_manifest_rejects_supported_release_posture",
     "test_stale_manifest_rejects_published_output_readiness",
@@ -160,6 +163,11 @@ def verify_successor_registry(path: Path) -> None:
     required = (
         "owner: chummer6-hub-registry",
         f"title: {EXPECTED_TITLE}",
+        "status: complete",
+        "completion_action: verify_closed_package_only",
+        "do_not_reopen_reason: M143 chummer6-hub-registry output-readiness posture is complete;",
+        "scripts/verify_next90_m143_registry_output_readiness.py",
+        "RELEASE_CHANNEL.generated.json records the current fresh-proof release and exchange output-readiness posture",
     )
     for snippet in required:
         if snippet not in block:
@@ -218,9 +226,12 @@ def verify_queue_staging(path: Path, *, canonical_path: Path | None = None) -> N
         "work_task_id: '143.4'",
         "milestone_id: 143",
         f"frontier_id: {EXPECTED_FRONTIER_ID}",
-        "status: not_started",
+        "status: complete",
         f"wave: {EXPECTED_WAVE}",
         f"repo: {EXPECTED_REPO}",
+        "completion_action: verify_closed_package_only",
+        "do_not_reopen_reason: M143 chummer6-hub-registry output-readiness posture is complete;",
+        "/docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m143_registry_output_readiness.py",
     )
     for snippet in required:
         normalized_snippet = " ".join(snippet.split())
@@ -352,7 +363,7 @@ def run_self_test() -> None:
         shutil.copyfile(DEFAULT_CANONICAL_SUCCESSOR_REGISTRY, canonical_successor_registry)
         successor_registry.write_text(
             successor_registry.read_text(encoding="utf-8").replace(
-                f"title: {EXPECTED_TITLE}",
+                f"title: {EXPECTED_TITLE}\n      status: complete",
                 f"title: {EXPECTED_TITLE}\n      status: in_progress",
                 1,
             ),
@@ -372,8 +383,8 @@ def run_self_test() -> None:
         shutil.copyfile(DEFAULT_CANONICAL_QUEUE_STAGING, canonical_queue)
         queue_staging.write_text(
             queue_staging.read_text(encoding="utf-8").replace(
-                f"work_task_id: '{TASK_ID}'\n  frontier_id: {EXPECTED_FRONTIER_ID}",
-                f"work_task_id: '{TASK_ID}'\n  frontier_id: 5248695889",
+                f"work_task_id: '{TASK_ID}'\n  frontier_id: {EXPECTED_FRONTIER_ID}\n  milestone_id: 143\n  status: complete",
+                f"work_task_id: '{TASK_ID}'\n  frontier_id: {EXPECTED_FRONTIER_ID}\n  milestone_id: 143\n  status: in_progress",
                 1,
             ),
             encoding="utf-8",
