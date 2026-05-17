@@ -49,6 +49,40 @@ DEFAULT_HTTP_HEADERS = {
     "Cache-Control": "no-cache",
     "Pragma": "no-cache",
 }
+
+
+def write_registry_mismatch_audit(
+    *,
+    source: str,
+    audit_stem: str,
+    actual_rows: list[dict[str, Any]],
+    expected_rows: list[dict[str, Any]],
+) -> Path | None:
+    source_path = Path(str(source or "").strip())
+    if not source_path.is_file():
+        return None
+    audit_dir = source_path.parent / "manifest-validation-audit"
+    try:
+        audit_dir.mkdir(parents=True, exist_ok=True)
+        actual_path = audit_dir / f"{audit_stem}.actual.json"
+        expected_path = audit_dir / f"{audit_stem}.expected.json"
+        diff_path = audit_dir / f"{audit_stem}.diff.txt"
+        actual_text = json.dumps(actual_rows, indent=2) + "\n"
+        expected_text = json.dumps(expected_rows, indent=2) + "\n"
+        diff_text = "".join(
+            difflib.unified_diff(
+                actual_text.splitlines(keepends=True),
+                expected_text.splitlines(keepends=True),
+                fromfile=actual_path.name,
+                tofile=expected_path.name,
+            )
+        )
+        actual_path.write_text(actual_text, encoding="utf-8")
+        expected_path.write_text(expected_text, encoding="utf-8")
+        diff_path.write_text(diff_text, encoding="utf-8")
+        return audit_dir
+    except OSError:
+        return None
 REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
 REQUIRED_DESKTOP_HEADS = ("avalonia",)
 DESKTOP_ROUTE_TRUTH_HEADS = ("avalonia", "blazor-desktop")
@@ -4046,7 +4080,16 @@ def verify_artifact_identity_registry(payload: dict[str, Any], source: str) -> N
     normalized_rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
     expected_rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
     if normalized_rows != expected_rows:
-        raise SystemExit(f"{source} artifactIdentityRegistry does not match canonical artifact identity truth")
+        audit_dir = write_registry_mismatch_audit(
+            source=source,
+            audit_stem="artifact-identity-registry",
+            actual_rows=normalized_rows,
+            expected_rows=expected_rows,
+        )
+        details = f"{source} artifactIdentityRegistry does not match canonical artifact identity truth"
+        if audit_dir is not None:
+            details += f" (audit written to {audit_dir})"
+        raise SystemExit(details)
 
 
 def verify_artifact_publication_bindings(payload: dict[str, Any], source: str) -> None:
