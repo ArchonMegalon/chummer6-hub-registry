@@ -1041,6 +1041,46 @@ def test_desktop_tuple_coverage_marks_primary_manual_recovery_when_fallback_is_m
     )
 
 
+def test_desktop_tuple_coverage_dedupes_multiple_macos_install_media_per_tuple() -> None:
+    coverage = MODULE.desktop_tuple_coverage(
+        [
+            {
+                "artifactId": "avalonia-osx-arm64-installer",
+                "head": "avalonia",
+                "platform": "macos",
+                "rid": "osx-arm64",
+                "arch": "arm64",
+                "kind": "dmg",
+                "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
+            },
+            {
+                "artifactId": "avalonia-osx-arm64-installer",
+                "head": "avalonia",
+                "platform": "macos",
+                "rid": "osx-arm64",
+                "arch": "arm64",
+                "kind": "pkg",
+                "fileName": "chummer-avalonia-osx-arm64-installer.pkg",
+            },
+        ],
+        required_heads=["avalonia"],
+        required_platforms=["macos"],
+        channel_id="preview",
+    )
+
+    assert coverage["promotedInstallerTuples"] == [
+        {
+            "tupleId": "avalonia:macos:osx-arm64",
+            "head": "avalonia",
+            "platform": "macos",
+            "rid": "osx-arm64",
+            "arch": "arm64",
+            "kind": "dmg",
+            "artifactId": "avalonia-osx-arm64-installer",
+        }
+    ]
+
+
 def test_desktop_tuple_coverage_keeps_fallback_rollback_tuple_specific() -> None:
     coverage = MODULE.desktop_tuple_coverage(
         [
@@ -1427,3 +1467,100 @@ def test_install_aware_artifact_registry_derives_concierge_rows_from_route_truth
             },
         },
     ]
+def test_desktop_surface_refs_derive_canonical_rows() -> None:
+    artifacts, coverage = install_aware_payload()
+
+    rows = MODULE.desktop_surface_refs(
+        artifacts,
+        coverage,
+        channel_id="docker",
+        release_version="run-20260420-072339",
+    )
+
+    assert rows == [
+        {
+            "registryId": "desktop-surface:docker:run-20260420-072339:avalonia:linux:linux-x64",
+            "artifactId": "avalonia-linux-x64-installer",
+            "channelId": "docker",
+            "releaseVersion": "run-20260420-072339",
+            "tupleId": "avalonia:linux:linux-x64",
+            "head": "avalonia",
+            "platform": "linux",
+            "rid": "linux-x64",
+            "arch": "x64",
+            "kind": "installer",
+            "installAccessClass": "open_public",
+            "desktopChannelRef": "desktop-channel:docker:run-20260420-072339:avalonia:linux:linux-x64",
+            "installGuidanceRef": "install-guidance:docker:run-20260420-072339:avalonia-linux-x64-installer",
+            "participationReceiptRef": "participation-receipt:docker:run-20260420-072339:avalonia:linux:linux-x64",
+            "rewardPublicationRef": "reward-publication:binding:docker:run-20260420-072339:avalonia:linux:linux-x64",
+            "publicationBindingId": "binding:docker:run-20260420-072339:avalonia:linux:linux-x64",
+            "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
+            "rationale": "docker keeps avalonia:linux:linux-x64 guest-readable so desktop channel, install guidance, participation, and reward refs stay governed without exposing provider internals.",
+        },
+        {
+            "registryId": "desktop-surface:docker:run-20260420-072339:blazor-desktop:windows:win-x64",
+            "artifactId": "blazor-desktop-win-x64-installer",
+            "channelId": "docker",
+            "releaseVersion": "run-20260420-072339",
+            "tupleId": "blazor-desktop:windows:win-x64",
+            "head": "blazor-desktop",
+            "platform": "windows",
+            "rid": "win-x64",
+            "arch": "x64",
+            "kind": "installer",
+            "installAccessClass": "account_required",
+            "desktopChannelRef": "desktop-channel:docker:run-20260420-072339:blazor-desktop:windows:win-x64",
+            "installGuidanceRef": "install-guidance:docker:run-20260420-072339:blazor-desktop-win-x64-installer",
+            "participationReceiptRef": "participation-receipt:docker:run-20260420-072339:blazor-desktop:windows:win-x64",
+            "rewardPublicationRef": "reward-publication:binding:docker:run-20260420-072339:blazor-desktop:windows:win-x64",
+            "publicationBindingId": "binding:docker:run-20260420-072339:blazor-desktop:windows:win-x64",
+            "publicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer",
+            "rationale": "docker keeps fallback tuple blazor-desktop:windows:win-x64 retained with entitlement-backed install guidance so recovery participation and reward refs stay governed.",
+        },
+    ]
+
+
+def test_artifact_identity_registry_derives_canonical_rows() -> None:
+    _, coverage = install_aware_payload()
+
+    rows = MODULE.artifact_identity_registry(
+        coverage,
+        channel_id="docker",
+        release_version="run-20260420-072339",
+    )
+
+    assert len(rows) == 2
+    assert rows[0]["registryId"] == "artifact-identity:docker:run-20260420-072339:avalonia:linux:linux-x64"
+    assert rows[0]["artifactFamilyId"] == "artifact-family:avalonia:linux:linux-x64"
+    assert rows[0]["publicationBindingId"] == "binding:docker:run-20260420-072339:avalonia:linux:linux-x64"
+    assert rows[0]["publicationState"] == "published"
+    assert rows[0]["previewRef"] == "registry-preview:avalonia-linux-x64-installer:avalonia:linux:linux-x64"
+    assert rows[0]["captionRef"] == "registry-caption:docker:run-20260420-072339:avalonia:linux:linux-x64"
+    assert rows[0]["packetRef"] == "registry-packet:docker:run-20260420-072339:avalonia-linux-x64-installer"
+    assert rows[0]["localeRef"] == "registry-locale:docker:run-20260420-072339:avalonia-linux-x64-installer"
+    assert rows[0]["retentionRef"] == "registry-retention:docker:run-20260420-072339:avalonia-linux-x64-installer"
+    assert rows[0]["retentionState"] == "current"
+    assert rows[0]["signedInShelfRef"] == "shelf:signed-in:docker:run-20260420-072339:avalonia-linux-x64-installer"
+    assert rows[0]["publicShelfRef"] == "shelf:public:docker:run-20260420-072339:avalonia-linux-x64-installer"
+    assert rows[1]["registryId"] == "artifact-identity:docker:run-20260420-072339:blazor-desktop:windows:win-x64"
+    assert rows[1]["artifactId"] == "blazor-desktop-win-x64-installer"
+    assert rows[1]["publicationState"] == "retained"
+    assert rows[1]["retentionState"] == "retained"
+
+
+def test_artifact_publication_bindings_derive_canonical_rows() -> None:
+    _, coverage = install_aware_payload()
+
+    rows = MODULE.artifact_publication_bindings(
+        coverage,
+        channel_id="docker",
+        release_version="run-20260420-072339",
+    )
+
+    assert len(rows) == 2
+    assert rows[0]["bindingId"] == "binding:docker:run-20260420-072339:avalonia:linux:linux-x64"
+    assert rows[0]["artifactFamilyId"] == "artifact-family:avalonia:linux:linux-x64"
+    assert rows[0]["publicationScope"] == "signed-in-and-public"
+    assert rows[0]["publicationState"] == "published"
+    assert row

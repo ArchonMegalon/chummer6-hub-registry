@@ -1132,10 +1132,19 @@ def desktop_route_artifact_is_revoked(artifact: dict[str, Any] | None) -> bool:
     )
 
 
-def desktop_route_artifact_selection_key(artifact: dict[str, Any]) -> tuple[int, str]:
+def desktop_route_artifact_selection_key(artifact: dict[str, Any]) -> tuple[int, str, str]:
     return (
         1 if desktop_route_artifact_is_revoked(artifact) else 0,
         normalized_token(artifact.get("artifactId") or artifact.get("id")),
+        normalize_file_name(artifact),
+    )
+
+
+def promoted_tuple_artifact_selection_key(artifact: dict[str, Any]) -> tuple[int, str, str]:
+    return (
+        1 if desktop_route_artifact_is_revoked(artifact) else 0,
+        normalized_token(artifact.get("artifactId") or artifact.get("id")),
+        normalize_file_name(artifact),
     )
 
 
@@ -1923,7 +1932,8 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
 
     expected_promoted_tuples: list[str] = []
     expected_promoted_tuple_rows: list[dict[str, str]] = []
-    expected_promoted_platform_heads: dict[str, set[str]] = {platform: set() for platform in REQUIRED_DESKTOP_PLATFORMS}
+    expected_promoted_platform_heads: dict[str, set[str]] = {platform: set() for platform in normalized_required_platforms}
+    expected_promoted_artifacts_by_tuple: dict[str, dict[str, Any]] = {}
     for artifact in iter_manifest_download_entries(payload):
         if not isinstance(artifact, dict):
             continue
@@ -1935,6 +1945,13 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         if desktop_route_artifact_is_revoked(artifact):
             continue
         tuple_id = f"{head}:{platform}:{rid}" if rid else f"{head}:{platform}"
+        current = expected_promoted_artifacts_by_tuple.get(tuple_id)
+        if current is None or promoted_tuple_artifact_selection_key(artifact) < promoted_tuple_artifact_selection_key(current):
+            expected_promoted_artifacts_by_tuple[tuple_id] = artifact
+        if head:
+            expected_promoted_platform_heads[platform].add(head)
+    for tuple_id, artifact in expected_promoted_artifacts_by_tuple.items():
+        head, platform, rid, kind = parse_manifest_tuple_fields(artifact)
         expected_promoted_tuples.append(tuple_id)
         expected_promoted_tuple_rows.append(
             {
@@ -1947,8 +1964,6 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
                 "artifactId": normalized_token(artifact.get("artifactId") or artifact.get("id")),
             }
         )
-        if head:
-            expected_promoted_platform_heads[platform].add(head)
 
     expected_promoted_tuple_rows.sort(
         key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"])
