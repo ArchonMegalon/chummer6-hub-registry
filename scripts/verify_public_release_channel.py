@@ -3189,6 +3189,14 @@ def expected_desktop_surface_ref_rows(payload: dict[str, Any]) -> list[dict[str,
         for artifact in artifacts
         if isinstance(artifact, dict)
     }
+    if not artifact_by_id:
+        downloads = payload.get("downloads") or []
+        if isinstance(downloads, list):
+            artifact_by_id = {
+                normalized_token(item.get("artifactId") or item.get("id")): item
+                for item in downloads
+                if isinstance(item, dict)
+            }
     channel_id = expected_channel_id(payload)
     release_version = release_version_for_registry(payload, source="desktopSurfaceRefs")
     rows: list[dict[str, Any]] = []

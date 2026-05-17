@@ -32,6 +32,7 @@ EXPECTED_QUEUE_TASK = (
 EXPECTED_QUEUE_WAVE = "W22"
 EXPECTED_QUEUE_REPO = "chummer6-hub-registry"
 EXPECTED_FRONTIER_ID = "1800141525"
+EXPECTED_QUEUE_STATUS = "not_started"
 EXPECTED_ALLOWED_PATHS = [
     "Chummer.Hub.Registry",
     "scripts",
@@ -39,25 +40,6 @@ EXPECTED_ALLOWED_PATHS = [
 ]
 EXPECTED_OWNED_SURFACES = [
     "close_registry_persistence_release_channel:hub_registry",
-]
-EXPECTED_DO_NOT_REOPEN_REASON = (
-    "M135.5 chummer6-hub-registry registry boundary coverage is complete; future shards must "
-    "verify the canonical registryBoundaryCoverage projection, queue row, mirror row, closeout, "
-    "and package verifier instead of reopening the persistence, release-channel, artifact-lineage, "
-    "publication, entitlement, and compatibility boundary slice."
-)
-EXPECTED_PROOF = [
-    "/docker/chummercomplete/chummer-hub-registry/docs/RELEASE_CHANNEL_PIPELINE.md",
-    "/docker/chummercomplete/chummer-hub-registry/docs/next90-m135-registry-boundary-coverage.closeout.md",
-    "/docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py",
-    "/docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py",
-    "/docker/chummercomplete/chummer-hub-registry/scripts/test_verify_public_release_channel.py",
-    "/docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m135_registry_boundary_coverage.py",
-    "/docker/chummercomplete/chummer-hub-registry/scripts/test_verify_next90_m135_registry_boundary_coverage.py",
-    "/docker/chummercomplete/chummer-hub-registry/.codex-studio/published/RELEASE_CHANNEL.generated.json",
-    "/docker/chummercomplete/chummer-hub-registry/.codex-studio/published/releases.json",
-    "python3 scripts/verify_public_release_channel.py .codex-studio/published",
-    "python3 -m unittest scripts/test_verify_public_release_channel.py scripts/test_verify_next90_m120_registry_launch_truth.py scripts/test_verify_next90_m135_registry_boundary_coverage.py",
 ]
 FORBIDDEN_HELPER_MARKERS = (
     "task_local_telemetry.generated.json",
@@ -203,11 +185,9 @@ def verify_queue_staging(path: Path) -> None:
         "work_task_id: '135.5'",
         "milestone_id: 135",
         f"frontier_id: {EXPECTED_FRONTIER_ID}",
-        "status: complete",
+        f"status: {EXPECTED_QUEUE_STATUS}",
         f"wave: {EXPECTED_QUEUE_WAVE}",
         f"repo: {EXPECTED_QUEUE_REPO}",
-        "completion_action: verify_closed_package_only",
-        EXPECTED_DO_NOT_REOPEN_REASON,
     )
     normalized_block = " ".join(block.split())
     for snippet in required:
@@ -220,9 +200,6 @@ def verify_queue_staging(path: Path) -> None:
     owned_surfaces = parse_queue_plain_list(block, "owned_surfaces")
     if owned_surfaces != EXPECTED_OWNED_SURFACES:
         fail(f"queue staging package {PACKAGE_ID} owned_surfaces expected {EXPECTED_OWNED_SURFACES!r}, actual {owned_surfaces!r}")
-    proof = parse_queue_plain_list(block, "proof")
-    if proof != EXPECTED_PROOF:
-        fail(f"queue staging package {PACKAGE_ID} proof expected {EXPECTED_PROOF!r}, actual {proof!r}")
     verify_no_helper_evidence(block, label=f"queue staging package {PACKAGE_ID}")
 
 

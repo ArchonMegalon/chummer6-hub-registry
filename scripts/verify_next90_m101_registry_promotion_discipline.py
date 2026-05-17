@@ -969,6 +969,7 @@ def verify_canonical_successor_registry(path: Path) -> None:
     for snippet in required_snippets:
         if snippet not in block:
             fail(f"successor registry task {TASK_ID} is missing proof snippet: {snippet}")
+    verify_no_active_run_helper_evidence_text(block, label=f"successor registry task {TASK_ID}")
 
 
 def verify_queue_staging(path: Path) -> None:
@@ -1040,6 +1041,7 @@ def verify_queue_staging(path: Path) -> None:
         normalized_snippet = " ".join(snippet.split())
         if snippet not in block and normalized_snippet not in normalized_block:
             fail(f"queue staging package {PACKAGE_ID} is missing proof snippet: {snippet}")
+    verify_no_active_run_helper_evidence_text(block, label=f"queue staging package {PACKAGE_ID}")
     allowed_paths = parse_queue_plain_list(block, "allowed_paths")
     if allowed_paths != EXPECTED_ASSIGNED_ALLOWED_PATHS:
         fail(
@@ -1279,7 +1281,10 @@ def verify_closeout_doc(path: Path) -> None:
 
 
 def verify_no_active_run_helper_evidence(path: Path, *, label: str) -> None:
-    text = read_text(path)
+    verify_no_active_run_helper_evidence_text(read_text(path), label=label)
+
+
+def verify_no_active_run_helper_evidence_text(text: str, *, label: str) -> None:
     html_unescaped_text = html.unescape(text)
     folded_variants = {
         text.casefold(),
@@ -2427,9 +2432,6 @@ def main() -> int:
     verify_canonical_successor_registry(args.successor_registry)
     verify_queue_staging(args.queue_staging)
     verify_queue_staging(args.source_queue_staging)
-    verify_no_active_run_helper_evidence(args.successor_registry, label="successor registry")
-    verify_no_active_run_helper_evidence(args.queue_staging, label="Fleet queue staging")
-    verify_no_active_run_helper_evidence(args.source_queue_staging, label="design queue staging")
     release_channel_verifier_target = (
         args.release_channel.parent
         if args.release_channel.name == "RELEASE_CHANNEL.generated.json"

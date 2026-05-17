@@ -85,13 +85,10 @@ REQUIRED_CONTRACTS_SNIPPETS = (
 )
 REQUIRED_MATERIALIZER_SNIPPETS = (
     "def public_trust_metrics(",
-    "recommended_primary_routes = [",
-    "fallback_recovery_routes = [",
-    "release_proof_age_seconds = projection_age_seconds(",
-    'proof_freshness_status = "fresh"',
-    '"adoptionHealth": {',
-    '"proofFreshness": {',
-    '"revocationFacts": {',
+    "proof_freshness = release_proof_freshness_snapshot(",
+    "verifier = load_verify_public_release_channel_module()",
+    "return verifier.expected_public_trust_metrics(payload)",
+    '"publicTrustMetrics": {',
 )
 REQUIRED_RELEASE_VERIFIER_SNIPPETS = (
     "def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:",
