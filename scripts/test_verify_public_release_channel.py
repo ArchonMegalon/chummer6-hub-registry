@@ -634,6 +634,8 @@ def test_verify_artifact_identity_registry_writes_local_audit_bundle(tmp_path: P
         raise AssertionError("expected verify_artifact_identity_registry to fail")
 
     assert "artifactIdentityRegistry does not match canonical artifact identity truth" in message
+    assert "first_diff tupleId=" in message
+    assert "field=artifactId" in message
     audit_dir = tmp_path / "manifest-validation-audit"
     assert audit_dir.is_dir()
     assert (audit_dir / "artifact-identity-registry.actual.json").is_file()
