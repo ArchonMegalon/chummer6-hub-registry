@@ -42,6 +42,7 @@ public static class ReleaseSupportabilityStates
 {
     public const string LocalDockerProven = "local_docker_proven";
     public const string PreviewSupported = "preview_supported";
+    public const string GoldSupported = "gold_supported";
     public const string ReviewRequired = "review_required";
     public const string Unpublished = "unpublished";
 }
@@ -84,6 +85,7 @@ public static class ReleaseDesktopRollbackStates
 {
     public const string FallbackAvailable = "fallback_available";
     public const string ManualRecoveryRequired = "manual_recovery_required";
+    public const string PrimaryReinstallAvailable = "primary_reinstall_available";
     public const string FallbackNotPromoted = "fallback_not_promoted";
     public const string Revoked = "revoked";
 }
@@ -92,6 +94,7 @@ public static class ReleaseDesktopRollbackReasonCodes
 {
     public const string PromotedFallbackAvailable = "promoted_fallback_available";
     public const string FallbackPromotedForRecovery = "fallback_promoted_for_recovery";
+    public const string PrimaryInstallerReinstallAvailable = "primary_installer_reinstall_available";
     [Obsolete("Desktop route truth requires an explicit sibling fallback row; use FallbackMissingArtifactOrStartupSmokeProof or FallbackRevokedForTuple.")]
     public const string NoPromotedFallbackForTuple = "no_promoted_fallback_for_tuple";
     public const string FallbackMissingArtifactOrStartupSmokeProof = "fallback_missing_artifact_or_startup_smoke_proof";

@@ -1,0 +1,72 @@
+world_id: emerald-sprawl-prelude
+turn: 1
+source_receipt_id: ledger_tick_0001_preseeded
+dispatches:
+  - dispatch_id: ledger_dispatch_emerald-sprawl-prelude_turn_0001
+    type: turn_dispatch
+    scope: public_safe_seeded_preview
+    title: "Turn 1 — The city is moving"
+    summary: "Debt Heat rose in Rust Bazaar while Ashline pressure pulled package demand toward awakened build explainers."
+    involved_factions:
+      - Rust Market Syndicate
+      - Ashline Circle
+      - Neon Docks Union
+      - Ghostline Network
+    involved_districts:
+      - Rust Bazaar
+      - Ashline Ward
+      - Neon Docks
+      - Ghostline East
+    package_pressure_links:
+      - /ledger/packages
+      - /karma-forge
+  - dispatch_id: ledger_dispatch_emerald-sprawl-prelude_turn_0001_rust_bazaar
+    type: faction_dispatch
+    scope: public_safe_seeded_preview
+    title: "The Rust Bazaar called in old favors."
+    summary: "Debt markers moved first, and package pressure followed."
+    involved_factions:
+      - Rust Market Syndicate
+    involved_districts:
+      - Rust Bazaar
+    package_pressure_links:
+      - /ledger/packages
+  - dispatch_id: ledger_dispatch_emerald-sprawl-prelude_turn_0001_ashline_circle
+    type: faction_dispatch
+    scope: public_safe_seeded_preview
+    title: "Ashline Circle — Source clarity dispute"
+    summary: "Awakened build demand rose because the paperwork stayed murkier than the intent."
+    involved_factions:
+      - Ashline Circle
+    involved_districts:
+      - Ashline Ward
+    package_pressure_links:
+      - /ledger/packages
+      - /karma-forge
+  - dispatch_id: ledger_dispatch_emerald-sprawl-prelude_turn_0001_ghostline
+    type: closeout_dispatch
+    scope: public_safe_seeded_preview
+    title: "Ghostline — Rumor lane suppressed"
+    summary: "Two rumor lanes died before they could pretend to be package truth."
+    involved_factions:
+      - Ghostline Network
+    involved_districts:
+      - Ghostline East
+      - Old Signal Loop
+    package_pressure_links:
+      - /ledger/closeouts
+      - /ledger/packages
+  - dispatch_id: ledger_dispatch_emerald-sprawl-prelude_turn_0001_drone_logistics_overlay
+    type: package_pressure_dispatch
+    scope: public_safe_seeded_preview
+    title: "Drone Logistics Overlay — Candidate heat rising"
+    summary: "Useful route-and-drone pressure crossed from rumor to watched package signal."
+    involved_factions:
+      - Neon Docks Union
+      - Ghostline Network
+    involved_districts:
+      - Neon Docks
+      - Old Signal Loop
+    package_pressure_links:
+      - /ledger/packages
+      - /karma-forge
