@@ -2320,6 +2320,64 @@ def test_artifact_identity_registry_derives_canonical_rows() -> None:
     assert rows[1]["retentionState"] == "retained"
 
 
+def test_promote_guest_readable_primary_installers_only_opens_primary_promoted_rows() -> None:
+    artifacts = [
+        {
+            "artifactId": "avalonia-win-x64-installer",
+            "platform": "windows",
+            "kind": "installer",
+            "installAccessClass": "account_required",
+        },
+        {
+            "artifactId": "blazor-desktop-win-x64-installer",
+            "platform": "windows",
+            "kind": "installer",
+            "installAccessClass": "account_required",
+        },
+        {
+            "artifactId": "avalonia-win-x64-portable",
+            "platform": "windows",
+            "kind": "portable",
+            "installAccessClass": "account_required",
+        },
+    ]
+    coverage = {
+        "desktopRouteTruth": [
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "platform": "windows",
+                "kind": "installer",
+                "routeRole": "primary",
+                "promotionState": "promoted",
+                "revokeState": "not_revoked",
+            },
+            {
+                "artifactId": "blazor-desktop-win-x64-installer",
+                "platform": "windows",
+                "kind": "installer",
+                "routeRole": "fallback",
+                "promotionState": "promoted",
+                "revokeState": "not_revoked",
+            },
+            {
+                "artifactId": "avalonia-win-x64-portable",
+                "platform": "windows",
+                "kind": "portable",
+                "routeRole": "primary",
+                "promotionState": "promoted",
+                "revokeState": "not_revoked",
+            },
+        ]
+    }
+
+    rows = MODULE.promote_guest_readable_primary_installers(artifacts, coverage)
+    by_id = {row["artifactId"]: row for row in rows}
+
+    assert by_id["avalonia-win-x64-installer"]["installAccessClass"] == "open_public"
+    assert by_id["blazor-desktop-win-x64-installer"]["installAccessClass"] == "account_required"
+    assert by_id["avalonia-win-x64-portable"]["installAccessClass"] == "account_required"
+
+
 def test_artifact_publication_bindings_derive_canonical_rows() -> None:
     _, coverage = install_aware_payload()
 

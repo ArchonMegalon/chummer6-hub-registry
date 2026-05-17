@@ -2673,6 +2673,45 @@ def artifact_install_access_class(
     return default_install_access_class(platform, kind)
 
 
+def promote_guest_readable_primary_installers(
+    artifacts: list[dict[str, Any]],
+    tuple_coverage: dict[str, Any] | None,
+) -> list[dict[str, Any]]:
+    desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
+    if not isinstance(desktop_route_truth, list):
+        return artifacts
+
+    guest_readable_artifact_ids: set[str] = set()
+    for row in desktop_route_truth:
+        if not isinstance(row, dict):
+            continue
+        if normalize_token(row.get("routeRole")) != "primary":
+            continue
+        if normalize_token(row.get("promotionState")) != "promoted":
+            continue
+        if normalize_token(row.get("revokeState")) == "revoked":
+            continue
+        platform = normalize_platform_token(row.get("platform"))
+        kind = normalize_token(row.get("kind")) or "installer"
+        if platform not in {"windows", "linux"} or kind != "installer":
+            continue
+        artifact_id = normalize_token(row.get("artifactId"))
+        if artifact_id:
+            guest_readable_artifact_ids.add(artifact_id)
+
+    if not guest_readable_artifact_ids:
+        return artifacts
+
+    for artifact in artifacts:
+        if not isinstance(artifact, dict):
+            continue
+        artifact_id = normalize_token(artifact.get("artifactId") or artifact.get("id"))
+        if artifact_id not in guest_readable_artifact_ids:
+            continue
+        artifact["installAccessClass"] = "open_public"
+    return artifacts
+
+
 def desktop_surface_registry_id(
     *,
     channel_id: str,
@@ -4208,6 +4247,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         known_issue_summary=loaded_known_issue_summary or derived_known_issue_summary,
         downloads_dir=args.downloads_dir,
     )
+    artifacts = promote_guest_readable_primary_installers(artifacts, tuple_coverage)
     desktop_coverage_complete = desktop_tuple_coverage_is_complete(tuple_coverage)
     derived_rollout_reason = derive_rollout_reason(
         channel,
