@@ -5401,7 +5401,9 @@ assert artifacts["blazor-desktop-win-x64-installer"]["compatibilityState"] == "c
 assert artifacts["avalonia-win-x64-portable"]["compatibilityState"] == "compatible"
 assert artifacts["avalonia-linux-x64-archive"]["compatibilityState"] == "compatible"
 assert canonical["rolloutState"] == "promoted_preview"
-assert canonical["supportabilityState"] == "preview_supported"
+assert canonical["supportabilityState"] == "review_required"
+assert canonical["supportabilitySummary"].startswith("Treat the current shelf as review-required")
+assert "review-required" in canonical["knownIssueSummary"]
 assert canonical["releaseProof"]["status"] == "passed"
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["status"] == "pass"
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["defaultKeyCount"] == 383
