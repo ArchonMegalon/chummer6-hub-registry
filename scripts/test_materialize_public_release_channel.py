@@ -1862,6 +1862,46 @@ def test_desktop_tuple_coverage_marks_primary_manual_recovery_when_fallback_is_m
     )
 
 
+def test_desktop_tuple_coverage_dedupes_multiple_macos_install_media_per_tuple() -> None:
+    coverage = MODULE.desktop_tuple_coverage(
+        [
+            {
+                "artifactId": "avalonia-osx-arm64-installer",
+                "head": "avalonia",
+                "platform": "macos",
+                "rid": "osx-arm64",
+                "arch": "arm64",
+                "kind": "dmg",
+                "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
+            },
+            {
+                "artifactId": "avalonia-osx-arm64-installer",
+                "head": "avalonia",
+                "platform": "macos",
+                "rid": "osx-arm64",
+                "arch": "arm64",
+                "kind": "pkg",
+                "fileName": "chummer-avalonia-osx-arm64-installer.pkg",
+            },
+        ],
+        required_heads=["avalonia"],
+        required_platforms=["macos"],
+        channel_id="preview",
+    )
+
+    assert coverage["promotedInstallerTuples"] == [
+        {
+            "tupleId": "avalonia:macos:osx-arm64",
+            "head": "avalonia",
+            "platform": "macos",
+            "rid": "osx-arm64",
+            "arch": "arm64",
+            "kind": "dmg",
+            "artifactId": "avalonia-osx-arm64-installer",
+        }
+    ]
+
+
 def test_desktop_tuple_coverage_keeps_fallback_rollback_tuple_specific() -> None:
     coverage = MODULE.desktop_tuple_coverage(
         [
@@ -2248,8 +2288,6 @@ def test_install_aware_artifact_registry_derives_concierge_rows_from_route_truth
             },
         },
     ]
-
-
 def test_desktop_surface_refs_derive_canonical_rows() -> None:
     artifacts, coverage = install_aware_payload()
 

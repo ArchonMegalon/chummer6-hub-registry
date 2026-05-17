@@ -1685,10 +1685,19 @@ def desktop_route_artifact_is_revoked(artifact: dict[str, Any] | None) -> bool:
     )
 
 
-def desktop_route_artifact_selection_key(artifact: dict[str, Any]) -> tuple[int, str]:
+def desktop_route_artifact_selection_key(artifact: dict[str, Any]) -> tuple[int, str, str]:
     return (
         1 if desktop_route_artifact_is_revoked(artifact) else 0,
         normalized_token(artifact.get("artifactId") or artifact.get("id")),
+        str(artifact.get("fileName") or "").strip().lower(),
+    )
+
+
+def promoted_tuple_artifact_selection_key(artifact: dict[str, Any]) -> tuple[int, str, str]:
+    return (
+        1 if desktop_route_artifact_is_revoked(artifact) else 0,
+        normalized_token(artifact.get("artifactId") or artifact.get("id")),
+        str(artifact.get("fileName") or "").strip().lower(),
     )
 
 
@@ -2130,6 +2139,7 @@ def desktop_tuple_coverage(
     promoted_platform_head_rid_tuples: set[str] = set()
     promoted_platform_heads: dict[str, list[str]] = {platform: [] for platform in required_platforms}
     promoted_platform_heads_seen: dict[str, set[str]] = {platform: set() for platform in required_platforms}
+    promoted_artifacts_by_tuple: dict[str, dict[str, Any]] = {}
     for item in artifacts:
         if not isinstance(item, dict):
             continue
@@ -2142,19 +2152,10 @@ def desktop_tuple_coverage(
             continue
         head = normalized_token(item.get("head"))
         rid = normalized_token(item.get("rid"))
-        arch = normalized_token(item.get("arch"))
         tuple_id = f"{head}:{platform}:{rid}" if rid else f"{head}:{platform}"
-        promoted_tuples.append(
-            {
-                "tupleId": tuple_id,
-                "head": head,
-                "platform": platform,
-                "rid": rid,
-                "arch": arch,
-                "kind": str(item.get("kind") or "").strip().lower(),
-                "artifactId": str(item.get("artifactId") or "").strip(),
-            }
-        )
+        current = promoted_artifacts_by_tuple.get(tuple_id)
+        if current is None or promoted_tuple_artifact_selection_key(item) < promoted_tuple_artifact_selection_key(current):
+            promoted_artifacts_by_tuple[tuple_id] = item
         if head:
             promoted_head_tokens.add(head)
             promoted_pairs.add(f"{head}:{platform}")
@@ -2164,6 +2165,18 @@ def desktop_tuple_coverage(
         if head and rid:
             promoted_platform_head_rid_tuples.add(f"{head}:{rid}:{platform}")
         promoted_platform_tokens.add(platform)
+    for tuple_id, item in promoted_artifacts_by_tuple.items():
+        promoted_tuples.append(
+            {
+                "tupleId": tuple_id,
+                "head": normalized_token(item.get("head")),
+                "platform": normalized_token(item.get("platform")),
+                "rid": normalized_token(item.get("rid")),
+                "arch": normalized_token(item.get("arch")),
+                "kind": str(item.get("kind") or "").strip().lower(),
+                "artifactId": str(item.get("artifactId") or "").strip(),
+            }
+        )
     promoted_tuples.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
     for platform in promoted_platform_heads:
         promoted_platform_heads[platform] = sorted(promoted_platform_heads[platform])
