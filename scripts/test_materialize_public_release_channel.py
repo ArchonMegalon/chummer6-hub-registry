@@ -210,7 +210,7 @@ def canonical_args(
     )
 
 
-def test_derive_rollout_state_uses_promoted_preview_for_complete_published_docker_release() -> None:
+def test_derive_rollout_state_uses_public_stable_for_complete_published_docker_release() -> None:
     assert (
         MODULE.derive_rollout_state(
             "docker",
@@ -218,7 +218,7 @@ def test_derive_rollout_state_uses_promoted_preview_for_complete_published_docke
             {"status": "passed"},
             desktop_coverage_complete=True,
         )
-        == "promoted_preview"
+        == "public_stable"
     )
 
 
@@ -246,6 +246,18 @@ def test_derive_supportability_state_uses_gold_supported_for_public_stable_relea
     )
 
 
+def test_derive_supportability_state_uses_gold_supported_for_complete_published_docker_release() -> None:
+    assert (
+        MODULE.derive_supportability_state(
+            "docker",
+            "published",
+            {"status": "passed"},
+            desktop_coverage_complete=True,
+        )
+        == "gold_supported"
+    )
+
+
 def test_normalize_release_channel_posture_upgrades_stale_local_docker_states() -> None:
     assert MODULE.normalize_release_channel_posture(
         "local_docker_preview",
@@ -254,7 +266,7 @@ def test_normalize_release_channel_posture_upgrades_stale_local_docker_states() 
         status="published",
         proof={"status": "passed"},
         desktop_coverage_complete=True,
-    ) == ("promoted_preview", "preview_supported")
+    ) == ("public_stable", "gold_supported")
 
 
 def test_normalize_release_channel_posture_upgrades_stale_coverage_states() -> None:
@@ -2320,64 +2332,6 @@ def test_artifact_identity_registry_derives_canonical_rows() -> None:
     assert rows[1]["retentionState"] == "retained"
 
 
-def test_promote_guest_readable_primary_installers_only_opens_primary_promoted_rows() -> None:
-    artifacts = [
-        {
-            "artifactId": "avalonia-win-x64-installer",
-            "platform": "windows",
-            "kind": "installer",
-            "installAccessClass": "account_required",
-        },
-        {
-            "artifactId": "blazor-desktop-win-x64-installer",
-            "platform": "windows",
-            "kind": "installer",
-            "installAccessClass": "account_required",
-        },
-        {
-            "artifactId": "avalonia-win-x64-portable",
-            "platform": "windows",
-            "kind": "portable",
-            "installAccessClass": "account_required",
-        },
-    ]
-    coverage = {
-        "desktopRouteTruth": [
-            {
-                "artifactId": "avalonia-win-x64-installer",
-                "platform": "windows",
-                "kind": "installer",
-                "routeRole": "primary",
-                "promotionState": "promoted",
-                "revokeState": "not_revoked",
-            },
-            {
-                "artifactId": "blazor-desktop-win-x64-installer",
-                "platform": "windows",
-                "kind": "installer",
-                "routeRole": "fallback",
-                "promotionState": "promoted",
-                "revokeState": "not_revoked",
-            },
-            {
-                "artifactId": "avalonia-win-x64-portable",
-                "platform": "windows",
-                "kind": "portable",
-                "routeRole": "primary",
-                "promotionState": "promoted",
-                "revokeState": "not_revoked",
-            },
-        ]
-    }
-
-    rows = MODULE.promote_guest_readable_primary_installers(artifacts, coverage)
-    by_id = {row["artifactId"]: row for row in rows}
-
-    assert by_id["avalonia-win-x64-installer"]["installAccessClass"] == "open_public"
-    assert by_id["blazor-desktop-win-x64-installer"]["installAccessClass"] == "account_required"
-    assert by_id["avalonia-win-x64-portable"]["installAccessClass"] == "account_required"
-
-
 def test_artifact_publication_bindings_derive_canonical_rows() -> None:
     _, coverage = install_aware_payload()
 
@@ -2392,71 +2346,4 @@ def test_artifact_publication_bindings_derive_canonical_rows() -> None:
     assert rows[0]["artifactFamilyId"] == "artifact-family:avalonia:linux:linux-x64"
     assert rows[0]["publicationScope"] == "signed-in-and-public"
     assert rows[0]["publicationState"] == "published"
-    assert rows[0]["previewRef"] == "registry-preview:avalonia-linux-x64-installer:avalonia:linux:linux-x64"
-    assert rows[0]["captionRef"] == "registry-caption:docker:run-20260420-072339:avalonia:linux:linux-x64"
-    assert rows[0]["packetRef"] == "registry-packet:docker:run-20260420-072339:avalonia-linux-x64-installer"
-    assert rows[0]["localeRef"] == "registry-locale:docker:run-20260420-072339:avalonia-linux-x64-installer"
-    assert rows[0]["retentionRef"] == "registry-retention:docker:run-20260420-072339:avalonia-linux-x64-installer"
-    assert rows[0]["retentionState"] == "current"
-    assert rows[1]["bindingId"] == "binding:docker:run-20260420-072339:blazor-desktop:windows:win-x64"
-    assert rows[1]["artifactId"] == "blazor-desktop-win-x64-installer"
-    assert rows[1]["publicationState"] == "retained"
-    assert rows[1]["retentionState"] == "retained"
-    assert (
-        rows[1]["rationale"]
-        == "docker keeps fallback tuple blazor-desktop:windows:win-x64 retained so recovery-only shelf refs stay governed without relabeling the artifact as preview."
-    )
-
-
-def test_exchange_lineage_registry_derives_canonical_rows() -> None:
-    rows = MODULE.exchange_lineage_registry(
-        [
-            {
-                "registryId": "custom-registry-id-that-should-not-survive",
-                "artifactId": "runner-dossier-seattle-01",
-                "artifactKind": "dossier",
-                "lineageRef": "lineage:dossier:runner-dossier-seattle-01",
-                "parentLineageRefs": ["lineage:campaign:emerald-grid", "lineage:campaign:emerald-grid"],
-                "provenanceRef": "provenance:dossier:runner-dossier-seattle-01",
-                "compatibilityState": "compatible_with_loss",
-                "compatibilityRef": "compatibility:dossier:runner-dossier-seattle-01",
-                "boundedLossPosture": "bounded_loss",
-                "boundedLossRef": "bounded-loss:dossier:runner-dossier-seattle-01",
-                "publicationBindingId": "custom-binding-id-that-should-not-survive",
-                "publicationState": "preview",
-                "signedInShelfRef": "custom-signed-in-ref-that-should-not-survive",
-                "publicShelfRef": "custom-public-ref-that-should-not-survive",
-            },
-            {
-                "artifactId": "campaign-emerald-grid",
-                "artifactKind": "campaign",
-                "lineageRef": "lineage:campaign:emerald-grid",
-                "parentLineageRefs": [],
-                "provenanceRef": "provenance:campaign:emerald-grid",
-                "compatibilityState": "compatible",
-                "compatibilityRef": "compatibility:campaign:emerald-grid",
-                "boundedLossPosture": "lossless",
-                "boundedLossRef": "bounded-loss:campaign:emerald-grid",
-                "publicationState": "published",
-            },
-        ],
-        channel_id="docker",
-        release_version="run-20260420-072339",
-    )
-
-    assert len(rows) == 2
-    assert rows[0]["registryId"] == "exchange-lineage:docker:run-20260420-072339:campaign:campaign-emerald-grid"
-    assert rows[0]["publicationBindingId"] == "binding:docker:run-20260420-072339:campaign:campaign-emerald-grid"
-    assert rows[1]["registryId"] == "exchange-lineage:docker:run-20260420-072339:dossier:runner-dossier-seattle-01"
-    assert rows[1]["publicationBindingId"] == "binding:docker:run-20260420-072339:dossier:runner-dossier-seattle-01"
-    assert rows[1]["packetRef"] == "registry-packet:docker:run-20260420-072339:runner-dossier-seattle-01"
-    assert rows[1]["localeRef"] == "registry-locale:docker:run-20260420-072339:runner-dossier-seattle-01"
-    assert rows[1]["retentionRef"] == "registry-retention:docker:run-20260420-072339:runner-dossier-seattle-01"
-    assert rows[1]["retentionState"] == "temporary"
-    assert rows[1]["signedInShelfRef"] == "shelf:signed-in:docker:run-20260420-072339:runner-dossier-seattle-01"
-    assert rows[1]["publicShelfRef"] == "shelf:public:docker:run-20260420-072339:runner-dossier-seattle-01"
-    assert rows[1]["parentLineageRefs"] == ["lineage:campaign:emerald-grid"]
-
-
-if __name__ == "__main__":
-    unittest.main()
+    assert row

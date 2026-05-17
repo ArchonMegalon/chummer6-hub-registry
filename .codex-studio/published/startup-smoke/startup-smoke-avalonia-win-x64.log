@@ -1,3 +1,2 @@
-wine: created the configuration directory '/tmp/chummer-startup-home.Z2CDKf/.wine'
-wine: configuration in L"/tmp/chummer-startup-home.Z2CDKf/.wine" has been updated.
-startup smoke ready: head=avalonia platform=windows arch=x64 checkpoint=pre_ui_event_loop
+./scripts/run-desktop-startup-smoke.sh: line 172: /docker/chummercomplete/chummer-presentation/.codex-studio/quarantine/unpromoted-desktop-installers-20260403T2110Z/chummer-avalonia-win-x64-installer.exe: cannot execute binary file: Exec format error
+Docker/Downloads/startup-smoke/release-regression-avalonia-win-x64.json
