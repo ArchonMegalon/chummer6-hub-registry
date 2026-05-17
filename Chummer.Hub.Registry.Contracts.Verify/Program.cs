@@ -80,6 +80,8 @@ Assert(ReleaseDesktopUpdateEligibilities.BlockedRevoked == "blocked_revoked", "D
 Assert(ReleaseDesktopRollbackStates.FallbackAvailable == "fallback_available", "Desktop rollback states must expose fallback_available.");
 Assert(ReleaseDesktopRollbackStates.ManualRecoveryRequired == "manual_recovery_required",
     "Desktop rollback states must expose manual_recovery_required.");
+Assert(ReleaseDesktopRollbackStates.PrimaryReinstallAvailable == "primary_reinstall_available",
+    "Desktop rollback states must expose primary_reinstall_available.");
 Assert(ReleaseDesktopRollbackStates.FallbackNotPromoted == "fallback_not_promoted",
     "Desktop rollback states must expose fallback_not_promoted.");
 Assert(ReleaseDesktopRollbackStates.Revoked == "revoked", "Desktop rollback states must expose revoked.");
@@ -87,6 +89,8 @@ Assert(ReleaseDesktopRollbackReasonCodes.PromotedFallbackAvailable == "promoted_
     "Desktop rollback reason codes must expose promoted_fallback_available.");
 Assert(ReleaseDesktopRollbackReasonCodes.FallbackPromotedForRecovery == "fallback_promoted_for_recovery",
     "Desktop rollback reason codes must expose fallback_promoted_for_recovery.");
+Assert(ReleaseDesktopRollbackReasonCodes.PrimaryInstallerReinstallAvailable == "primary_installer_reinstall_available",
+    "Desktop rollback reason codes must expose primary_installer_reinstall_available.");
 AssertObsoleteRollbackCode(
     "NoPromotedFallbackForTuple",
     "Desktop route truth requires an explicit sibling fallback row");

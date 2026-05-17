@@ -3624,7 +3624,7 @@ def release_channel_public_posture(
         return "blocked"
     if normalized_status != "published":
         return "blocked"
-    if normalized_channel in {"stable", "public_stable"} and normalized_rollout == "public_stable":
+    if normalized_rollout == "public_stable":
         return "live"
     return "preview"
 

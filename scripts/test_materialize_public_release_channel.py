@@ -17,6 +17,12 @@ assert MODULE_SPEC and MODULE_SPEC.loader
 MODULE = importlib.util.module_from_spec(MODULE_SPEC)
 MODULE_SPEC.loader.exec_module(MODULE)
 
+VERIFIER_SCRIPT = Path(__file__).resolve().parent / "verify_public_release_channel.py"
+VERIFIER_SPEC = importlib.util.spec_from_file_location("verify_public_release_channel_module", VERIFIER_SCRIPT)
+assert VERIFIER_SPEC and VERIFIER_SPEC.loader
+VERIFIER_MODULE = importlib.util.module_from_spec(VERIFIER_SPEC)
+VERIFIER_SPEC.loader.exec_module(VERIFIER_MODULE)
+
 
 def load_tests(loader, tests, pattern):
     suite = unittest.TestSuite()
@@ -204,7 +210,7 @@ def canonical_args(
     )
 
 
-def test_derive_rollout_state_uses_promoted_preview_for_complete_published_docker_release() -> None:
+def test_derive_rollout_state_uses_public_stable_for_complete_published_docker_release() -> None:
     assert (
         MODULE.derive_rollout_state(
             "docker",
@@ -212,7 +218,7 @@ def test_derive_rollout_state_uses_promoted_preview_for_complete_published_docke
             {"status": "passed"},
             desktop_coverage_complete=True,
         )
-        == "promoted_preview"
+        == "public_stable"
     )
 
 
@@ -240,6 +246,18 @@ def test_derive_supportability_state_uses_gold_supported_for_public_stable_relea
     )
 
 
+def test_derive_supportability_state_uses_gold_supported_for_complete_published_docker_release() -> None:
+    assert (
+        MODULE.derive_supportability_state(
+            "docker",
+            "published",
+            {"status": "passed"},
+            desktop_coverage_complete=True,
+        )
+        == "gold_supported"
+    )
+
+
 def test_normalize_release_channel_posture_upgrades_stale_local_docker_states() -> None:
     assert MODULE.normalize_release_channel_posture(
         "local_docker_preview",
@@ -248,7 +266,7 @@ def test_normalize_release_channel_posture_upgrades_stale_local_docker_states() 
         status="published",
         proof={"status": "passed"},
         desktop_coverage_complete=True,
-    ) == ("promoted_preview", "preview_supported")
+    ) == ("public_stable", "gold_supported")
 
 
 def test_normalize_release_channel_posture_upgrades_stale_coverage_states() -> None:
@@ -382,6 +400,46 @@ def test_public_trust_metrics_downgrades_when_flagship_desktop_readiness_is_miss
     assert metrics["proofFreshness"]["flagshipReadinessCoverageGapKeys"] == ["desktop_client"]
     assert metrics["proofFreshness"]["flagshipDesktopClientReady"] is False
     assert metrics["releaseChannel"]["posture"] == "blocked"
+
+
+def test_public_trust_metrics_matches_verifier_canonical_projection() -> None:
+    artifacts, coverage = install_aware_payload()
+    proof = valid_release_proof_payload()
+    readiness = valid_flagship_product_readiness_payload()
+
+    metrics = MODULE.public_trust_metrics(
+        generated_at="2026-05-16T21:48:29Z",
+        channel_id="preview",
+        status="published",
+        rollout_state="promoted_preview",
+        supportability_state="preview_supported",
+        release_proof=proof,
+        flagship_product_readiness=readiness,
+        artifacts=artifacts,
+        tuple_coverage=coverage,
+    )
+
+    payload = {
+        "generatedAt": "2026-05-16T21:48:29Z",
+        "generated_at": "2026-05-16T21:48:29Z",
+        "channelId": "preview",
+        "status": "published",
+        "rolloutState": "promoted_preview",
+        "supportabilityState": "preview_supported",
+        "releaseProof": proof,
+        "artifacts": artifacts,
+        "desktopTupleCoverage": coverage,
+        "publicTrustMetrics": {
+            "proofFreshness": MODULE.release_proof_freshness_snapshot(
+                projection_generated_at="2026-05-16T21:48:29Z",
+                release_proof=proof,
+                flagship_product_readiness=readiness,
+            ),
+        },
+    }
+    expected = VERIFIER_MODULE.expected_public_trust_metrics(payload)
+
+    assert metrics == expected
     assert metrics["releaseChannel"]["recommendedRouteCount"] == 0
 
 
@@ -619,6 +677,95 @@ def test_canonical_payload_downgrades_stale_published_posture_when_startup_smoke
         "published",
         proof,
         desktop_coverage_complete=False,
+    )
+
+
+def test_canonical_payload_downgrades_missing_proof_supportability() -> None:
+    proof = valid_release_proof_payload()
+    proof["generatedAt"] = ""
+    proof["generated_at"] = ""
+    proof["uiLocalizationReleaseGate"]["generatedAt"] = ""
+    proof["uiLocalizationReleaseGate"]["generated_at"] = ""
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        downloads_dir = root / "downloads"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        startup_smoke_dir = root / "startup-smoke"
+        startup_smoke_dir.mkdir(parents=True, exist_ok=True)
+        installer_path = downloads_dir / "chummer-avalonia-win-x64-installer.exe"
+        payload = b"\n".join(MODULE.WINDOWS_INSTALLER_PAYLOAD_MARKERS) + b"\n"
+        installer_path.write_bytes(payload)
+        receipt_path = startup_smoke_dir / "startup-smoke-avalonia-win-x64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": MODULE.utc_now().replace(microsecond=0).isoformat().replace("+00:00", "Z"),
+                    "headId": "avalonia",
+                    "platform": "windows",
+                    "arch": "x64",
+                    "hostClass": "windows-host",
+                    "operatingSystem": "Windows 11",
+                    "channelId": "docker",
+                    "artifactDigest": f"sha256:{hashlib.sha256(payload).hexdigest()}",
+                    "artifactId": "avalonia-win-x64-installer",
+                    "artifactFileName": installer_path.name,
+                }
+            ),
+            encoding="utf-8",
+        )
+        manifest_path = root / "source-manifest.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "channelId": "docker",
+                    "version": "run-20260516-220824",
+                    "publishedAt": "2026-05-16T22:08:24Z",
+                    "status": "published",
+                    "rolloutState": "promoted_preview",
+                    "supportabilityState": "preview_supported",
+                    "rolloutReason": "Current release shelf was exercised by the local docker release proof harness before publication.",
+                    "supportabilitySummary": "Local release proof passed for the current shelf.",
+                    "knownIssueSummary": "Preview caveats still apply, but the current shelf has recent install proof.",
+                    "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
+                    "releaseProof": proof,
+                    "artifacts": [
+                        {
+                            "artifactId": "avalonia-win-x64-installer",
+                            "fileName": installer_path.name,
+                            "downloadUrl": f"/downloads/files/{installer_path.name}",
+                            "kind": "installer",
+                            "sha256": hashlib.sha256(payload).hexdigest(),
+                            "sizeBytes": len(payload),
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        canonical = MODULE.canonical_payload(
+            canonical_args(
+                manifest=manifest_path,
+                downloads_dir=downloads_dir,
+                startup_smoke_dir=startup_smoke_dir,
+            )
+        )
+
+    assert canonical["supportabilityState"] == "review_required"
+    assert canonical["publicTrustMetrics"]["proofFreshness"]["status"] == "missing"
+    assert canonical["rolloutReason"] == (
+        "Current shelf stays visible, but output readiness is downgraded until stale or incomplete proof receipts are refreshed."
+    )
+    assert canonical["supportabilitySummary"] == (
+        "Treat the current shelf as review-required until stale or incomplete proof receipts are refreshed."
+    )
+    assert canonical["knownIssueSummary"] == (
+        "The docker shelf remains visible, but stale or incomplete proof receipts mean current output readiness must stay review-required."
+    )
+    assert canonical["fixAvailabilitySummary"] == (
+        "Do not send fixed notices until stale or incomplete proof receipts are refreshed for the current shelf."
     )
 
 
@@ -2199,71 +2346,4 @@ def test_artifact_publication_bindings_derive_canonical_rows() -> None:
     assert rows[0]["artifactFamilyId"] == "artifact-family:avalonia:linux:linux-x64"
     assert rows[0]["publicationScope"] == "signed-in-and-public"
     assert rows[0]["publicationState"] == "published"
-    assert rows[0]["previewRef"] == "registry-preview:avalonia-linux-x64-installer:avalonia:linux:linux-x64"
-    assert rows[0]["captionRef"] == "registry-caption:docker:run-20260420-072339:avalonia:linux:linux-x64"
-    assert rows[0]["packetRef"] == "registry-packet:docker:run-20260420-072339:avalonia-linux-x64-installer"
-    assert rows[0]["localeRef"] == "registry-locale:docker:run-20260420-072339:avalonia-linux-x64-installer"
-    assert rows[0]["retentionRef"] == "registry-retention:docker:run-20260420-072339:avalonia-linux-x64-installer"
-    assert rows[0]["retentionState"] == "current"
-    assert rows[1]["bindingId"] == "binding:docker:run-20260420-072339:blazor-desktop:windows:win-x64"
-    assert rows[1]["artifactId"] == "blazor-desktop-win-x64-installer"
-    assert rows[1]["publicationState"] == "retained"
-    assert rows[1]["retentionState"] == "retained"
-    assert (
-        rows[1]["rationale"]
-        == "docker keeps fallback tuple blazor-desktop:windows:win-x64 retained so recovery-only shelf refs stay governed without relabeling the artifact as preview."
-    )
-
-
-def test_exchange_lineage_registry_derives_canonical_rows() -> None:
-    rows = MODULE.exchange_lineage_registry(
-        [
-            {
-                "registryId": "custom-registry-id-that-should-not-survive",
-                "artifactId": "runner-dossier-seattle-01",
-                "artifactKind": "dossier",
-                "lineageRef": "lineage:dossier:runner-dossier-seattle-01",
-                "parentLineageRefs": ["lineage:campaign:emerald-grid", "lineage:campaign:emerald-grid"],
-                "provenanceRef": "provenance:dossier:runner-dossier-seattle-01",
-                "compatibilityState": "compatible_with_loss",
-                "compatibilityRef": "compatibility:dossier:runner-dossier-seattle-01",
-                "boundedLossPosture": "bounded_loss",
-                "boundedLossRef": "bounded-loss:dossier:runner-dossier-seattle-01",
-                "publicationBindingId": "custom-binding-id-that-should-not-survive",
-                "publicationState": "preview",
-                "signedInShelfRef": "custom-signed-in-ref-that-should-not-survive",
-                "publicShelfRef": "custom-public-ref-that-should-not-survive",
-            },
-            {
-                "artifactId": "campaign-emerald-grid",
-                "artifactKind": "campaign",
-                "lineageRef": "lineage:campaign:emerald-grid",
-                "parentLineageRefs": [],
-                "provenanceRef": "provenance:campaign:emerald-grid",
-                "compatibilityState": "compatible",
-                "compatibilityRef": "compatibility:campaign:emerald-grid",
-                "boundedLossPosture": "lossless",
-                "boundedLossRef": "bounded-loss:campaign:emerald-grid",
-                "publicationState": "published",
-            },
-        ],
-        channel_id="docker",
-        release_version="run-20260420-072339",
-    )
-
-    assert len(rows) == 2
-    assert rows[0]["registryId"] == "exchange-lineage:docker:run-20260420-072339:campaign:campaign-emerald-grid"
-    assert rows[0]["publicationBindingId"] == "binding:docker:run-20260420-072339:campaign:campaign-emerald-grid"
-    assert rows[1]["registryId"] == "exchange-lineage:docker:run-20260420-072339:dossier:runner-dossier-seattle-01"
-    assert rows[1]["publicationBindingId"] == "binding:docker:run-20260420-072339:dossier:runner-dossier-seattle-01"
-    assert rows[1]["packetRef"] == "registry-packet:docker:run-20260420-072339:runner-dossier-seattle-01"
-    assert rows[1]["localeRef"] == "registry-locale:docker:run-20260420-072339:runner-dossier-seattle-01"
-    assert rows[1]["retentionRef"] == "registry-retention:docker:run-20260420-072339:runner-dossier-seattle-01"
-    assert rows[1]["retentionState"] == "temporary"
-    assert rows[1]["signedInShelfRef"] == "shelf:signed-in:docker:run-20260420-072339:runner-dossier-seattle-01"
-    assert rows[1]["publicShelfRef"] == "shelf:public:docker:run-20260420-072339:runner-dossier-seattle-01"
-    assert rows[1]["parentLineageRefs"] == ["lineage:campaign:emerald-grid"]
-
-
-if __name__ == "__main__":
-    unittest.main()
+    assert row

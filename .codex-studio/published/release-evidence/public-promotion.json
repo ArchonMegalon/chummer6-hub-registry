@@ -1,6 +1,6 @@
 {
   "contractName": "chummer.run.desktop_release_publication",
-  "generatedAt": "2026-05-07T21:12:54Z",
+  "generatedAt": "2026-05-07T21:12:55Z",
   "artifacts": [
     {
       "artifactId": "avalonia-linux-x64-installer",
@@ -9,7 +9,7 @@
       "promotionStatus": "pass",
       "startupSmokeStatus": "pass",
       "startupSmokeReason": "",
-      "startupSmokeReceiptPath": "/tmp/tmp.ziGCnQxsop/startup-smoke-avalonia-linux-x64.receipt.json",
+      "startupSmokeReceiptPath": "/tmp/tmp.lMYjDx6YwG/startup-smoke-avalonia-linux-x64.receipt.json",
       "signingReceiptPath": "",
       "signingStatus": null,
       "notarizationStatus": null,
@@ -24,12 +24,12 @@
       "promotionStatus": "pass",
       "startupSmokeStatus": "pass",
       "startupSmokeReason": "",
-      "startupSmokeReceiptPath": "/tmp/tmp.ziGCnQxsop/startup-smoke-avalonia-win-x64.receipt.json",
+      "startupSmokeReceiptPath": "/tmp/tmp.lMYjDx6YwG/startup-smoke-avalonia-win-x64.receipt.json",
       "signingReceiptPath": "",
       "signingStatus": "skipped_preview",
       "notarizationStatus": null,
-      "artifactSha256": "bb9b31fcf3bf1386b6f968029f312ca30681f1a02b2c536b6a4d8cb8fe4109fe",
-      "artifactSizeBytes": 142037086,
+      "artifactSha256": "da9deba01191f61940d018ded710b867cc1e3d05fd7d76c2d5e5a314c60ed341",
+      "artifactSizeBytes": 149963960,
       "kind": "installer"
     },
     {
@@ -73,8 +73,8 @@
       "signingReceiptPath": "",
       "signingStatus": "skipped_preview",
       "notarizationStatus": null,
-      "artifactSha256": "414ba2c2db61c459920ea3b92aeb28442a0b84dbcdf3cd3725042c42ebc15ee6",
-      "artifactSizeBytes": 433152,
+      "artifactSha256": "8567c0700fa449a718b88aa81f295b57fc75fb49472a5eaf9ce4903bbee55fc8",
+      "artifactSizeBytes": 108673963,
       "kind": "portable"
     },
     {
@@ -88,8 +88,8 @@
       "signingReceiptPath": "",
       "signingStatus": "skipped_preview",
       "notarizationStatus": null,
-      "artifactSha256": "1b9092b1d2a631b29c2edbe7882d835cb3a4337ef8fb2abf224c8c848e061468",
-      "artifactSizeBytes": 45044846,
+      "artifactSha256": "d415514b86998b2bf27c15fd2835b043d6b2b327f682d12b38f5e746659c8b52",
+      "artifactSizeBytes": 49025673,
       "kind": "archive"
     }
   ]
