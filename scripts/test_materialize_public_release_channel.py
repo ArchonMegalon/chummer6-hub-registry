@@ -1549,6 +1549,20 @@ def test_artifact_identity_registry_derives_canonical_rows() -> None:
     assert rows[1]["retentionState"] == "retained"
 
 
+def test_artifact_identity_registry_downgrades_output_readiness_when_proof_is_stale() -> None:
+    _, coverage = install_aware_payload()
+
+    rows = MODULE.artifact_identity_registry(
+        coverage,
+        channel_id="docker",
+        release_version="run-20260518-064623",
+        proof_freshness_status="stale",
+    )
+
+    assert rows[0]["publicationState"] == "preview"
+    assert rows[0]["retentionState"] == "temporary"
+
+
 def test_artifact_publication_bindings_derive_canonical_rows() -> None:
     _, coverage = install_aware_payload()
 
@@ -1563,4 +1577,5 @@ def test_artifact_publication_bindings_derive_canonical_rows() -> None:
     assert rows[0]["artifactFamilyId"] == "artifact-family:avalonia:linux:linux-x64"
     assert rows[0]["publicationScope"] == "signed-in-and-public"
     assert rows[0]["publicationState"] == "published"
+    assert rows[0]["retentionState"] == "current"
     assert row

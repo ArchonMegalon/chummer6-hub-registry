@@ -43,6 +43,8 @@ WINDOWS_INSTALLER_PAYLOAD_MARKERS = (
 STARTUP_SMOKE_GATED_KINDS = {"installer", "dmg", "pkg", "msix"}
 STARTUP_SMOKE_GATED_PLATFORMS = {"linux", "windows", "macos"}
 STARTUP_SMOKE_MAX_AGE_SECONDS = 7 * 24 * 3600
+DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS = 7 * 24 * 3600
+DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS = 7 * 24 * 3600
 STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS = 300
 STARTUP_SMOKE_REQUIRED_READY_CHECKPOINT = "pre_ui_event_loop"
 DEFAULT_REQUIRED_DESKTOP_HEADS = ("avalonia",)
@@ -2677,13 +2679,73 @@ def artifact_publication_scope(route_row: dict[str, Any]) -> str:
     return "signed-in-and-public"
 
 
-def artifact_publication_state(route_row: dict[str, Any]) -> str:
+def output_readiness_publication_state(
+    publication_state: str,
+    *,
+    proof_freshness_status: str,
+) -> str:
+    normalized_state = normalize_token(publication_state)
+    normalized_freshness = normalize_token(proof_freshness_status)
+    if normalized_freshness in {"stale", "missing"} and normalized_state in {"published", "retained"}:
+        return "preview"
+    return normalized_state
+
+
+def projection_age_seconds(
+    *,
+    projection_generated_at: dt.datetime | None,
+    evidence_generated_at: Any,
+) -> int | None:
+    if projection_generated_at is None:
+        return None
+    evidence_timestamp = parse_iso(evidence_generated_at)
+    if evidence_timestamp is None:
+        return None
+    return max(int((projection_generated_at - evidence_timestamp).total_seconds()), 0)
+
+
+def proof_freshness_status(payload: dict[str, Any]) -> str:
+    projection_generated_at = parse_iso(payload.get("generatedAt") or payload.get("generated_at"))
+    release_proof = payload.get("releaseProof") if isinstance(payload.get("releaseProof"), dict) else {}
+    if projection_generated_at is None and not release_proof:
+        return "fresh"
+    ui_localization = (
+        release_proof.get("uiLocalizationReleaseGate")
+        if isinstance(release_proof.get("uiLocalizationReleaseGate"), dict)
+        else {}
+    )
+    release_proof_age_seconds = projection_age_seconds(
+        projection_generated_at=projection_generated_at,
+        evidence_generated_at=release_proof.get("generatedAt") or release_proof.get("generated_at"),
+    )
+    ui_localization_age_seconds = projection_age_seconds(
+        projection_generated_at=projection_generated_at,
+        evidence_generated_at=ui_localization.get("generatedAt") or ui_localization.get("generated_at"),
+    )
+    if release_proof_age_seconds is None or ui_localization_age_seconds is None:
+        return "missing"
+    if (
+        release_proof_age_seconds > DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS
+        or ui_localization_age_seconds > DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS
+    ):
+        return "stale"
+    return "fresh"
+
+
+def artifact_publication_state(
+    route_row: dict[str, Any],
+    *,
+    proof_freshness_status: str = "fresh",
+) -> str:
     promotion_state = normalize_token(route_row.get("promotionState"))
     revoke_state = normalize_token(route_row.get("revokeState"))
     if revoke_state == "revoked":
         return "revoked"
     if promotion_state == "promoted":
-        return "published"
+        return output_readiness_publication_state(
+            "published",
+            proof_freshness_status=proof_freshness_status,
+        )
     return "preview"
 
 
@@ -2691,10 +2753,19 @@ def artifact_publication_rationale(
     route_row: dict[str, Any],
     *,
     channel_id: str,
+    proof_freshness_status: str = "fresh",
 ) -> str:
     tuple_id = str(route_row.get("tupleId") or "").strip()
     route_role = normalize_token(route_row.get("routeRole")) or "artifact"
-    publication_state = artifact_publication_state(route_row)
+    publication_state = artifact_publication_state(
+        route_row,
+        proof_freshness_status=proof_freshness_status,
+    )
+    if normalize_token(proof_freshness_status) in {"stale", "missing"} and publication_state == "preview":
+        return (
+            f"{channel_id} keeps tuple {tuple_id} in preview because proof receipts are stale or incomplete, so signed-in "
+            "and public shelves keep governed refs without overstating current output readiness."
+        )
     if publication_state == "published":
         return (
             f"{channel_id} keeps {route_role} tuple {tuple_id} published so signed-in and public shelves "
@@ -2715,6 +2786,7 @@ def artifact_identity_registry(
     *,
     channel_id: str,
     release_version: str,
+    proof_freshness_status: str = "fresh",
 ) -> list[dict[str, Any]]:
     desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
     if not isinstance(desktop_route_truth, list):
@@ -2761,6 +2833,16 @@ def artifact_identity_registry(
                     artifact_id=artifact_id,
                 ),
                 "publicInstallRoute": str(route_row.get("publicInstallRoute") or "").strip() or None,
+                "retentionState": artifact_retention_state(
+                    artifact_publication_state(
+                        route_row,
+                        proof_freshness_status=proof_freshness_status,
+                    )
+                ),
+                "publicationState": artifact_publication_state(
+                    route_row,
+                    proof_freshness_status=proof_freshness_status,
+                ),
             }
         )
     rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
@@ -2772,6 +2854,7 @@ def artifact_publication_bindings(
     *,
     channel_id: str,
     release_version: str,
+    proof_freshness_status: str = "fresh",
 ) -> list[dict[str, Any]]:
     desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
     if not isinstance(desktop_route_truth, list):
@@ -2801,7 +2884,10 @@ def artifact_publication_bindings(
                 "arch": normalize_token(route_row.get("arch")),
                 "kind": normalize_token(route_row.get("kind")) or "installer",
                 "publicationScope": artifact_publication_scope(route_row),
-                "publicationState": artifact_publication_state(route_row),
+                "publicationState": artifact_publication_state(
+                    route_row,
+                    proof_freshness_status=proof_freshness_status,
+                ),
                 "signedInShelfRef": artifact_signed_in_shelf_ref(
                     channel_id=channel_id,
                     release_version=release_version,
@@ -2819,7 +2905,17 @@ def artifact_publication_bindings(
                     route_row=route_row,
                 ),
                 "publicInstallRoute": str(route_row.get("publicInstallRoute") or "").strip() or None,
-                "rationale": artifact_publication_rationale(route_row, channel_id=channel_id),
+                "retentionState": artifact_retention_state(
+                    artifact_publication_state(
+                        route_row,
+                        proof_freshness_status=proof_freshness_status,
+                    )
+                ),
+                "rationale": artifact_publication_rationale(
+                    route_row,
+                    channel_id=channel_id,
+                    proof_freshness_status=proof_freshness_status,
+                ),
             }
         )
     rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
@@ -3254,15 +3350,23 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         channel_id=channel,
         release_version=version,
     )
+    freshness_status = proof_freshness_status(
+        {
+            "generatedAt": generated_at,
+            "releaseProof": release_proof,
+        }
+    )
     artifact_identity_registry_rows = artifact_identity_registry(
         tuple_coverage,
         channel_id=channel,
         release_version=version,
+        proof_freshness_status=freshness_status,
     )
     artifact_publication_binding_rows = artifact_publication_bindings(
         tuple_coverage,
         channel_id=channel,
         release_version=version,
+        proof_freshness_status=freshness_status,
     )
     return {
         "generated_at": generated_at,
