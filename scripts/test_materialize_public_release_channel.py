@@ -597,6 +597,11 @@ def test_canonical_payload_downgrades_stale_proof_supportability() -> None:
     assert canonical["publicTrustMetrics"]["releaseChannel"]["posture"] == "blocked"
     assert canonical["publicTrustMetrics"]["releaseChannel"]["recommendedRouteCount"] == 0
     assert canonical["publicTrustMetrics"]["releaseChannel"]["blockedRouteCount"] == 1
+    assert canonical["artifactIdentityRegistry"][0]["tupleId"] == "avalonia:windows:win-x64"
+    assert canonical["artifactIdentityRegistry"][0]["publicationState"] == "preview"
+    assert canonical["artifactIdentityRegistry"][0]["retentionState"] == "temporary"
+    assert canonical["artifactPublicationBindings"][0]["publicationState"] == "preview"
+    assert canonical["artifactPublicationBindings"][0]["retentionState"] == "temporary"
 
 
 def test_canonical_payload_downgrades_stale_published_posture_when_startup_smoke_proof_is_missing() -> None:

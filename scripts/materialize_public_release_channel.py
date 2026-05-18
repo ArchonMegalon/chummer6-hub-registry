@@ -4403,6 +4403,24 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             desktop_coverage_complete=desktop_coverage_complete,
             proof_freshness_status=final_proof_freshness_status,
         )
+    artifact_identity_registry_rows = artifact_identity_registry(
+        tuple_coverage,
+        channel_id=channel,
+        release_version=version,
+        proof_freshness_status=final_proof_freshness_status,
+    )
+    artifact_publication_binding_rows = artifact_publication_bindings(
+        tuple_coverage,
+        channel_id=channel,
+        release_version=version,
+        proof_freshness_status=final_proof_freshness_status,
+    )
+    exchange_lineage_registry_rows = exchange_lineage_registry(
+        loaded.get("exchangeArtifacts") or loaded.get("exchangeLineageRegistry"),
+        channel_id=channel,
+        release_version=version,
+        proof_freshness_status=final_proof_freshness_status,
+    )
     boundary_coverage = registry_boundary_coverage(
         channel_id=channel,
         release_version=version,
