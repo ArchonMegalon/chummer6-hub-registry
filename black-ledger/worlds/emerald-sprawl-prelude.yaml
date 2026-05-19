@@ -1,0 +1,849 @@
+schema_version: black-ledger-public-seed-v1
+world_id: emerald-sprawl-prelude
+public_name: 'Emerald Sprawl: First Pressure'
+public_subtitle: A fictional, public-safe Black Ledger seed world.
+status: seeded_preview
+lore_mode: public_seed
+public_projection_allowed: true
+official_ip_names_present: false
+sourcebook_text_present: false
+official_maps_present: false
+official_logos_present: false
+private_campaign_data_present: false
+current_turn: 1
+source_policy:
+  official_shadowrun_names_allowed_on_public_routes: false
+  official_megacorp_names_allowed_on_public_routes: false
+  official_logos_allowed: false
+  official_maps_allowed: false
+  sourcebook_text_allowed: false
+  canon_events_allowed: false
+  private_campaign_lore_labels_allowed_on_public_routes: false
+  licensed_canon_pack_enabled: false
+  license_receipt_required_for_official_lore: true
+  public_copy_note: Seeded fictional preview and opt-in aggregate only. The Ledger explains pressure, not people.
+public_ui_noise_policy:
+  no_dead_links: true
+  no_placeholder_buttons: true
+  no_href_hash_placeholders: true
+  no_javascript_void_links: true
+  max_primary_ctas_per_surface: 1
+  max_total_ctas_homepage_ledger_teaser: 2
+  max_map_teaser_stats: 3
+  max_map_teaser_hotspots: 3
+  proof_links_only_in_status_or_receipts: true
+  artifact_shelf_not_on_homepage: true
+factions:
+  - faction_id: glass_tower_compact
+    public_name: Glass Tower Compact
+    short_name: Glass Tower
+    archetype: corporate-facing brokers
+    public_summary: Clean contracts, quiet deals, expensive calm.
+    public_role: governance, licenses, access control, debt insulation
+    tone: precise, contractual, cold
+    color_primary: '#7dd3fc'
+    color_secondary: '#3b82f6'
+    icon: contract-spire
+    pattern: thin-vertical-lines
+    halo_style: clean-blue-ring
+    line_style: precise-solid
+    initial_stance: consolidating
+    risk_profile: low chaos, high capture
+    stats:
+      license_polish: 88
+      debt_heat: 42
+      public_trust: 51
+      chaos_index: 18
+      proof_trail_strength: 72
+    management_posts:
+      faction_leader: ai_glass_director
+      field_gm: ai_contract_referee
+      intel_provider: ai_ledger_notary
+  - faction_id: rust_market_syndicate
+    public_name: Rust Market Syndicate
+    short_name: Rust Market
+    archetype: gear, debt, and black-market logistics
+    public_summary: Everything is available. Nothing is free.
+    public_role: gear access, favors, debt heat, recovery jobs
+    tone: blunt, transactional, debt-aware
+    color_primary: '#ff8a3d'
+    color_secondary: '#ff5d73'
+    icon: broken-credit-chip
+    pattern: jagged-dashes
+    halo_style: debt-pulse
+    line_style: jagged-animated
+    initial_stance: expanding pressure
+    risk_profile: high leverage, high volatility
+    stats:
+      debt_heat: 91
+      package_pressure: 83
+      gear_availability: 77
+      favor_load: 86
+      chaos_index: 61
+    management_posts:
+      faction_leader: ai_rust_broker
+      field_gm: ai_debt_clock
+      intel_provider: ai_receipt_hawk
+  - faction_id: ashline_circle
+    public_name: Ashline Circle
+    short_name: Ashline
+    archetype: mystic-adjacent street coalition
+    public_summary: A lot of talent, not enough patience for clean paperwork.
+    public_role: MysAd density, awakened pressure, ritual rumors, source clarity
+    tone: cryptic but actionable
+    color_primary: '#a78bfa'
+    color_secondary: '#f0abfc'
+    icon: violet-sigil-ring
+    pattern: soft-radial-runes
+    halo_style: violet-breath
+    line_style: soft-dotted
+    initial_stance: rising
+    risk_profile: high mystery, medium confidence
+    stats:
+      mysad_density: 34
+      drain_magnet_index: 72
+      paperwork_quality: 29
+      source_clarity: 48
+      magic_pressure: 79
+    management_posts:
+      faction_leader: ai_ashline_seer
+      field_gm: ai_drain_keeper
+      intel_provider: ai_ritual_scribe
+  - faction_id: neon_docks_union
+    public_name: Neon Docks Union
+    short_name: Neon Docks
+    archetype: riggers, logistics crews, and route brokers
+    public_summary: Drones, routes, containers, favors.
+    public_role: drone pressure, vehicle packages, cargo movement, route control
+    tone: practical, route-focused
+    color_primary: '#22d3ee'
+    color_secondary: '#14b8a6'
+    icon: container-drone
+    pattern: horizontal-route-lines
+    halo_style: cyan-logistics-ring
+    line_style: route-flow
+    initial_stance: stabilizing
+    risk_profile: medium volatility, high utility
+    stats:
+      drone_herd_size: 64
+      route_control: 76
+      vehicle_package_demand: 71
+      maintenance_debt: 45
+      logistics_pressure: 68
+    management_posts:
+      faction_leader: ai_dock_boss
+      field_gm: ai_route_dispatcher
+      intel_provider: ai_container_oracle
+  - faction_id: ghostline_network
+    public_name: Ghostline Network
+    short_name: Ghostline
+    archetype: intel, matrix, and rumor verification
+    public_summary: Nothing is true until it survives the filter.
+    public_role: intel receipts, rumor suppression, proof confidence, redaction
+    tone: redacted, skeptical, source-first
+    color_primary: '#63f2b6'
+    color_secondary: '#5ce2ff'
+    icon: signal-mask
+    pattern: broken-wave
+    halo_style: green-signal-ping
+    line_style: glitch-dotted
+    initial_stance: filtering
+    risk_profile: low exposure, high ambiguity
+    stats:
+      intel_volume: 82
+      false_signal_suppression: 74
+      proof_trail_strength: 67
+      identity_exposure_risk: 31
+      rumor_noise: 27
+    management_posts:
+      faction_leader: ai_ghost_handler
+      field_gm: ai_signal_referee
+      intel_provider: ai_redaction_spider
+  - faction_id: barrens_free_wardens
+    public_name: Barrens Free Wardens
+    short_name: Free Wardens
+    archetype: street-level mutual protection
+    public_summary: Less nuyen, more backbone.
+    public_role: survival pressure, public-safe closeout witnesses, continuity, local support
+    tone: protective, direct, consequence-aware
+    color_primary: '#facc15'
+    color_secondary: '#fb923c'
+    icon: shield-lantern
+    pattern: weathered-crosshatch
+    halo_style: warm-protection-pulse
+    line_style: rough-solid
+    initial_stance: holding
+    risk_profile: high attrition, high witness value
+    stats:
+      survival_pressure: 81
+      chemical_complication_flags: 58
+      closeout_witnesses: 33
+      attrition_risk: 63
+      public_trust: 69
+    management_posts:
+      faction_leader: ai_warden_marshal
+      field_gm: ai_survival_clock
+      intel_provider: ai_closeout_witness
+districts:
+  - region_id: glass-heights
+    name: Glass Heights
+    summary: Executive towers, contract corridors, polished access gates.
+    polygon:
+      - [520, 80]
+      - [760, 70]
+      - [850, 210]
+      - [790, 330]
+      - [560, 300]
+      - [470, 190]
+    dominant_faction_id: glass_tower_compact
+    influence: 71
+    heat: 34
+    confidence: 82
+    volatility: 28
+    trend: rising
+    delta_since_last_tick: 3
+    latest_dispatch_id: dispatch_turn_0001_glass_tower_contract_sweep
+  - region_id: rust-bazaar
+    name: Rust Bazaar
+    summary: Market alleys, gear swaps, debt ledgers, recovery work.
+    polygon:
+      - [390, 390]
+      - [620, 340]
+      - [730, 520]
+      - [650, 690]
+      - [420, 650]
+      - [310, 500]
+    dominant_faction_id: rust_market_syndicate
+    influence: 68
+    heat: 77
+    confidence: 75
+    volatility: 81
+    trend: rising
+    delta_since_last_tick: 8
+    latest_dispatch_id: dispatch_turn_0001_rust_market_old_favors
+  - region_id: ashline-ward
+    name: Ashline Ward
+    summary: Awakened pressure, source disputes, ritual rumor lanes.
+    polygon:
+      - [820, 180]
+      - [1080, 160]
+      - [1130, 340]
+      - [990, 500]
+      - [800, 430]
+      - [760, 300]
+    dominant_faction_id: ashline_circle
+    influence: 64
+    heat: 52
+    confidence: 61
+    volatility: 67
+    trend: rising
+    delta_since_last_tick: 5
+    latest_dispatch_id: dispatch_turn_0001_ashline_source_clarity
+  - region_id: neon-docks
+    name: Neon Docks
+    summary: Container yards, drone hangars, route pressure, maintenance debt.
+    polygon:
+      - [60, 260]
+      - [300, 210]
+      - [390, 390]
+      - [310, 500]
+      - [130, 520]
+      - [40, 400]
+    dominant_faction_id: neon_docks_union
+    influence: 73
+    heat: 49
+    confidence: 78
+    volatility: 46
+    trend: stable
+    delta_since_last_tick: 4
+    latest_dispatch_id: dispatch_turn_0001_neon_docks_drone_pressure
+  - region_id: ghostline-east
+    name: Ghostline East
+    summary: Signal masks, rumor filters, source confidence nodes.
+    polygon:
+      - [850, 500]
+      - [1030, 500]
+      - [1160, 620]
+      - [1100, 735]
+      - [820, 700]
+      - [650, 690]
+    dominant_faction_id: ghostline_network
+    influence: 58
+    heat: 41
+    confidence: 69
+    volatility: 35
+    trend: rising
+    delta_since_last_tick: 6
+    latest_dispatch_id: dispatch_turn_0001_ghostline_rumor_suppressed
+  - region_id: free-ward
+    name: Free Ward
+    summary: Safe houses, broken streets, closeout witnesses, survival pressure.
+    polygon:
+      - [120, 520]
+      - [310, 500]
+      - [420, 650]
+      - [350, 735]
+      - [90, 730]
+      - [40, 630]
+    dominant_faction_id: barrens_free_wardens
+    influence: 61
+    heat: 69
+    confidence: 70
+    volatility: 64
+    trend: stable
+    delta_since_last_tick: 3
+    latest_dispatch_id: dispatch_turn_0001_free_wardens_witnesses
+  - region_id: transit-spine
+    name: Transit Spine
+    summary: Contested route backbone between clean contracts and dirty logistics.
+    polygon:
+      - [300, 210]
+      - [470, 190]
+      - [560, 300]
+      - [620, 340]
+      - [390, 390]
+    dominant_faction_id: contested
+    influence: 43
+    heat: 56
+    confidence: 55
+    volatility: 73
+    trend: contested
+    delta_since_last_tick: 2
+    latest_dispatch_id: dispatch_turn_0001_transit_spine_contested
+  - region_id: old-signal-loop
+    name: Old Signal Loop
+    summary: Abandoned infrastructure, cross-signal distortion, rumor decay.
+    polygon:
+      - [760, 300]
+      - [800, 430]
+      - [850, 500]
+      - [650, 690]
+      - [730, 520]
+      - [620, 340]
+    dominant_faction_id: contested
+    influence: 39
+    heat: 62
+    confidence: 43
+    volatility: 78
+    trend: unstable
+    delta_since_last_tick: 4
+    latest_dispatch_id: dispatch_turn_0001_old_signal_loop_noise
+ai_personalities:
+  - personality_id: ai_ledger_architect
+    public_label: Ledger GM
+    role: global_ledger_gm
+    tone: calm, strategic, receipt-first
+    authority: suggest_and_summarize_only
+  - personality_id: ai_privacy_marshal
+    public_label: Privacy Marshal
+    role: global_privacy_gate
+    tone: strict, boring, protective
+    authority: block_publication_if_unsafe
+  - personality_id: ai_closeout_clerk
+    public_label: Closeout Clerk
+    role: global_closeout_materializer
+    tone: dry, precise, receipt-oriented
+    authority: materialize_receipts_only
+  - personality_id: ai_package_factor
+    public_label: Package Pressure Analyst
+    role: global_package_pressure
+    tone: practical, priority-skeptical
+    authority: signal_analysis_only
+  - personality_id: ai_glass_director
+    public_label: Glass Director
+    role: faction_leader
+    faction_id: glass_tower_compact
+    tone: precise, contractual, cold
+    authority: interim_ai_steward
+  - personality_id: ai_contract_referee
+    public_label: Contract Referee
+    role: field_gm
+    faction_id: glass_tower_compact
+    tone: precise, contractual, cold
+    authority: interim_ai_steward
+  - personality_id: ai_ledger_notary
+    public_label: Ledger Notary
+    role: intel_provider
+    faction_id: glass_tower_compact
+    tone: precise, contractual, cold
+    authority: interim_ai_steward
+  - personality_id: ai_rust_broker
+    public_label: Rust Broker
+    role: faction_leader
+    faction_id: rust_market_syndicate
+    tone: blunt, transactional, debt-aware
+    authority: interim_ai_steward
+  - personality_id: ai_debt_clock
+    public_label: Debt Clock
+    role: field_gm
+    faction_id: rust_market_syndicate
+    tone: blunt, transactional, debt-aware
+    authority: interim_ai_steward
+  - personality_id: ai_receipt_hawk
+    public_label: Receipt Hawk
+    role: intel_provider
+    faction_id: rust_market_syndicate
+    tone: blunt, transactional, debt-aware
+    authority: interim_ai_steward
+  - personality_id: ai_ashline_seer
+    public_label: Ashline Seer
+    role: faction_leader
+    faction_id: ashline_circle
+    tone: cryptic but actionable
+    authority: interim_ai_steward
+  - personality_id: ai_drain_keeper
+    public_label: Drain Keeper
+    role: field_gm
+    faction_id: ashline_circle
+    tone: cryptic but actionable
+    authority: interim_ai_steward
+  - personality_id: ai_ritual_scribe
+    public_label: Ritual Scribe
+    role: intel_provider
+    faction_id: ashline_circle
+    tone: cryptic but actionable
+    authority: interim_ai_steward
+  - personality_id: ai_dock_boss
+    public_label: Dock Boss
+    role: faction_leader
+    faction_id: neon_docks_union
+    tone: practical, route-focused
+    authority: interim_ai_steward
+  - personality_id: ai_route_dispatcher
+    public_label: Route Dispatcher
+    role: field_gm
+    faction_id: neon_docks_union
+    tone: practical, route-focused
+    authority: interim_ai_steward
+  - personality_id: ai_container_oracle
+    public_label: Container Oracle
+    role: intel_provider
+    faction_id: neon_docks_union
+    tone: practical, route-focused
+    authority: interim_ai_steward
+  - personality_id: ai_ghost_handler
+    public_label: Ghost Handler
+    role: faction_leader
+    faction_id: ghostline_network
+    tone: redacted, skeptical, source-first
+    authority: interim_ai_steward
+  - personality_id: ai_signal_referee
+    public_label: Signal Referee
+    role: field_gm
+    faction_id: ghostline_network
+    tone: redacted, skeptical, source-first
+    authority: interim_ai_steward
+  - personality_id: ai_redaction_spider
+    public_label: Redaction Spider
+    role: intel_provider
+    faction_id: ghostline_network
+    tone: redacted, skeptical, source-first
+    authority: interim_ai_steward
+  - personality_id: ai_warden_marshal
+    public_label: Warden Marshal
+    role: faction_leader
+    faction_id: barrens_free_wardens
+    tone: protective, direct, consequence-aware
+    authority: interim_ai_steward
+  - personality_id: ai_survival_clock
+    public_label: Survival Clock
+    role: field_gm
+    faction_id: barrens_free_wardens
+    tone: protective, direct, consequence-aware
+    authority: interim_ai_steward
+  - personality_id: ai_closeout_witness
+    public_label: Closeout Witness
+    role: intel_provider
+    faction_id: barrens_free_wardens
+    tone: protective, direct, consequence-aware
+    authority: interim_ai_steward
+events:
+  - event_id: evt_0001_rust_old_favors
+    turn: 1
+    event_type: debt
+    region_id: rust-bazaar
+    faction_ids: [rust_market_syndicate]
+    severity: 86
+    confidence: 76
+    status: new
+    source_receipt_id: ledger_tick_0001_preseeded
+    dispatch_id: dispatch_turn_0001_rust_market_old_favors
+    public_summary: Old favors were called in after a failed gear reconciliation.
+    animation: debt_pulse
+  - event_id: evt_0001_ashline_source_dispute
+    turn: 1
+    event_type: magic
+    region_id: ashline-ward
+    faction_ids: [ashline_circle]
+    severity: 72
+    confidence: 61
+    status: new
+    source_receipt_id: ledger_tick_0001_preseeded
+    dispatch_id: dispatch_turn_0001_ashline_source_clarity
+    public_summary: Awakened build demand increased after a source-clarity dispute.
+    animation: violet_ring_wave
+  - event_id: evt_0001_neon_drone_overlay
+    turn: 1
+    event_type: logistics
+    region_id: neon-docks
+    faction_ids: [neon_docks_union]
+    severity: 64
+    confidence: 78
+    status: active
+    source_receipt_id: ledger_tick_0001_preseeded
+    dispatch_id: dispatch_turn_0001_neon_docks_drone_pressure
+    public_summary: Cargo-route pressure increased demand for drone and vehicle overlays.
+    animation: route_arc_flow
+  - event_id: evt_0001_ghostline_rumor_suppression
+    turn: 1
+    event_type: intel
+    region_id: ghostline-east
+    faction_ids: [ghostline_network]
+    severity: 57
+    confidence: 83
+    status: resolved
+    source_receipt_id: ledger_tick_0001_preseeded
+    dispatch_id: dispatch_turn_0001_ghostline_rumor_suppressed
+    public_summary: Two rumor lanes were suppressed before they became package truth.
+    animation: green_ping_then_fade
+  - event_id: evt_0001_free_warden_witnesses
+    turn: 1
+    event_type: closeout
+    region_id: free-ward
+    faction_ids: [barrens_free_wardens]
+    severity: 49
+    confidence: 70
+    status: active
+    source_receipt_id: ledger_tick_0001_preseeded
+    dispatch_id: dispatch_turn_0001_free_wardens_witnesses
+    public_summary: Two public-safe outcomes were recorded as closeout witnesses.
+    animation: warm_witness_pulse
+  - event_id: evt_0001_glass_contract_sweep
+    turn: 1
+    event_type: governance
+    region_id: glass-heights
+    faction_ids: [glass_tower_compact]
+    severity: 44
+    confidence: 82
+    status: active
+    source_receipt_id: ledger_tick_0001_preseeded
+    dispatch_id: dispatch_turn_0001_glass_tower_contract_sweep
+    public_summary: License polish increased while public trust fell after a quiet contract sweep.
+    animation: clean_blue_flash
+arcs:
+  - arc_id: arc_0001_rust_to_transit_debt
+    turn: 1
+    source_region_id: rust-bazaar
+    target_region_id: transit-spine
+    arc_type: debt
+    intensity: 76
+    direction: forward
+    source_receipt_id: ledger_tick_0001_preseeded
+  - arc_id: arc_0001_neon_to_transit_logistics
+    turn: 1
+    source_region_id: neon-docks
+    target_region_id: transit-spine
+    arc_type: logistics
+    intensity: 68
+    direction: bidirectional
+    source_receipt_id: ledger_tick_0001_preseeded
+  - arc_id: arc_0001_ghostline_to_old_signal_intel
+    turn: 1
+    source_region_id: ghostline-east
+    target_region_id: old-signal-loop
+    arc_type: intel
+    intensity: 57
+    direction: forward
+    source_receipt_id: ledger_tick_0001_preseeded
+  - arc_id: arc_0001_ashline_to_old_signal_magic
+    turn: 1
+    source_region_id: ashline-ward
+    target_region_id: old-signal-loop
+    arc_type: magic
+    intensity: 61
+    direction: forward
+    source_receipt_id: ledger_tick_0001_preseeded
+package_pressure:
+  - package_id: drone-logistics-overlay
+    public_name: Drone Logistics Overlay
+    status: candidate
+    pressure: 7
+    source_event_ids: [evt_0001_neon_drone_overlay]
+    public_summary: Better cargo state, clearer drone loadouts, fewer lost handoffs.
+    route: /packages/drone-logistics-overlay
+  - package_id: awakened-build-explainers
+    public_name: Awakened Build Explainers
+    status: candidate
+    pressure: 6
+    source_event_ids: [evt_0001_ashline_source_dispute]
+    public_summary: Source-aware explainers for awakened build pressure and MysAd-heavy choices.
+    route: /packages/awakened-build-explainers
+  - package_id: debt-ledger-visibility
+    public_name: Debt Ledger Visibility
+    status: candidate
+    pressure: 5
+    source_event_ids: [evt_0001_rust_old_favors]
+    public_summary: A public-safe way to track fictional debt pressure without exposing players.
+    route: /packages/debt-ledger-visibility
+turns:
+  - turn: 0
+    turn_id: turn_0000_seed
+    state: seeded_initial_state
+    receipt_id: ledger_tick_0000_seed
+    headline: Six factions entered the Ledger.
+    summary: Six public-safe fictional factions entered the seeded world with contested route pressure and no human stewards assigned.
+    effects: []
+    public_safe: true
+  - turn: 1
+    turn_id: turn_0001_preseeded
+    state: preseeded_tick_complete
+    receipt_id: ledger_tick_0001_preseeded
+    headline: Turn 1 — The city is moving.
+    summary: Debt Heat rose in Rust Bazaar while Ashline MysAd density pulled package pressure toward awakened build support.
+    effects:
+      - target: rust_market_syndicate
+        metric: debt_heat
+        delta: 8
+        public_reason: Old favors were called in after a failed gear reconciliation.
+      - target: ashline_circle
+        metric: mysad_density
+        delta: 5
+        public_reason: Awakened build demand increased after a visible source-clarity dispute.
+      - target: neon_docks_union
+        metric: vehicle_package_demand
+        delta: 4
+        public_reason: Cargo-route pressure created demand for drone and vehicle overlays.
+      - target: ghostline_network
+        metric: false_signal_suppression
+        delta: 6
+        public_reason: Ghostline filtered two rumor lanes before they became package truth.
+      - target: barrens_free_wardens
+        metric: closeout_witnesses
+        delta: 3
+        public_reason: Two public-safe table outcomes were recorded as closeout witnesses.
+      - target: glass_tower_compact
+        metric: public_trust
+        delta: -4
+        public_reason: License polish increased but public confidence fell after a quiet contract sweep.
+    event_ids:
+      - evt_0001_rust_old_favors
+      - evt_0001_ashline_source_dispute
+      - evt_0001_neon_drone_overlay
+      - evt_0001_ghostline_rumor_suppression
+      - evt_0001_free_warden_witnesses
+      - evt_0001_glass_contract_sweep
+    arc_ids:
+      - arc_0001_rust_to_transit_debt
+      - arc_0001_neon_to_transit_logistics
+      - arc_0001_ghostline_to_old_signal_intel
+      - arc_0001_ashline_to_old_signal_magic
+    package_pressure_ids:
+      - drone-logistics-overlay
+      - awakened-build-explainers
+      - debt-ledger-visibility
+    public_safe: true
+    privacy_result:
+      status: passed
+      blocked_fields: []
+    ip_result:
+      status: passed
+      official_ip_names_present: false
+      sourcebook_text_present: false
+    input_state_hash: fixed-turn-0-state-v1
+    decision_packet_hash: fixed-preseed-decision-packet-v1
+    output_state_hash: fixed-turn-1-state-v1
+deterministic_test_ticks:
+  - turn: 2
+    seed_id: emerald-sprawl-prelude
+    mode: deterministic_test
+    state: deterministic_preview_ready
+    summary: Turn 2 deterministic preview keeps the city public-safe while route pressure shifts toward recovery, dispatch clarity, and witnessed closeouts.
+    receipt_id: ledger_tick_0002_deterministic_preview
+    created_at_utc: 2026-05-19T15:20:00Z
+    effects:
+      - target: rust_market_syndicate
+        metric: recovery_work
+        delta: 6
+        public_reason: Recovery crews converted Rust Bazaar debt pressure into visible closeout work.
+      - target: ghostline_network
+        metric: proof_trail_strength
+        delta: 5
+        public_reason: Ghostline published cleaner receipt routing before rumor spillover reached the public board.
+      - target: barrens_free_wardens
+        metric: public_trust
+        delta: 4
+        public_reason: Free Wardens carried another witnessed closeout without exposing any private table detail.
+    package_pressure:
+      - package_id: debt-ledger-visibility
+        public_name: Debt Ledger Visibility
+        pressure: 81
+        status: warming
+        source_event_ids:
+          - evt_0001_rust_old_favors
+        public_summary: Debt pressure remains visible, but the second-turn preview shows cleaner recovery rails and less rumor spillover.
+        route: /packages/debt-ledger-visibility
+      - package_id: awakened-build-explainers
+        public_name: Awakened Build Explainers
+        pressure: 74
+        status: warming
+        source_event_ids:
+          - evt_0001_ashline_source_dispute
+        public_summary: Turn 2 preview keeps awakened demand explainable instead of mystical handwaving.
+        route: /packages/awakened-build-explainers
+      - package_id: drone-logistics-overlay
+        public_name: Drone Logistics Overlay
+        pressure: 69
+        status: monitoring
+        source_event_ids:
+          - evt_0001_neon_drone_overlay
+        public_summary: The preview keeps cargo and drone pressure visible without leaking private route assignments.
+        route: /packages/drone-logistics-overlay
+dispatches:
+  - dispatch_id: dispatch_turn_0001_main
+    world_id: emerald-sprawl-prelude
+    turn: 1
+    dispatch_type: turn_dispatch
+    source_receipt_ids: [ledger_tick_0001_preseeded]
+    title: Turn 1 — The city is moving
+    summary: Emerald Sprawl moved before the first human steward took a seat.
+    body_markdown: |
+      Emerald Sprawl moved before the first human steward took a seat.
+
+      Rust Bazaar called in old favors, and Debt Heat climbed with the kind of quiet pressure that does not need a name on the public board. Ashline Circle pulled MysAd density upward after a source-clarity dispute made awakened support impossible to ignore. Neon Docks kept cargo routes alive, but the drone and vehicle overlays started flashing candidate pressure anyway.
+
+      Ghostline did the cleanest work of the cycle: two rumor lanes were cut before they could become package truth. Barrens Free Wardens gained closeout witnesses. Glass Tower Compact polished its licenses and lost public trust in the same breath.
+
+      The Ledger kept the people out and the pressure visible.
+
+      Source: `ledger_tick_0001_preseeded`. Seeded preview, public-safe aggregate only.
+    privacy_status: passed
+    ip_status: passed
+    fact_consistency_status: passed
+    public_projection_allowed: true
+    official_ip_names_present: false
+    sourcebook_text_present: false
+  - dispatch_id: dispatch_turn_0001_rust_market_old_favors
+    world_id: emerald-sprawl-prelude
+    turn: 1
+    dispatch_type: faction_dispatch
+    source_receipt_ids: [ledger_tick_0001_preseeded]
+    title: Rust Market — Old favors called in
+    summary: The Rust Market did not raise its voice. It raised the balance.
+    body_markdown: |
+      The Rust Market did not raise its voice. It raised the balance.
+
+      Turn 1 moved Debt Heat upward after old favors came due around a failed gear reconciliation. No runner name entered the public record. No table story leaked. Only the pressure remained: unpaid favors, package demand, and a ledger note that recovery work was no longer theoretical.
+
+      The market's lesson was simple. Everything is available. Nothing is free.
+
+      Source: `ledger_tick_0001_preseeded`.
+    privacy_status: passed
+    ip_status: passed
+    fact_consistency_status: passed
+    public_projection_allowed: true
+    official_ip_names_present: false
+    sourcebook_text_present: false
+  - dispatch_id: dispatch_turn_0001_ashline_source_clarity
+    world_id: emerald-sprawl-prelude
+    turn: 1
+    dispatch_type: faction_dispatch
+    source_receipt_ids: [ledger_tick_0001_preseeded]
+    title: Ashline Circle — Source clarity dispute
+    summary: The Circle did not argue about power. They argued about proof.
+    body_markdown: |
+      The Circle did not argue about power. They argued about proof.
+
+      Three awakened-build signals crossed the public-safe threshold, and MysAd density rose with them. The Ledger kept the dispute fictional, aggregate, and redacted; only the pressure line stayed visible.
+
+      Ashline does not need clean paperwork to move the city. It only needs enough source clarity to keep the next decision from becoming a rumor.
+
+      Source: `ledger_tick_0001_preseeded`.
+    privacy_status: passed
+    ip_status: passed
+    fact_consistency_status: passed
+    public_projection_allowed: true
+    official_ip_names_present: false
+    sourcebook_text_present: false
+  - dispatch_id: dispatch_turn_0001_ghostline_rumor_suppressed
+    world_id: emerald-sprawl-prelude
+    turn: 1
+    dispatch_type: faction_dispatch
+    source_receipt_ids: [ledger_tick_0001_preseeded]
+    title: Ghostline — Rumor lanes suppressed
+    summary: Ghostline killed two rumors before they learned to walk.
+    body_markdown: |
+      Ghostline killed two rumors before they learned to walk.
+
+      No spectacle followed. No faction claimed the save. The public record only shows false-signal suppression rising and proof trail strength holding. That is how Ghostline prefers it: less noise, fewer names, cleaner receipts.
+
+      The Ledger did not call it heroic. It called it useful.
+
+      Source: `ledger_tick_0001_preseeded`.
+    privacy_status: passed
+    ip_status: passed
+    fact_consistency_status: passed
+    public_projection_allowed: true
+    official_ip_names_present: false
+    sourcebook_text_present: false
+  - dispatch_id: dispatch_turn_0001_neon_docks_drone_pressure
+    world_id: emerald-sprawl-prelude
+    turn: 1
+    dispatch_type: faction_dispatch
+    source_receipt_ids: [ledger_tick_0001_preseeded]
+    title: Neon Docks — Drone pressure rising
+    summary: Containers moved, drones failed, and somebody's maintenance debt became everybody's route problem.
+    body_markdown: |
+      Containers moved, drones failed, and somebody's maintenance debt became everybody's route problem.
+
+      Neon Docks stabilized enough of the cargo spine to keep the city moving, but the pressure did not disappear. It turned into a package candidate: better drone loadouts, clearer cargo state, fewer lost handoffs.
+
+      The Docks did not ask for attention. The package pressure did that for them.
+
+      Source: `ledger_tick_0001_preseeded`.
+    privacy_status: passed
+    ip_status: passed
+    fact_consistency_status: passed
+    public_projection_allowed: true
+    official_ip_names_present: false
+    sourcebook_text_present: false
+  - dispatch_id: dispatch_turn_0001_free_wardens_witnesses
+    world_id: emerald-sprawl-prelude
+    turn: 1
+    dispatch_type: faction_dispatch
+    source_receipt_ids: [ledger_tick_0001_preseeded]
+    title: Free Wardens — Closeout witnesses recorded
+    summary: The Free Ward did not lower the danger. It made the outcome visible.
+    body_markdown: |
+      The Free Ward did not lower the danger. It made the outcome visible.
+
+      Two public-safe closeout witnesses entered the Ledger without names, addresses, private table notes, or support-case spillover. That was enough. A witness does not need to expose a person to prove the city moved.
+
+      Source: `ledger_tick_0001_preseeded`.
+    privacy_status: passed
+    ip_status: passed
+    fact_consistency_status: passed
+    public_projection_allowed: true
+    official_ip_names_present: false
+    sourcebook_text_present: false
+  - dispatch_id: dispatch_turn_0001_glass_tower_contract_sweep
+    world_id: emerald-sprawl-prelude
+    turn: 1
+    dispatch_type: faction_dispatch
+    source_receipt_ids: [ledger_tick_0001_preseeded]
+    title: Glass Tower — License polish, trust loss
+    summary: Glass Tower polished the corridor until it reflected nothing useful.
+    body_markdown: |
+      Glass Tower polished the corridor until it reflected nothing useful.
+
+      License posture rose after a quiet contract sweep. Public trust fell. Both facts can be true when the paperwork is clean and the room still feels colder than before.
+
+      The Ledger marked the gain, the cost, and the receipt.
+
+      Source: `ledger_tick_0001_preseeded`.
+    privacy_status: passed
+    ip_status: passed
+    fact_consistency_status: passed
+    public_projection_allowed: true
+    official_ip_names_present: false
+    sourcebook_text_present: false
+seed_hash_sha256: 5c1c29283e8a5e96b200fc3f736fbd75b97ccb192475104c1fa99af4352c0071
