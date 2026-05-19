@@ -14,6 +14,12 @@ assert MODULE_SPEC and MODULE_SPEC.loader
 MODULE = importlib.util.module_from_spec(MODULE_SPEC)
 MODULE_SPEC.loader.exec_module(MODULE)
 
+VERIFY_SCRIPT = Path(__file__).resolve().parent / "verify_public_release_channel.py"
+VERIFY_MODULE_SPEC = importlib.util.spec_from_file_location("verify_public_release_channel_module", VERIFY_SCRIPT)
+assert VERIFY_MODULE_SPEC and VERIFY_MODULE_SPEC.loader
+VERIFY_MODULE = importlib.util.module_from_spec(VERIFY_MODULE_SPEC)
+VERIFY_MODULE_SPEC.loader.exec_module(VERIFY_MODULE)
+
 
 def install_aware_payload() -> tuple[list[dict], dict]:
     artifacts = [
@@ -1389,8 +1395,9 @@ def test_external_proof_request_capture_commands_include_operating_system_hint()
 
     assert len(commands) == 3
     assert "external-proof-auth-missing" in commands[0]
-    assert "curl_auth_args" in commands[0]
-    assert '"${curl_auth_args[@]}"' in commands[0]
+    assert 'set -- curl -fL --retry 3 --retry-delay 2;' in commands[0]
+    assert 'set -- "$@" -H "${CHUMMER_EXTERNAL_PROOF_AUTH_HEADER:-}";' in commands[0]
+    assert 'set -- "$@" "${CHUMMER_EXTERNAL_PROOF_BASE_URL:-https://chummer.run}/downloads/install/avalonia-win-x64-installer" -o "$INSTALLER_PATH"; "$@";' in commands[0]
     assert "/downloads/install/avalonia-win-x64-installer" in commands[0]
     assert "installer-preflight-sha256-mismatch" in commands[0]
     assert "installer-postdownload-sha256-mismatch" in commands[0]
@@ -1400,6 +1407,49 @@ def test_external_proof_request_capture_commands_include_operating_system_hint()
     assert commands[1].endswith('"$STARTUP_SMOKE_DIR" run-20260414-1836')
     assert commands[2].endswith('cd "$REPO_ROOT" && ./scripts/generate-releases-manifest.sh')
     assert 'REPO_ROOT="${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui}"' in commands[2]
+
+
+def test_desktop_tuple_coverage_external_proof_requests_match_verifier_contract() -> None:
+    artifacts = [
+        {
+            "artifactId": "avalonia-linux-x64-installer",
+            "head": "avalonia",
+            "rid": "linux-x64",
+            "platform": "linux",
+            "arch": "x64",
+            "kind": "installer",
+        },
+        {
+            "artifactId": "avalonia-win-x64-installer",
+            "head": "avalonia",
+            "rid": "win-x64",
+            "platform": "windows",
+            "arch": "x64",
+            "kind": "installer",
+        },
+    ]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        downloads_dir = Path(tmp)
+        coverage = MODULE.desktop_tuple_coverage(
+            artifacts,
+            required_heads=["avalonia"],
+            required_platforms=["linux", "windows", "macos"],
+            channel_id="docker",
+            downloads_dir=downloads_dir,
+            release_version="run-20260519-180048",
+        )
+
+    payload = {
+        "channelId": "docker",
+        "version": "run-20260519-180048",
+        "desktopTupleCoverage": coverage,
+        "artifacts": artifacts,
+    }
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = VERIFY_MODULE.expected_desktop_route_truth_rows(payload)
+
+    verified = VERIFY_MODULE.verify_desktop_tuple_coverage(payload, "payload.json")
+    assert verified["missing_platform_head_rid_tuples"] == ["avalonia:osx-arm64:macos"]
 
 
 def test_external_proof_request_capture_commands_include_macos_operating_system_hint() -> None:
