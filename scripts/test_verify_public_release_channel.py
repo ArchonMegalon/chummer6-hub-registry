@@ -205,8 +205,8 @@ def add_public_trust_metrics(payload: dict) -> None:
     payload["generatedAt"] = "2026-04-14T18:22:04Z"
     payload["generated_at"] = "2026-04-14T18:22:04Z"
     payload["status"] = "published"
-    payload["rolloutState"] = "promoted_preview"
-    payload["supportabilityState"] = "preview_supported"
+    payload["rolloutState"] = "public_stable"
+    payload["supportabilityState"] = "gold_supported"
     payload["releaseProof"] = {
         "status": "passed",
         "generatedAt": "2026-04-14T18:12:04Z",
@@ -388,6 +388,86 @@ def test_load_payload_auto_detects_sibling_run_services_root_for_registry_publis
         assert payload == {}
         assert source == str(registry_manifest)
         assert local_root == downloads_root
+
+
+def test_registry_published_manifest_verification_prefers_authoritative_run_services_startup_smoke_root(tmp_path: Path) -> None:
+    complete_root = tmp_path / "docker" / "chummercomplete"
+    registry_manifest = complete_root / "chummer-hub-registry" / ".codex-studio" / "published" / "RELEASE_CHANNEL.generated.json"
+    published_startup_smoke_root = registry_manifest.parent / "startup-smoke"
+    published_startup_smoke_root.mkdir(parents=True, exist_ok=True)
+
+    downloads_root = complete_root / "chummer.run-services" / "Chummer.Portal" / "downloads"
+    files_dir = downloads_root / "files"
+    startup_smoke_dir = downloads_root / "startup-smoke"
+    files_dir.mkdir(parents=True, exist_ok=True)
+    startup_smoke_dir.mkdir(parents=True, exist_ok=True)
+
+    installer_name = "chummer-avalonia-win-x64-installer.exe"
+    installer_path = files_dir / installer_name
+    installer_bytes = b"windows-installer"
+    installer_path.write_bytes(installer_bytes)
+    installer_sha = hashlib.sha256(installer_bytes).hexdigest()
+
+    payload = windows_only_primary_desktop_tuple_payload()
+    payload["channelId"] = "public_stable"
+    payload["channel"] = "public_stable"
+    payload["version"] = "run-20260518-220935"
+    payload["status"] = "published"
+    payload["generatedAt"] = datetime.now(timezone.utc).isoformat().replace("+00:00", "Z")
+    payload["artifacts"][0].update(
+        {
+            "channelId": "public_stable",
+            "fileName": installer_name,
+            "downloadUrl": f"/downloads/files/{installer_name}",
+            "sizeBytes": len(installer_bytes),
+            "sha256": installer_sha,
+        }
+    )
+    payload["desktopTupleCoverage"]["promotedInstallerTuples"][0]["artifactId"] = "avalonia-win-x64-installer"
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = MODULE.expected_desktop_route_truth_rows(payload)
+    registry_manifest.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+    (downloads_root / "RELEASE_CHANNEL.generated.json").write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+    good_receipt = {
+        "status": "pass",
+        "readyCheckpoint": MODULE.REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT,
+        "headId": "avalonia",
+        "platform": "windows",
+        "rid": "win-x64",
+        "arch": "x64",
+        "hostClass": "windows-host",
+        "operatingSystem": "Windows 11",
+        "artifactDigest": f"sha256:{installer_sha}",
+        "artifactId": "avalonia-win-x64-installer",
+        "artifactPath": str(installer_path),
+        "channelId": "public_stable",
+        "channel": "public_stable",
+        "completedAtUtc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    }
+    (startup_smoke_dir / "startup-smoke-avalonia-win-x64.receipt.json").write_text(
+        json.dumps(good_receipt, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    stale_published_receipt = dict(good_receipt)
+    stale_published_receipt["channelId"] = "docker"
+    stale_published_receipt["channel"] = "docker"
+    (published_startup_smoke_root / "startup-smoke-avalonia-win-x64.receipt.json").write_text(
+        json.dumps(stale_published_receipt, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    previous = os.environ.get("CHUMMER_RUN_SERVICES_ROOT")
+    os.environ.pop("CHUMMER_RUN_SERVICES_ROOT", None)
+    try:
+        loaded_payload, source, local_root = MODULE.load_payload(str(registry_manifest))
+    finally:
+        if previous is not None:
+            os.environ["CHUMMER_RUN_SERVICES_ROOT"] = previous
+
+    assert source == str(registry_manifest)
+    assert local_root == downloads_root
+    MODULE.verify_local_download_files(loaded_payload, local_root, source)
 
 
 def add_promoted_linux_fallback_tuple(payload: dict) -> None:
@@ -679,10 +759,10 @@ def test_verify_output_readiness_honesty_rejects_stale_supported_copy() -> None:
     payload["generatedAt"] = "2026-05-20T18:22:04Z"
     payload["generated_at"] = "2026-05-20T18:22:04Z"
     payload["publicTrustMetrics"]["proofFreshness"]["status"] = "stale"
-    payload["supportabilityState"] = "preview_supported"
+    payload["supportabilityState"] = "gold_supported"
     payload["rolloutReason"] = "Current release shelf was exercised by the local docker release proof harness before publication."
-    payload["supportabilitySummary"] = "Local release proof passed for the current shelf."
-    payload["knownIssueSummary"] = "Preview caveats still apply, but the current shelf has recent install proof."
+    payload["supportabilitySummary"] = "Gold release proof passed for the current shelf."
+    payload["knownIssueSummary"] = "Current release proof is green, and the shelf has recent install proof."
     payload["fixAvailabilitySummary"] = (
         "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf."
     )

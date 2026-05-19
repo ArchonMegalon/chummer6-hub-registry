@@ -213,6 +213,50 @@ def test_load_startup_smoke_receipts_accepts_future_dated_receipts_within_skew()
     ]
 
 
+def test_load_startup_smoke_receipts_marks_stale_receipts_instead_of_dropping_them() -> None:
+    now = MODULE.dt.datetime(2026, 4, 12, 22, 0, tzinfo=timezone.utc)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        receipt_path = root / "startup-smoke-avalonia-win-x64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "completedAtUtc": "2026-04-04T22:00:00Z",
+                    "headId": "avalonia",
+                    "platform": "windows",
+                    "arch": "x64",
+                    "hostClass": "windows-host",
+                    "operatingSystem": "Windows 11",
+                    "channelId": "docker",
+                    "artifactDigest": "sha256:abc123",
+                    "artifactPath": "/tmp/chummer-avalonia-win-x64-installer.exe",
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipts = MODULE.load_startup_smoke_receipts(
+            root,
+            max_age_seconds=86400,
+            max_future_skew_seconds=60,
+            expected_channel="docker",
+            now=now,
+        )
+    assert receipts == [
+        {
+            "head": "avalonia",
+            "platform": "windows",
+            "arch": "x64",
+            "artifactDigest": "sha256:abc123",
+            "channelId": "docker",
+            "artifactId": "",
+            "artifactFileName": "chummer-avalonia-win-x64-installer.exe",
+            "proofFreshness": "stale",
+        }
+    ]
+
+
 def test_load_startup_smoke_receipts_rejects_missing_host_class_for_platform() -> None:
     now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
     with tempfile.TemporaryDirectory() as tmp:
@@ -800,6 +844,36 @@ def test_filter_unproven_installers_rejects_identity_matched_installer_when_rece
     filtered = MODULE.filter_unproven_installers(artifacts, startup_smoke_receipts)
 
     assert filtered == []
+
+
+def test_filter_unproven_installers_keeps_identity_matched_installer_when_receipt_is_stale_but_bytes_match() -> None:
+    artifacts = [
+        {
+            "artifactId": "avalonia-win-x64-installer",
+            "head": "avalonia",
+            "platform": "windows",
+            "arch": "x64",
+            "kind": "installer",
+            "fileName": "chummer-avalonia-win-x64-installer.exe",
+            "sha256": "abc123",
+        }
+    ]
+    startup_smoke_receipts = [
+        {
+            "head": "avalonia",
+            "platform": "windows",
+            "arch": "x64",
+            "artifactDigest": "sha256:abc123",
+            "channelId": "docker",
+            "artifactId": "avalonia-win-x64-installer",
+            "artifactFileName": "chummer-avalonia-win-x64-installer.exe",
+            "proofFreshness": "stale",
+        }
+    ]
+
+    filtered = MODULE.filter_unproven_installers(artifacts, startup_smoke_receipts)
+
+    assert filtered == artifacts
 
 
 def test_filter_unproven_installers_still_rejects_installer_without_matching_identity_or_digest() -> None:
@@ -1450,6 +1524,9 @@ def test_desktop_tuple_coverage_external_proof_requests_match_verifier_contract(
 
     verified = VERIFY_MODULE.verify_desktop_tuple_coverage(payload, "payload.json")
     assert verified["missing_platform_head_rid_tuples"] == ["avalonia:osx-arm64:macos"]
+    assert payload["desktopTupleCoverage"]["externalProofRequests"] == VERIFY_MODULE.expected_external_proof_request_rows(
+        payload
+    )
 
 
 def test_external_proof_request_capture_commands_include_macos_operating_system_hint() -> None:
@@ -1588,7 +1665,7 @@ def test_desktop_surface_refs_derive_canonical_rows() -> None:
             "rewardPublicationRef": "reward-publication:binding:docker:run-20260420-072339:avalonia:windows:win-x64",
             "publicationBindingId": "binding:docker:run-20260420-072339:avalonia:windows:win-x64",
             "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
-            "rationale": "docker keeps preview tuple avalonia:windows:win-x64 on entitlement-backed install guidance so desktop can explain claim, participation, and reward publication before wider rollout.",
+            "rationale": "docker keeps preview tuple avalonia:windows:win-x64 on entitlement-backed install guidance so desktop can explain claim, participation, and reward posture before wider publication.",
         },
     ]
 

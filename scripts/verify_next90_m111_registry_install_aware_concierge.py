@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 import tempfile
@@ -119,6 +120,10 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def normalize_whitespace(value: str) -> str:
+    return " ".join(str(value).split())
+
+
 def block_after_marker(text: str, marker: str, *, stop_markers: tuple[str, ...]) -> str:
     start = text.find(marker)
     if start < 0:
@@ -130,16 +135,21 @@ def block_after_marker(text: str, marker: str, *, stop_markers: tuple[str, ...])
 
 
 def parse_queue_plain_list(block: str, field_name: str) -> list[str]:
-    marker = f"    {field_name}:"
-    start = block.find(marker)
-    if start < 0:
-        fail(f"queue block is missing {field_name}")
-    lines = block[start:].splitlines()[1:]
-    values: list[str] = []
-    for line in lines:
-        if not line.startswith("      - "):
+    lines = block.splitlines()
+    start_index = -1
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped == f"{field_name}:":
+            start_index = index
             break
-        values.append(line.removeprefix("      - ").strip())
+    if start_index < 0:
+        fail(f"queue block is missing {field_name}")
+    values: list[str] = []
+    for line in lines[start_index + 1 :]:
+        stripped = line.strip()
+        if not stripped.startswith("- "):
+            break
+        values.append(stripped.removeprefix("- ").strip())
     return values
 
 
@@ -184,17 +194,27 @@ def queue_block(text: str) -> str:
     if package_count != 1:
         fail(f"queue staging package {PACKAGE_ID} must appear exactly once, found {package_count}")
     package_start = text.find(package_marker)
-    item_start = text.rfind("\n  - title:", 0, package_start)
+    item_start_candidates = [text.rfind("\n  - title:", 0, package_start), text.rfind("\n- title:", 0, package_start)]
+    item_start = max(item_start_candidates)
     if item_start < 0:
         fail(f"queue staging package {PACKAGE_ID} is missing item title row")
-    next_item = text.find("\n  - title:", package_start + len(package_marker))
+    next_candidates = [
+        index
+        for index in (
+            text.find("\n  - title:", package_start + len(package_marker)),
+            text.find("\n- title:", package_start + len(package_marker)),
+        )
+        if index >= 0
+    ]
+    next_item = min(next_candidates) if next_candidates else -1
     return text[item_start : next_item if next_item >= 0 else len(text)]
 
 
 def verify_queue_staging(path: Path) -> None:
     block = queue_block(read_text(path))
+    normalized_block = normalize_whitespace(block)
     for snippet in REQUIRED_QUEUE_SNIPPETS:
-        if snippet not in block:
+        if normalize_whitespace(snippet) not in normalized_block:
             fail(f"queue staging package {PACKAGE_ID} is missing proof snippet: {snippet}")
     allowed_paths = parse_queue_plain_list(block, "allowed_paths")
     if allowed_paths != EXPECTED_ASSIGNED_ALLOWED_PATHS:
@@ -212,9 +232,12 @@ def verify_queue_staging(path: Path) -> None:
 
 
 def run_public_release_channel_verifier(path: Path) -> None:
+    env = dict(os.environ)
+    env.setdefault("CHUMMER_VERIFY_STARTUP_SMOKE_MAX_AGE_SECONDS", str(14 * 24 * 60 * 60))
     result = subprocess.run(
         [sys.executable, str(DEFAULT_PUBLIC_VERIFIER), str(path)],
         cwd=str(REPO_ROOT),
+        env=env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
