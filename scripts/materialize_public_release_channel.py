@@ -3427,6 +3427,16 @@ def normalize_release_channel_posture(
     return rollout_state, supportability_state
 
 
+def normalize_effective_channel_id(channel: str, rollout_state: str) -> str:
+    normalized_channel = normalize_token(channel) or "preview"
+    normalized_rollout_state = normalize_token(rollout_state)
+    if normalized_rollout_state == "public_stable" and normalized_channel in {"preview", "docker"}:
+        return "public_stable"
+    if normalized_rollout_state == "stable" and normalized_channel == "preview":
+        return "stable"
+    return normalized_channel
+
+
 def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     loaded = load_input_payload(args)
     loaded_version = str(loaded.get("version") or "").strip()
@@ -3438,7 +3448,8 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     ) or "unpublished"
     loaded_channel = str(loaded.get("channel") or loaded.get("channelId") or "").strip()
     requested_channel = str(args.channel or "").strip()
-    channel = requested_channel or loaded_channel or "preview"
+    raw_channel = requested_channel or loaded_channel or "preview"
+    channel = raw_channel
 
     if isinstance(loaded.get("artifacts"), list):
         artifacts = [parse_download_row(item) for item in loaded.get("artifacts") or [] if isinstance(item, dict)]
@@ -3457,7 +3468,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             args.startup_smoke_dir,
             max_age_seconds=args.startup_smoke_max_age_seconds,
             max_future_skew_seconds=args.startup_smoke_max_future_skew_seconds,
-            expected_channel=normalize_token(channel),
+            expected_channel=normalize_token(raw_channel),
         )
     else:
         startup_smoke_receipts = None
@@ -3472,8 +3483,8 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     generated_at = dt.datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     for artifact in artifacts:
         if isinstance(artifact, dict):
-            artifact["channelId"] = channel
-            artifact["channel"] = channel
+            artifact["channelId"] = raw_channel
+            artifact["channel"] = raw_channel
             artifact["version"] = version
             artifact["releaseVersion"] = version
             artifact["generated_at"] = generated_at
@@ -3556,7 +3567,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         artifacts,
         required_heads=required_heads,
         required_platforms=list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS),
-        channel_id=channel,
+        channel_id=raw_channel,
         release_version=version,
         channel_status=status,
         rollout_state=loaded_rollout_state,
@@ -3566,13 +3577,13 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     )
     desktop_coverage_complete = desktop_tuple_coverage_is_complete(tuple_coverage)
     rollout_state = loaded_rollout_state or derive_rollout_state(
-        channel,
+        raw_channel,
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
     )
     rollout_reason = loaded_rollout_reason or derive_rollout_reason(
-        channel,
+        raw_channel,
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
@@ -3589,11 +3600,31 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     rollout_state, supportability_state = normalize_release_channel_posture(
         rollout_state,
         supportability_state,
-        channel=channel,
+        channel=raw_channel,
         status=status,
         proof=release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
     )
+    channel = normalize_effective_channel_id(raw_channel, rollout_state)
+    if channel != raw_channel:
+        for artifact in artifacts:
+            if isinstance(artifact, dict):
+                artifact["channelId"] = channel
+                artifact["channel"] = channel
+        tuple_coverage = desktop_tuple_coverage(
+            artifacts,
+            required_heads=required_heads,
+            required_platforms=list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS),
+            channel_id=channel,
+            release_version=version,
+            channel_status=status,
+            rollout_state=rollout_state,
+            rollout_reason=rollout_reason,
+            known_issue_summary=loaded_known_issue_summary,
+            downloads_dir=args.downloads_dir,
+        )
+        desktop_coverage_complete = desktop_tuple_coverage_is_complete(tuple_coverage)
+
     derived_supportability_summary = derive_supportability_summary(
         status,
         release_proof,
@@ -3701,6 +3732,13 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
             f"{DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME}, got {source_contract_name!r}"
         )
     contract_name = DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
+    rollout_state = str(canonical.get("rolloutState") or "").strip()
+    channel_id = str(canonical.get("channelId") or "").strip()
+    compatibility_channel = (
+        rollout_state
+        if rollout_state in {"public_stable", "stable", "preview", "local", "docker"}
+        else (channel_id or "preview")
+    )
     downloads = []
     for artifact in canonical.get("artifacts") or []:
         if not isinstance(artifact, dict):
@@ -3736,7 +3774,7 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         "contract_name": contract_name,
         "contractName": contract_name,
         "version": canonical.get("version") or "unpublished",
-        "channel": canonical.get("channelId") or "preview",
+        "channel": compatibility_channel,
         "publishedAt": canonical.get("publishedAt"),
         "downloads": downloads,
         "source": "registry",

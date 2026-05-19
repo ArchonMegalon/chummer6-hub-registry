@@ -99,6 +99,11 @@ def test_normalize_release_channel_posture_upgrades_stale_local_docker_states() 
     ) == ("public_stable", "gold_supported")
 
 
+def test_normalize_effective_channel_id_projects_public_stable_for_promoted_preview_release() -> None:
+    assert MODULE.normalize_effective_channel_id("preview", "public_stable") == "public_stable"
+    assert MODULE.normalize_effective_channel_id("docker", "public_stable") == "public_stable"
+
+
 def test_desktop_tuple_coverage_incomplete_when_only_rid_tuple_is_missing() -> None:
     coverage = {
         "missingRequiredPlatforms": [],
@@ -439,6 +444,23 @@ def test_compatibility_payload_canonicalizes_contract_name_aliases() -> None:
 
     assert payload["contract_name"] == MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
     assert payload["contractName"] == MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
+
+
+def test_compatibility_payload_projects_public_stable_channel() -> None:
+    payload = MODULE.compatibility_payload(
+        {
+            "generatedAt": "2026-05-19T15:43:06Z",
+            "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+            "channelId": "preview",
+            "rolloutState": "public_stable",
+            "version": "run-20260519-154306",
+            "publishedAt": "2026-05-19T15:43:06Z",
+            "status": "published",
+            "artifacts": [],
+        }
+    )
+
+    assert payload["channel"] == "public_stable"
 
 
 def test_normalize_release_proof_payload_ignores_extra_metadata_keys() -> None:
