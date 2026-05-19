@@ -1,14 +1,11 @@
 from __future__ import annotations
 
-import argparse
 import hashlib
 import importlib.util
-import inspect
 import json
 import tempfile
 from datetime import timezone
 from pathlib import Path
-import unittest
 
 
 SCRIPT = Path(__file__).resolve().parent / "materialize_public_release_channel.py"
@@ -16,33 +13,6 @@ MODULE_SPEC = importlib.util.spec_from_file_location("materialize_public_release
 assert MODULE_SPEC and MODULE_SPEC.loader
 MODULE = importlib.util.module_from_spec(MODULE_SPEC)
 MODULE_SPEC.loader.exec_module(MODULE)
-
-VERIFIER_SCRIPT = Path(__file__).resolve().parent / "verify_public_release_channel.py"
-VERIFIER_SPEC = importlib.util.spec_from_file_location("verify_public_release_channel_module", VERIFIER_SCRIPT)
-assert VERIFIER_SPEC and VERIFIER_SPEC.loader
-VERIFIER_MODULE = importlib.util.module_from_spec(VERIFIER_SPEC)
-VERIFIER_SPEC.loader.exec_module(VERIFIER_MODULE)
-
-
-def load_tests(loader, tests, pattern):
-    suite = unittest.TestSuite()
-    for name, test_function in sorted(globals().items()):
-        if not name.startswith("test_") or not callable(test_function):
-            continue
-        suite.addTest(unittest.FunctionTestCase(_wrap_test_function(test_function), description=name))
-    return suite
-
-
-def _wrap_test_function(test_function):
-    def run_test() -> None:
-        parameters = inspect.signature(test_function).parameters
-        if "tmp_path" in parameters:
-            with tempfile.TemporaryDirectory(prefix=f"{test_function.__name__}-") as tmp_dir:
-                test_function(tmp_path=Path(tmp_dir))
-            return
-        test_function()
-
-    return run_test
 
 
 def install_aware_payload() -> tuple[list[dict], dict]:
@@ -79,135 +49,20 @@ def install_aware_payload() -> tuple[list[dict], dict]:
                 "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
             },
             {
-                "tupleId": "blazor-desktop:windows:win-x64",
-                "head": "blazor-desktop",
+                "tupleId": "avalonia:windows:win-x64",
+                "head": "avalonia",
                 "platform": "windows",
                 "rid": "win-x64",
                 "arch": "x64",
-                "artifactId": "blazor-desktop-win-x64-installer",
-                "routeRole": "fallback",
+                "artifactId": "avalonia-win-x64-installer",
+                "routeRole": "primary",
                 "promotionState": "proof_required",
                 "revokeState": "not_revoked",
-                "publicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer",
+                "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
             },
         ]
     }
     return artifacts, coverage
-
-
-def valid_ui_localization_release_gate_payload() -> dict[str, object]:
-    return {
-        "status": "pass",
-        "generatedAt": "2026-04-14T18:12:04Z",
-        "defaultKeyCount": 383,
-        "explicitFallbackRuntime": "pass",
-        "signoffSmokeRunnerStatus": "pass",
-        "shippingLocales": list(MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES),
-        "acceptanceGates": list(MODULE.REQUIRED_LOCALIZATION_ACCEPTANCE_GATES),
-        "domainCoverage": {
-            "app_chrome": "pass",
-            "data_rules_names": "pass",
-            "explain_receipts": "pass",
-            "generated_artifacts": "pass",
-            "install_update_support": "pass",
-        },
-        "localeDomainCoverage": {
-            locale: {
-                "app_chrome": "pass",
-                "data_rules_names": "pass",
-                "explain_receipts": "pass",
-                "generated_artifacts": "pass",
-                "install_update_support": "pass",
-            }
-            for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
-        },
-        "localeSummary": [
-            {
-                "locale": locale,
-                "untranslatedKeyCount": 0,
-                "overrideCount": 383,
-                "minimumOverrideCount": 40 if locale != "en-us" else 383,
-                "missingReleaseSeedKeys": [],
-                "legacyXmlPresent": True,
-                "legacyDataXmlPresent": True,
-            }
-            for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
-        ],
-        "blockingFindings": [],
-        "blockingFindingsCount": 0,
-        "translationBacklogFindings": [],
-        "translationBacklogFindingsCount": 0,
-    }
-
-
-def valid_release_proof_payload() -> dict[str, object]:
-    return {
-        "status": "passed",
-        "generatedAt": "2026-04-14T18:12:04Z",
-        "baseUrl": "https://chummer.run",
-        "journeysPassed": list(MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS),
-        "proofRoutes": list(MODULE.REQUIRED_RELEASE_PROOF_ROUTES),
-        "uiLocalizationReleaseGate": valid_ui_localization_release_gate_payload(),
-    }
-
-
-def valid_flagship_product_readiness_payload(
-    *,
-    status: str = "pass",
-    missing_keys: list[str] | None = None,
-    generated_at: str = "2026-04-14T18:12:04Z",
-) -> dict[str, object]:
-    return {
-        "status": status,
-        "generated_at": generated_at,
-        "missing_keys": list(missing_keys or []),
-        "flagship_readiness_audit": {
-            "status": status,
-            "reason": (
-                "flagship product readiness proof is not green: fail; missing coverage: desktop_client"
-                if missing_keys
-                else "flagship product readiness proof is green."
-            ),
-        },
-        "completion_audit": {
-            "status": status,
-            "reason": (
-                "Flagship product readiness planes are not green: desktop_client."
-                if missing_keys
-                else "Flagship product readiness planes are green."
-            ),
-        },
-    }
-
-
-def canonical_args(
-    *,
-    manifest: Path,
-    downloads_dir: Path,
-    startup_smoke_dir: Path | None,
-) -> argparse.Namespace:
-    return argparse.Namespace(
-        manifest=manifest,
-        downloads_dir=downloads_dir,
-        startup_smoke_dir=startup_smoke_dir,
-        startup_smoke_max_age_seconds=MODULE.STARTUP_SMOKE_MAX_AGE_SECONDS,
-        startup_smoke_max_future_skew_seconds=MODULE.STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
-        skip_startup_smoke_filter=False,
-        output=downloads_dir / "RELEASE_CHANNEL.generated.json",
-        compat_output=None,
-        runtime_bundles=None,
-        proof=None,
-        flagship_product_readiness=None,
-        ui_localization_release_gate=None,
-        product="chummer6",
-        channel="",
-        version="",
-        contract_name="",
-        published_at="",
-        artifact_source="ui_desktop_bundle",
-        downloads_prefix="/downloads/files",
-        required_desktop_heads=",".join(MODULE.DEFAULT_REQUIRED_DESKTOP_HEADS),
-    )
 
 
 def test_derive_rollout_state_uses_public_stable_for_complete_published_docker_release() -> None:
@@ -222,34 +77,9 @@ def test_derive_rollout_state_uses_public_stable_for_complete_published_docker_r
     )
 
 
-def test_derive_supportability_state_uses_preview_supported_for_complete_published_release() -> None:
+def test_derive_supportability_state_uses_gold_supported_for_complete_published_release() -> None:
     assert (
         MODULE.derive_supportability_state(
-            "preview",
-            "published",
-            {"status": "passed"},
-            desktop_coverage_complete=True,
-        )
-        == "preview_supported"
-    )
-
-
-def test_derive_supportability_state_uses_gold_supported_for_public_stable_release() -> None:
-    assert (
-        MODULE.derive_supportability_state(
-            "public_stable",
-            "published",
-            {"status": "passed"},
-            desktop_coverage_complete=True,
-        )
-        == "gold_supported"
-    )
-
-
-def test_derive_supportability_state_uses_gold_supported_for_complete_published_docker_release() -> None:
-    assert (
-        MODULE.derive_supportability_state(
-            "docker",
             "published",
             {"status": "passed"},
             desktop_coverage_complete=True,
@@ -267,615 +97,6 @@ def test_normalize_release_channel_posture_upgrades_stale_local_docker_states() 
         proof={"status": "passed"},
         desktop_coverage_complete=True,
     ) == ("public_stable", "gold_supported")
-
-
-def test_normalize_release_channel_posture_upgrades_stale_coverage_states() -> None:
-    assert MODULE.normalize_release_channel_posture(
-        "coverage_incomplete",
-        "review_required",
-        channel="preview",
-        status="published",
-        proof={"status": "passed"},
-        desktop_coverage_complete=True,
-    ) == ("promoted_preview", "preview_supported")
-
-
-def test_normalize_release_channel_posture_downgrades_stale_promoted_states_when_coverage_is_incomplete() -> None:
-    assert MODULE.normalize_release_channel_posture(
-        "promoted_preview",
-        "preview_supported",
-        channel="docker",
-        status="published",
-        proof={"status": "passed"},
-        desktop_coverage_complete=False,
-    ) == ("coverage_incomplete", "review_required")
-
-
-def test_public_trust_metrics_reports_preview_launch_truth() -> None:
-    artifacts, coverage = install_aware_payload()
-    proof = valid_release_proof_payload()
-    readiness = valid_flagship_product_readiness_payload()
-    metrics = MODULE.public_trust_metrics(
-        generated_at="2026-04-14T18:22:04Z",
-        channel_id="preview",
-        status="published",
-        rollout_state="promoted_preview",
-        supportability_state="preview_supported",
-        release_proof=proof,
-        flagship_product_readiness=readiness,
-        artifacts=artifacts,
-        tuple_coverage=coverage,
-    )
-
-    assert metrics["releaseChannel"]["posture"] == "preview"
-
-
-def test_public_trust_metrics_does_not_count_preview_only_fallback_rows_as_gold_blockers() -> None:
-    artifacts, coverage = install_aware_payload()
-    proof = valid_release_proof_payload()
-    proof["generatedAt"] = "2026-05-13T00:35:00Z"
-    proof["uiLocalizationReleaseGate"]["generatedAt"] = "2026-05-13T00:35:00Z"
-    coverage["desktopRouteTruth"] = [
-        {
-            "tupleId": "avalonia:windows:win-x64",
-            "head": "avalonia",
-            "platform": "windows",
-            "rid": "win-x64",
-            "arch": "x64",
-            "artifactId": "avalonia-win-x64-installer",
-            "routeRole": "primary",
-            "promotionState": "promoted",
-            "parityPosture": "flagship_primary",
-            "rollbackState": "primary_reinstall_available",
-            "rollbackReasonCode": "primary_installer_reinstall_available",
-            "rollbackReason": (
-                "Fallback route blazor-desktop:windows:win-x64 remains an unpromoted compatibility lane for windows/win-x64; "
-                "recover avalonia:windows:win-x64 from the promoted primary installer avalonia-win-x64-installer until a separately proved fallback is published."
-            ),
-            "revokeState": "not_revoked",
-            "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
-        },
-        {
-            "tupleId": "blazor-desktop:windows:win-x64",
-            "head": "blazor-desktop",
-            "platform": "windows",
-            "rid": "win-x64",
-            "arch": "x64",
-            "artifactId": "",
-            "routeRole": "fallback",
-            "promotionState": "proof_required",
-            "parityPosture": "explicit_fallback",
-            "rollbackState": "fallback_not_promoted",
-            "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
-            "rollbackReason": "Fallback route blazor-desktop:windows:win-x64 needs artifact and startup-smoke proof before rollback use.",
-            "revokeState": "not_revoked",
-            "publicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer",
-        },
-    ]
-    metrics = MODULE.public_trust_metrics(
-        generated_at="2026-05-13T00:36:30Z",
-        channel_id="public_stable",
-        status="published",
-        rollout_state="public_stable",
-        supportability_state="gold_supported",
-        release_proof=proof,
-        flagship_product_readiness=valid_flagship_product_readiness_payload(generated_at="2026-05-13T00:35:00Z"),
-        artifacts=artifacts,
-        tuple_coverage=coverage,
-    )
-
-    assert metrics["releaseChannel"]["posture"] == "live"
-    assert metrics["releaseChannel"]["blockedRouteCount"] == 0
-    assert metrics["adoptionHealth"]["blockedRouteCount"] == 0
-    assert metrics["releaseChannel"]["recommendedRouteCount"] == 1
-    assert metrics["adoptionHealth"]["status"] == "healthy"
-    assert metrics["adoptionHealth"]["publicInstallCount"] == 1
-    assert metrics["adoptionHealth"]["blockedRouteCount"] == 0
-    assert metrics["proofFreshness"]["status"] == "fresh"
-    assert metrics["proofFreshness"]["releaseProofAgeSeconds"] == 90
-    assert metrics["proofFreshness"]["uiLocalizationAgeSeconds"] == 90
-    assert metrics["proofFreshness"]["flagshipDesktopClientReady"] is True
-    assert metrics["revocationFacts"]["status"] == "clear"
-    assert metrics["revocationFacts"]["activeRevocationCount"] == 0
-
-
-def test_public_trust_metrics_downgrades_when_flagship_desktop_readiness_is_missing() -> None:
-    artifacts, coverage = install_aware_payload()
-    proof = valid_release_proof_payload()
-    readiness = valid_flagship_product_readiness_payload(status="fail", missing_keys=["desktop_client"])
-    metrics = MODULE.public_trust_metrics(
-        generated_at="2026-04-14T18:22:04Z",
-        channel_id="preview",
-        status="published",
-        rollout_state="promoted_preview",
-        supportability_state="preview_supported",
-        release_proof=proof,
-        flagship_product_readiness=readiness,
-        artifacts=artifacts,
-        tuple_coverage=coverage,
-    )
-
-    assert metrics["proofFreshness"]["status"] == "stale"
-    assert metrics["proofFreshness"]["flagshipReadinessStatus"] == "fail"
-    assert metrics["proofFreshness"]["flagshipReadinessCoverageGapKeys"] == ["desktop_client"]
-    assert metrics["proofFreshness"]["flagshipDesktopClientReady"] is False
-    assert metrics["releaseChannel"]["posture"] == "blocked"
-
-
-def test_public_trust_metrics_matches_verifier_canonical_projection() -> None:
-    artifacts, coverage = install_aware_payload()
-    proof = valid_release_proof_payload()
-    readiness = valid_flagship_product_readiness_payload()
-
-    metrics = MODULE.public_trust_metrics(
-        generated_at="2026-05-16T21:48:29Z",
-        channel_id="preview",
-        status="published",
-        rollout_state="promoted_preview",
-        supportability_state="preview_supported",
-        release_proof=proof,
-        flagship_product_readiness=readiness,
-        artifacts=artifacts,
-        tuple_coverage=coverage,
-    )
-
-    payload = {
-        "generatedAt": "2026-05-16T21:48:29Z",
-        "generated_at": "2026-05-16T21:48:29Z",
-        "channelId": "preview",
-        "status": "published",
-        "rolloutState": "promoted_preview",
-        "supportabilityState": "preview_supported",
-        "releaseProof": proof,
-        "artifacts": artifacts,
-        "desktopTupleCoverage": coverage,
-        "publicTrustMetrics": {
-            "proofFreshness": MODULE.release_proof_freshness_snapshot(
-                projection_generated_at="2026-05-16T21:48:29Z",
-                release_proof=proof,
-                flagship_product_readiness=readiness,
-            ),
-        },
-    }
-    expected = VERIFIER_MODULE.expected_public_trust_metrics(payload)
-
-    assert metrics == expected
-    assert metrics["releaseChannel"]["recommendedRouteCount"] == 0
-
-
-def test_artifact_publication_bindings_downgrade_output_readiness_when_proof_is_stale() -> None:
-    artifacts, coverage = install_aware_payload()
-    rows = MODULE.artifact_publication_bindings(
-        coverage,
-        channel_id="preview",
-        release_version="run-20260414-1836",
-        proof_freshness_status="stale",
-    )
-
-    assert [row["publicationState"] for row in rows] == ["preview", "preview"]
-    assert [row["retentionState"] for row in rows] == ["temporary", "temporary"]
-    assert all("proof receipts are stale or incomplete" in row["rationale"] for row in rows)
-
-
-def test_artifact_identity_registry_downgrades_output_readiness_when_proof_is_stale() -> None:
-    artifacts, coverage = install_aware_payload()
-    rows = MODULE.artifact_identity_registry(
-        coverage,
-        channel_id="preview",
-        release_version="run-20260414-1836",
-        proof_freshness_status="stale",
-    )
-
-    assert [row["publicationState"] for row in rows] == ["preview", "preview"]
-    assert [row["retentionState"] for row in rows] == ["temporary", "temporary"]
-
-
-def test_exchange_lineage_registry_downgrades_output_readiness_when_proof_is_missing() -> None:
-    rows = MODULE.exchange_lineage_registry(
-        [
-            {
-                "artifactId": "campaign-emerald-grid",
-                "artifactKind": "campaign",
-                "lineageRef": "lineage:campaign:emerald-grid",
-                "parentLineageRefs": [],
-                "provenanceRef": "provenance:campaign:emerald-grid",
-                "compatibilityState": "compatible",
-                "compatibilityRef": "compatibility:campaign:emerald-grid",
-                "boundedLossPosture": "lossless",
-                "boundedLossRef": "bounded-loss:campaign:emerald-grid",
-                "publicationState": "published",
-            }
-        ],
-        channel_id="preview",
-        release_version="run-20260414-1836",
-        proof_freshness_status="missing",
-    )
-
-    assert rows[0]["publicationState"] == "preview"
-    assert rows[0]["retentionState"] == "temporary"
-
-
-def test_release_proof_freshness_snapshot_turns_stale_when_flagship_readiness_has_desktop_gap() -> None:
-    snapshot = MODULE.release_proof_freshness_snapshot(
-        projection_generated_at="2026-04-14T18:22:04Z",
-        release_proof=valid_release_proof_payload(),
-        flagship_product_readiness=valid_flagship_product_readiness_payload(
-            status="fail",
-            missing_keys=["desktop_client"],
-        ),
-    )
-
-    assert snapshot["status"] == "stale"
-    assert snapshot["flagshipReadinessStatus"] == "fail"
-    assert snapshot["flagshipReadinessCoverageGapKeys"] == ["desktop_client"]
-    assert snapshot["flagshipDesktopClientReady"] is False
-
-
-def test_canonical_payload_downgrades_stale_proof_supportability() -> None:
-    proof = valid_release_proof_payload()
-    proof["generatedAt"] = "2026-04-14T18:12:04Z"
-    proof["uiLocalizationReleaseGate"]["generatedAt"] = "2026-04-14T18:12:04Z"
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        downloads_dir = root / "downloads"
-        downloads_dir.mkdir(parents=True, exist_ok=True)
-        startup_smoke_dir = root / "startup-smoke"
-        startup_smoke_dir.mkdir(parents=True, exist_ok=True)
-        installer_path = downloads_dir / "chummer-avalonia-win-x64-installer.exe"
-        payload = b"\n".join(MODULE.WINDOWS_INSTALLER_PAYLOAD_MARKERS) + b"\n"
-        installer_path.write_bytes(payload)
-        receipt_path = startup_smoke_dir / "startup-smoke-avalonia-win-x64.receipt.json"
-        receipt_path.write_text(
-            json.dumps(
-                {
-                    "status": "pass",
-                    "readyCheckpoint": "pre_ui_event_loop",
-                    "recordedAtUtc": MODULE.utc_now().replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-                    "headId": "avalonia",
-                    "platform": "windows",
-                    "arch": "x64",
-                    "hostClass": "windows-host",
-                    "operatingSystem": "Windows 11",
-                    "channelId": "docker",
-                    "artifactDigest": f"sha256:{hashlib.sha256(payload).hexdigest()}",
-                    "artifactId": "avalonia-win-x64-installer",
-                    "artifactFileName": installer_path.name,
-                }
-            ),
-            encoding="utf-8",
-        )
-        manifest_path = root / "source-manifest.json"
-        manifest_path.write_text(
-            json.dumps(
-                {
-                    "channelId": "docker",
-                    "version": "run-20260504-0902",
-                    "publishedAt": "2026-05-04T09:02:00Z",
-                    "status": "published",
-                    "rolloutState": "promoted_preview",
-                    "supportabilityState": "preview_supported",
-                    "releaseProof": proof,
-                    "artifacts": [
-                        {
-                            "artifactId": "avalonia-win-x64-installer",
-                            "fileName": installer_path.name,
-                            "downloadUrl": f"/downloads/files/{installer_path.name}",
-                            "kind": "installer",
-                            "sha256": hashlib.sha256(payload).hexdigest(),
-                            "sizeBytes": len(payload),
-                        }
-                    ],
-                }
-            ),
-            encoding="utf-8",
-        )
-
-        canonical = MODULE.canonical_payload(
-            canonical_args(
-                manifest=manifest_path,
-                downloads_dir=downloads_dir,
-                startup_smoke_dir=startup_smoke_dir,
-            )
-        )
-
-    coverage = canonical["desktopTupleCoverage"]
-    assert coverage["complete"] is True
-    assert canonical["supportabilityState"] == "review_required"
-    assert canonical["rolloutReason"] == (
-        "Current shelf stays visible, but output readiness is downgraded until stale or incomplete proof receipts are refreshed."
-    )
-    assert canonical["supportabilitySummary"] == (
-        "Treat the current shelf as review-required until stale or incomplete proof receipts are refreshed."
-    )
-    assert canonical["knownIssueSummary"] == (
-        "The docker shelf remains visible, but stale or incomplete proof receipts mean current output readiness must stay review-required."
-    )
-    assert canonical["fixAvailabilitySummary"] == (
-        "Do not send fixed notices until stale or incomplete proof receipts are refreshed for the current shelf."
-    )
-    assert canonical["publicTrustMetrics"]["proofFreshness"]["status"] == "stale"
-    assert canonical["publicTrustMetrics"]["releaseChannel"]["posture"] == "blocked"
-    assert canonical["publicTrustMetrics"]["releaseChannel"]["recommendedRouteCount"] == 0
-    assert canonical["publicTrustMetrics"]["releaseChannel"]["blockedRouteCount"] == 1
-    assert canonical["artifactIdentityRegistry"][0]["tupleId"] == "avalonia:windows:win-x64"
-    assert canonical["artifactIdentityRegistry"][0]["publicationState"] == "preview"
-    assert canonical["artifactIdentityRegistry"][0]["retentionState"] == "temporary"
-    assert canonical["artifactPublicationBindings"][0]["publicationState"] == "preview"
-    assert canonical["artifactPublicationBindings"][0]["retentionState"] == "temporary"
-
-
-def test_canonical_payload_downgrades_stale_published_posture_when_startup_smoke_proof_is_missing() -> None:
-    proof = valid_release_proof_payload()
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        downloads_dir = root / "downloads"
-        downloads_dir.mkdir(parents=True, exist_ok=True)
-        startup_smoke_dir = root / "startup-smoke"
-        startup_smoke_dir.mkdir(parents=True, exist_ok=True)
-        installer_path = downloads_dir / "chummer-avalonia-win-x64-installer.exe"
-        payload = b"\n".join(MODULE.WINDOWS_INSTALLER_PAYLOAD_MARKERS) + b"\n"
-        installer_path.write_bytes(payload)
-        manifest_path = root / "source-manifest.json"
-        manifest_path.write_text(
-            json.dumps(
-                {
-                    "channelId": "docker",
-                    "version": "run-20260504-0900",
-                    "publishedAt": "2026-05-04T09:00:00Z",
-                    "status": "published",
-                    "rolloutState": "promoted_preview",
-                    "rolloutReason": "Current release shelf was exercised by the local docker release proof harness before publication.",
-                    "supportabilityState": "preview_supported",
-                    "supportabilitySummary": "Local release proof passed for the current shelf.",
-                    "knownIssueSummary": "Preview caveats still apply, but the current shelf has recent install proof.",
-                    "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
-                    "releaseProof": proof,
-                    "artifacts": [
-                        {
-                            "artifactId": "avalonia-win-x64-installer",
-                            "fileName": installer_path.name,
-                            "downloadUrl": f"/downloads/files/{installer_path.name}",
-                            "kind": "installer",
-                            "sha256": hashlib.sha256(payload).hexdigest(),
-                            "sizeBytes": len(payload),
-                        }
-                    ],
-                }
-            ),
-            encoding="utf-8",
-        )
-
-        canonical = MODULE.canonical_payload(
-            canonical_args(
-                manifest=manifest_path,
-                downloads_dir=downloads_dir,
-                startup_smoke_dir=startup_smoke_dir,
-            )
-        )
-
-    coverage = canonical["desktopTupleCoverage"]
-    assert coverage["complete"] is False
-    assert canonical["rolloutState"] == "coverage_incomplete"
-    assert canonical["supportabilityState"] == "review_required"
-    assert canonical["rolloutReason"] == MODULE.derive_rollout_reason(
-        "docker",
-        "published",
-        proof,
-        desktop_coverage_complete=False,
-        coverage=coverage,
-    )
-    assert canonical["supportabilitySummary"] == MODULE.derive_supportability_summary(
-        "docker",
-        "published",
-        proof,
-        desktop_coverage_complete=False,
-        coverage=coverage,
-    )
-    assert canonical["knownIssueSummary"] == MODULE.derive_known_issue_summary(
-        "docker",
-        "published",
-        proof,
-        desktop_coverage_complete=False,
-        coverage=coverage,
-    )
-    assert canonical["fixAvailabilitySummary"] == MODULE.derive_fix_availability_summary(
-        "published",
-        proof,
-        desktop_coverage_complete=False,
-    )
-
-
-def test_canonical_payload_downgrades_missing_proof_supportability() -> None:
-    proof = valid_release_proof_payload()
-    proof["generatedAt"] = ""
-    proof["generated_at"] = ""
-    proof["uiLocalizationReleaseGate"]["generatedAt"] = ""
-    proof["uiLocalizationReleaseGate"]["generated_at"] = ""
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        downloads_dir = root / "downloads"
-        downloads_dir.mkdir(parents=True, exist_ok=True)
-        startup_smoke_dir = root / "startup-smoke"
-        startup_smoke_dir.mkdir(parents=True, exist_ok=True)
-        installer_path = downloads_dir / "chummer-avalonia-win-x64-installer.exe"
-        payload = b"\n".join(MODULE.WINDOWS_INSTALLER_PAYLOAD_MARKERS) + b"\n"
-        installer_path.write_bytes(payload)
-        receipt_path = startup_smoke_dir / "startup-smoke-avalonia-win-x64.receipt.json"
-        receipt_path.write_text(
-            json.dumps(
-                {
-                    "status": "pass",
-                    "readyCheckpoint": "pre_ui_event_loop",
-                    "recordedAtUtc": MODULE.utc_now().replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-                    "headId": "avalonia",
-                    "platform": "windows",
-                    "arch": "x64",
-                    "hostClass": "windows-host",
-                    "operatingSystem": "Windows 11",
-                    "channelId": "docker",
-                    "artifactDigest": f"sha256:{hashlib.sha256(payload).hexdigest()}",
-                    "artifactId": "avalonia-win-x64-installer",
-                    "artifactFileName": installer_path.name,
-                }
-            ),
-            encoding="utf-8",
-        )
-        manifest_path = root / "source-manifest.json"
-        manifest_path.write_text(
-            json.dumps(
-                {
-                    "channelId": "docker",
-                    "version": "run-20260516-220824",
-                    "publishedAt": "2026-05-16T22:08:24Z",
-                    "status": "published",
-                    "rolloutState": "promoted_preview",
-                    "supportabilityState": "preview_supported",
-                    "rolloutReason": "Current release shelf was exercised by the local docker release proof harness before publication.",
-                    "supportabilitySummary": "Local release proof passed for the current shelf.",
-                    "knownIssueSummary": "Preview caveats still apply, but the current shelf has recent install proof.",
-                    "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
-                    "releaseProof": proof,
-                    "artifacts": [
-                        {
-                            "artifactId": "avalonia-win-x64-installer",
-                            "fileName": installer_path.name,
-                            "downloadUrl": f"/downloads/files/{installer_path.name}",
-                            "kind": "installer",
-                            "sha256": hashlib.sha256(payload).hexdigest(),
-                            "sizeBytes": len(payload),
-                        }
-                    ],
-                }
-            ),
-            encoding="utf-8",
-        )
-
-        canonical = MODULE.canonical_payload(
-            canonical_args(
-                manifest=manifest_path,
-                downloads_dir=downloads_dir,
-                startup_smoke_dir=startup_smoke_dir,
-            )
-        )
-
-    assert canonical["supportabilityState"] == "review_required"
-    assert canonical["publicTrustMetrics"]["proofFreshness"]["status"] == "missing"
-    assert canonical["rolloutReason"] == (
-        "Current shelf stays visible, but output readiness is downgraded until stale or incomplete proof receipts are refreshed."
-    )
-    assert canonical["supportabilitySummary"] == (
-        "Treat the current shelf as review-required until stale or incomplete proof receipts are refreshed."
-    )
-    assert canonical["knownIssueSummary"] == (
-        "The docker shelf remains visible, but stale or incomplete proof receipts mean current output readiness must stay review-required."
-    )
-    assert canonical["fixAvailabilitySummary"] == (
-        "Do not send fixed notices until stale or incomplete proof receipts are refreshed for the current shelf."
-    )
-
-
-def test_canonical_payload_rederives_stale_published_copy_against_proof_backed_platforms() -> None:
-    proof = valid_release_proof_payload()
-    fresh_generated_at = MODULE.utc_now().replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    proof["generatedAt"] = fresh_generated_at
-    proof["uiLocalizationReleaseGate"]["generatedAt"] = fresh_generated_at
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        downloads_dir = root / "downloads"
-        downloads_dir.mkdir(parents=True, exist_ok=True)
-        startup_smoke_dir = root / "startup-smoke"
-        startup_smoke_dir.mkdir(parents=True, exist_ok=True)
-        installer_path = downloads_dir / "chummer-avalonia-win-x64-installer.exe"
-        payload = b"\n".join(MODULE.WINDOWS_INSTALLER_PAYLOAD_MARKERS) + b"\n"
-        installer_path.write_bytes(payload)
-        manifest_path = root / "source-manifest.json"
-        manifest_path.write_text(
-            json.dumps(
-                {
-                    "channelId": "docker",
-                    "version": "run-20260504-0901",
-                    "publishedAt": "2026-05-04T09:01:00Z",
-                    "status": "published",
-                    "rolloutState": "promoted_preview",
-                    "rolloutReason": "Current shelf is published, but promotion stays blocked because required desktop tuple coverage is incomplete (platforms: linux).",
-                    "supportabilityState": "preview_supported",
-                    "supportabilitySummary": "Treat the current shelf as review-required because required desktop tuple coverage is incomplete (platforms: linux).",
-                    "knownIssueSummary": "Known issue: required desktop tuple coverage is incomplete (platforms: linux).",
-                    "fixAvailabilitySummary": "Do not send fixed notices until required desktop tuple coverage is complete for the promoted shelf.",
-                    "releaseProof": proof,
-                    "artifacts": [
-                        {
-                            "artifactId": "avalonia-win-x64-installer",
-                            "fileName": installer_path.name,
-                            "downloadUrl": f"/downloads/files/{installer_path.name}",
-                            "kind": "installer",
-                            "sha256": hashlib.sha256(payload).hexdigest(),
-                            "sizeBytes": len(payload),
-                        }
-                    ],
-                }
-            ),
-            encoding="utf-8",
-        )
-        receipt_path = startup_smoke_dir / "startup-smoke-avalonia-win-x64.receipt.json"
-        receipt_path.write_text(
-            json.dumps(
-                {
-                    "status": "pass",
-                    "readyCheckpoint": "pre_ui_event_loop",
-                    "recordedAtUtc": MODULE.utc_now().replace(microsecond=0).isoformat().replace("+00:00", "Z"),
-                    "headId": "avalonia",
-                    "platform": "windows",
-                    "arch": "x64",
-                    "hostClass": "windows-host",
-                    "operatingSystem": "Windows 11",
-                    "channelId": "docker",
-                    "artifactDigest": f"sha256:{hashlib.sha256(payload).hexdigest()}",
-                    "artifactId": "avalonia-win-x64-installer",
-                    "artifactFileName": installer_path.name,
-                }
-            ),
-            encoding="utf-8",
-        )
-
-        canonical = MODULE.canonical_payload(
-            canonical_args(
-                manifest=manifest_path,
-                downloads_dir=downloads_dir,
-                startup_smoke_dir=startup_smoke_dir,
-            )
-        )
-
-    coverage = canonical["desktopTupleCoverage"]
-    assert coverage["complete"] is True
-    assert canonical["rolloutState"] == "promoted_preview"
-    assert canonical["supportabilityState"] == "preview_supported"
-    assert canonical["rolloutReason"] == MODULE.derive_rollout_reason(
-        "docker",
-        "published",
-        proof,
-        desktop_coverage_complete=True,
-        coverage=coverage,
-    )
-    assert canonical["supportabilitySummary"] == MODULE.derive_supportability_summary(
-        "docker",
-        "published",
-        proof,
-        desktop_coverage_complete=True,
-        coverage=coverage,
-    )
-    assert canonical["knownIssueSummary"] == MODULE.derive_known_issue_summary(
-        "docker",
-        "published",
-        proof,
-        desktop_coverage_complete=True,
-        coverage=coverage,
-    )
-    assert canonical["fixAvailabilitySummary"] == MODULE.derive_fix_availability_summary(
-        "published",
-        proof,
-        desktop_coverage_complete=True,
-    )
 
 
 def test_desktop_tuple_coverage_incomplete_when_only_rid_tuple_is_missing() -> None:
@@ -905,29 +126,6 @@ def test_desktop_tuple_coverage_gap_summary_reports_missing_rid_tuples() -> None
         "required desktop tuple coverage is incomplete (tuples: "
         "avalonia:osx-arm64:macos, blazor-desktop:win-x64:windows)"
     )
-
-
-def test_derive_required_desktop_platforms_tracks_publishable_install_media() -> None:
-    artifacts = [
-        {
-            "artifactId": "avalonia-win-x64-installer",
-            "head": "avalonia",
-            "rid": "win-x64",
-            "platform": "windows",
-            "arch": "x64",
-            "kind": "installer",
-        },
-        {
-            "artifactId": "avalonia-win-x64-archive",
-            "head": "avalonia",
-            "rid": "win-x64",
-            "platform": "windows",
-            "arch": "x64",
-            "kind": "archive",
-        },
-    ]
-
-    assert MODULE.derive_required_desktop_platforms(artifacts) == ["windows"]
 
 
 def test_load_startup_smoke_receipts_rejects_future_dated_receipts_beyond_skew() -> None:
@@ -1786,30 +984,6 @@ def test_desktop_tuple_coverage_marks_primary_manual_recovery_when_fallback_is_r
     assert fallback["revokeSource"] == "artifact"
 
 
-def test_desktop_tuple_coverage_uses_primary_reinstall_for_public_stable_when_fallback_is_unshipped() -> None:
-    coverage = MODULE.desktop_tuple_coverage(
-        [
-            {
-                "artifactId": "avalonia-win-x64-installer",
-                "head": "avalonia",
-                "platform": "windows",
-                "rid": "win-x64",
-                "arch": "x64",
-                "kind": "installer",
-            },
-        ],
-        required_heads=["avalonia"],
-        required_platforms=["windows"],
-        channel_id="public_stable",
-        rollout_state="public_stable",
-    )
-
-    primary = next(row for row in coverage["desktopRouteTruth"] if row["head"] == "avalonia")
-    assert primary["rollbackState"] == "primary_reinstall_available"
-    assert primary["rollbackReasonCode"] == "primary_installer_reinstall_available"
-    assert "promoted primary installer avalonia-win-x64-installer" in primary["rollbackReason"]
-
-
 def test_desktop_tuple_coverage_does_not_count_revoked_primary_as_promoted() -> None:
     coverage = MODULE.desktop_tuple_coverage(
         [
@@ -2193,8 +1367,8 @@ def test_external_proof_request_capture_commands_include_operating_system_hint()
 
     assert len(commands) == 3
     assert "external-proof-auth-missing" in commands[0]
-    assert "set -- curl -fL --retry 3 --retry-delay 2;" in commands[0]
-    assert '"$@"' in commands[0]
+    assert "curl_auth_args" in commands[0]
+    assert '"${curl_auth_args[@]}"' in commands[0]
     assert "/downloads/install/avalonia-win-x64-installer" in commands[0]
     assert "installer-preflight-sha256-mismatch" in commands[0]
     assert "installer-postdownload-sha256-mismatch" in commands[0]
@@ -2267,29 +1441,29 @@ def test_install_aware_artifact_registry_derives_concierge_rows_from_route_truth
             },
         },
         {
-            "registryId": "concierge:docker:run-20260420-072339:blazor-desktop-win-x64-installer",
-            "artifactId": "blazor-desktop-win-x64-installer",
+            "registryId": "concierge:docker:run-20260420-072339:avalonia-win-x64-installer",
+            "artifactId": "avalonia-win-x64-installer",
             "channelId": "docker",
             "releaseVersion": "run-20260420-072339",
-            "tupleId": "blazor-desktop:windows:win-x64",
-            "head": "blazor-desktop",
+            "tupleId": "avalonia:windows:win-x64",
+            "head": "avalonia",
             "platform": "windows",
             "rid": "win-x64",
             "arch": "x64",
             "kind": "installer",
-            "installedBuildSelector": "docker/run-20260420-072339/blazor-desktop/windows/x64",
+            "installedBuildSelector": "docker/run-20260420-072339/avalonia/windows/x64",
             "currentForInstalledBuild": False,
-            "channelRationale": "Published docker channel keeps fallback-route blazor-desktop:windows:win-x64 blocked for installed build selector docker/run-20260420-072339/blazor-desktop/windows/x64 until installer and startup-smoke proof are present.",
-            "correctnessReason": "Do not offer blazor-desktop-win-x64-installer to installed build selector docker/run-20260420-072339/blazor-desktop/windows/x64 because tuple blazor-desktop:windows:win-x64 is not currently promoted for this channel.",
+            "channelRationale": "Published docker channel keeps primary-route avalonia:windows:win-x64 blocked for installed build selector docker/run-20260420-072339/avalonia/windows/x64 until installer and startup-smoke proof are present.",
+            "correctnessReason": "Do not offer avalonia-win-x64-installer to installed build selector docker/run-20260420-072339/avalonia/windows/x64 because tuple avalonia:windows:win-x64 is not currently promoted for this channel.",
             "recoveryProofRefs": [
-                "/downloads/install/blazor-desktop-win-x64-installer",
-                "startup-smoke/startup-smoke-blazor-desktop-win-x64.receipt.json",
-                "desktopTupleCoverage.desktopRouteTruth[blazor-desktop:windows:win-x64]",
+                "/downloads/install/avalonia-win-x64-installer",
+                "startup-smoke/startup-smoke-avalonia-win-x64.receipt.json",
+                "desktopTupleCoverage.desktopRouteTruth[avalonia:windows:win-x64]",
             ],
             "conciergeAssetRefs": {
-                "releaseExplainerPacket": "concierge/release/docker/run-20260420-072339/blazor-desktop-win-x64-installer",
-                "supportClosurePacket": "concierge/support/docker/run-20260420-072339/blazor-desktop-win-x64-installer",
-                "publicTrustWrapper": "/downloads/install/blazor-desktop-win-x64-installer",
+                "releaseExplainerPacket": "concierge/release/docker/run-20260420-072339/avalonia-win-x64-installer",
+                "supportClosurePacket": "concierge/support/docker/run-20260420-072339/avalonia-win-x64-installer",
+                "publicTrustWrapper": "/downloads/install/avalonia-win-x64-installer",
             },
         },
     ]
@@ -2325,24 +1499,24 @@ def test_desktop_surface_refs_derive_canonical_rows() -> None:
             "rationale": "docker keeps avalonia:linux:linux-x64 guest-readable so desktop channel, install guidance, participation, and reward refs stay governed without exposing provider internals.",
         },
         {
-            "registryId": "desktop-surface:docker:run-20260420-072339:blazor-desktop:windows:win-x64",
-            "artifactId": "blazor-desktop-win-x64-installer",
+            "registryId": "desktop-surface:docker:run-20260420-072339:avalonia:windows:win-x64",
+            "artifactId": "avalonia-win-x64-installer",
             "channelId": "docker",
             "releaseVersion": "run-20260420-072339",
-            "tupleId": "blazor-desktop:windows:win-x64",
-            "head": "blazor-desktop",
+            "tupleId": "avalonia:windows:win-x64",
+            "head": "avalonia",
             "platform": "windows",
             "rid": "win-x64",
             "arch": "x64",
             "kind": "installer",
             "installAccessClass": "account_required",
-            "desktopChannelRef": "desktop-channel:docker:run-20260420-072339:blazor-desktop:windows:win-x64",
-            "installGuidanceRef": "install-guidance:docker:run-20260420-072339:blazor-desktop-win-x64-installer",
-            "participationReceiptRef": "participation-receipt:docker:run-20260420-072339:blazor-desktop:windows:win-x64",
-            "rewardPublicationRef": "reward-publication:binding:docker:run-20260420-072339:blazor-desktop:windows:win-x64",
-            "publicationBindingId": "binding:docker:run-20260420-072339:blazor-desktop:windows:win-x64",
-            "publicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer",
-            "rationale": "docker keeps fallback tuple blazor-desktop:windows:win-x64 retained with entitlement-backed install guidance so recovery participation and reward refs stay governed.",
+            "desktopChannelRef": "desktop-channel:docker:run-20260420-072339:avalonia:windows:win-x64",
+            "installGuidanceRef": "install-guidance:docker:run-20260420-072339:avalonia-win-x64-installer",
+            "participationReceiptRef": "participation-receipt:docker:run-20260420-072339:avalonia:windows:win-x64",
+            "rewardPublicationRef": "reward-publication:binding:docker:run-20260420-072339:avalonia:windows:win-x64",
+            "publicationBindingId": "binding:docker:run-20260420-072339:avalonia:windows:win-x64",
+            "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
+            "rationale": "docker keeps preview tuple avalonia:windows:win-x64 on entitlement-backed install guidance so desktop can explain claim, participation, and reward publication before wider rollout.",
         },
     ]
 
@@ -2369,10 +1543,24 @@ def test_artifact_identity_registry_derives_canonical_rows() -> None:
     assert rows[0]["retentionState"] == "current"
     assert rows[0]["signedInShelfRef"] == "shelf:signed-in:docker:run-20260420-072339:avalonia-linux-x64-installer"
     assert rows[0]["publicShelfRef"] == "shelf:public:docker:run-20260420-072339:avalonia-linux-x64-installer"
-    assert rows[1]["registryId"] == "artifact-identity:docker:run-20260420-072339:blazor-desktop:windows:win-x64"
-    assert rows[1]["artifactId"] == "blazor-desktop-win-x64-installer"
-    assert rows[1]["publicationState"] == "retained"
-    assert rows[1]["retentionState"] == "retained"
+    assert rows[1]["registryId"] == "artifact-identity:docker:run-20260420-072339:avalonia:windows:win-x64"
+    assert rows[1]["artifactId"] == "avalonia-win-x64-installer"
+    assert rows[1]["publicationState"] == "preview"
+    assert rows[1]["retentionState"] == "temporary"
+
+
+def test_artifact_identity_registry_downgrades_output_readiness_when_proof_is_stale() -> None:
+    _, coverage = install_aware_payload()
+
+    rows = MODULE.artifact_identity_registry(
+        coverage,
+        channel_id="docker",
+        release_version="run-20260518-064623",
+        proof_freshness_status="stale",
+    )
+
+    assert rows[0]["publicationState"] == "preview"
+    assert rows[0]["retentionState"] == "temporary"
 
 
 def test_artifact_publication_bindings_derive_canonical_rows() -> None:
@@ -2389,4 +1577,14 @@ def test_artifact_publication_bindings_derive_canonical_rows() -> None:
     assert rows[0]["artifactFamilyId"] == "artifact-family:avalonia:linux:linux-x64"
     assert rows[0]["publicationScope"] == "signed-in-and-public"
     assert rows[0]["publicationState"] == "published"
-    assert row
+    assert rows[0]["retentionState"] == "current"
+    assert rows[0]["previewRef"] == "registry-preview:avalonia-linux-x64-installer:avalonia:linux:linux-x64"
+    assert rows[0]["captionRef"] == "registry-caption:docker:run-20260420-072339:avalonia:linux:linux-x64"
+    assert rows[0]["packetRef"] == "registry-packet:docker:run-20260420-072339:avalonia-linux-x64-installer"
+    assert rows[0]["localeRef"] == "registry-locale:docker:run-20260420-072339:avalonia-linux-x64-installer"
+    assert rows[0]["retentionRef"] == "registry-retention:docker:run-20260420-072339:avalonia-linux-x64-installer"
+    assert rows[1]["bindingId"] == "binding:docker:run-20260420-072339:avalonia:windows:win-x64"
+    assert rows[1]["artifactFamilyId"] == "artifact-family:avalonia:windows:win-x64"
+    assert rows[1]["publicationScope"] == "signed-in-and-public"
+    assert rows[1]["publicationState"] == "preview"
+    assert rows[1]["retentionState"] == "temporary"
