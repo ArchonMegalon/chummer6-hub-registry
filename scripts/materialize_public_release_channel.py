@@ -4,6 +4,7 @@ from __future__ import annotations
 import argparse
 import datetime as dt
 import hashlib
+import importlib.util
 import json
 import os
 import re
@@ -279,6 +280,127 @@ def startup_smoke_channel_matches_expected(expected_channel: str, actual_channel
     if expected == "docker":
         return actual in {"preview", "smoke", "local", "local_docker_preview"}
     return False
+
+
+def desktop_surface_registry_id(
+    *,
+    channel_id: str,
+    release_version: str,
+    route_row: dict[str, Any],
+) -> str:
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    return f"desktop-surface:{channel_id}:{release_version}:{tuple_id}"
+
+
+def desktop_surface_desktop_channel_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    route_row: dict[str, Any],
+) -> str:
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    return f"desktop-channel:{channel_id}:{release_version}:{tuple_id}"
+
+
+def desktop_surface_install_guidance_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    artifact_id: str,
+) -> str:
+    return f"install-guidance:{channel_id}:{release_version}:{artifact_id}"
+
+
+def desktop_surface_participation_receipt_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    route_row: dict[str, Any],
+) -> str:
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    return f"participation-receipt:{channel_id}:{release_version}:{tuple_id}"
+
+
+def desktop_surface_reward_publication_ref(
+    *,
+    publication_binding_id: str,
+) -> str:
+    return f"reward-publication:{publication_binding_id}"
+
+
+def desktop_surface_rationale(
+    route_row: dict[str, Any],
+    *,
+    channel_id: str,
+    install_access_class: str,
+) -> str:
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    route_role = normalize_token(route_row.get("routeRole")) or "desktop"
+    publication_state = artifact_publication_state(route_row)
+    install_posture = "entitlement-backed" if install_access_class == "account_required" else "guest-readable"
+    if publication_state == "published":
+        return (
+            f"{channel_id} keeps {tuple_id} {install_posture} so desktop channel, install guidance, participation, "
+            "and reward refs stay governed without exposing provider internals."
+        )
+    if publication_state == "retained":
+        return (
+            f"{channel_id} keeps {route_role} tuple {tuple_id} retained with {install_posture} install guidance "
+            "so recovery participation and reward refs stay governed."
+        )
+    if publication_state == "revoked":
+        return (
+            f"{channel_id} keeps revoked tuple {tuple_id} on {install_posture} install guidance so desktop can explain "
+            "claim, participation, and reward recovery without reopening installs."
+        )
+    return (
+        f"{channel_id} keeps preview tuple {tuple_id} on {install_posture} install guidance so desktop can explain "
+        "claim, participation, and reward publication before wider rollout."
+    )
+
+
+def artifact_packet_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    artifact_id: str,
+) -> str:
+    return f"registry-packet:{channel_id}:{release_version}:{artifact_id}"
+
+
+def artifact_locale_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    artifact_id: str,
+) -> str:
+    return f"registry-locale:{channel_id}:{release_version}:{artifact_id}"
+
+
+def artifact_retention_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    artifact_id: str,
+) -> str:
+    return f"registry-retention:{channel_id}:{release_version}:{artifact_id}"
+
+
+def artifact_install_access_class(
+    artifact_by_id: dict[str, dict[str, Any]],
+    *,
+    artifact_id: str,
+    platform: str,
+    kind: str,
+) -> str:
+    artifact = artifact_by_id.get(normalize_token(artifact_id))
+    if isinstance(artifact, dict):
+        explicit_access_class = normalize_token(
+            artifact.get("installAccessClass") or artifact.get("install_access_class")
+        )
+        if explicit_access_class:
+            return explicit_access_class
+    return default_install_access_class(platform, kind)
 
 
 def startup_smoke_artifact_file_name_from_path(raw_path: Any) -> str:
@@ -1861,6 +1983,17 @@ def desktop_route_truth(
                             f"Fallback route {fallback_route_tuple_label} is revoked for {tuple_label}, so primary route "
                             f"{route_tuple_label} requires manual recovery: {fallback_revoke_reason}"
                         )
+                    elif (
+                        normalize_token(rollout_state) == "public_stable"
+                        and promotion_state == "promoted"
+                        and not fallback_revoked
+                    ):
+                        rollback_state = "primary_reinstall_available"
+                        rollback_reason_code = "primary_installer_reinstall_available"
+                        rollback_reason = (
+                            f"Fallback route {fallback_route_tuple_label} remains an unpromoted compatibility lane for {tuple_label}; "
+                            f"recover {route_tuple_label} from the promoted primary installer {artifact_id} until a separately proved fallback is published."
+                        )
                     else:
                         rollback_state = "manual_recovery_required"
                         rollback_reason_code = "fallback_missing_artifact_or_startup_smoke_proof"
@@ -2771,13 +2904,25 @@ def artifact_publication_state(
     *,
     proof_freshness_status: str = "fresh",
 ) -> str:
+    explicit_state = normalize_token(route_row.get("publicationState") or route_row.get("publication_state"))
+    if explicit_state in {"preview", "published", "revoked", "retained"}:
+        return output_readiness_publication_state(
+            explicit_state,
+            proof_freshness_status=proof_freshness_status,
+        )
     promotion_state = normalize_token(route_row.get("promotionState"))
     revoke_state = normalize_token(route_row.get("revokeState"))
+    route_role = normalize_token(route_row.get("routeRole"))
     if revoke_state == "revoked":
         return "revoked"
     if promotion_state == "promoted":
         return output_readiness_publication_state(
             "published",
+            proof_freshness_status=proof_freshness_status,
+        )
+    if route_role == "fallback":
+        return output_readiness_publication_state(
+            "retained",
             proof_freshness_status=proof_freshness_status,
         )
     return "preview"
@@ -2823,6 +2968,11 @@ def artifact_publication_rationale(
             f"{channel_id} keeps tuple {tuple_id} retained but revoked so both shelves still point at the same "
             "governed refs without advertising the artifact for install."
         )
+    if publication_state == "retained":
+        return (
+            f"{channel_id} keeps {route_role} tuple {tuple_id} retained so recovery-only shelf refs stay governed "
+            "without relabeling the artifact as preview."
+        )
     return (
         f"{channel_id} keeps tuple {tuple_id} in preview so shelf refs stay governed before wider publication."
     )
@@ -2864,6 +3014,21 @@ def artifact_identity_registry(
                     release_version=release_version,
                     route_row=route_row,
                 ),
+                "packetRef": artifact_packet_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                ),
+                "localeRef": artifact_locale_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                ),
+                "retentionRef": artifact_retention_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                ),
                 "publicationBindingId": artifact_publication_binding_id(
                     channel_id=channel_id,
                     release_version=release_version,
@@ -2889,6 +3054,89 @@ def artifact_identity_registry(
                 "publicationState": artifact_publication_state(
                     route_row,
                     proof_freshness_status=proof_freshness_status,
+                ),
+            }
+        )
+    rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
+    return rows
+
+
+def desktop_surface_refs(
+    artifacts: list[dict[str, Any]],
+    tuple_coverage: dict[str, Any] | None,
+    *,
+    channel_id: str,
+    release_version: str,
+) -> list[dict[str, Any]]:
+    desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
+    if not isinstance(desktop_route_truth, list):
+        return []
+    artifact_by_id = {
+        normalize_token(artifact.get("artifactId") or artifact.get("id")): artifact
+        for artifact in artifacts
+        if isinstance(artifact, dict)
+    }
+    rows: list[dict[str, Any]] = []
+    for route_row in desktop_route_truth:
+        if not isinstance(route_row, dict):
+            continue
+        artifact_id = expected_installer_artifact_id_for_route(route_row)
+        if not artifact_id:
+            continue
+        platform = normalize_platform_token(route_row.get("platform"))
+        kind = normalize_token(route_row.get("kind")) or "installer"
+        publication_binding_id = artifact_publication_binding_id(
+            channel_id=channel_id,
+            release_version=release_version,
+            route_row=route_row,
+        )
+        install_access_class = artifact_install_access_class(
+            artifact_by_id,
+            artifact_id=artifact_id,
+            platform=platform,
+            kind=kind,
+        )
+        rows.append(
+            {
+                "registryId": desktop_surface_registry_id(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    route_row=route_row,
+                ),
+                "artifactId": artifact_id,
+                "channelId": channel_id,
+                "releaseVersion": release_version,
+                "tupleId": str(route_row.get("tupleId") or "").strip(),
+                "head": normalize_token(route_row.get("head")),
+                "platform": platform,
+                "rid": normalize_token(route_row.get("rid")),
+                "arch": normalize_token(route_row.get("arch")),
+                "kind": kind,
+                "installAccessClass": install_access_class,
+                "desktopChannelRef": desktop_surface_desktop_channel_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    route_row=route_row,
+                ),
+                "installGuidanceRef": desktop_surface_install_guidance_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                ),
+                "participationReceiptRef": desktop_surface_participation_receipt_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    route_row=route_row,
+                ),
+                "rewardPublicationRef": desktop_surface_reward_publication_ref(
+                    publication_binding_id=publication_binding_id,
+                ),
+                "publicationBindingId": publication_binding_id,
+                "publicInstallRoute": str(route_row.get("publicInstallRoute") or "").strip() or None,
+                "rationale": desktop_surface_rationale(
+                    route_row,
+                    channel_id=channel_id,
+                    install_access_class=install_access_class,
                 ),
             }
         )
@@ -2951,6 +3199,21 @@ def artifact_publication_bindings(
                     release_version=release_version,
                     route_row=route_row,
                 ),
+                "packetRef": artifact_packet_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                ),
+                "localeRef": artifact_locale_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                ),
+                "retentionRef": artifact_retention_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                ),
                 "publicInstallRoute": str(route_row.get("publicInstallRoute") or "").strip() or None,
                 "retentionState": artifact_retention_state(
                     artifact_publication_state(
@@ -2970,7 +3233,7 @@ def artifact_publication_bindings(
 
 
 def derive_default_compatibility_state(status: str, proof: dict[str, Any] | None) -> str:
-    if status == "published" and proof and str(proof.get("status") or "").strip().lower() == "passed":
+    if status == "published" and proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         return "compatible"
     return "unknown"
 
@@ -3027,9 +3290,9 @@ def derive_rollout_state(
         return "unpublished"
     if not desktop_coverage_complete:
         return "coverage_incomplete"
-    if proof and str(proof.get("status") or "").strip().lower() == "passed":
-        return "promoted_preview" if channel in {"preview", "docker"} else channel
-    return "promoted_preview" if channel == "preview" else channel
+    if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
+        return "public_stable" if channel in {"preview", "docker"} else channel
+    return "promoted_preview" if channel in {"preview", "docker"} else channel
 
 
 def derive_rollout_reason(
@@ -3048,7 +3311,7 @@ def derive_rollout_reason(
             + desktop_tuple_coverage_gap_summary(coverage)
             + "."
         )
-    if proof and str(proof.get("status") or "").strip().lower() == "passed":
+    if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         return "Current release shelf was exercised by the local docker release proof harness before publication."
     return (
         "Current preview shelf is published, but release proof should be re-run before widening trust claims."
@@ -3067,8 +3330,8 @@ def derive_supportability_state(
         return "unpublished"
     if not desktop_coverage_complete:
         return "review_required"
-    if proof and str(proof.get("status") or "").strip().lower() == "passed":
-        return "preview_supported"
+    if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
+        return "gold_supported"
     return "review_required"
 
 
@@ -3087,7 +3350,7 @@ def derive_supportability_summary(
             + desktop_tuple_coverage_gap_summary(coverage)
             + "."
         )
-    if proof and str(proof.get("status") or "").strip().lower() == "passed":
+    if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         journeys = proof.get("journeysPassed") or []
         if journeys:
             journey_list = ", ".join(str(item) for item in journeys)
@@ -3105,8 +3368,8 @@ def derive_supportability_summary(
                     "Community organizer closure stayed grounded on the current shelf."
                 )
             note_suffix = (" " + " ".join(proof_notes)) if proof_notes else ""
-            return f"Local release proof passed for: {journey_list}.{note_suffix}"
-        return "Local release proof passed for the current shelf."
+            return f"Gold release proof passed for: {journey_list}.{note_suffix}"
+        return "Gold release proof passed for the current shelf."
     return "Treat the current shelf as review-required until release proof and support closure checks pass."
 
 
@@ -3122,7 +3385,7 @@ def derive_known_issue_summary(
         return "No active channel issues are published because the shelf is still empty."
     if not desktop_coverage_complete:
         return "Known issue: " + desktop_tuple_coverage_gap_summary(coverage) + "."
-    if proof and str(proof.get("status") or "").strip().lower() == "passed":
+    if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         journeys = proof.get("journeysPassed") or []
         proof_notes: list[str] = []
         if any(str(item).strip() == "install_claim_restore_continue" for item in journeys):
@@ -3134,7 +3397,7 @@ def derive_known_issue_summary(
         proof_note_text = ", ".join(proof_notes)
         proof_note_clause = f", {proof_note_text}" if proof_note_text else ""
         return (
-            "Preview caveats still apply, but the current shelf has recent install"
+            "Current release proof is green, and the shelf has recent install"
             f"{proof_note_clause}, bounded offline prefetch, and support proof instead of only manifest presence."
         )
     return f"The {channel} shelf is visible, but known-issue review should stay front-and-center until proof is refreshed."
@@ -3150,7 +3413,7 @@ def derive_fix_availability_summary(
         return "Fix notices should stay pending until a published shelf exists."
     if not desktop_coverage_complete:
         return "Do not send fixed notices until required desktop tuple coverage is complete for the promoted shelf."
-    if proof and str(proof.get("status") or "").strip().lower() == "passed":
+    if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         return "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf."
     return "Verify fix availability against the live channel artifact before closing support loops."
 
@@ -3176,26 +3439,36 @@ def normalize_release_channel_posture(
         desktop_coverage_complete=desktop_coverage_complete,
     )
 
-    # Older source payloads may still carry the pre-normalized local docker posture
-    # even after the shelf becomes a complete, published promoted preview. Keep
-    # explicit blocking states like paused/revoked, but normalize the stale local
-    # aliases so downstream executable gates read the canonical promoted posture.
+    # Older source payloads may still carry pre-normalized local docker posture
+    # or the previous promoted-preview support posture. Keep explicit blocking
+    # states like paused/revoked, but normalize stale aliases so downstream
+    # executable gates read the canonical release posture.
     if (
         status == "published"
         and desktop_coverage_complete
-        and rollout_state == "local_docker_preview"
-        and derived_rollout_state == "promoted_preview"
+        and rollout_state in {"local_docker_preview", "promoted_preview"}
+        and derived_rollout_state == "public_stable"
     ):
         rollout_state = derived_rollout_state
     if (
         status == "published"
         and desktop_coverage_complete
-        and supportability_state == "local_docker_proven"
-        and derived_supportability_state == "preview_supported"
+        and supportability_state in {"local_docker_proven", "preview_supported"}
+        and derived_supportability_state == "gold_supported"
     ):
         supportability_state = derived_supportability_state
 
     return rollout_state, supportability_state
+
+
+def normalize_effective_channel_id(channel: str, rollout_state: str) -> str:
+    normalized_channel = normalize_token(channel) or "preview"
+    normalized_rollout_state = normalize_token(rollout_state)
+    if normalized_rollout_state == "public_stable" and normalized_channel in {"preview", "docker"}:
+        return "public_stable"
+    if normalized_rollout_state == "stable" and normalized_channel == "preview":
+        return "stable"
+    return normalized_channel
 
 
 def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
@@ -3209,7 +3482,8 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     ) or "unpublished"
     loaded_channel = str(loaded.get("channel") or loaded.get("channelId") or "").strip()
     requested_channel = str(args.channel or "").strip()
-    channel = requested_channel or loaded_channel or "preview"
+    raw_channel = requested_channel or loaded_channel or "preview"
+    channel = raw_channel
 
     if isinstance(loaded.get("artifacts"), list):
         artifacts = [parse_download_row(item) for item in loaded.get("artifacts") or [] if isinstance(item, dict)]
@@ -3228,7 +3502,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             args.startup_smoke_dir,
             max_age_seconds=args.startup_smoke_max_age_seconds,
             max_future_skew_seconds=args.startup_smoke_max_future_skew_seconds,
-            expected_channel=normalize_token(channel),
+            expected_channel=normalize_token(raw_channel),
         )
     else:
         startup_smoke_receipts = None
@@ -3243,8 +3517,8 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     generated_at = dt.datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
     for artifact in artifacts:
         if isinstance(artifact, dict):
-            artifact["channelId"] = channel
-            artifact["channel"] = channel
+            artifact["channelId"] = raw_channel
+            artifact["channel"] = raw_channel
             artifact["version"] = version
             artifact["releaseVersion"] = version
             artifact["generated_at"] = generated_at
@@ -3327,7 +3601,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         artifacts,
         required_heads=required_heads,
         required_platforms=list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS),
-        channel_id=channel,
+        channel_id=raw_channel,
         release_version=version,
         channel_status=status,
         rollout_state=loaded_rollout_state,
@@ -3337,13 +3611,13 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     )
     desktop_coverage_complete = desktop_tuple_coverage_is_complete(tuple_coverage)
     rollout_state = loaded_rollout_state or derive_rollout_state(
-        channel,
+        raw_channel,
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
     )
     rollout_reason = loaded_rollout_reason or derive_rollout_reason(
-        channel,
+        raw_channel,
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
@@ -3360,29 +3634,62 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     rollout_state, supportability_state = normalize_release_channel_posture(
         rollout_state,
         supportability_state,
-        channel=channel,
+        channel=raw_channel,
         status=status,
         proof=release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
     )
-    supportability_summary = (
-        str(loaded.get("supportabilitySummary") or loaded.get("supportability_summary") or "").strip()
-        or derive_supportability_summary(
-            status,
-            release_proof,
-            desktop_coverage_complete=desktop_coverage_complete,
-            coverage=tuple_coverage,
+    channel = normalize_effective_channel_id(raw_channel, rollout_state)
+    if channel != raw_channel:
+        for artifact in artifacts:
+            if isinstance(artifact, dict):
+                artifact["channelId"] = channel
+                artifact["channel"] = channel
+        tuple_coverage = desktop_tuple_coverage(
+            artifacts,
+            required_heads=required_heads,
+            required_platforms=list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS),
+            channel_id=channel,
+            release_version=version,
+            channel_status=status,
+            rollout_state=rollout_state,
+            rollout_reason=rollout_reason,
+            known_issue_summary=loaded_known_issue_summary,
+            downloads_dir=args.downloads_dir,
         )
+        desktop_coverage_complete = desktop_tuple_coverage_is_complete(tuple_coverage)
+
+    derived_supportability_summary = derive_supportability_summary(
+        status,
+        release_proof,
+        desktop_coverage_complete=desktop_coverage_complete,
+        coverage=tuple_coverage,
     )
-    known_issue_summary = (
-        loaded_known_issue_summary or derive_known_issue_summary(
-            channel,
-            status,
-            release_proof,
-            desktop_coverage_complete=desktop_coverage_complete,
-            coverage=tuple_coverage,
-        )
+    loaded_supportability_summary = str(
+        loaded.get("supportabilitySummary") or loaded.get("supportability_summary") or ""
+    ).strip()
+    if (
+        supportability_state == "gold_supported"
+        and loaded_supportability_summary.startswith("Local release proof passed",)
+    ):
+        supportability_summary = derived_supportability_summary
+    else:
+        supportability_summary = loaded_supportability_summary or derived_supportability_summary
+
+    derived_known_issue_summary = derive_known_issue_summary(
+        channel,
+        status,
+        release_proof,
+        desktop_coverage_complete=desktop_coverage_complete,
+        coverage=tuple_coverage,
     )
+    if (
+        supportability_state == "gold_supported"
+        and loaded_known_issue_summary.startswith("Preview caveats still apply",)
+    ):
+        known_issue_summary = derived_known_issue_summary
+    else:
+        known_issue_summary = loaded_known_issue_summary or derived_known_issue_summary
     fix_availability_summary = (
         str(loaded.get("fixAvailabilitySummary") or loaded.get("fix_availability_summary") or "").strip()
         or derive_fix_availability_summary(
@@ -3408,6 +3715,12 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         channel_id=channel,
         release_version=version,
         proof_freshness_status=freshness_status,
+    )
+    desktop_surface_ref_rows = desktop_surface_refs(
+        artifacts,
+        tuple_coverage,
+        channel_id=channel,
+        release_version=version,
     )
     artifact_publication_binding_rows = artifact_publication_bindings(
         tuple_coverage,
@@ -3439,6 +3752,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "desktopTupleCoverage": tuple_coverage,
         "runtimeBundleHeads": runtime_bundle_heads,
         "installAwareArtifactRegistry": install_aware_registry,
+        "desktopSurfaceRefs": desktop_surface_ref_rows,
         "artifactIdentityRegistry": artifact_identity_registry_rows,
         "artifactPublicationBindings": artifact_publication_binding_rows,
     }
@@ -3452,6 +3766,13 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
             f"{DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME}, got {source_contract_name!r}"
         )
     contract_name = DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
+    rollout_state = str(canonical.get("rolloutState") or "").strip()
+    channel_id = str(canonical.get("channelId") or "").strip()
+    compatibility_channel = (
+        rollout_state
+        if rollout_state in {"public_stable", "stable", "preview", "local", "docker"}
+        else (channel_id or "preview")
+    )
     downloads = []
     for artifact in canonical.get("artifacts") or []:
         if not isinstance(artifact, dict):
@@ -3487,7 +3808,7 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         "contract_name": contract_name,
         "contractName": contract_name,
         "version": canonical.get("version") or "unpublished",
-        "channel": canonical.get("channelId") or "preview",
+        "channel": compatibility_channel,
         "publishedAt": canonical.get("publishedAt"),
         "downloads": downloads,
         "source": "registry",
@@ -3502,6 +3823,7 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         "releaseProof": canonical.get("releaseProof"),
         "desktopTupleCoverage": canonical.get("desktopTupleCoverage"),
         "installAwareArtifactRegistry": canonical.get("installAwareArtifactRegistry"),
+        "desktopSurfaceRefs": canonical.get("desktopSurfaceRefs"),
         "artifactIdentityRegistry": canonical.get("artifactIdentityRegistry"),
         "artifactPublicationBindings": canonical.get("artifactPublicationBindings"),
     }
@@ -3512,14 +3834,44 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+_VERIFY_MODULE: Any | None = None
+
+
+def verify_public_release_channel_module() -> Any:
+    global _VERIFY_MODULE
+    if _VERIFY_MODULE is not None:
+        return _VERIFY_MODULE
+    verifier_path = Path(__file__).with_name("verify_public_release_channel.py")
+    spec = importlib.util.spec_from_file_location("verify_public_release_channel_module", verifier_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load verifier module from {verifier_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    _VERIFY_MODULE = module
+    return module
+
+
+def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
+    return verify_public_release_channel_module().expected_public_trust_metrics(payload)
+
+
+def expected_registry_boundary_coverage(payload: dict[str, Any]) -> dict[str, Any]:
+    return verify_public_release_channel_module().expected_registry_boundary_coverage(payload)
+
+
 def main() -> int:
     args = parse_args()
     if env_flag_is_true(os.environ.get("CHUMMER_MATERIALIZE_SKIP_STARTUP_SMOKE_FILTER")):
         args.skip_startup_smoke_filter = True
     canonical = canonical_payload(args)
+    canonical["publicTrustMetrics"] = expected_public_trust_metrics(canonical)
+    canonical["registryBoundaryCoverage"] = expected_registry_boundary_coverage(canonical)
     write_json(args.output, canonical)
     if args.compat_output:
-        write_json(args.compat_output, compatibility_payload(canonical))
+        compatibility = compatibility_payload(canonical)
+        compatibility["publicTrustMetrics"] = expected_public_trust_metrics(compatibility)
+        compatibility["registryBoundaryCoverage"] = expected_registry_boundary_coverage(compatibility)
+        write_json(args.compat_output, compatibility)
     print(
         json.dumps(
             {

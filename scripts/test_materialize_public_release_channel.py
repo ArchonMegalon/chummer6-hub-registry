@@ -65,7 +65,7 @@ def install_aware_payload() -> tuple[list[dict], dict]:
     return artifacts, coverage
 
 
-def test_derive_rollout_state_uses_promoted_preview_for_complete_published_docker_release() -> None:
+def test_derive_rollout_state_uses_public_stable_for_complete_published_docker_release() -> None:
     assert (
         MODULE.derive_rollout_state(
             "docker",
@@ -73,18 +73,18 @@ def test_derive_rollout_state_uses_promoted_preview_for_complete_published_docke
             {"status": "passed"},
             desktop_coverage_complete=True,
         )
-        == "promoted_preview"
+        == "public_stable"
     )
 
 
-def test_derive_supportability_state_uses_preview_supported_for_complete_published_release() -> None:
+def test_derive_supportability_state_uses_gold_supported_for_complete_published_release() -> None:
     assert (
         MODULE.derive_supportability_state(
             "published",
             {"status": "passed"},
             desktop_coverage_complete=True,
         )
-        == "preview_supported"
+        == "gold_supported"
     )
 
 
@@ -96,7 +96,12 @@ def test_normalize_release_channel_posture_upgrades_stale_local_docker_states() 
         status="published",
         proof={"status": "passed"},
         desktop_coverage_complete=True,
-    ) == ("promoted_preview", "preview_supported")
+    ) == ("public_stable", "gold_supported")
+
+
+def test_normalize_effective_channel_id_projects_public_stable_for_promoted_preview_release() -> None:
+    assert MODULE.normalize_effective_channel_id("preview", "public_stable") == "public_stable"
+    assert MODULE.normalize_effective_channel_id("docker", "public_stable") == "public_stable"
 
 
 def test_desktop_tuple_coverage_incomplete_when_only_rid_tuple_is_missing() -> None:
@@ -439,6 +444,23 @@ def test_compatibility_payload_canonicalizes_contract_name_aliases() -> None:
 
     assert payload["contract_name"] == MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
     assert payload["contractName"] == MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
+
+
+def test_compatibility_payload_projects_public_stable_channel() -> None:
+    payload = MODULE.compatibility_payload(
+        {
+            "generatedAt": "2026-05-19T15:43:06Z",
+            "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+            "channelId": "preview",
+            "rolloutState": "public_stable",
+            "version": "run-20260519-154306",
+            "publishedAt": "2026-05-19T15:43:06Z",
+            "status": "published",
+            "artifacts": [],
+        }
+    )
+
+    assert payload["channel"] == "public_stable"
 
 
 def test_normalize_release_proof_payload_ignores_extra_metadata_keys() -> None:
@@ -1499,24 +1521,24 @@ def test_desktop_surface_refs_derive_canonical_rows() -> None:
             "rationale": "docker keeps avalonia:linux:linux-x64 guest-readable so desktop channel, install guidance, participation, and reward refs stay governed without exposing provider internals.",
         },
         {
-            "registryId": "desktop-surface:docker:run-20260420-072339:blazor-desktop:windows:win-x64",
-            "artifactId": "blazor-desktop-win-x64-installer",
+            "registryId": "desktop-surface:docker:run-20260420-072339:avalonia:windows:win-x64",
+            "artifactId": "avalonia-win-x64-installer",
             "channelId": "docker",
             "releaseVersion": "run-20260420-072339",
-            "tupleId": "blazor-desktop:windows:win-x64",
-            "head": "blazor-desktop",
+            "tupleId": "avalonia:windows:win-x64",
+            "head": "avalonia",
             "platform": "windows",
             "rid": "win-x64",
             "arch": "x64",
             "kind": "installer",
             "installAccessClass": "account_required",
-            "desktopChannelRef": "desktop-channel:docker:run-20260420-072339:blazor-desktop:windows:win-x64",
-            "installGuidanceRef": "install-guidance:docker:run-20260420-072339:blazor-desktop-win-x64-installer",
-            "participationReceiptRef": "participation-receipt:docker:run-20260420-072339:blazor-desktop:windows:win-x64",
-            "rewardPublicationRef": "reward-publication:binding:docker:run-20260420-072339:blazor-desktop:windows:win-x64",
-            "publicationBindingId": "binding:docker:run-20260420-072339:blazor-desktop:windows:win-x64",
-            "publicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer",
-            "rationale": "docker keeps fallback tuple blazor-desktop:windows:win-x64 retained with entitlement-backed install guidance so recovery participation and reward refs stay governed.",
+            "desktopChannelRef": "desktop-channel:docker:run-20260420-072339:avalonia:windows:win-x64",
+            "installGuidanceRef": "install-guidance:docker:run-20260420-072339:avalonia-win-x64-installer",
+            "participationReceiptRef": "participation-receipt:docker:run-20260420-072339:avalonia:windows:win-x64",
+            "rewardPublicationRef": "reward-publication:binding:docker:run-20260420-072339:avalonia:windows:win-x64",
+            "publicationBindingId": "binding:docker:run-20260420-072339:avalonia:windows:win-x64",
+            "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
+            "rationale": "docker keeps preview tuple avalonia:windows:win-x64 on entitlement-backed install guidance so desktop can explain claim, participation, and reward publication before wider rollout.",
         },
     ]
 
@@ -1543,10 +1565,10 @@ def test_artifact_identity_registry_derives_canonical_rows() -> None:
     assert rows[0]["retentionState"] == "current"
     assert rows[0]["signedInShelfRef"] == "shelf:signed-in:docker:run-20260420-072339:avalonia-linux-x64-installer"
     assert rows[0]["publicShelfRef"] == "shelf:public:docker:run-20260420-072339:avalonia-linux-x64-installer"
-    assert rows[1]["registryId"] == "artifact-identity:docker:run-20260420-072339:blazor-desktop:windows:win-x64"
-    assert rows[1]["artifactId"] == "blazor-desktop-win-x64-installer"
-    assert rows[1]["publicationState"] == "retained"
-    assert rows[1]["retentionState"] == "retained"
+    assert rows[1]["registryId"] == "artifact-identity:docker:run-20260420-072339:avalonia:windows:win-x64"
+    assert rows[1]["artifactId"] == "avalonia-win-x64-installer"
+    assert rows[1]["publicationState"] == "preview"
+    assert rows[1]["retentionState"] == "temporary"
 
 
 def test_artifact_identity_registry_downgrades_output_readiness_when_proof_is_stale() -> None:
@@ -1578,4 +1600,13 @@ def test_artifact_publication_bindings_derive_canonical_rows() -> None:
     assert rows[0]["publicationScope"] == "signed-in-and-public"
     assert rows[0]["publicationState"] == "published"
     assert rows[0]["retentionState"] == "current"
-    assert row
+    assert rows[0]["previewRef"] == "registry-preview:avalonia-linux-x64-installer:avalonia:linux:linux-x64"
+    assert rows[0]["captionRef"] == "registry-caption:docker:run-20260420-072339:avalonia:linux:linux-x64"
+    assert rows[0]["packetRef"] == "registry-packet:docker:run-20260420-072339:avalonia-linux-x64-installer"
+    assert rows[0]["localeRef"] == "registry-locale:docker:run-20260420-072339:avalonia-linux-x64-installer"
+    assert rows[0]["retentionRef"] == "registry-retention:docker:run-20260420-072339:avalonia-linux-x64-installer"
+    assert rows[1]["bindingId"] == "binding:docker:run-20260420-072339:avalonia:windows:win-x64"
+    assert rows[1]["artifactFamilyId"] == "artifact-family:avalonia:windows:win-x64"
+    assert rows[1]["publicationScope"] == "signed-in-and-public"
+    assert rows[1]["publicationState"] == "preview"
+    assert rows[1]["retentionState"] == "temporary"
