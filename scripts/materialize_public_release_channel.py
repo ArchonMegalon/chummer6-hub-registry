@@ -14,9 +14,6 @@ from pathlib import Path
 from typing import Any
 
 
-_VERIFY_PUBLIC_RELEASE_CHANNEL_MODULE: Any | None = None
-
-
 APP_LABELS = {
     "avalonia": "Avalonia Desktop",
     "blazor-desktop": "Blazor Desktop",
@@ -47,10 +44,9 @@ WINDOWS_INSTALLER_PAYLOAD_MARKERS = (
 STARTUP_SMOKE_GATED_KINDS = {"installer", "dmg", "pkg", "msix"}
 STARTUP_SMOKE_GATED_PLATFORMS = {"linux", "windows", "macos"}
 STARTUP_SMOKE_MAX_AGE_SECONDS = 7 * 24 * 3600
+DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS = 7 * 24 * 3600
+DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS = 7 * 24 * 3600
 STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS = 300
-RELEASE_PROOF_MAX_AGE_SECONDS = 7 * 24 * 3600
-LOCALIZATION_GATE_MAX_AGE_SECONDS = 7 * 24 * 3600
-FLAGSHIP_READINESS_MAX_AGE_SECONDS = 7 * 24 * 3600
 STARTUP_SMOKE_REQUIRED_READY_CHECKPOINT = "pre_ui_event_loop"
 DEFAULT_REQUIRED_DESKTOP_HEADS = ("avalonia",)
 DESKTOP_ROUTE_TRUTH_HEADS = ("avalonia", "blazor-desktop")
@@ -162,7 +158,6 @@ ALLOWED_LOCALIZATION_LOCALE_SUMMARY_ROW_KEYS = (
 )
 DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
 DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME = "Chummer.Hub.Registry.Contracts"
-DEFAULT_FLAGSHIP_PRODUCT_READINESS_PATH = Path("/docker/fleet/.codex-studio/published/FLAGSHIP_PRODUCT_READINESS.generated.json")
 UTC = dt.timezone.utc
 ARTIFACT_REVOKE_TRUTH_FIELDS = (
     "status",
@@ -266,6 +261,127 @@ def startup_smoke_channel_matches_expected(expected_channel: str, actual_channel
     if expected == "docker":
         return actual in {"preview", "smoke", "local", "local_docker_preview"}
     return False
+
+
+def desktop_surface_registry_id(
+    *,
+    channel_id: str,
+    release_version: str,
+    route_row: dict[str, Any],
+) -> str:
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    return f"desktop-surface:{channel_id}:{release_version}:{tuple_id}"
+
+
+def desktop_surface_desktop_channel_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    route_row: dict[str, Any],
+) -> str:
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    return f"desktop-channel:{channel_id}:{release_version}:{tuple_id}"
+
+
+def desktop_surface_install_guidance_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    artifact_id: str,
+) -> str:
+    return f"install-guidance:{channel_id}:{release_version}:{artifact_id}"
+
+
+def desktop_surface_participation_receipt_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    route_row: dict[str, Any],
+) -> str:
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    return f"participation-receipt:{channel_id}:{release_version}:{tuple_id}"
+
+
+def desktop_surface_reward_publication_ref(
+    *,
+    publication_binding_id: str,
+) -> str:
+    return f"reward-publication:{publication_binding_id}"
+
+
+def desktop_surface_rationale(
+    route_row: dict[str, Any],
+    *,
+    channel_id: str,
+    install_access_class: str,
+) -> str:
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    route_role = normalize_token(route_row.get("routeRole")) or "desktop"
+    publication_state = artifact_publication_state(route_row)
+    install_posture = "entitlement-backed" if install_access_class == "account_required" else "guest-readable"
+    if publication_state == "published":
+        return (
+            f"{channel_id} keeps {tuple_id} {install_posture} so desktop channel, install guidance, participation, "
+            "and reward refs stay governed without exposing provider internals."
+        )
+    if publication_state == "retained":
+        return (
+            f"{channel_id} keeps {route_role} tuple {tuple_id} retained with {install_posture} install guidance "
+            "so recovery participation and reward refs stay governed."
+        )
+    if publication_state == "revoked":
+        return (
+            f"{channel_id} keeps revoked tuple {tuple_id} on {install_posture} install guidance so desktop can explain "
+            "claim, participation, and reward recovery without reopening installs."
+        )
+    return (
+        f"{channel_id} keeps preview tuple {tuple_id} on {install_posture} install guidance so desktop can explain "
+        "claim, participation, and reward publication before wider rollout."
+    )
+
+
+def artifact_packet_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    artifact_id: str,
+) -> str:
+    return f"registry-packet:{channel_id}:{release_version}:{artifact_id}"
+
+
+def artifact_locale_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    artifact_id: str,
+) -> str:
+    return f"registry-locale:{channel_id}:{release_version}:{artifact_id}"
+
+
+def artifact_retention_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    artifact_id: str,
+) -> str:
+    return f"registry-retention:{channel_id}:{release_version}:{artifact_id}"
+
+
+def artifact_install_access_class(
+    artifact_by_id: dict[str, dict[str, Any]],
+    *,
+    artifact_id: str,
+    platform: str,
+    kind: str,
+) -> str:
+    artifact = artifact_by_id.get(normalize_token(artifact_id))
+    if isinstance(artifact, dict):
+        explicit_access_class = normalize_token(
+            artifact.get("installAccessClass") or artifact.get("install_access_class")
+        )
+        if explicit_access_class:
+            return explicit_access_class
+    return default_install_access_class(platform, kind)
 
 
 def startup_smoke_artifact_file_name_from_path(raw_path: Any) -> str:
@@ -490,12 +606,6 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--compat-output", type=Path, help="Optional compatibility `releases.json` output path.")
     parser.add_argument("--runtime-bundles", type=Path, help="Optional JSON file with runtime bundle head metadata.")
     parser.add_argument("--proof", type=Path, help="Optional local release proof payload used to ground supportability and rollout truth.")
-    parser.add_argument(
-        "--flagship-product-readiness",
-        type=Path,
-        default=DEFAULT_FLAGSHIP_PRODUCT_READINESS_PATH,
-        help="Optional Fleet flagship-product-readiness payload used to fail-close registry output posture when desktop readiness proof is incomplete.",
-    )
     parser.add_argument(
         "--ui-localization-release-gate",
         type=Path,
@@ -902,15 +1012,6 @@ def load_input_payload(args: argparse.Namespace) -> dict[str, Any]:
             raise ValueError(f"manifest must be a JSON object: {args.manifest}")
         return loaded
     return {}
-
-
-def load_json_file(path: Path | None) -> dict[str, Any] | None:
-    if path is None or not path.exists():
-        return None
-    loaded = json.loads(path.read_text(encoding="utf-8"))
-    if not isinstance(loaded, dict):
-        raise ValueError(f"JSON payload must be an object: {path}")
-    return loaded
 
 
 def load_runtime_bundle_heads(path: Path | None) -> list[dict[str, Any]]:
@@ -1848,22 +1949,25 @@ def desktop_route_truth(
                             f"Fallback route {fallback_route_tuple_label} is revoked for {tuple_label}, so primary route "
                             f"{route_tuple_label} requires manual recovery: {fallback_revoke_reason}"
                         )
+                    elif (
+                        normalize_token(rollout_state) == "public_stable"
+                        and promotion_state == "promoted"
+                        and not fallback_revoked
+                    ):
+                        rollback_state = "primary_reinstall_available"
+                        rollback_reason_code = "primary_installer_reinstall_available"
+                        rollback_reason = (
+                            f"Fallback route {fallback_route_tuple_label} remains an unpromoted compatibility lane for {tuple_label}; "
+                            f"recover {route_tuple_label} from the promoted primary installer {artifact_id} until a separately proved fallback is published."
+                        )
                     else:
-                        if normalized_token(rollout_state) == "public_stable" and promoted:
-                            rollback_state = "primary_reinstall_available"
-                            rollback_reason_code = "primary_installer_reinstall_available"
-                            rollback_reason = (
-                                f"Fallback route {fallback_route_tuple_label} remains an unpromoted compatibility lane for {tuple_label}; "
-                                f"recover {route_tuple_label} from the promoted primary installer {artifact_id} until a separately proved fallback is published."
-                            )
-                        else:
-                            rollback_state = "manual_recovery_required"
-                            rollback_reason_code = "fallback_missing_artifact_or_startup_smoke_proof"
-                            rollback_reason = (
-                                f"Fallback route {fallback_route_tuple_label} is not promoted for {tuple_label} because "
-                                "matching artifact bytes and fresh startup-smoke proof are still required; "
-                                f"primary route {route_tuple_label} therefore requires manual recovery."
-                            )
+                        rollback_state = "manual_recovery_required"
+                        rollback_reason_code = "fallback_missing_artifact_or_startup_smoke_proof"
+                        rollback_reason = (
+                            f"Fallback route {fallback_route_tuple_label} is not promoted for {tuple_label} because "
+                            "matching artifact bytes and fresh startup-smoke proof are still required; "
+                            f"primary route {route_tuple_label} therefore requires manual recovery."
+                        )
                 else:
                     parity_posture = "explicit_fallback"
                     if promoted:
@@ -2042,19 +2146,20 @@ def external_proof_request_capture_commands(
         "(or set CHUMMER_EXTERNAL_PROOF_ALLOW_GUEST_DOWNLOAD=1 to bypass)' >&2; "
         "exit 1; "
         "fi; "
-        "set -- curl -fL --retry 3 --retry-delay 2; "
+        "curl_auth_args=(); "
         f"if [ -n \"{DEFAULT_EXTERNAL_PROOF_AUTH_HEADER_EXPR}\" ]; then "
-        f"set -- \"$@\" -H \"{DEFAULT_EXTERNAL_PROOF_AUTH_HEADER_EXPR}\"; "
+        f"curl_auth_args+=( -H \"{DEFAULT_EXTERNAL_PROOF_AUTH_HEADER_EXPR}\" ); "
         "fi; "
         f"if [ -n \"{DEFAULT_EXTERNAL_PROOF_COOKIE_HEADER_EXPR}\" ]; then "
-        f"set -- \"$@\" -H \"Cookie: {DEFAULT_EXTERNAL_PROOF_COOKIE_HEADER_EXPR}\"; "
+        f"curl_auth_args+=( -H \"Cookie: {DEFAULT_EXTERNAL_PROOF_COOKIE_HEADER_EXPR}\" ); "
         "fi; "
         f"if [ -n \"{DEFAULT_EXTERNAL_PROOF_COOKIE_JAR_EXPR}\" ]; then "
-        f"set -- \"$@\" --cookie \"{DEFAULT_EXTERNAL_PROOF_COOKIE_JAR_EXPR}\"; "
+        f"curl_auth_args+=( --cookie \"{DEFAULT_EXTERNAL_PROOF_COOKIE_JAR_EXPR}\" ); "
         "fi; "
-        f"set -- \"$@\" \"{DEFAULT_EXTERNAL_PROOF_BASE_URL_EXPR}{expected_public_install_route}\" "
+        "curl -fL --retry 3 --retry-delay 2 "
+        '"${curl_auth_args[@]}" '
+        f"\"{DEFAULT_EXTERNAL_PROOF_BASE_URL_EXPR}{expected_public_install_route}\" "
         '-o "$INSTALLER_PATH"; '
-        '"$@"; '
         "fi; "
         "python3 -c "
         + shlex.quote(
@@ -2431,28 +2536,6 @@ def desktop_tuple_coverage(
     }
 
 
-def derive_required_desktop_platforms(artifacts: list[dict[str, Any]]) -> list[str]:
-    promoted_platforms = {
-        normalize_platform_token(item.get("platform"))
-        for item in artifacts
-        if isinstance(item, dict)
-        and normalize_platform_token(item.get("platform"))
-        and is_desktop_install_media(item.get("platform"), item.get("kind"))
-        and not desktop_route_artifact_is_revoked(item)
-    }
-    ordered = [
-        platform
-        for platform in DEFAULT_REQUIRED_DESKTOP_PLATFORMS
-        if platform in promoted_platforms
-    ]
-    ordered.extend(
-        platform
-        for platform in sorted(promoted_platforms)
-        if platform and platform not in ordered
-    )
-    return ordered
-
-
 def desktop_tuple_coverage_is_complete(coverage: dict[str, Any] | None) -> bool:
     if not isinstance(coverage, dict):
         return False
@@ -2669,147 +2752,279 @@ def install_aware_artifact_registry(
     return rows
 
 
-def artifact_install_access_class(
-    artifact_by_id: dict[str, dict[str, Any]],
+def artifact_family_id(route_row: dict[str, Any]) -> str:
+    head = normalize_token(route_row.get("head"))
+    platform = normalize_platform_token(route_row.get("platform"))
+    rid = normalize_token(route_row.get("rid"))
+    return f"artifact-family:{head}:{platform}:{rid}"
+
+
+def artifact_publication_binding_id(
+    *,
+    channel_id: str,
+    release_version: str,
+    route_row: dict[str, Any],
+) -> str:
+    return f"binding:{channel_id}:{release_version}:{str(route_row.get('tupleId') or '').strip()}"
+
+
+def artifact_preview_ref(
     *,
     artifact_id: str,
-    platform: str,
-    kind: str,
+    route_row: dict[str, Any],
 ) -> str:
-    artifact = artifact_by_id.get(normalize_token(artifact_id))
-    if isinstance(artifact, dict):
-        explicit_access_class = normalize_token(
-            artifact.get("installAccessClass") or artifact.get("install_access_class")
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    return f"registry-preview:{artifact_id}:{tuple_id}"
+
+
+def artifact_caption_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    route_row: dict[str, Any],
+) -> str:
+    tuple_id = str(route_row.get("tupleId") or "").strip()
+    return f"registry-caption:{channel_id}:{release_version}:{tuple_id}"
+
+
+def artifact_signed_in_shelf_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    artifact_id: str,
+) -> str:
+    return f"shelf:signed-in:{channel_id}:{release_version}:{artifact_id}"
+
+
+def artifact_public_shelf_ref(
+    *,
+    channel_id: str,
+    release_version: str,
+    artifact_id: str,
+) -> str:
+    return f"shelf:public:{channel_id}:{release_version}:{artifact_id}"
+
+
+def artifact_publication_scope(route_row: dict[str, Any]) -> str:
+    visibility = normalize_token(route_row.get("visibility"))
+    if visibility in {"private", "local-only"}:
+        return "signed-in"
+    return "signed-in-and-public"
+
+
+def output_readiness_publication_state(
+    publication_state: str,
+    *,
+    proof_freshness_status: str,
+) -> str:
+    normalized_state = normalize_token(publication_state)
+    normalized_freshness = normalize_token(proof_freshness_status)
+    if normalized_freshness in {"stale", "missing"} and normalized_state in {"published", "retained"}:
+        return "preview"
+    return normalized_state
+
+
+def projection_age_seconds(
+    *,
+    projection_generated_at: dt.datetime | None,
+    evidence_generated_at: Any,
+) -> int | None:
+    if projection_generated_at is None:
+        return None
+    evidence_timestamp = parse_iso(evidence_generated_at)
+    if evidence_timestamp is None:
+        return None
+    return max(int((projection_generated_at - evidence_timestamp).total_seconds()), 0)
+
+
+def proof_freshness_status(payload: dict[str, Any]) -> str:
+    projection_generated_at = parse_iso(payload.get("generatedAt") or payload.get("generated_at"))
+    release_proof = payload.get("releaseProof") if isinstance(payload.get("releaseProof"), dict) else {}
+    if projection_generated_at is None and not release_proof:
+        return "fresh"
+    ui_localization = (
+        release_proof.get("uiLocalizationReleaseGate")
+        if isinstance(release_proof.get("uiLocalizationReleaseGate"), dict)
+        else {}
+    )
+    release_proof_age_seconds = projection_age_seconds(
+        projection_generated_at=projection_generated_at,
+        evidence_generated_at=release_proof.get("generatedAt") or release_proof.get("generated_at"),
+    )
+    ui_localization_age_seconds = projection_age_seconds(
+        projection_generated_at=projection_generated_at,
+        evidence_generated_at=ui_localization.get("generatedAt") or ui_localization.get("generated_at"),
+    )
+    if release_proof_age_seconds is None or ui_localization_age_seconds is None:
+        return "missing"
+    if (
+        release_proof_age_seconds > DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS
+        or ui_localization_age_seconds > DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS
+    ):
+        return "stale"
+    return "fresh"
+
+
+def artifact_publication_state(
+    route_row: dict[str, Any],
+    *,
+    proof_freshness_status: str = "fresh",
+) -> str:
+    explicit_state = normalize_token(route_row.get("publicationState") or route_row.get("publication_state"))
+    if explicit_state in {"preview", "published", "revoked", "retained"}:
+        return output_readiness_publication_state(
+            explicit_state,
+            proof_freshness_status=proof_freshness_status,
         )
-        if explicit_access_class:
-            return explicit_access_class
-    return default_install_access_class(platform, kind)
+    promotion_state = normalize_token(route_row.get("promotionState"))
+    revoke_state = normalize_token(route_row.get("revokeState"))
+    route_role = normalize_token(route_row.get("routeRole"))
+    if revoke_state == "revoked":
+        return "revoked"
+    if promotion_state == "promoted":
+        return output_readiness_publication_state(
+            "published",
+            proof_freshness_status=proof_freshness_status,
+        )
+    if route_role == "fallback":
+        return output_readiness_publication_state(
+            "retained",
+            proof_freshness_status=proof_freshness_status,
+        )
+    return "preview"
 
 
-def promote_guest_readable_primary_installers(
-    artifacts: list[dict[str, Any]],
-    tuple_coverage: dict[str, Any] | None,
-) -> list[dict[str, Any]]:
-    desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
-    if not isinstance(desktop_route_truth, list):
-        return artifacts
-
-    guest_readable_artifact_ids: set[str] = set()
-    for row in desktop_route_truth:
-        if not isinstance(row, dict):
-            continue
-        if normalize_token(row.get("routeRole")) != "primary":
-            continue
-        if normalize_token(row.get("promotionState")) != "promoted":
-            continue
-        if normalize_token(row.get("revokeState")) == "revoked":
-            continue
-        platform = normalize_platform_token(row.get("platform"))
-        kind = normalize_token(row.get("kind")) or "installer"
-        if platform not in {"windows", "linux"} or kind != "installer":
-            continue
-        artifact_id = normalize_token(row.get("artifactId"))
-        if artifact_id:
-            guest_readable_artifact_ids.add(artifact_id)
-
-    if not guest_readable_artifact_ids:
-        return artifacts
-
-    for artifact in artifacts:
-        if not isinstance(artifact, dict):
-            continue
-        artifact_id = normalize_token(artifact.get("artifactId") or artifact.get("id"))
-        if artifact_id not in guest_readable_artifact_ids:
-            continue
-        artifact["installAccessClass"] = "open_public"
-    return artifacts
+def artifact_retention_state(publication_state: str) -> str:
+    normalized_state = normalize_token(publication_state)
+    if normalized_state == "published":
+        return "current"
+    if normalized_state == "preview":
+        return "temporary"
+    if normalized_state == "revoked":
+        return "recoverable"
+    if normalized_state == "retained":
+        return "retained"
+    return "temporary"
 
 
-def desktop_surface_registry_id(
-    *,
-    channel_id: str,
-    release_version: str,
-    route_row: dict[str, Any],
-) -> str:
-    tuple_id = str(route_row.get("tupleId") or "").strip()
-    return f"desktop-surface:{channel_id}:{release_version}:{tuple_id}"
-
-
-def desktop_surface_desktop_channel_ref(
-    *,
-    channel_id: str,
-    release_version: str,
-    route_row: dict[str, Any],
-) -> str:
-    tuple_id = str(route_row.get("tupleId") or "").strip()
-    return f"desktop-channel:{channel_id}:{release_version}:{tuple_id}"
-
-
-def desktop_surface_install_guidance_ref(
-    *,
-    channel_id: str,
-    release_version: str,
-    artifact_id: str,
-) -> str:
-    return f"install-guidance:{channel_id}:{release_version}:{artifact_id}"
-
-
-def desktop_surface_participation_receipt_ref(
-    *,
-    channel_id: str,
-    release_version: str,
-    route_row: dict[str, Any],
-) -> str:
-    tuple_id = str(route_row.get("tupleId") or "").strip()
-    return f"participation-receipt:{channel_id}:{release_version}:{tuple_id}"
-
-
-def desktop_surface_reward_publication_ref(
-    *,
-    publication_binding_id: str,
-) -> str:
-    return f"reward-publication:{publication_binding_id}"
-
-
-def desktop_surface_rationale(
+def artifact_publication_rationale(
     route_row: dict[str, Any],
     *,
     channel_id: str,
-    install_access_class: str,
     proof_freshness_status: str = "fresh",
 ) -> str:
     tuple_id = str(route_row.get("tupleId") or "").strip()
-    route_role = normalize_token(route_row.get("routeRole")) or "desktop"
+    route_role = normalize_token(route_row.get("routeRole")) or "artifact"
     publication_state = artifact_publication_state(
         route_row,
         proof_freshness_status=proof_freshness_status,
     )
-    install_posture = "entitlement-backed" if install_access_class == "account_required" else "guest-readable"
     if normalize_token(proof_freshness_status) in {"stale", "missing"} and publication_state == "preview":
         return (
-            f"{channel_id} keeps tuple {tuple_id} on {install_posture} install guidance in preview because proof receipts "
-            "are stale or incomplete, so desktop channel, participation, and reward refs stay honest instead of implying "
-            "current output readiness."
+            f"{channel_id} keeps tuple {tuple_id} in preview because proof receipts are stale or incomplete, so signed-in "
+            "and public shelves keep governed refs without overstating current output readiness."
         )
     if publication_state == "published":
         return (
-            f"{channel_id} keeps {tuple_id} {install_posture} so desktop channel, install guidance, participation, "
-            "and reward refs stay governed without exposing provider internals."
-        )
-    if publication_state == "retained":
-        return (
-            f"{channel_id} keeps {route_role} tuple {tuple_id} retained with {install_posture} install guidance "
-            "so recovery participation and reward refs stay governed."
+            f"{channel_id} keeps {route_role} tuple {tuple_id} published so signed-in and public shelves "
+            "cite the same governed preview, caption, and install refs."
         )
     if publication_state == "revoked":
         return (
-            f"{channel_id} keeps revoked tuple {tuple_id} on {install_posture} install guidance so desktop can explain "
-            "claim, participation, and reward recovery without reopening installs."
+            f"{channel_id} keeps tuple {tuple_id} retained but revoked so both shelves still point at the same "
+            "governed refs without advertising the artifact for install."
+        )
+    if publication_state == "retained":
+        return (
+            f"{channel_id} keeps {route_role} tuple {tuple_id} retained so recovery-only shelf refs stay governed "
+            "without relabeling the artifact as preview."
         )
     return (
-        f"{channel_id} keeps preview tuple {tuple_id} on {install_posture} install guidance so desktop can explain "
-        "claim, participation, and reward posture before wider publication."
+        f"{channel_id} keeps tuple {tuple_id} in preview so shelf refs stay governed before wider publication."
     )
+
+
+def artifact_identity_registry(
+    tuple_coverage: dict[str, Any] | None,
+    *,
+    channel_id: str,
+    release_version: str,
+    proof_freshness_status: str = "fresh",
+) -> list[dict[str, Any]]:
+    desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
+    if not isinstance(desktop_route_truth, list):
+        return []
+    rows: list[dict[str, Any]] = []
+    for route_row in desktop_route_truth:
+        if not isinstance(route_row, dict):
+            continue
+        artifact_id = expected_installer_artifact_id_for_route(route_row)
+        if not artifact_id:
+            continue
+        rows.append(
+            {
+                "registryId": f"artifact-identity:{channel_id}:{release_version}:{str(route_row.get('tupleId') or '').strip()}",
+                "artifactFamilyId": artifact_family_id(route_row),
+                "artifactId": artifact_id,
+                "channelId": channel_id,
+                "releaseVersion": release_version,
+                "tupleId": str(route_row.get("tupleId") or "").strip(),
+                "head": normalize_token(route_row.get("head")),
+                "platform": normalize_platform_token(route_row.get("platform")),
+                "rid": normalize_token(route_row.get("rid")),
+                "arch": normalize_token(route_row.get("arch")),
+                "kind": normalize_token(route_row.get("kind")) or "installer",
+                "previewRef": artifact_preview_ref(artifact_id=artifact_id, route_row=route_row),
+                "captionRef": artifact_caption_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    route_row=route_row,
+                ),
+                "packetRef": artifact_packet_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                ),
+                "localeRef": artifact_locale_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                ),
+                "retentionRef": artifact_retention_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                ),
+                "publicationBindingId": artifact_publication_binding_id(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    route_row=route_row,
+                ),
+                "signedInShelfRef": artifact_signed_in_shelf_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                ),
+                "publicShelfRef": artifact_public_shelf_ref(
+                    channel_id=channel_id,
+                    release_version=release_version,
+                    artifact_id=artifact_id,
+                ),
+                "publicInstallRoute": str(route_row.get("publicInstallRoute") or "").strip() or None,
+                "retentionState": artifact_retention_state(
+                    artifact_publication_state(
+                        route_row,
+                        proof_freshness_status=proof_freshness_status,
+                    )
+                ),
+                "publicationState": artifact_publication_state(
+                    route_row,
+                    proof_freshness_status=proof_freshness_status,
+                ),
+            }
+        )
+    rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
+    return rows
 
 
 def desktop_surface_refs(
@@ -2818,7 +3033,6 @@ def desktop_surface_refs(
     *,
     channel_id: str,
     release_version: str,
-    proof_freshness_status: str = "fresh",
 ) -> list[dict[str, Any]]:
     desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
     if not isinstance(desktop_route_truth, list):
@@ -2889,253 +3103,7 @@ def desktop_surface_refs(
                     route_row,
                     channel_id=channel_id,
                     install_access_class=install_access_class,
-                    proof_freshness_status=proof_freshness_status,
                 ),
-            }
-        )
-    rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
-    return rows
-
-
-def artifact_family_id(route_row: dict[str, Any]) -> str:
-    head = normalize_token(route_row.get("head"))
-    platform = normalize_platform_token(route_row.get("platform"))
-    rid = normalize_token(route_row.get("rid"))
-    return f"artifact-family:{head}:{platform}:{rid}"
-
-
-def artifact_publication_binding_id(
-    *,
-    channel_id: str,
-    release_version: str,
-    route_row: dict[str, Any],
-) -> str:
-    return f"binding:{channel_id}:{release_version}:{str(route_row.get('tupleId') or '').strip()}"
-
-
-def artifact_preview_ref(
-    *,
-    artifact_id: str,
-    route_row: dict[str, Any],
-) -> str:
-    tuple_id = str(route_row.get("tupleId") or "").strip()
-    return f"registry-preview:{artifact_id}:{tuple_id}"
-
-
-def artifact_caption_ref(
-    *,
-    channel_id: str,
-    release_version: str,
-    route_row: dict[str, Any],
-) -> str:
-    tuple_id = str(route_row.get("tupleId") or "").strip()
-    return f"registry-caption:{channel_id}:{release_version}:{tuple_id}"
-
-
-def artifact_signed_in_shelf_ref(
-    *,
-    channel_id: str,
-    release_version: str,
-    artifact_id: str,
-) -> str:
-    return f"shelf:signed-in:{channel_id}:{release_version}:{artifact_id}"
-
-
-def artifact_public_shelf_ref(
-    *,
-    channel_id: str,
-    release_version: str,
-    artifact_id: str,
-) -> str:
-    return f"shelf:public:{channel_id}:{release_version}:{artifact_id}"
-
-
-def artifact_packet_ref(
-    *,
-    channel_id: str,
-    release_version: str,
-    artifact_id: str,
-) -> str:
-    return f"registry-packet:{channel_id}:{release_version}:{artifact_id}"
-
-
-def artifact_locale_ref(
-    *,
-    channel_id: str,
-    release_version: str,
-    artifact_id: str,
-) -> str:
-    return f"registry-locale:{channel_id}:{release_version}:{artifact_id}"
-
-
-def artifact_retention_ref(
-    *,
-    channel_id: str,
-    release_version: str,
-    artifact_id: str,
-) -> str:
-    return f"registry-retention:{channel_id}:{release_version}:{artifact_id}"
-
-
-def artifact_retention_state(publication_state: str) -> str:
-    normalized_state = normalize_token(publication_state)
-    if normalized_state == "published":
-        return "current"
-    if normalized_state == "preview":
-        return "temporary"
-    if normalized_state == "revoked":
-        return "recoverable"
-    if normalized_state == "retained":
-        return "retained"
-    return "temporary"
-
-
-def artifact_publication_scope(route_row: dict[str, Any]) -> str:
-    visibility = normalize_token(route_row.get("visibility"))
-    if visibility in {"private", "local-only"}:
-        return "signed-in"
-    return "signed-in-and-public"
-
-
-def artifact_publication_state(
-    route_row: dict[str, Any],
-    *,
-    proof_freshness_status: str = "fresh",
-) -> str:
-    explicit_state = normalize_token(route_row.get("publicationState") or route_row.get("publication_state"))
-    if explicit_state in {"preview", "published", "revoked", "retained"}:
-        return output_readiness_publication_state(
-            explicit_state,
-            proof_freshness_status=proof_freshness_status,
-        )
-    promotion_state = normalize_token(route_row.get("promotionState"))
-    revoke_state = normalize_token(route_row.get("revokeState"))
-    route_role = normalize_token(route_row.get("routeRole"))
-    if revoke_state == "revoked":
-        return "revoked"
-    if promotion_state == "promoted":
-        return output_readiness_publication_state(
-            "published",
-            proof_freshness_status=proof_freshness_status,
-        )
-    if route_role == "fallback":
-        return output_readiness_publication_state(
-            "retained",
-            proof_freshness_status=proof_freshness_status,
-        )
-    return "preview"
-
-
-def artifact_publication_rationale(
-    route_row: dict[str, Any],
-    *,
-    channel_id: str,
-    proof_freshness_status: str = "fresh",
-) -> str:
-    tuple_id = str(route_row.get("tupleId") or "").strip()
-    route_role = normalize_token(route_row.get("routeRole")) or "artifact"
-    publication_state = artifact_publication_state(
-        route_row,
-        proof_freshness_status=proof_freshness_status,
-    )
-    if normalize_token(proof_freshness_status) in {"stale", "missing"} and publication_state == "preview":
-        return (
-            f"{channel_id} keeps tuple {tuple_id} in preview because proof receipts are stale or incomplete, so signed-in "
-            "and public shelves keep governed refs without overstating current output readiness."
-        )
-    if publication_state == "published":
-        return (
-            f"{channel_id} keeps {route_role} tuple {tuple_id} published so signed-in and public shelves "
-            "cite the same governed preview, caption, and install refs."
-        )
-    if publication_state == "revoked":
-        return (
-            f"{channel_id} keeps tuple {tuple_id} retained but revoked so both shelves still point at the same "
-            "governed refs without advertising the artifact for install."
-        )
-    if publication_state == "retained":
-        return (
-            f"{channel_id} keeps {route_role} tuple {tuple_id} retained so recovery-only shelf refs stay governed "
-            "without relabeling the artifact as preview."
-        )
-    return (
-        f"{channel_id} keeps tuple {tuple_id} in preview so shelf refs stay governed before wider publication."
-    )
-
-
-def artifact_identity_registry(
-    tuple_coverage: dict[str, Any] | None,
-    *,
-    channel_id: str,
-    release_version: str,
-    proof_freshness_status: str = "fresh",
-) -> list[dict[str, Any]]:
-    desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
-    if not isinstance(desktop_route_truth, list):
-        return []
-    rows: list[dict[str, Any]] = []
-    for route_row in desktop_route_truth:
-        if not isinstance(route_row, dict):
-            continue
-        artifact_id = expected_installer_artifact_id_for_route(route_row)
-        if not artifact_id:
-            continue
-        publication_state = artifact_publication_state(
-            route_row,
-            proof_freshness_status=proof_freshness_status,
-        )
-        rows.append(
-            {
-                "registryId": f"artifact-identity:{channel_id}:{release_version}:{str(route_row.get('tupleId') or '').strip()}",
-                "artifactFamilyId": artifact_family_id(route_row),
-                "artifactId": artifact_id,
-                "channelId": channel_id,
-                "releaseVersion": release_version,
-                "tupleId": str(route_row.get("tupleId") or "").strip(),
-                "head": normalize_token(route_row.get("head")),
-                "platform": normalize_platform_token(route_row.get("platform")),
-                "rid": normalize_token(route_row.get("rid")),
-                "arch": normalize_token(route_row.get("arch")),
-                "kind": normalize_token(route_row.get("kind")) or "installer",
-                "previewRef": artifact_preview_ref(artifact_id=artifact_id, route_row=route_row),
-                "captionRef": artifact_caption_ref(
-                    channel_id=channel_id,
-                    release_version=release_version,
-                    route_row=route_row,
-                ),
-                "packetRef": artifact_packet_ref(
-                    channel_id=channel_id,
-                    release_version=release_version,
-                    artifact_id=artifact_id,
-                ),
-                "localeRef": artifact_locale_ref(
-                    channel_id=channel_id,
-                    release_version=release_version,
-                    artifact_id=artifact_id,
-                ),
-                "retentionRef": artifact_retention_ref(
-                    channel_id=channel_id,
-                    release_version=release_version,
-                    artifact_id=artifact_id,
-                ),
-                "retentionState": artifact_retention_state(publication_state),
-                "publicationBindingId": artifact_publication_binding_id(
-                    channel_id=channel_id,
-                    release_version=release_version,
-                    route_row=route_row,
-                ),
-                "publicationState": publication_state,
-                "signedInShelfRef": artifact_signed_in_shelf_ref(
-                    channel_id=channel_id,
-                    release_version=release_version,
-                    artifact_id=artifact_id,
-                ),
-                "publicShelfRef": artifact_public_shelf_ref(
-                    channel_id=channel_id,
-                    release_version=release_version,
-                    artifact_id=artifact_id,
-                ),
-                "publicInstallRoute": str(route_row.get("publicInstallRoute") or "").strip() or None,
             }
         )
     rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
@@ -3159,10 +3127,6 @@ def artifact_publication_bindings(
         artifact_id = expected_installer_artifact_id_for_route(route_row)
         if not artifact_id:
             continue
-        publication_state = artifact_publication_state(
-            route_row,
-            proof_freshness_status=proof_freshness_status,
-        )
         rows.append(
             {
                 "bindingId": artifact_publication_binding_id(
@@ -3181,7 +3145,10 @@ def artifact_publication_bindings(
                 "arch": normalize_token(route_row.get("arch")),
                 "kind": normalize_token(route_row.get("kind")) or "installer",
                 "publicationScope": artifact_publication_scope(route_row),
-                "publicationState": publication_state,
+                "publicationState": artifact_publication_state(
+                    route_row,
+                    proof_freshness_status=proof_freshness_status,
+                ),
                 "signedInShelfRef": artifact_signed_in_shelf_ref(
                     channel_id=channel_id,
                     release_version=release_version,
@@ -3213,8 +3180,13 @@ def artifact_publication_bindings(
                     release_version=release_version,
                     artifact_id=artifact_id,
                 ),
-                "retentionState": artifact_retention_state(publication_state),
                 "publicInstallRoute": str(route_row.get("publicInstallRoute") or "").strip() or None,
+                "retentionState": artifact_retention_state(
+                    artifact_publication_state(
+                        route_row,
+                        proof_freshness_status=proof_freshness_status,
+                    )
+                ),
                 "rationale": artifact_publication_rationale(
                     route_row,
                     channel_id=channel_id,
@@ -3226,525 +3198,8 @@ def artifact_publication_bindings(
     return rows
 
 
-def exchange_lineage_registry(
-    exchange_artifacts: Any,
-    *,
-    channel_id: str,
-    release_version: str,
-    proof_freshness_status: str = "fresh",
-) -> list[dict[str, Any]]:
-    if not isinstance(exchange_artifacts, list):
-        return []
-    rows: list[dict[str, Any]] = []
-    for item in exchange_artifacts:
-        if not isinstance(item, dict):
-            continue
-        artifact_id = normalize_token(item.get("artifactId"))
-        artifact_kind = normalize_token(item.get("artifactKind"))
-        if artifact_kind not in {"dossier", "campaign", "replay", "recap", "exchange"} or not artifact_id:
-            continue
-        lineage_ref = str(item.get("lineageRef") or "").strip()
-        provenance_ref = str(item.get("provenanceRef") or "").strip()
-        compatibility_state = normalize_token(item.get("compatibilityState"))
-        compatibility_ref = str(item.get("compatibilityRef") or "").strip()
-        bounded_loss_posture = normalize_token(item.get("boundedLossPosture"))
-        bounded_loss_ref = str(item.get("boundedLossRef") or "").strip()
-        publication_state = output_readiness_publication_state(
-            normalize_token(item.get("publicationState")),
-            proof_freshness_status=proof_freshness_status,
-        )
-        if not all(
-            (
-                lineage_ref,
-                provenance_ref,
-                compatibility_state,
-                compatibility_ref,
-                bounded_loss_posture,
-                bounded_loss_ref,
-                publication_state,
-            )
-        ):
-            continue
-        parent_lineage_refs = sorted(
-            {
-                str(parent or "").strip()
-                for parent in item.get("parentLineageRefs") or []
-                if str(parent or "").strip()
-            }
-        )
-        registry_id = (
-            f"exchange-lineage:{channel_id}:{release_version}:{artifact_kind}:{artifact_id}"
-        )
-        publication_binding_id = (
-            f"binding:{channel_id}:{release_version}:{artifact_kind}:{artifact_id}"
-        )
-        signed_in_shelf_ref = (
-            f"shelf:signed-in:{channel_id}:{release_version}:{artifact_id}"
-        )
-        public_shelf_ref = (
-            f"shelf:public:{channel_id}:{release_version}:{artifact_id}"
-        )
-        rows.append(
-            {
-                "registryId": registry_id,
-                "artifactId": artifact_id,
-                "artifactKind": artifact_kind,
-                "channelId": channel_id,
-                "releaseVersion": release_version,
-                "lineageRef": lineage_ref,
-                "parentLineageRefs": parent_lineage_refs,
-                "provenanceRef": provenance_ref,
-                "compatibilityState": compatibility_state,
-                "compatibilityRef": compatibility_ref,
-                "boundedLossPosture": bounded_loss_posture,
-                "boundedLossRef": bounded_loss_ref,
-                "publicationBindingId": publication_binding_id,
-                "publicationState": publication_state,
-                "packetRef": artifact_packet_ref(
-                    channel_id=channel_id,
-                    release_version=release_version,
-                    artifact_id=artifact_id,
-                ),
-                "localeRef": artifact_locale_ref(
-                    channel_id=channel_id,
-                    release_version=release_version,
-                    artifact_id=artifact_id,
-                ),
-                "retentionRef": artifact_retention_ref(
-                    channel_id=channel_id,
-                    release_version=release_version,
-                    artifact_id=artifact_id,
-                ),
-                "retentionState": artifact_retention_state(publication_state),
-                "signedInShelfRef": signed_in_shelf_ref,
-                "publicShelfRef": public_shelf_ref,
-            }
-        )
-    rows.sort(key=lambda row: (row["artifactKind"], row["artifactId"], row["lineageRef"]))
-    return rows
-
-
-def projection_age_seconds(
-    *,
-    projection_generated_at: dt.datetime | None,
-    evidence_generated_at: Any,
-) -> int | None:
-    if projection_generated_at is None:
-        return None
-    evidence_timestamp = parse_iso(evidence_generated_at)
-    if evidence_timestamp is None:
-        return None
-    return max(int((projection_generated_at - evidence_timestamp).total_seconds()), 0)
-
-
-def flagship_readiness_snapshot(flagship_product_readiness: dict[str, Any] | None) -> dict[str, Any]:
-    normalized_payload = flagship_product_readiness if isinstance(flagship_product_readiness, dict) else {}
-    missing_keys = normalized_payload.get("missing_keys")
-    if not isinstance(missing_keys, list):
-        missing_keys = []
-    normalized_missing_keys = sorted(
-        {
-            normalize_token(item)
-            for item in missing_keys
-            if str(item or "").strip()
-        }
-    )
-    readiness_status = normalize_token(
-        normalized_payload.get("status")
-        or (normalized_payload.get("flagship_readiness_audit") or {}).get("status")
-    ) or "missing"
-    readiness_reason = str(
-        (normalized_payload.get("flagship_readiness_audit") or {}).get("reason")
-        or (normalized_payload.get("completion_audit") or {}).get("reason")
-        or ""
-    ).strip()
-    desktop_client_ready = readiness_status in {"pass", "ready"} and "desktop_client" not in normalized_missing_keys
-    return {
-        "status": readiness_status,
-        "generatedAt": str(
-            normalized_payload.get("generated_at") or normalized_payload.get("generatedAt") or ""
-        ).strip() or None,
-        "coverageGapKeys": normalized_missing_keys,
-        "desktopClientReady": desktop_client_ready,
-        "reason": readiness_reason or None,
-    }
-
-
-def release_proof_freshness_snapshot(
-    *,
-    projection_generated_at: Any,
-    release_proof: dict[str, Any] | None,
-    flagship_product_readiness: dict[str, Any] | None = None,
-) -> dict[str, Any]:
-    projection_timestamp = parse_iso(projection_generated_at)
-    normalized_release_proof = release_proof if isinstance(release_proof, dict) else {}
-    readiness_snapshot = flagship_readiness_snapshot(flagship_product_readiness)
-    release_proof_age_seconds = projection_age_seconds(
-        projection_generated_at=projection_timestamp,
-        evidence_generated_at=normalized_release_proof.get("generatedAt") or normalized_release_proof.get("generated_at"),
-    )
-    localization_gate = normalized_release_proof.get("uiLocalizationReleaseGate")
-    localization_age_seconds = projection_age_seconds(
-        projection_generated_at=projection_timestamp,
-        evidence_generated_at=(
-            localization_gate.get("generatedAt") or localization_gate.get("generated_at")
-            if isinstance(localization_gate, dict)
-            else None
-        ),
-    )
-    flagship_readiness_age_seconds = projection_age_seconds(
-        projection_generated_at=projection_timestamp,
-        evidence_generated_at=readiness_snapshot.get("generatedAt"),
-    )
-    proof_freshness_status = "fresh"
-    readiness_required = bool(readiness_snapshot.get("generatedAt"))
-    if release_proof_age_seconds is None or localization_age_seconds is None or (
-        readiness_required and flagship_readiness_age_seconds is None
-    ):
-        proof_freshness_status = "missing"
-    elif (
-        release_proof_age_seconds > RELEASE_PROOF_MAX_AGE_SECONDS
-        or localization_age_seconds > LOCALIZATION_GATE_MAX_AGE_SECONDS
-        or (readiness_required and flagship_readiness_age_seconds > FLAGSHIP_READINESS_MAX_AGE_SECONDS)
-        or (readiness_required and not bool(readiness_snapshot.get("desktopClientReady")))
-    ):
-        proof_freshness_status = "stale"
-
-    readiness_reason = str(readiness_snapshot.get("reason") or "").strip()
-    return {
-        "status": proof_freshness_status,
-        "releaseProofGeneratedAt": str(
-            normalized_release_proof.get("generatedAt") or normalized_release_proof.get("generated_at") or ""
-        ).strip() or None,
-        "releaseProofAgeSeconds": release_proof_age_seconds,
-        "releaseProofMaxAgeSeconds": RELEASE_PROOF_MAX_AGE_SECONDS,
-        "uiLocalizationGeneratedAt": (
-            str(localization_gate.get("generatedAt") or localization_gate.get("generated_at") or "").strip()
-            if isinstance(localization_gate, dict)
-            else None
-        ) or None,
-        "uiLocalizationAgeSeconds": localization_age_seconds,
-        "uiLocalizationMaxAgeSeconds": LOCALIZATION_GATE_MAX_AGE_SECONDS,
-        "flagshipReadinessGeneratedAt": readiness_snapshot.get("generatedAt"),
-        "flagshipReadinessAgeSeconds": flagship_readiness_age_seconds,
-        "flagshipReadinessMaxAgeSeconds": FLAGSHIP_READINESS_MAX_AGE_SECONDS,
-        "flagshipReadinessStatus": readiness_snapshot.get("status"),
-        "flagshipReadinessCoverageGapKeys": list(readiness_snapshot.get("coverageGapKeys") or []),
-        "flagshipDesktopClientReady": bool(readiness_snapshot.get("desktopClientReady")),
-        "flagshipReadinessReason": readiness_reason or None,
-        "summary": (
-            f"Release proof age is {release_proof_age_seconds if release_proof_age_seconds is not None else 'missing'}s "
-            f"(max {RELEASE_PROOF_MAX_AGE_SECONDS}s) and UI localization gate age is "
-            f"{localization_age_seconds if localization_age_seconds is not None else 'missing'}s "
-            f"(max {LOCALIZATION_GATE_MAX_AGE_SECONDS}s)"
-            + (
-                f"; flagship desktop readiness age is "
-                f"{flagship_readiness_age_seconds if flagship_readiness_age_seconds is not None else 'missing'}s "
-                f"(max {FLAGSHIP_READINESS_MAX_AGE_SECONDS}s)"
-                if readiness_required
-                else ""
-            )
-            + (
-                f" and desktop readiness is blocked: {readiness_reason}."
-                if proof_freshness_status != "fresh" and readiness_reason
-                else "."
-            )
-        ),
-    }
-
-
-def load_verify_public_release_channel_module() -> Any:
-    global _VERIFY_PUBLIC_RELEASE_CHANNEL_MODULE
-    if _VERIFY_PUBLIC_RELEASE_CHANNEL_MODULE is not None:
-        return _VERIFY_PUBLIC_RELEASE_CHANNEL_MODULE
-
-    verifier_path = Path(__file__).resolve().parent / "verify_public_release_channel.py"
-    spec = importlib.util.spec_from_file_location("verify_public_release_channel", verifier_path)
-    if spec is None or spec.loader is None:
-        raise RuntimeError(f"could not load verifier module from {verifier_path}")
-
-    module = importlib.util.module_from_spec(spec)
-    spec.loader.exec_module(module)
-    _VERIFY_PUBLIC_RELEASE_CHANNEL_MODULE = module
-    return module
-
-
-def output_readiness_publication_state(
-    publication_state: str,
-    *,
-    proof_freshness_status: str,
-) -> str:
-    normalized_state = normalize_token(publication_state)
-    normalized_freshness = normalize_token(proof_freshness_status)
-    if normalized_freshness in {"stale", "missing"} and normalized_state in {"published", "retained"}:
-        return "preview"
-    return normalized_state
-
-
-def proof_freshness_blocks_output_readiness(proof_freshness_status: str) -> bool:
-    return normalize_token(proof_freshness_status) in {"stale", "missing"}
-
-
-def release_channel_public_posture(
-    *,
-    channel_id: str,
-    status: str,
-    rollout_state: str,
-    proof_freshness_status: str = "fresh",
-) -> str:
-    normalized_channel = normalize_token(channel_id)
-    normalized_status = normalize_token(status)
-    normalized_rollout = normalize_token(rollout_state)
-    if normalized_status == "revoked" or normalized_rollout == "revoked":
-        return "revoked"
-    if proof_freshness_blocks_output_readiness(proof_freshness_status):
-        return "blocked"
-    if normalized_status != "published":
-        return "blocked"
-    if normalized_rollout == "public_stable":
-        return "live"
-    return "preview"
-
-
-def route_truth_is_preview_only_fallback(row: dict[str, Any]) -> bool:
-    return (
-        isinstance(row, dict)
-        and normalize_token(row.get("routeRole")) == "fallback"
-        and normalize_token(row.get("promotionState")) == "proof_required"
-        and normalize_token(row.get("parityPosture")) == "explicit_fallback"
-        and normalize_token(row.get("revokeState")) != "revoked"
-    )
-
-
-def public_trust_metrics(
-    *,
-    generated_at: str,
-    channel_id: str,
-    status: str,
-    rollout_state: str,
-    supportability_state: str,
-    release_proof: dict[str, Any],
-    flagship_product_readiness: dict[str, Any] | None,
-    artifacts: list[dict[str, Any]],
-    tuple_coverage: dict[str, Any],
-) -> dict[str, Any]:
-    proof_freshness = release_proof_freshness_snapshot(
-        projection_generated_at=generated_at,
-        release_proof=release_proof,
-        flagship_product_readiness=flagship_product_readiness,
-    )
-    verifier = load_verify_public_release_channel_module()
-    payload = {
-        "generatedAt": generated_at,
-        "generated_at": generated_at,
-        "channelId": channel_id,
-        "status": status,
-        "rolloutState": rollout_state,
-        "supportabilityState": supportability_state,
-        "releaseProof": release_proof,
-        "artifacts": artifacts,
-        "desktopTupleCoverage": tuple_coverage,
-        "publicTrustMetrics": {
-            "proofFreshness": proof_freshness,
-        },
-    }
-    return verifier.expected_public_trust_metrics(payload)
-
-
-def registry_boundary_coverage(
-    *,
-    channel_id: str,
-    release_version: str,
-    contract_name: str,
-    status: str,
-    rollout_state: str,
-    supportability_state: str,
-    artifacts: list[dict[str, Any]],
-    runtime_bundle_heads: list[dict[str, Any]],
-    tuple_coverage: dict[str, Any],
-    install_aware_registry: list[dict[str, Any]],
-    desktop_surface_ref_rows: list[dict[str, Any]],
-    artifact_identity_registry_rows: list[dict[str, Any]],
-    artifact_publication_binding_rows: list[dict[str, Any]],
-    exchange_lineage_registry_rows: list[dict[str, Any]],
-    public_trust_metrics: dict[str, Any],
-) -> dict[str, Any]:
-    promoted_installer_tuples = tuple_coverage.get("promotedInstallerTuples") if isinstance(tuple_coverage, dict) else []
-    if not isinstance(promoted_installer_tuples, list):
-        promoted_installer_tuples = []
-    route_truth = tuple_coverage.get("desktopRouteTruth") if isinstance(tuple_coverage, dict) else []
-    if not isinstance(route_truth, list):
-        route_truth = []
-
-    compatible_artifact_count = sum(
-        1
-        for item in artifacts
-        if isinstance(item, dict) and normalize_optional_string(item.get("compatibilityState")) == "compatible"
-    )
-    unknown_artifact_count = sum(
-        1
-        for item in artifacts
-        if isinstance(item, dict) and normalize_optional_string(item.get("compatibilityState")) != "compatible"
-    )
-    compatible_runtime_bundle_head_count = sum(
-        1
-        for item in runtime_bundle_heads
-        if isinstance(item, dict) and normalize_optional_string(item.get("compatibilityState")) == "compatible"
-    )
-    unknown_runtime_bundle_head_count = sum(
-        1
-        for item in runtime_bundle_heads
-        if isinstance(item, dict) and normalize_optional_string(item.get("compatibilityState")) != "compatible"
-    )
-    compatible_exchange_artifact_count = sum(
-        1
-        for item in exchange_lineage_registry_rows
-        if isinstance(item, dict) and normalize_optional_string(item.get("compatibilityState")) == "compatible"
-    )
-    published_artifact_count = sum(
-        1
-        for item in artifact_identity_registry_rows
-        if isinstance(item, dict) and normalize_optional_string(item.get("publicationState")) == "published"
-    )
-    retained_artifact_count = sum(
-        1
-        for item in artifact_identity_registry_rows
-        if isinstance(item, dict) and normalize_optional_string(item.get("publicationState")) == "retained"
-    )
-    published_binding_count = sum(
-        1
-        for item in artifact_publication_binding_rows
-        if isinstance(item, dict) and normalize_optional_string(item.get("publicationState")) == "published"
-    )
-    retained_binding_count = sum(
-        1
-        for item in artifact_publication_binding_rows
-        if isinstance(item, dict) and normalize_optional_string(item.get("publicationState")) == "retained"
-    )
-    signed_in_and_public_binding_count = sum(
-        1
-        for item in artifact_publication_binding_rows
-        if isinstance(item, dict) and normalize_optional_string(item.get("publicationScope")) == "signed-in-and-public"
-    )
-    current_retention_count = sum(
-        1
-        for item in artifact_publication_binding_rows
-        if isinstance(item, dict) and normalize_optional_string(item.get("retentionState")) == "current"
-    )
-    open_public_surface_count = sum(
-        1
-        for item in desktop_surface_ref_rows
-        if isinstance(item, dict) and normalize_optional_string(item.get("installAccessClass")) == "open_public"
-    )
-    account_required_surface_count = sum(
-        1
-        for item in desktop_surface_ref_rows
-        if isinstance(item, dict) and normalize_optional_string(item.get("installAccessClass")) == "account_required"
-    )
-    registry_projection_count = (
-        len(install_aware_registry)
-        + len(desktop_surface_ref_rows)
-        + len(artifact_identity_registry_rows)
-        + len(artifact_publication_binding_rows)
-        + len(exchange_lineage_registry_rows)
-    )
-    rollout_state_token = normalize_optional_string(rollout_state) or "unknown"
-
-    return {
-        "status": "closed",
-        "owner": "chummer6-hub-registry",
-        "channelId": channel_id,
-        "releaseVersion": release_version,
-        "persistence": {
-            "contractName": contract_name,
-            "artifactCount": len(artifacts),
-            "runtimeBundleHeadCount": len(runtime_bundle_heads),
-            "registryProjectionCount": registry_projection_count,
-            "summary": (
-                f"Registry persistence owns {len(artifacts)} published artifacts, "
-                f"{len(runtime_bundle_heads)} runtime bundle heads, and "
-                f"{registry_projection_count} governed projection rows for "
-                f"{channel_id}/{release_version}."
-            ),
-        },
-        "releaseChannel": {
-            "publicationStatus": normalize_optional_string(status) or "unknown",
-            "rolloutState": rollout_state_token,
-            "supportabilityState": normalize_optional_string(supportability_state) or "unknown",
-            "desktopTupleComplete": bool(tuple_coverage.get("complete")),
-            "promotedInstallerTupleCount": len(promoted_installer_tuples),
-            "desktopRouteTruthCount": len(route_truth),
-            "publicTrustPosture": (
-                normalize_optional_string(public_trust_metrics.get("releaseChannel", {}).get("posture"))
-                or "unknown"
-            ),
-            "summary": (
-                f"Release-channel truth for {channel_id}/{release_version} keeps "
-                f"{len(promoted_installer_tuples)} promoted installer tuples and "
-                f"{len(route_truth)} explicit desktop route-truth rows under "
-                f"{rollout_state_token} rollout posture."
-            ),
-        },
-        "artifactLineage": {
-            "artifactIdentityCount": len(artifact_identity_registry_rows),
-            "publicationBindingCount": len(artifact_publication_binding_rows),
-            "exchangeLineageCount": len(exchange_lineage_registry_rows),
-            "publishedArtifactCount": published_artifact_count,
-            "retainedArtifactCount": retained_artifact_count,
-            "summary": (
-                f"Artifact-lineage truth covers {len(artifact_identity_registry_rows)} artifact "
-                f"identity rows, {len(artifact_publication_binding_rows)} publication bindings, "
-                f"and {len(exchange_lineage_registry_rows)} exchange-lineage rows."
-            ),
-        },
-        "publication": {
-            "publishedBindingCount": published_binding_count,
-            "retainedBindingCount": retained_binding_count,
-            "signedInAndPublicBindingCount": signed_in_and_public_binding_count,
-            "currentRetentionCount": current_retention_count,
-            "summary": (
-                f"Publication boundary keeps {published_binding_count} published bindings, "
-                f"{retained_binding_count} retained bindings, and "
-                f"{signed_in_and_public_binding_count} signed-in/public shared shelf refs."
-            ),
-        },
-        "entitlement": {
-            "installAwareArtifactCount": len(install_aware_registry),
-            "desktopSurfaceRefCount": len(desktop_surface_ref_rows),
-            "openPublicSurfaceCount": open_public_surface_count,
-            "accountRequiredSurfaceCount": account_required_surface_count,
-            "summary": (
-                f"Entitlement and install-hand-off truth spans "
-                f"{len(install_aware_registry)} install-aware registry rows, "
-                f"{len(desktop_surface_ref_rows)} desktop surface refs, "
-                f"{open_public_surface_count} guest-readable surfaces, and "
-                f"{account_required_surface_count} account-required surfaces."
-            ),
-        },
-        "compatibility": {
-            "compatibleArtifactCount": compatible_artifact_count,
-            "compatibleRuntimeBundleHeadCount": compatible_runtime_bundle_head_count,
-            "compatibleExchangeArtifactCount": compatible_exchange_artifact_count,
-            "unknownArtifactCount": unknown_artifact_count,
-            "unknownRuntimeBundleHeadCount": unknown_runtime_bundle_head_count,
-            "summary": (
-                f"Compatibility boundary tracks {compatible_artifact_count} compatible "
-                f"artifacts, {compatible_runtime_bundle_head_count} compatible runtime bundle "
-                f"heads, and {compatible_exchange_artifact_count} compatible exchange-lineage "
-                f"rows while {unknown_artifact_count} artifact rows and "
-                f"{unknown_runtime_bundle_head_count} runtime bundle heads remain unknown."
-            ),
-        },
-        "summary": (
-            f"Registry boundary coverage is closed for {channel_id}/{release_version} "
-            f"across persistence, release-channel, artifact-lineage, publication, "
-            f"entitlement, and compatibility surfaces."
-        ),
-    }
-
-
 def derive_default_compatibility_state(status: str, proof: dict[str, Any] | None) -> str:
-    if status == "published" and proof and str(proof.get("status") or "").strip().lower() == "passed":
+    if status == "published" and proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         return "compatible"
     return "unknown"
 
@@ -3796,19 +3251,14 @@ def derive_rollout_state(
     proof: dict[str, Any] | None,
     *,
     desktop_coverage_complete: bool,
-    proof_freshness_status: str = "fresh",
 ) -> str:
     if status != "published":
         return "unpublished"
     if not desktop_coverage_complete:
         return "coverage_incomplete"
-    if proof and str(proof.get("status") or "").strip().lower() == "passed":
-        if channel in {"stable", "public_stable", "docker"}:
-            return "public_stable"
-        if channel == "preview":
-            return "promoted_preview"
-        return channel
-    return "promoted_preview" if channel == "preview" else channel
+    if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
+        return "public_stable" if channel in {"preview", "docker"} else channel
+    return "promoted_preview" if channel in {"preview", "docker"} else channel
 
 
 def derive_rollout_reason(
@@ -3818,7 +3268,6 @@ def derive_rollout_reason(
     *,
     desktop_coverage_complete: bool,
     coverage: dict[str, Any] | None,
-    proof_freshness_status: str = "fresh",
 ) -> str:
     if status != "published":
         return "No published artifact shelf exists yet."
@@ -3828,12 +3277,7 @@ def derive_rollout_reason(
             + desktop_tuple_coverage_gap_summary(coverage)
             + "."
         )
-    if proof_freshness_blocks_output_readiness(proof_freshness_status):
-        return (
-            "Current shelf stays visible, but output readiness is downgraded until stale or incomplete proof receipts "
-            "are refreshed."
-        )
-    if proof and str(proof.get("status") or "").strip().lower() == "passed":
+    if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         return "Current release shelf was exercised by the local docker release proof harness before publication."
     return (
         "Current preview shelf is published, but release proof should be re-run before widening trust claims."
@@ -3843,32 +3287,26 @@ def derive_rollout_reason(
 
 
 def derive_supportability_state(
-    channel: str,
     status: str,
     proof: dict[str, Any] | None,
     *,
     desktop_coverage_complete: bool,
-    proof_freshness_status: str = "fresh",
 ) -> str:
     if status != "published":
         return "unpublished"
     if not desktop_coverage_complete:
         return "review_required"
-    if proof_freshness_blocks_output_readiness(proof_freshness_status):
-        return "review_required"
-    if proof and str(proof.get("status") or "").strip().lower() == "passed":
-        return "gold_supported" if normalize_token(channel) in {"stable", "public_stable", "docker"} else "preview_supported"
+    if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
+        return "gold_supported"
     return "review_required"
 
 
 def derive_supportability_summary(
-    channel: str,
     status: str,
     proof: dict[str, Any] | None,
     *,
     desktop_coverage_complete: bool,
     coverage: dict[str, Any] | None,
-    proof_freshness_status: str = "fresh",
 ) -> str:
     if status != "published":
         return "No published channel support posture exists because no release shelf is live."
@@ -3878,11 +3316,7 @@ def derive_supportability_summary(
             + desktop_tuple_coverage_gap_summary(coverage)
             + "."
         )
-    if proof_freshness_blocks_output_readiness(proof_freshness_status):
-        return (
-            "Treat the current shelf as review-required until stale or incomplete proof receipts are refreshed."
-        )
-    if proof and str(proof.get("status") or "").strip().lower() == "passed":
+    if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         journeys = proof.get("journeysPassed") or []
         if journeys:
             journey_list = ", ".join(str(item) for item in journeys)
@@ -3900,13 +3334,8 @@ def derive_supportability_summary(
                     "Community organizer closure stayed grounded on the current shelf."
                 )
             note_suffix = (" " + " ".join(proof_notes)) if proof_notes else ""
-            prefix = "Gold release proof passed" if normalize_token(channel) in {"stable", "public_stable", "docker"} else "Local release proof passed"
-            return f"{prefix} for: {journey_list}.{note_suffix}"
-        return (
-            "Gold release proof passed for the current shelf."
-            if normalize_token(channel) in {"stable", "public_stable", "docker"}
-            else "Local release proof passed for the current shelf."
-        )
+            return f"Gold release proof passed for: {journey_list}.{note_suffix}"
+        return "Gold release proof passed for the current shelf."
     return "Treat the current shelf as review-required until release proof and support closure checks pass."
 
 
@@ -3917,18 +3346,12 @@ def derive_known_issue_summary(
     *,
     desktop_coverage_complete: bool,
     coverage: dict[str, Any] | None,
-    proof_freshness_status: str = "fresh",
 ) -> str:
     if status != "published":
         return "No active channel issues are published because the shelf is still empty."
     if not desktop_coverage_complete:
         return "Known issue: " + desktop_tuple_coverage_gap_summary(coverage) + "."
-    if proof_freshness_blocks_output_readiness(proof_freshness_status):
-        return (
-            f"The {channel} shelf remains visible, but stale or incomplete proof receipts mean current output readiness "
-            "must stay review-required."
-        )
-    if proof and str(proof.get("status") or "").strip().lower() == "passed":
+    if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         journeys = proof.get("journeysPassed") or []
         proof_notes: list[str] = []
         if any(str(item).strip() == "install_claim_restore_continue" for item in journeys):
@@ -3939,14 +3362,8 @@ def derive_known_issue_summary(
             proof_notes.append("community closure")
         proof_note_text = ", ".join(proof_notes)
         proof_note_clause = f", {proof_note_text}" if proof_note_text else ""
-        if normalize_token(channel) in {"stable", "public_stable", "docker"}:
-            return (
-                "No blocking release caveat is mirrored for the current public shelf. "
-                "The promoted routes have recent install"
-                f"{proof_note_clause}, bounded offline prefetch, and support proof instead of only manifest presence."
-            )
         return (
-            "Preview caveats still apply, but the current shelf has recent install"
+            "Current release proof is green, and the shelf has recent install"
             f"{proof_note_clause}, bounded offline prefetch, and support proof instead of only manifest presence."
         )
     return f"The {channel} shelf is visible, but known-issue review should stay front-and-center until proof is refreshed."
@@ -3957,21 +3374,14 @@ def derive_fix_availability_summary(
     proof: dict[str, Any] | None,
     *,
     desktop_coverage_complete: bool,
-    proof_freshness_status: str = "fresh",
 ) -> str:
     if status != "published":
         return "Fix notices should stay pending until a published shelf exists."
     if not desktop_coverage_complete:
         return "Do not send fixed notices until required desktop tuple coverage is complete for the promoted shelf."
-    if proof_freshness_blocks_output_readiness(proof_freshness_status):
-        return "Do not send fixed notices until stale or incomplete proof receipts are refreshed for the current shelf."
-    if proof and str(proof.get("status") or "").strip().lower() == "passed":
+    if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         return "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf."
     return "Verify fix availability against the live channel artifact before closing support loops."
-
-
-def published_rollout_state_prefers_derived_copy(rollout_state: str) -> bool:
-    return normalized_token(rollout_state) not in {"paused", "revoked"}
 
 
 def normalize_release_channel_posture(
@@ -3990,64 +3400,26 @@ def normalize_release_channel_posture(
         desktop_coverage_complete=desktop_coverage_complete,
     )
     derived_supportability_state = derive_supportability_state(
-        channel,
         status,
         proof,
         desktop_coverage_complete=desktop_coverage_complete,
     )
-    rollout_state_prefers_derived_copy = published_rollout_state_prefers_derived_copy(rollout_state)
 
-    if (
-        status == "published"
-        and not desktop_coverage_complete
-        and rollout_state_prefers_derived_copy
-    ):
-        rollout_state = derived_rollout_state
-    if status == "published" and not desktop_coverage_complete:
-        supportability_state = derived_supportability_state
-
-    # Older source payloads may still carry stale tuple-coverage or pre-normalized
-    # local docker postures even after the shelf becomes a complete, published
-    # promoted preview. Keep explicit blocking states like paused/revoked, but
-    # otherwise normalize stale aliases so downstream executable gates read the
-    # canonical posture for the current artifact/proof truth.
+    # Older source payloads may still carry pre-normalized local docker posture
+    # or the previous promoted-preview support posture. Keep explicit blocking
+    # states like paused/revoked, but normalize stale aliases so downstream
+    # executable gates read the canonical release posture.
     if (
         status == "published"
         and desktop_coverage_complete
-        and rollout_state == "coverage_incomplete"
-    ):
-        rollout_state = derived_rollout_state
-    if (
-        status == "published"
-        and desktop_coverage_complete
-        and supportability_state == "review_required"
-    ):
-        supportability_state = derived_supportability_state
-    if (
-        status == "published"
-        and desktop_coverage_complete
-        and rollout_state == "promoted_preview"
+        and rollout_state in {"local_docker_preview", "promoted_preview"}
         and derived_rollout_state == "public_stable"
     ):
         rollout_state = derived_rollout_state
     if (
         status == "published"
         and desktop_coverage_complete
-        and rollout_state == "local_docker_preview"
-        and derived_rollout_state in {"promoted_preview", "public_stable"}
-    ):
-        rollout_state = derived_rollout_state
-    if (
-        status == "published"
-        and desktop_coverage_complete
-        and supportability_state == "local_docker_proven"
-        and derived_supportability_state in {"preview_supported", "gold_supported"}
-    ):
-        supportability_state = derived_supportability_state
-    if (
-        status == "published"
-        and desktop_coverage_complete
-        and supportability_state == "preview_supported"
+        and supportability_state in {"local_docker_proven", "preview_supported"}
         and derived_supportability_state == "gold_supported"
     ):
         supportability_state = derived_supportability_state
@@ -4090,7 +3462,6 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     else:
         startup_smoke_receipts = None
     artifacts = filter_unproven_installers(artifacts, startup_smoke_receipts)
-    required_platforms = derive_required_desktop_platforms(artifacts)
     artifacts.sort(key=lambda row: (0 if row.get("kind") == "installer" else 1, row.get("platform"), row.get("arch"), row.get("head"), row.get("fileName")))
     loaded_published_at = str(loaded.get("publishedAt") or "").strip()
     published_at = str(args.published_at or loaded_published_at or "").strip()
@@ -4154,7 +3525,6 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             "(set --ui-localization-release-gate or embed releaseProof.uiLocalizationReleaseGate in source proof)"
         )
     release_proof["uiLocalizationReleaseGate"] = ui_localization_release_gate
-    flagship_product_readiness = load_json_file(args.flagship_product_readiness)
     runtime_bundle_heads = apply_runtime_bundle_compatibility(
         load_runtime_bundle_heads(args.runtime_bundles),
         status=status,
@@ -4179,19 +3549,13 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     if not required_heads:
         required_heads = list(DEFAULT_REQUIRED_DESKTOP_HEADS)
     verify_required_desktop_heads(required_heads, source="required_desktop_heads")
-    proof_freshness = release_proof_freshness_snapshot(
-        projection_generated_at=generated_at,
-        release_proof=release_proof,
-        flagship_product_readiness=flagship_product_readiness,
-    )
-    proof_freshness_status = normalize_token(proof_freshness.get("status"))
     loaded_rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip()
     loaded_rollout_reason = str(loaded.get("rolloutReason") or loaded.get("rollout_reason") or "").strip()
     loaded_known_issue_summary = str(loaded.get("knownIssueSummary") or loaded.get("known_issue_summary") or "").strip()
     tuple_coverage = desktop_tuple_coverage(
         artifacts,
         required_heads=required_heads,
-        required_platforms=required_platforms,
+        required_platforms=list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS),
         channel_id=channel,
         release_version=version,
         channel_status=status,
@@ -4201,55 +3565,26 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         downloads_dir=args.downloads_dir,
     )
     desktop_coverage_complete = desktop_tuple_coverage_is_complete(tuple_coverage)
-    derived_rollout_state = derive_rollout_state(
+    rollout_state = loaded_rollout_state or derive_rollout_state(
         channel,
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
-        proof_freshness_status=proof_freshness_status,
     )
-    derived_rollout_reason = derive_rollout_reason(
-        channel,
-        status,
-        release_proof,
-        desktop_coverage_complete=desktop_coverage_complete,
-        coverage=tuple_coverage,
-        proof_freshness_status=proof_freshness_status,
-    )
-    derived_supportability_state = derive_supportability_state(
-        channel,
-        status,
-        release_proof,
-        desktop_coverage_complete=desktop_coverage_complete,
-        proof_freshness_status=proof_freshness_status,
-    )
-    derived_supportability_summary = derive_supportability_summary(
+    rollout_reason = loaded_rollout_reason or derive_rollout_reason(
         channel,
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
         coverage=tuple_coverage,
-        proof_freshness_status=proof_freshness_status,
     )
-    derived_known_issue_summary = derive_known_issue_summary(
-        channel,
-        status,
-        release_proof,
-        desktop_coverage_complete=desktop_coverage_complete,
-        coverage=tuple_coverage,
-        proof_freshness_status=proof_freshness_status,
-    )
-    derived_fix_availability_summary = derive_fix_availability_summary(
-        status,
-        release_proof,
-        desktop_coverage_complete=desktop_coverage_complete,
-        proof_freshness_status=proof_freshness_status,
-    )
-    rollout_state = loaded_rollout_state or derived_rollout_state
-    rollout_reason = loaded_rollout_reason or derived_rollout_reason
     supportability_state = (
         str(loaded.get("supportabilityState") or loaded.get("supportability_state") or "").strip()
-        or derived_supportability_state
+        or derive_supportability_state(
+            status,
+            release_proof,
+            desktop_coverage_complete=desktop_coverage_complete,
+        )
     )
     rollout_state, supportability_state = normalize_release_channel_posture(
         rollout_state,
@@ -4259,77 +3594,62 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         proof=release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
     )
-    tuple_coverage = desktop_tuple_coverage(
-        artifacts,
-        required_heads=required_heads,
-        required_platforms=required_platforms,
-        channel_id=channel,
-        release_version=version,
-        channel_status=status,
-        rollout_state=rollout_state,
-        rollout_reason=loaded_rollout_reason or derived_rollout_reason,
-        known_issue_summary=loaded_known_issue_summary or derived_known_issue_summary,
-        downloads_dir=args.downloads_dir,
-    )
-    artifacts = promote_guest_readable_primary_installers(artifacts, tuple_coverage)
-    desktop_coverage_complete = desktop_tuple_coverage_is_complete(tuple_coverage)
-    derived_rollout_reason = derive_rollout_reason(
-        channel,
-        status,
-        release_proof,
-        desktop_coverage_complete=desktop_coverage_complete,
-        coverage=tuple_coverage,
-        proof_freshness_status=proof_freshness_status,
-    )
     derived_supportability_summary = derive_supportability_summary(
-        channel,
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
         coverage=tuple_coverage,
-        proof_freshness_status=proof_freshness_status,
     )
+    loaded_supportability_summary = str(
+        loaded.get("supportabilitySummary") or loaded.get("supportability_summary") or ""
+    ).strip()
+    if (
+        supportability_state == "gold_supported"
+        and loaded_supportability_summary.startswith("Local release proof passed",)
+    ):
+        supportability_summary = derived_supportability_summary
+    else:
+        supportability_summary = loaded_supportability_summary or derived_supportability_summary
+
     derived_known_issue_summary = derive_known_issue_summary(
         channel,
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
         coverage=tuple_coverage,
-        proof_freshness_status=proof_freshness_status,
     )
-    derived_fix_availability_summary = derive_fix_availability_summary(
-        status,
-        release_proof,
-        desktop_coverage_complete=desktop_coverage_complete,
-        proof_freshness_status=proof_freshness_status,
-    )
-    if status == "published" and proof_freshness_blocks_output_readiness(proof_freshness_status):
-        supportability_state = derived_supportability_state
-    if status == "published" and published_rollout_state_prefers_derived_copy(rollout_state):
-        rollout_reason = derived_rollout_reason
-    supportability_summary = (
-        str(loaded.get("supportabilitySummary") or loaded.get("supportability_summary") or "").strip()
-        or derived_supportability_summary
-    )
-    known_issue_summary = (
-        loaded_known_issue_summary or derived_known_issue_summary
-    )
+    if (
+        supportability_state == "gold_supported"
+        and loaded_known_issue_summary.startswith("Preview caveats still apply",)
+    ):
+        known_issue_summary = derived_known_issue_summary
+    else:
+        known_issue_summary = loaded_known_issue_summary or derived_known_issue_summary
     fix_availability_summary = (
         str(loaded.get("fixAvailabilitySummary") or loaded.get("fix_availability_summary") or "").strip()
-        or derived_fix_availability_summary
+        or derive_fix_availability_summary(
+            status,
+            release_proof,
+            desktop_coverage_complete=desktop_coverage_complete,
+        )
     )
-    if status == "published" and (
-        published_rollout_state_prefers_derived_copy(rollout_state)
-        or proof_freshness_blocks_output_readiness(proof_freshness_status)
-    ):
-        supportability_summary = derived_supportability_summary
-        known_issue_summary = derived_known_issue_summary
-        fix_availability_summary = derived_fix_availability_summary
     install_aware_registry = install_aware_artifact_registry(
         artifacts,
         tuple_coverage,
         channel_id=channel,
         release_version=version,
+    )
+    freshness_status = proof_freshness_status(
+        {
+            "generatedAt": generated_at,
+            "releaseProof": release_proof,
+        }
+    )
+    artifact_identity_registry_rows = artifact_identity_registry(
+        tuple_coverage,
+        channel_id=channel,
+        release_version=version,
+        proof_freshness_status=freshness_status,
     )
     desktop_surface_ref_rows = desktop_surface_refs(
         artifacts,
@@ -4337,106 +3657,11 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         channel_id=channel,
         release_version=version,
     )
-    artifact_identity_registry_rows = artifact_identity_registry(
-        tuple_coverage,
-        channel_id=channel,
-        release_version=version,
-        proof_freshness_status=proof_freshness_status,
-    )
     artifact_publication_binding_rows = artifact_publication_bindings(
         tuple_coverage,
         channel_id=channel,
         release_version=version,
-        proof_freshness_status=proof_freshness_status,
-    )
-    exchange_lineage_registry_rows = exchange_lineage_registry(
-        loaded.get("exchangeArtifacts") or loaded.get("exchangeLineageRegistry"),
-        channel_id=channel,
-        release_version=version,
-        proof_freshness_status=proof_freshness_status,
-    )
-    trust_metrics = public_trust_metrics(
-        generated_at=generated_at,
-        channel_id=channel,
-        status=status,
-        rollout_state=rollout_state,
-        supportability_state=supportability_state,
-        release_proof=release_proof,
-        flagship_product_readiness=flagship_product_readiness,
-        artifacts=artifacts,
-        tuple_coverage=tuple_coverage,
-    )
-    final_proof_freshness_status = normalize_token(
-        (trust_metrics.get("proofFreshness") or {}).get("status")
-        if isinstance(trust_metrics, dict)
-        else None
-    )
-    if status == "published" and proof_freshness_blocks_output_readiness(final_proof_freshness_status):
-        supportability_state = "review_required"
-        rollout_reason = derive_rollout_reason(
-            channel,
-            status,
-            release_proof,
-            desktop_coverage_complete=desktop_coverage_complete,
-            coverage=tuple_coverage,
-            proof_freshness_status=final_proof_freshness_status,
-        )
-        supportability_summary = derive_supportability_summary(
-            channel,
-            status,
-            release_proof,
-            desktop_coverage_complete=desktop_coverage_complete,
-            coverage=tuple_coverage,
-            proof_freshness_status=final_proof_freshness_status,
-        )
-        known_issue_summary = derive_known_issue_summary(
-            channel,
-            status,
-            release_proof,
-            desktop_coverage_complete=desktop_coverage_complete,
-            coverage=tuple_coverage,
-            proof_freshness_status=final_proof_freshness_status,
-        )
-        fix_availability_summary = derive_fix_availability_summary(
-            status,
-            release_proof,
-            desktop_coverage_complete=desktop_coverage_complete,
-            proof_freshness_status=final_proof_freshness_status,
-        )
-    artifact_identity_registry_rows = artifact_identity_registry(
-        tuple_coverage,
-        channel_id=channel,
-        release_version=version,
-        proof_freshness_status=final_proof_freshness_status,
-    )
-    artifact_publication_binding_rows = artifact_publication_bindings(
-        tuple_coverage,
-        channel_id=channel,
-        release_version=version,
-        proof_freshness_status=final_proof_freshness_status,
-    )
-    exchange_lineage_registry_rows = exchange_lineage_registry(
-        loaded.get("exchangeArtifacts") or loaded.get("exchangeLineageRegistry"),
-        channel_id=channel,
-        release_version=version,
-        proof_freshness_status=final_proof_freshness_status,
-    )
-    boundary_coverage = registry_boundary_coverage(
-        channel_id=channel,
-        release_version=version,
-        contract_name=contract_name,
-        status=status,
-        rollout_state=rollout_state,
-        supportability_state=supportability_state,
-        artifacts=artifacts,
-        runtime_bundle_heads=runtime_bundle_heads,
-        tuple_coverage=tuple_coverage,
-        install_aware_registry=install_aware_registry,
-        desktop_surface_ref_rows=desktop_surface_ref_rows,
-        artifact_identity_registry_rows=artifact_identity_registry_rows,
-        artifact_publication_binding_rows=artifact_publication_binding_rows,
-        exchange_lineage_registry_rows=exchange_lineage_registry_rows,
-        public_trust_metrics=trust_metrics,
+        proof_freshness_status=freshness_status,
     )
     return {
         "generated_at": generated_at,
@@ -4459,16 +3684,12 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "fixAvailabilitySummary": fix_availability_summary,
         "releaseProof": release_proof,
         "artifacts": artifacts,
-        "desktopRouteTruth": (tuple_coverage or {}).get("desktopRouteTruth"),
         "desktopTupleCoverage": tuple_coverage,
         "runtimeBundleHeads": runtime_bundle_heads,
         "installAwareArtifactRegistry": install_aware_registry,
         "desktopSurfaceRefs": desktop_surface_ref_rows,
         "artifactIdentityRegistry": artifact_identity_registry_rows,
         "artifactPublicationBindings": artifact_publication_binding_rows,
-        "exchangeLineageRegistry": exchange_lineage_registry_rows,
-        "publicTrustMetrics": trust_metrics,
-        "registryBoundaryCoverage": boundary_coverage,
     }
 
 
@@ -4503,7 +3724,6 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
                 "platformId": f"{platform}-{arch}" if platform and arch else platform or None,
                 "arch": arch or None,
                 "fileName": artifact.get("fileName"),
-                "compatibilityState": artifact.get("compatibilityState"),
                 "installAccessClass": (
                     str(artifact.get("installAccessClass") or "").strip()
                     or default_install_access_class(platform, kind)
@@ -4529,20 +3749,11 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         "knownIssueSummary": canonical.get("knownIssueSummary"),
         "fixAvailabilitySummary": canonical.get("fixAvailabilitySummary"),
         "releaseProof": canonical.get("releaseProof"),
-        "desktopRouteTruth": (
-            canonical.get("desktopRouteTruth")
-            if canonical.get("desktopRouteTruth") is not None
-            else (canonical.get("desktopTupleCoverage") or {}).get("desktopRouteTruth")
-        ),
         "desktopTupleCoverage": canonical.get("desktopTupleCoverage"),
-        "runtimeBundleHeads": canonical.get("runtimeBundleHeads"),
         "installAwareArtifactRegistry": canonical.get("installAwareArtifactRegistry"),
         "desktopSurfaceRefs": canonical.get("desktopSurfaceRefs"),
         "artifactIdentityRegistry": canonical.get("artifactIdentityRegistry"),
         "artifactPublicationBindings": canonical.get("artifactPublicationBindings"),
-        "exchangeLineageRegistry": canonical.get("exchangeLineageRegistry"),
-        "publicTrustMetrics": canonical.get("publicTrustMetrics"),
-        "registryBoundaryCoverage": canonical.get("registryBoundaryCoverage"),
     }
 
 
@@ -4551,14 +3762,44 @@ def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 
 
+_VERIFY_MODULE: Any | None = None
+
+
+def verify_public_release_channel_module() -> Any:
+    global _VERIFY_MODULE
+    if _VERIFY_MODULE is not None:
+        return _VERIFY_MODULE
+    verifier_path = Path(__file__).with_name("verify_public_release_channel.py")
+    spec = importlib.util.spec_from_file_location("verify_public_release_channel_module", verifier_path)
+    if spec is None or spec.loader is None:
+        raise RuntimeError(f"Unable to load verifier module from {verifier_path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    _VERIFY_MODULE = module
+    return module
+
+
+def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
+    return verify_public_release_channel_module().expected_public_trust_metrics(payload)
+
+
+def expected_registry_boundary_coverage(payload: dict[str, Any]) -> dict[str, Any]:
+    return verify_public_release_channel_module().expected_registry_boundary_coverage(payload)
+
+
 def main() -> int:
     args = parse_args()
     if env_flag_is_true(os.environ.get("CHUMMER_MATERIALIZE_SKIP_STARTUP_SMOKE_FILTER")):
         args.skip_startup_smoke_filter = True
     canonical = canonical_payload(args)
+    canonical["publicTrustMetrics"] = expected_public_trust_metrics(canonical)
+    canonical["registryBoundaryCoverage"] = expected_registry_boundary_coverage(canonical)
     write_json(args.output, canonical)
     if args.compat_output:
-        write_json(args.compat_output, compatibility_payload(canonical))
+        compatibility = compatibility_payload(canonical)
+        compatibility["publicTrustMetrics"] = expected_public_trust_metrics(compatibility)
+        compatibility["registryBoundaryCoverage"] = expected_registry_boundary_coverage(compatibility)
+        write_json(args.compat_output, compatibility)
     print(
         json.dumps(
             {

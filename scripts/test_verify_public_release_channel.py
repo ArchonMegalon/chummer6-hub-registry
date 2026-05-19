@@ -205,8 +205,8 @@ def add_public_trust_metrics(payload: dict) -> None:
     payload["generatedAt"] = "2026-04-14T18:22:04Z"
     payload["generated_at"] = "2026-04-14T18:22:04Z"
     payload["status"] = "published"
-    payload["rolloutState"] = "promoted_preview"
-    payload["supportabilityState"] = "preview_supported"
+    payload["rolloutState"] = "public_stable"
+    payload["supportabilityState"] = "gold_supported"
     payload["releaseProof"] = {
         "status": "passed",
         "generatedAt": "2026-04-14T18:12:04Z",
@@ -679,10 +679,10 @@ def test_verify_output_readiness_honesty_rejects_stale_supported_copy() -> None:
     payload["generatedAt"] = "2026-05-20T18:22:04Z"
     payload["generated_at"] = "2026-05-20T18:22:04Z"
     payload["publicTrustMetrics"]["proofFreshness"]["status"] = "stale"
-    payload["supportabilityState"] = "preview_supported"
+    payload["supportabilityState"] = "gold_supported"
     payload["rolloutReason"] = "Current release shelf was exercised by the local docker release proof harness before publication."
-    payload["supportabilitySummary"] = "Local release proof passed for the current shelf."
-    payload["knownIssueSummary"] = "Preview caveats still apply, but the current shelf has recent install proof."
+    payload["supportabilitySummary"] = "Gold release proof passed for the current shelf."
+    payload["knownIssueSummary"] = "Current release proof is green, and the shelf has recent install proof."
     payload["fixAvailabilitySummary"] = (
         "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf."
     )
