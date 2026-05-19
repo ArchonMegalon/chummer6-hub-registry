@@ -652,6 +652,52 @@ turns:
     input_state_hash: fixed-turn-0-state-v1
     decision_packet_hash: fixed-preseed-decision-packet-v1
     output_state_hash: fixed-turn-1-state-v1
+deterministic_test_ticks:
+  - turn: 2
+    seed_id: emerald-sprawl-prelude
+    mode: deterministic_test
+    state: deterministic_preview_ready
+    summary: Turn 2 deterministic preview keeps the city public-safe while route pressure shifts toward recovery, dispatch clarity, and witnessed closeouts.
+    receipt_id: ledger_tick_0002_deterministic_preview
+    created_at_utc: 2026-05-19T15:20:00Z
+    effects:
+      - target: rust_market_syndicate
+        metric: recovery_work
+        delta: 6
+        public_reason: Recovery crews converted Rust Bazaar debt pressure into visible closeout work.
+      - target: ghostline_network
+        metric: proof_trail_strength
+        delta: 5
+        public_reason: Ghostline published cleaner receipt routing before rumor spillover reached the public board.
+      - target: barrens_free_wardens
+        metric: public_trust
+        delta: 4
+        public_reason: Free Wardens carried another witnessed closeout without exposing any private table detail.
+    package_pressure:
+      - package_id: debt-ledger-visibility
+        public_name: Debt Ledger Visibility
+        pressure: 81
+        status: warming
+        source_event_ids:
+          - evt_0001_rust_old_favors
+        public_summary: Debt pressure remains visible, but the second-turn preview shows cleaner recovery rails and less rumor spillover.
+        route: /packages/debt-ledger-visibility
+      - package_id: awakened-build-explainers
+        public_name: Awakened Build Explainers
+        pressure: 74
+        status: warming
+        source_event_ids:
+          - evt_0001_ashline_source_dispute
+        public_summary: Turn 2 preview keeps awakened demand explainable instead of mystical handwaving.
+        route: /packages/awakened-build-explainers
+      - package_id: drone-logistics-overlay
+        public_name: Drone Logistics Overlay
+        pressure: 69
+        status: monitoring
+        source_event_ids:
+          - evt_0001_neon_drone_overlay
+        public_summary: The preview keeps cargo and drone pressure visible without leaking private route assignments.
+        route: /packages/drone-logistics-overlay
 dispatches:
   - dispatch_id: dispatch_turn_0001_main
     world_id: emerald-sprawl-prelude
