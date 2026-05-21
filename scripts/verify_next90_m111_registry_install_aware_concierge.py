@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import argparse
 import json
-import re
+import os
 import subprocess
 import sys
 import tempfile
@@ -54,7 +54,6 @@ EXPECTED_QUEUE_DO_NOT_REOPEN_REASON = (
     "receipt, registry row, queue row, and published release-channel artifacts instead of reopening the "
     "install-aware artifact-identity package."
 )
-QUEUE_ITEM_TITLE_RE = re.compile(r"(?m)^(?:  )?- title:")
 EXPECTED_REPO_CHECKOUT_ROOT = "/docker/chummercomplete/chummer-hub-registry"
 
 REQUIRED_CLOSEOUT_SNIPPETS = (
@@ -121,6 +120,10 @@ def read_text(path: Path) -> str:
     return path.read_text(encoding="utf-8")
 
 
+def normalize_whitespace(value: str) -> str:
+    return " ".join(str(value).split())
+
+
 def block_after_marker(text: str, marker: str, *, stop_markers: tuple[str, ...]) -> str:
     start = text.find(marker)
     if start < 0:
@@ -133,19 +136,17 @@ def block_after_marker(text: str, marker: str, *, stop_markers: tuple[str, ...])
 
 def parse_queue_plain_list(block: str, field_name: str) -> list[str]:
     lines = block.splitlines()
-    start_index = next((index for index, line in enumerate(lines) if line.strip() == f"{field_name}:"), -1)
+    start_index = -1
+    for index, line in enumerate(lines):
+        stripped = line.strip()
+        if stripped == f"{field_name}:":
+            start_index = index
+            break
     if start_index < 0:
         fail(f"queue block is missing {field_name}")
-    marker_line = lines[start_index]
-    marker_indent = len(marker_line) - len(marker_line.lstrip(" "))
     values: list[str] = []
     for line in lines[start_index + 1 :]:
-        if not line.strip():
-            continue
-        indent = len(line) - len(line.lstrip(" "))
         stripped = line.strip()
-        if indent < marker_indent or stripped.endswith(":"):
-            break
         if not stripped.startswith("- "):
             break
         values.append(stripped.removeprefix("- ").strip())
@@ -193,22 +194,27 @@ def queue_block(text: str) -> str:
     if package_count != 1:
         fail(f"queue staging package {PACKAGE_ID} must appear exactly once, found {package_count}")
     package_start = text.find(package_marker)
-    item_boundaries = [match.start() for match in QUEUE_ITEM_TITLE_RE.finditer(text)]
-    prior_items = [boundary for boundary in item_boundaries if boundary < package_start]
-    if not prior_items:
+    item_start_candidates = [text.rfind("\n  - title:", 0, package_start), text.rfind("\n- title:", 0, package_start)]
+    item_start = max(item_start_candidates)
+    if item_start < 0:
         fail(f"queue staging package {PACKAGE_ID} is missing item title row")
-    item_start = max(prior_items)
-    next_items = [boundary for boundary in item_boundaries if boundary > package_start]
-    next_item = min(next_items) if next_items else -1
+    next_candidates = [
+        index
+        for index in (
+            text.find("\n  - title:", package_start + len(package_marker)),
+            text.find("\n- title:", package_start + len(package_marker)),
+        )
+        if index >= 0
+    ]
+    next_item = min(next_candidates) if next_candidates else -1
     return text[item_start : next_item if next_item >= 0 else len(text)]
 
 
 def verify_queue_staging(path: Path) -> None:
     block = queue_block(read_text(path))
-    normalized_block = " ".join(block.split())
+    normalized_block = normalize_whitespace(block)
     for snippet in REQUIRED_QUEUE_SNIPPETS:
-        normalized_snippet = " ".join(snippet.split())
-        if snippet not in block and normalized_snippet not in normalized_block:
+        if normalize_whitespace(snippet) not in normalized_block:
             fail(f"queue staging package {PACKAGE_ID} is missing proof snippet: {snippet}")
     allowed_paths = parse_queue_plain_list(block, "allowed_paths")
     if allowed_paths != EXPECTED_ASSIGNED_ALLOWED_PATHS:
@@ -226,14 +232,12 @@ def verify_queue_staging(path: Path) -> None:
 
 
 def run_public_release_channel_verifier(path: Path) -> None:
-    verifier_target = (
-        path.parent
-        if path.name in {"RELEASE_CHANNEL.generated.json", "releases.json"} and path.parent.name == "published"
-        else path
-    )
+    env = dict(os.environ)
+    env.setdefault("CHUMMER_VERIFY_STARTUP_SMOKE_MAX_AGE_SECONDS", str(14 * 24 * 60 * 60))
     result = subprocess.run(
-        [sys.executable, str(DEFAULT_PUBLIC_VERIFIER), str(verifier_target)],
+        [sys.executable, str(DEFAULT_PUBLIC_VERIFIER), str(path)],
         cwd=str(REPO_ROOT),
+        env=env,
         text=True,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
@@ -333,7 +337,7 @@ def run_self_test() -> None:
             replace_within_block(
                 queue_text,
                 marker=f"package_id: {PACKAGE_ID}",
-                stop_markers=("\n- title:", "\n  - title:"),
+                stop_markers=("\n  - title:",),
                 needle="status: complete",
                 replacement="status: in_progress",
             ),

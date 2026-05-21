@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-05-19T16:21:46Z",
-  "generatedAt": "2026-05-19T16:21:46Z",
+  "generated_at": "2026-05-21T17:26:50Z",
+  "generatedAt": "2026-05-21T17:26:50Z",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "version": "run-20260518-220935",
   "channel": "public_stable",
-  "publishedAt": "2026-05-18T22:11:30Z",
+  "publishedAt": "2026-05-14T18:02:00Z",
   "downloads": [
     {
       "id": "avalonia-linux-x64-installer",
@@ -83,36 +83,6 @@
       "installAccessClass": "open_public"
     },
     {
-      "id": "blazor-desktop-osx-arm64-archive",
-      "platform": "Blazor Desktop macOS ARM64",
-      "url": "/downloads/files/chummer-blazor-desktop-osx-arm64.tar.gz",
-      "sha256": "9c126afd17c00a2723b69d301cbff53b540a962b83a4e3051fd1f5e4df37bb69",
-      "sizeBytes": 45102636,
-      "format": "tar.gz",
-      "flavor": "archive",
-      "kind": "archive",
-      "head": "blazor-desktop",
-      "platformId": "macos-arm64",
-      "arch": "arm64",
-      "fileName": "chummer-blazor-desktop-osx-arm64.tar.gz",
-      "installAccessClass": "open_public"
-    },
-    {
-      "id": "avalonia-win-x64-portable",
-      "platform": "Avalonia Desktop Windows X64 Portable",
-      "url": "/downloads/files/chummer-avalonia-win-x64.exe",
-      "sha256": "43e89f734cc6a4186031fbd88a08086d1374e561762697fc841eec37e508bfc6",
-      "sizeBytes": 108117227,
-      "format": "exe",
-      "flavor": "portable",
-      "kind": "portable",
-      "head": "avalonia",
-      "platformId": "windows-x64",
-      "arch": "x64",
-      "fileName": "chummer-avalonia-win-x64.exe",
-      "installAccessClass": "account_required"
-    },
-    {
       "id": "avalonia-win-x64-archive",
       "platform": "Avalonia Desktop Windows X64 Portable",
       "url": "/downloads/files/chummer-avalonia-win-x64.zip",
@@ -134,12 +104,12 @@
   "rolloutState": "public_stable",
   "rolloutReason": "Current release shelf was exercised by the local docker release proof harness before publication.",
   "supportabilityState": "gold_supported",
-  "supportabilitySummary": "Gold release proof passed for: install_claim_restore_continue, build_explain_publish, campaign_session_recover_recap, report_cluster_release_notify, organize_community_and_close_loop. Claimed-device restore and bounded offline prefetch stayed grounded on the current shelf. Clustered release notification stayed grounded on the current shelf. Community organizer closure stayed grounded on the current shelf.",
+  "supportabilitySummary": "Gold release proof passed for: install_claim_restore_continue, build_explain_publish, campaign_session_recover_recap, report_cluster_release_notify, organize_community_and_close_loop.",
   "knownIssueSummary": "Current release proof is green, and the shelf has recent install, claimed-device recovery, clustered release notification, community closure, bounded offline prefetch, and support proof instead of only manifest presence.",
   "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
   "releaseProof": {
     "status": "passed",
-    "generatedAt": "2026-05-19T14:33:36Z",
+    "generatedAt": "2026-05-21T17:26:01Z",
     "baseUrl": "https://chummer.run",
     "journeysPassed": [
       "install_claim_restore_continue",
@@ -162,8 +132,8 @@
     ],
     "uiLocalizationReleaseGate": {
       "status": "pass",
-      "generatedAt": "2026-05-19T05:47:27Z",
-      "defaultKeyCount": 386,
+      "generatedAt": "2026-05-21T17:17:12Z",
+      "defaultKeyCount": 387,
       "explicitFallbackRuntime": "pass",
       "signoffSmokeRunnerStatus": "pass",
       "shippingLocales": [
@@ -178,8 +148,8 @@
         {
           "locale": "en-us",
           "untranslatedKeyCount": 0,
-          "overrideCount": 386,
-          "minimumOverrideCount": 386,
+          "overrideCount": 387,
+          "minimumOverrideCount": 387,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
           "legacyDataXmlPresent": true
@@ -187,7 +157,7 @@
         {
           "locale": "de-de",
           "untranslatedKeyCount": 0,
-          "overrideCount": 386,
+          "overrideCount": 387,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -196,7 +166,7 @@
         {
           "locale": "fr-fr",
           "untranslatedKeyCount": 0,
-          "overrideCount": 386,
+          "overrideCount": 387,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -205,7 +175,7 @@
         {
           "locale": "ja-jp",
           "untranslatedKeyCount": 0,
-          "overrideCount": 386,
+          "overrideCount": 387,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -214,7 +184,7 @@
         {
           "locale": "pt-br",
           "untranslatedKeyCount": 0,
-          "overrideCount": 386,
+          "overrideCount": 387,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -223,7 +193,7 @@
         {
           "locale": "zh-cn",
           "untranslatedKeyCount": 0,
-          "overrideCount": 386,
+          "overrideCount": 387,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -1130,13 +1100,13 @@
     },
     "proofFreshness": {
       "status": "fresh",
-      "releaseProofGeneratedAt": "2026-05-19T14:33:36Z",
-      "releaseProofAgeSeconds": 6490,
+      "releaseProofGeneratedAt": "2026-05-21T17:26:01Z",
+      "releaseProofAgeSeconds": 49,
       "releaseProofMaxAgeSeconds": 604800,
-      "uiLocalizationGeneratedAt": "2026-05-19T05:47:27Z",
-      "uiLocalizationAgeSeconds": 38059,
+      "uiLocalizationGeneratedAt": "2026-05-21T17:17:12Z",
+      "uiLocalizationAgeSeconds": 578,
       "uiLocalizationMaxAgeSeconds": 604800,
-      "summary": "Release proof age is 6490s (max 604800s) and UI localization gate age is 38059s (max 604800s)."
+      "summary": "Release proof age is 49s (max 604800s) and UI localization gate age is 578s (max 604800s)."
     },
     "revocationFacts": {
       "status": "clear",
@@ -1153,10 +1123,10 @@
     "releaseVersion": "run-20260518-220935",
     "persistence": {
       "contractName": "Chummer.Hub.Registry.Contracts",
-      "artifactCount": 8,
+      "artifactCount": 6,
       "runtimeBundleHeadCount": 0,
       "registryProjectionCount": 24,
-      "summary": "Registry persistence owns 8 published artifacts, 0 runtime bundle heads, and 24 governed projection rows for public_stable/run-20260518-220935."
+      "summary": "Registry persistence owns 6 published artifacts, 0 runtime bundle heads, and 24 governed projection rows for public_stable/run-20260518-220935."
     },
     "releaseChannel": {
       "publicationStatus": "published",
@@ -1194,9 +1164,9 @@
       "compatibleArtifactCount": 0,
       "compatibleRuntimeBundleHeadCount": 0,
       "compatibleExchangeArtifactCount": 0,
-      "unknownArtifactCount": 8,
+      "unknownArtifactCount": 6,
       "unknownRuntimeBundleHeadCount": 0,
-      "summary": "Compatibility boundary tracks 0 compatible artifacts, 0 compatible runtime bundle heads, and 0 compatible exchange-lineage rows while 8 artifact rows and 0 runtime bundle heads remain unknown."
+      "summary": "Compatibility boundary tracks 0 compatible artifacts, 0 compatible runtime bundle heads, and 0 compatible exchange-lineage rows while 6 artifact rows and 0 runtime bundle heads remain unknown."
     },
     "summary": "Registry boundary coverage is closed for public_stable/run-20260518-220935 across persistence, release-channel, artifact-lineage, publication, entitlement, and compatibility surfaces."
   }

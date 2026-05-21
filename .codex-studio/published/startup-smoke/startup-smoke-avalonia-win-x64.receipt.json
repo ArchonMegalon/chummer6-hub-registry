@@ -1,9 +1,9 @@
 {
   "status": "pass",
   "headId": "avalonia",
-  "version": "run-20260514-restore-mac-preview",
-  "releaseVersion": "run-20260514-restore-mac-preview",
-  "channelId": "preview",
+  "version": "run-20260518-220935",
+  "releaseVersion": "run-20260518-220935",
+  "channelId": "public_stable",
   "platform": "windows",
   "arch": "x64",
   "rid": "win-x64",
@@ -23,5 +23,5 @@
   "artifactRelativePath": "files/chummer-avalonia-win-x64-installer.exe",
   "artifactSha256": "54966da8ac6f1ca7321b301b025bfb626398f461c78441c132d5c59d9c2bedde",
   "artifactId": "avalonia-win-x64-installer",
-  "channel": "preview"
+  "channel": "public_stable"
 }

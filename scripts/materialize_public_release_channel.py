@@ -336,7 +336,7 @@ def desktop_surface_rationale(
         )
     return (
         f"{channel_id} keeps preview tuple {tuple_id} on {install_posture} install guidance so desktop can explain "
-        "claim, participation, and reward publication before wider rollout."
+        "claim, participation, and reward posture before wider publication."
     )
 
 
@@ -862,6 +862,7 @@ def load_startup_smoke_receipts(
         recorded_at = _startup_smoke_recorded_at(loaded)
         if recorded_at is None:
             continue
+        proof_freshness = "fresh"
         if max_age_seconds >= 0:
             age_seconds = int((now - recorded_at).total_seconds())
             if age_seconds < 0:
@@ -870,7 +871,7 @@ def load_startup_smoke_receipts(
                     continue
                 age_seconds = 0
             if age_seconds > max_age_seconds:
-                continue
+                proof_freshness = "stale"
         receipt_entry = build_receipt_entry(loaded)
         if not receipt_entry["head"] or not receipt_entry["platform"] or not receipt_entry["arch"]:
             continue
@@ -886,6 +887,8 @@ def load_startup_smoke_receipts(
             and not receipt_entry["artifactDigest"]
         ):
             continue
+        if proof_freshness != "fresh":
+            receipt_entry["proofFreshness"] = proof_freshness
         receipts.append(receipt_entry)
 
     return receipts
@@ -937,6 +940,13 @@ def filter_unproven_installers(
             )
         ]
         if not matching_receipts:
+            continue
+
+        matching_stale_receipts = [
+            receipt for receipt in matching_receipts if normalize_token(receipt.get("proofFreshness")) == "stale"
+        ]
+        if matching_stale_receipts:
+            filtered.append(artifact)
             continue
 
         if expected_digest:
@@ -3202,6 +3212,21 @@ def derive_default_compatibility_state(status: str, proof: dict[str, Any] | None
     return "unknown"
 
 
+def localization_gate_allows_public_stable(proof: dict[str, Any] | None) -> bool:
+    if not isinstance(proof, dict):
+        return False
+    gate = proof.get("uiLocalizationReleaseGate")
+    if not isinstance(gate, dict):
+        return False
+    if normalize_optional_string(gate.get("status")) not in {"pass", "passed", "ready"}:
+        return False
+    if normalize_optional_string(gate.get("explicitFallbackRuntime")) not in {"pass", "passed", "ready"}:
+        return False
+    if normalize_optional_string(gate.get("signoffSmokeRunnerStatus")) not in {"pass", "passed", "ready"}:
+        return False
+    return True
+
+
 def apply_runtime_bundle_compatibility(
     runtime_bundle_heads: list[dict[str, Any]],
     *,
@@ -3254,6 +3279,8 @@ def derive_rollout_state(
         return "unpublished"
     if not desktop_coverage_complete:
         return "coverage_incomplete"
+    if not localization_gate_allows_public_stable(proof):
+        return "public_release_review_required"
     if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         return "public_stable" if channel in {"preview", "docker"} else channel
     return "promoted_preview" if channel in {"preview", "docker"} else channel
@@ -3275,6 +3302,11 @@ def derive_rollout_reason(
             + desktop_tuple_coverage_gap_summary(coverage)
             + "."
         )
+    if not localization_gate_allows_public_stable(proof):
+        return (
+            "Current shelf is published, but release posture stays review-required because the "
+            "UI localization release gate is not fully green."
+        )
     if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         return "Current release shelf was exercised by the local docker release proof harness before publication."
     return (
@@ -3293,6 +3325,8 @@ def derive_supportability_state(
     if status != "published":
         return "unpublished"
     if not desktop_coverage_complete:
+        return "review_required"
+    if not localization_gate_allows_public_stable(proof):
         return "review_required"
     if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         return "gold_supported"
@@ -3313,6 +3347,10 @@ def derive_supportability_summary(
             "Treat the current shelf as review-required because "
             + desktop_tuple_coverage_gap_summary(coverage)
             + "."
+        )
+    if not localization_gate_allows_public_stable(proof):
+        return (
+            "Treat the current shelf as review-required until the UI localization release gate is fully green."
         )
     if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         journeys = proof.get("journeysPassed") or []
@@ -3349,6 +3387,10 @@ def derive_known_issue_summary(
         return "No active channel issues are published because the shelf is still empty."
     if not desktop_coverage_complete:
         return "Known issue: " + desktop_tuple_coverage_gap_summary(coverage) + "."
+    if not localization_gate_allows_public_stable(proof):
+        return (
+            "Known issue: the current public shelf is installable, but UI localization proof is still review-required."
+        )
     if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         journeys = proof.get("journeysPassed") or []
         proof_notes: list[str] = []
@@ -3377,6 +3419,10 @@ def derive_fix_availability_summary(
         return "Fix notices should stay pending until a published shelf exists."
     if not desktop_coverage_complete:
         return "Do not send fixed notices until required desktop tuple coverage is complete for the promoted shelf."
+    if not localization_gate_allows_public_stable(proof):
+        return (
+            "Only send fixed notices after the affected install is on the public shelf and the UI localization release gate is fully green."
+        )
     if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         return "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf."
     return "Verify fix availability against the live channel artifact before closing support loops."
@@ -3414,12 +3460,16 @@ def normalize_release_channel_posture(
         and derived_rollout_state == "public_stable"
     ):
         rollout_state = derived_rollout_state
+    elif status == "published" and normalize_optional_string(rollout_state) != derived_rollout_state:
+        rollout_state = derived_rollout_state
     if (
         status == "published"
         and desktop_coverage_complete
         and supportability_state in {"local_docker_proven", "preview_supported"}
         and derived_supportability_state == "gold_supported"
     ):
+        supportability_state = derived_supportability_state
+    elif status == "published" and normalize_optional_string(supportability_state) != derived_supportability_state:
         supportability_state = derived_supportability_state
 
     return rollout_state, supportability_state

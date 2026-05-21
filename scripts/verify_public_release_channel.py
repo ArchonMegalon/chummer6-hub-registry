@@ -2076,6 +2076,93 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
     return rows
 
 
+def expected_external_proof_request_rows(
+    payload: dict[str, Any],
+    reported_expected_installer_sha256_by_tuple: dict[str, str] | None = None,
+) -> list[dict[str, Any]]:
+    coverage = payload.get("desktopTupleCoverage") if isinstance(payload.get("desktopTupleCoverage"), dict) else {}
+    normalized_channel_id = expected_channel_id(payload)
+    payload_version = str(payload.get("version") or payload.get("releaseVersion") or "").strip()
+    expected_missing_platform_head_rid_tuples = sorted(
+        normalized_token(token)
+        for token in (coverage.get("missingRequiredPlatformHeadRidTuples") or [])
+        if normalized_token(token)
+    )
+    sha_by_tuple: dict[str, str] = {}
+    if isinstance(reported_expected_installer_sha256_by_tuple, dict):
+        sha_by_tuple.update(
+            {
+                normalized_token(key): normalize_sha256(value)
+                for key, value in reported_expected_installer_sha256_by_tuple.items()
+                if normalized_token(key)
+            }
+        )
+    else:
+        external_proof_requests = coverage.get("externalProofRequests") or []
+        if isinstance(external_proof_requests, list):
+            for item in external_proof_requests:
+                if not isinstance(item, dict):
+                    continue
+                tuple_id = normalized_token(item.get("tupleId"))
+                if tuple_id:
+                    sha_by_tuple[tuple_id] = normalize_sha256(item.get("expectedInstallerSha256"))
+
+    rows: list[dict[str, Any]] = []
+    for tuple_id in expected_missing_platform_head_rid_tuples:
+        parts = tuple_id.split(":", 2)
+        if len(parts) != 3:
+            continue
+        head, rid, platform = parts
+        if not head or not rid or not platform:
+            continue
+        expected_installer_file_name = (
+            "chummer-"
+            + head
+            + "-"
+            + rid
+            + "-installer."
+            + expected_external_proof_installer_extension(platform)
+        )
+        expected_installer_sha256 = sha_by_tuple.get(tuple_id, "")
+        rows.append(
+            {
+                "tupleId": tuple_id,
+                "channelId": normalized_channel_id,
+                "head": head,
+                "rid": rid,
+                "platform": platform,
+                "requiredHost": platform,
+                "requiredProofs": [
+                    "promoted_installer_artifact",
+                    "startup_smoke_receipt",
+                ],
+                "expectedArtifactId": head + "-" + rid + "-installer",
+                "expectedInstallerFileName": expected_installer_file_name,
+                "expectedInstallerRelativePath": "files/" + expected_installer_file_name,
+                "expectedInstallerSha256": expected_installer_sha256,
+                "expectedPublicInstallRoute": "/downloads/install/" + head + "-" + rid + "-installer",
+                "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-" + head + "-" + rid + ".receipt.json",
+                "startupSmokeReceiptContract": expected_external_proof_receipt_contract(
+                    head=head,
+                    rid=rid,
+                    platform=platform,
+                    required_host=platform,
+                ),
+                "proofCaptureCommands": expected_external_proof_capture_commands(
+                    head=head,
+                    rid=rid,
+                    platform=platform,
+                    installer_file_name=expected_installer_file_name,
+                    expected_installer_sha256=expected_installer_sha256,
+                    required_host=platform,
+                    release_version=payload_version,
+                ),
+            }
+        )
+    rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["tupleId"]))
+    return rows
+
+
 def parse_manifest_tuple_fields(item: dict) -> tuple[str, str, str, str]:
     file_name = normalize_file_name(item)
     head = normalized_token(item.get("head"))
@@ -2484,56 +2571,6 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         missing_platform_head_rid_tuples=expected_missing_platform_head_rid_tuples,
         source=source,
     )
-    expected_external_proof_requests = []
-    for tuple_id in expected_missing_platform_head_rid_tuples:
-        parts = tuple_id.split(":", 2)
-        if len(parts) != 3:
-            continue
-        head, rid, platform = parts
-        if not head or not rid or not platform:
-            continue
-        expected_installer_file_name = (
-            "chummer-"
-            + head
-            + "-"
-            + rid
-            + "-installer."
-            + expected_external_proof_installer_extension(platform)
-        )
-        expected_external_proof_requests.append(
-            {
-                "tupleId": tuple_id,
-                "channelId": normalized_channel_id,
-                "head": head,
-                "rid": rid,
-                "platform": platform,
-                "requiredHost": platform,
-                "requiredProofs": [
-                    "promoted_installer_artifact",
-                    "startup_smoke_receipt",
-                ],
-                "expectedArtifactId": head + "-" + rid + "-installer",
-                "expectedInstallerFileName": expected_installer_file_name,
-                "expectedInstallerRelativePath": "files/" + expected_installer_file_name,
-                "expectedPublicInstallRoute": "/downloads/install/" + head + "-" + rid + "-installer",
-                "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-" + head + "-" + rid + ".receipt.json",
-                "startupSmokeReceiptContract": expected_external_proof_receipt_contract(
-                    head=head,
-                    rid=rid,
-                    platform=platform,
-                    required_host=platform,
-                ),
-                "proofCaptureCommands": expected_external_proof_capture_commands(
-                    head=head,
-                    rid=rid,
-                    platform=platform,
-                    installer_file_name=expected_installer_file_name,
-                    expected_installer_sha256="",
-                    required_host=platform,
-                    release_version=payload_version,
-                ),
-            }
-        )
     normalized_external_proof_requests: list[dict[str, Any]] = []
     reported_expected_installer_sha256_by_tuple: dict[str, str] = {}
     for index, item in enumerate(external_proof_requests):
@@ -2610,25 +2647,12 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
                 "proofCaptureCommands": proof_capture_commands,
             }
         )
-    for row in expected_external_proof_requests:
-        row["expectedInstallerSha256"] = reported_expected_installer_sha256_by_tuple.get(
-            str(row.get("tupleId") or "").strip(),
-            "",
-        )
-        row["proofCaptureCommands"] = expected_external_proof_capture_commands(
-            head=str(row.get("head") or "").strip(),
-            rid=str(row.get("rid") or "").strip(),
-            platform=str(row.get("platform") or "").strip(),
-            installer_file_name=str(row.get("expectedInstallerFileName") or "").strip(),
-            expected_installer_sha256=str(row.get("expectedInstallerSha256") or "").strip(),
-            required_host=str(row.get("requiredHost") or "").strip(),
-            release_version=payload_version,
-        )
     normalized_external_proof_requests.sort(
         key=lambda row: (row["platform"], row["head"], row["rid"], row["tupleId"])
     )
-    expected_external_proof_requests.sort(
-        key=lambda row: (row["platform"], row["head"], row["rid"], row["tupleId"])
+    expected_external_proof_requests = expected_external_proof_request_rows(
+        payload,
+        reported_expected_installer_sha256_by_tuple=reported_expected_installer_sha256_by_tuple,
     )
     if normalized_external_proof_requests != expected_external_proof_requests:
         raise SystemExit(
@@ -5575,8 +5599,15 @@ def verify_release_truth(payload: dict, source: str) -> None:
             f"({', '.join(unexpected_localization_gate_keys)}) in {source}"
         )
 
+    normalized_rollout_state = normalized_token(payload.get("rolloutState"))
+    normalized_supportability_state = normalized_token(payload.get("supportabilityState"))
     gate_status = normalized_token(ui_localization_release_gate.get("status"))
-    if gate_status not in {"pass", "passed", "ready"}:
+    localization_review_required = (
+        gate_status not in {"pass", "passed", "ready"}
+        and normalized_supportability_state == "review_required"
+        and normalized_rollout_state in {"public_release_review_required", "coverage_incomplete", "blocked"}
+    )
+    if gate_status not in {"pass", "passed", "ready"} and not localization_review_required:
         raise SystemExit(
             f"releaseProof.uiLocalizationReleaseGate.status must be pass/passed/ready in {source}"
         )
@@ -5653,6 +5684,8 @@ def verify_release_truth(payload: dict, source: str) -> None:
         raise SystemExit(
             f"releaseProof.uiLocalizationReleaseGate.signoffSmokeRunnerStatus must be pass/passed/ready in {source}"
         )
+    if localization_review_required:
+        return
 
     shipping_locales = parse_required_token_list(
         resolve_alias_value(
