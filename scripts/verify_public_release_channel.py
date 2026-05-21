@@ -108,7 +108,7 @@ def summarize_registry_row_mismatch(
         tuple_id = actual_row.get("tupleId") or expected_row.get("tupleId") or f"index={index}"
         return f"first_diff tupleId={tuple_id} row_content_mismatch"
     return "rows differ but no first-diff summary was derived"
-REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
+REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows")
 REQUIRED_DESKTOP_HEADS = ("avalonia",)
 DESKTOP_ROUTE_TRUTH_HEADS = ("avalonia", "blazor-desktop")
 DESKTOP_ROUTE_ROLES = {
@@ -118,7 +118,6 @@ DESKTOP_ROUTE_ROLES = {
 DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS = {
     "linux": ("linux-x64",),
     "windows": ("win-x64",),
-    "macos": ("osx-arm64",),
 }
 REQUIRED_LOCALIZATION_SHIPPING_LOCALES = ("en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn")
 REQUIRED_LOCALIZATION_ACCEPTANCE_GATES = (

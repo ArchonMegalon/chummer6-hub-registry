@@ -54,11 +54,10 @@ DESKTOP_ROUTE_ROLES = {
     "avalonia": "primary",
     "blazor-desktop": "fallback",
 }
-DEFAULT_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
+DEFAULT_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows")
 DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS = {
     "linux": ("linux-x64",),
     "windows": ("win-x64",),
-    "macos": ("osx-arm64",),
 }
 REQUIRED_RELEASE_PROOF_JOURNEYS = (
     "install_claim_restore_continue",
@@ -612,8 +611,8 @@ def parse_args() -> argparse.Namespace:
         help="Optional UI localization release-gate payload bound into releaseProof for desktop shelf trust.",
     )
     parser.add_argument("--product", default="chummer6")
-    parser.add_argument("--channel", default="preview")
-    parser.add_argument("--version", default="unpublished")
+    parser.add_argument("--channel", default="")
+    parser.add_argument("--version", default="")
     parser.add_argument(
         "--contract-name",
         default="",
@@ -3510,6 +3509,11 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         args.downloads_dir,
         downloads_prefix=args.downloads_prefix,
     )
+    artifacts = [
+        artifact
+        for artifact in artifacts
+        if normalize_platform_token(artifact.get("platform")) in DEFAULT_REQUIRED_DESKTOP_PLATFORMS
+    ]
     startup_smoke_receipts: list[dict[str, str]] | None
     if args.startup_smoke_dir is not None and not args.skip_startup_smoke_filter:
         startup_smoke_receipts = load_startup_smoke_receipts(

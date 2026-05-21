@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-05-21T17:26:50Z",
-  "generatedAt": "2026-05-21T17:26:50Z",
+  "generated_at": "2026-05-21T19:59:32Z",
+  "generatedAt": "2026-05-21T19:59:32Z",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "version": "run-20260518-220935",
@@ -21,21 +21,6 @@
       "arch": "x64",
       "fileName": "chummer-avalonia-linux-x64-installer.deb",
       "installAccessClass": "open_public"
-    },
-    {
-      "id": "avalonia-osx-arm64-installer",
-      "platform": "Avalonia Desktop macOS ARM64 Installer",
-      "url": "/downloads/files/chummer-avalonia-osx-arm64-installer.dmg",
-      "sha256": "282adc773f1a86f81a89aefa82d595e67d9f663e4eedab2cd45269d6ab0e9a45",
-      "sizeBytes": 52396329,
-      "format": "dmg",
-      "flavor": "installer",
-      "kind": "installer",
-      "head": "avalonia",
-      "platformId": "macos-arm64",
-      "arch": "arm64",
-      "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
-      "installAccessClass": "account_required"
     },
     {
       "id": "avalonia-win-x64-installer",
@@ -65,21 +50,6 @@
       "platformId": "linux-x64",
       "arch": "x64",
       "fileName": "chummer-avalonia-linux-x64.tar.gz",
-      "installAccessClass": "open_public"
-    },
-    {
-      "id": "avalonia-osx-arm64-archive",
-      "platform": "Avalonia Desktop macOS ARM64",
-      "url": "/downloads/files/chummer-avalonia-osx-arm64.tar.gz",
-      "sha256": "1e2c6f7e7f9b494b49058faa35565d02ceb9ab8906676712457c94f98dc06942",
-      "sizeBytes": 45255650,
-      "format": "tar.gz",
-      "flavor": "archive",
-      "kind": "archive",
-      "head": "avalonia",
-      "platformId": "macos-arm64",
-      "arch": "arm64",
-      "fileName": "chummer-avalonia-osx-arm64.tar.gz",
       "installAccessClass": "open_public"
     },
     {
@@ -271,8 +241,7 @@
   "desktopTupleCoverage": {
     "requiredDesktopPlatforms": [
       "linux",
-      "windows",
-      "macos"
+      "windows"
     ],
     "requiredDesktopHeads": [
       "avalonia"
@@ -286,15 +255,6 @@
         "arch": "x64",
         "kind": "installer",
         "artifactId": "avalonia-linux-x64-installer"
-      },
-      {
-        "tupleId": "avalonia:macos:osx-arm64",
-        "head": "avalonia",
-        "platform": "macos",
-        "rid": "osx-arm64",
-        "arch": "arm64",
-        "kind": "installer",
-        "artifactId": "avalonia-osx-arm64-installer"
       },
       {
         "tupleId": "avalonia:windows:win-x64",
@@ -312,19 +272,14 @@
       ],
       "windows": [
         "avalonia"
-      ],
-      "macos": [
-        "avalonia"
       ]
     },
     "requiredDesktopPlatformHeadRidTuples": [
       "avalonia:linux-x64:linux",
-      "avalonia:osx-arm64:macos",
       "avalonia:win-x64:windows"
     ],
     "promotedPlatformHeadRidTuples": [
       "avalonia:linux-x64:linux",
-      "avalonia:osx-arm64:macos",
       "avalonia:win-x64:windows"
     ],
     "missingRequiredPlatforms": [],
@@ -440,60 +395,6 @@
         "installPosture": "proof_capture_required",
         "installPostureReason": "Do not present blazor-desktop:windows:win-x64 as installable until the missing tuple proof is captured.",
         "publicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer"
-      },
-      {
-        "tupleId": "avalonia:macos:osx-arm64",
-        "head": "avalonia",
-        "platform": "macos",
-        "rid": "osx-arm64",
-        "arch": "arm64",
-        "artifactId": "avalonia-osx-arm64-installer",
-        "routeRole": "primary",
-        "routeRoleReasonCode": "primary_flagship_head",
-        "routeRoleReason": "Avalonia Desktop route avalonia:macos:osx-arm64 is the flagship desktop route for macos/osx-arm64 and must carry independent startup-smoke proof before promotion.",
-        "promotionState": "promoted",
-        "promotionReasonCode": "installer_smoke_and_release_proof_passed",
-        "promotionReason": "Primary-route Avalonia Desktop tuple avalonia:macos:osx-arm64 for macos/osx-arm64 is promoted because the flagship head is present on the registry shelf and passed independent startup-smoke and release-proof gates for this channel.",
-        "parityPosture": "flagship_primary",
-        "updateEligibility": "eligible",
-        "updateEligibilityReason": "Primary-route Avalonia Desktop tuple avalonia:macos:osx-arm64 is promoted for macos/osx-arm64.",
-        "rollbackState": "primary_reinstall_available",
-        "rollbackReasonCode": "primary_installer_reinstall_available",
-        "rollbackReason": "Fallback route blazor-desktop:macos:osx-arm64 remains an unpromoted compatibility lane for macos/osx-arm64; recover avalonia:macos:osx-arm64 from the promoted primary installer avalonia-osx-arm64-installer until a separately proved fallback is published.",
-        "revokeState": "not_revoked",
-        "revokeSource": "none",
-        "revokeReasonCode": "no_registry_revoke_marker",
-        "revokeReason": "No registry revoke marker is active for avalonia:macos:osx-arm64.",
-        "installPosture": "installer_first",
-        "installPostureReason": "Promoted installer media avalonia-osx-arm64-installer is present for Avalonia Desktop tuple avalonia:macos:osx-arm64 on macos/osx-arm64.",
-        "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer"
-      },
-      {
-        "tupleId": "blazor-desktop:macos:osx-arm64",
-        "head": "blazor-desktop",
-        "platform": "macos",
-        "rid": "osx-arm64",
-        "arch": "arm64",
-        "artifactId": "",
-        "routeRole": "fallback",
-        "routeRoleReasonCode": "fallback_recovery_head",
-        "routeRoleReason": "Blazor Desktop route blazor-desktop:macos:osx-arm64 is retained as an explicit fallback route for macos/osx-arm64; it cannot satisfy the primary-route promise.",
-        "promotionState": "proof_required",
-        "promotionReasonCode": "missing_artifact_or_startup_smoke_proof",
-        "promotionReason": "Fallback Blazor Desktop tuple blazor-desktop:macos:osx-arm64 for macos/osx-arm64 is retained for recovery/manual routing on macos/osx-arm64 but is not promoted until matching artifact bytes and fresh startup-smoke proof are present.",
-        "parityPosture": "explicit_fallback",
-        "updateEligibility": "blocked_missing_proof",
-        "updateEligibilityReason": "Fallback route blazor-desktop:macos:osx-arm64 is not update-eligible until promoted.",
-        "rollbackState": "fallback_not_promoted",
-        "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
-        "rollbackReason": "Fallback route blazor-desktop:macos:osx-arm64 needs artifact and startup-smoke proof before rollback use.",
-        "revokeState": "not_revoked",
-        "revokeSource": "none",
-        "revokeReasonCode": "no_registry_revoke_marker",
-        "revokeReason": "No registry revoke marker is active for blazor-desktop:macos:osx-arm64.",
-        "installPosture": "proof_capture_required",
-        "installPostureReason": "Do not present blazor-desktop:macos:osx-arm64 as installable until the missing tuple proof is captured.",
-        "publicInstallRoute": "/downloads/install/blazor-desktop-osx-arm64-installer"
       }
     ],
     "complete": true
@@ -549,58 +450,6 @@
         "releaseExplainerPacket": "concierge/release/public_stable/run-20260518-220935/blazor-desktop-linux-x64-installer",
         "supportClosurePacket": "concierge/support/public_stable/run-20260518-220935/blazor-desktop-linux-x64-installer",
         "publicTrustWrapper": "/downloads/install/blazor-desktop-linux-x64-installer"
-      }
-    },
-    {
-      "registryId": "concierge:public_stable:run-20260518-220935:avalonia-osx-arm64-installer",
-      "artifactId": "avalonia-osx-arm64-installer",
-      "channelId": "public_stable",
-      "releaseVersion": "run-20260518-220935",
-      "tupleId": "avalonia:macos:osx-arm64",
-      "head": "avalonia",
-      "platform": "macos",
-      "rid": "osx-arm64",
-      "arch": "arm64",
-      "kind": "installer",
-      "installedBuildSelector": "public_stable/run-20260518-220935/avalonia/macos/arm64",
-      "currentForInstalledBuild": true,
-      "channelRationale": "Published public_stable channel keeps primary-route avalonia:macos:osx-arm64 current for installed build selector public_stable/run-20260518-220935/avalonia/macos/arm64.",
-      "correctnessReason": "Offer avalonia-osx-arm64-installer to installed build selector public_stable/run-20260518-220935/avalonia/macos/arm64 because tuple avalonia:macos:osx-arm64 is currently promoted for this channel.",
-      "recoveryProofRefs": [
-        "/downloads/install/avalonia-osx-arm64-installer",
-        "startup-smoke/startup-smoke-avalonia-osx-arm64.receipt.json",
-        "desktopTupleCoverage.desktopRouteTruth[avalonia:macos:osx-arm64]"
-      ],
-      "conciergeAssetRefs": {
-        "releaseExplainerPacket": "concierge/release/public_stable/run-20260518-220935/avalonia-osx-arm64-installer",
-        "supportClosurePacket": "concierge/support/public_stable/run-20260518-220935/avalonia-osx-arm64-installer",
-        "publicTrustWrapper": "/downloads/install/avalonia-osx-arm64-installer"
-      }
-    },
-    {
-      "registryId": "concierge:public_stable:run-20260518-220935:blazor-desktop-osx-arm64-installer",
-      "artifactId": "blazor-desktop-osx-arm64-installer",
-      "channelId": "public_stable",
-      "releaseVersion": "run-20260518-220935",
-      "tupleId": "blazor-desktop:macos:osx-arm64",
-      "head": "blazor-desktop",
-      "platform": "macos",
-      "rid": "osx-arm64",
-      "arch": "arm64",
-      "kind": "installer",
-      "installedBuildSelector": "public_stable/run-20260518-220935/blazor-desktop/macos/arm64",
-      "currentForInstalledBuild": false,
-      "channelRationale": "Published public_stable channel keeps fallback-route blazor-desktop:macos:osx-arm64 blocked for installed build selector public_stable/run-20260518-220935/blazor-desktop/macos/arm64 until installer and startup-smoke proof are present.",
-      "correctnessReason": "Do not offer blazor-desktop-osx-arm64-installer to installed build selector public_stable/run-20260518-220935/blazor-desktop/macos/arm64 because tuple blazor-desktop:macos:osx-arm64 is not currently promoted for this channel.",
-      "recoveryProofRefs": [
-        "/downloads/install/blazor-desktop-osx-arm64-installer",
-        "startup-smoke/startup-smoke-blazor-desktop-osx-arm64.receipt.json",
-        "desktopTupleCoverage.desktopRouteTruth[blazor-desktop:macos:osx-arm64]"
-      ],
-      "conciergeAssetRefs": {
-        "releaseExplainerPacket": "concierge/release/public_stable/run-20260518-220935/blazor-desktop-osx-arm64-installer",
-        "supportClosurePacket": "concierge/support/public_stable/run-20260518-220935/blazor-desktop-osx-arm64-installer",
-        "publicTrustWrapper": "/downloads/install/blazor-desktop-osx-arm64-installer"
       }
     },
     {
@@ -698,46 +547,6 @@
       "rationale": "public_stable keeps fallback tuple blazor-desktop:linux:linux-x64 retained with guest-readable install guidance so recovery participation and reward refs stay governed."
     },
     {
-      "registryId": "desktop-surface:public_stable:run-20260518-220935:avalonia:macos:osx-arm64",
-      "artifactId": "avalonia-osx-arm64-installer",
-      "channelId": "public_stable",
-      "releaseVersion": "run-20260518-220935",
-      "tupleId": "avalonia:macos:osx-arm64",
-      "head": "avalonia",
-      "platform": "macos",
-      "rid": "osx-arm64",
-      "arch": "arm64",
-      "kind": "installer",
-      "installAccessClass": "account_required",
-      "desktopChannelRef": "desktop-channel:public_stable:run-20260518-220935:avalonia:macos:osx-arm64",
-      "installGuidanceRef": "install-guidance:public_stable:run-20260518-220935:avalonia-osx-arm64-installer",
-      "participationReceiptRef": "participation-receipt:public_stable:run-20260518-220935:avalonia:macos:osx-arm64",
-      "rewardPublicationRef": "reward-publication:binding:public_stable:run-20260518-220935:avalonia:macos:osx-arm64",
-      "publicationBindingId": "binding:public_stable:run-20260518-220935:avalonia:macos:osx-arm64",
-      "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
-      "rationale": "public_stable keeps avalonia:macos:osx-arm64 entitlement-backed so desktop channel, install guidance, participation, and reward refs stay governed without exposing provider internals."
-    },
-    {
-      "registryId": "desktop-surface:public_stable:run-20260518-220935:blazor-desktop:macos:osx-arm64",
-      "artifactId": "blazor-desktop-osx-arm64-installer",
-      "channelId": "public_stable",
-      "releaseVersion": "run-20260518-220935",
-      "tupleId": "blazor-desktop:macos:osx-arm64",
-      "head": "blazor-desktop",
-      "platform": "macos",
-      "rid": "osx-arm64",
-      "arch": "arm64",
-      "kind": "installer",
-      "installAccessClass": "account_required",
-      "desktopChannelRef": "desktop-channel:public_stable:run-20260518-220935:blazor-desktop:macos:osx-arm64",
-      "installGuidanceRef": "install-guidance:public_stable:run-20260518-220935:blazor-desktop-osx-arm64-installer",
-      "participationReceiptRef": "participation-receipt:public_stable:run-20260518-220935:blazor-desktop:macos:osx-arm64",
-      "rewardPublicationRef": "reward-publication:binding:public_stable:run-20260518-220935:blazor-desktop:macos:osx-arm64",
-      "publicationBindingId": "binding:public_stable:run-20260518-220935:blazor-desktop:macos:osx-arm64",
-      "publicInstallRoute": "/downloads/install/blazor-desktop-osx-arm64-installer",
-      "rationale": "public_stable keeps fallback tuple blazor-desktop:macos:osx-arm64 retained with entitlement-backed install guidance so recovery participation and reward refs stay governed."
-    },
-    {
       "registryId": "desktop-surface:public_stable:run-20260518-220935:avalonia:windows:win-x64",
       "artifactId": "avalonia-win-x64-installer",
       "channelId": "public_stable",
@@ -824,54 +633,6 @@
       "signedInShelfRef": "shelf:signed-in:public_stable:run-20260518-220935:blazor-desktop-linux-x64-installer",
       "publicShelfRef": "shelf:public:public_stable:run-20260518-220935:blazor-desktop-linux-x64-installer",
       "publicInstallRoute": "/downloads/install/blazor-desktop-linux-x64-installer",
-      "retentionState": "retained",
-      "publicationState": "retained"
-    },
-    {
-      "registryId": "artifact-identity:public_stable:run-20260518-220935:avalonia:macos:osx-arm64",
-      "artifactFamilyId": "artifact-family:avalonia:macos:osx-arm64",
-      "artifactId": "avalonia-osx-arm64-installer",
-      "channelId": "public_stable",
-      "releaseVersion": "run-20260518-220935",
-      "tupleId": "avalonia:macos:osx-arm64",
-      "head": "avalonia",
-      "platform": "macos",
-      "rid": "osx-arm64",
-      "arch": "arm64",
-      "kind": "installer",
-      "previewRef": "registry-preview:avalonia-osx-arm64-installer:avalonia:macos:osx-arm64",
-      "captionRef": "registry-caption:public_stable:run-20260518-220935:avalonia:macos:osx-arm64",
-      "packetRef": "registry-packet:public_stable:run-20260518-220935:avalonia-osx-arm64-installer",
-      "localeRef": "registry-locale:public_stable:run-20260518-220935:avalonia-osx-arm64-installer",
-      "retentionRef": "registry-retention:public_stable:run-20260518-220935:avalonia-osx-arm64-installer",
-      "publicationBindingId": "binding:public_stable:run-20260518-220935:avalonia:macos:osx-arm64",
-      "signedInShelfRef": "shelf:signed-in:public_stable:run-20260518-220935:avalonia-osx-arm64-installer",
-      "publicShelfRef": "shelf:public:public_stable:run-20260518-220935:avalonia-osx-arm64-installer",
-      "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
-      "retentionState": "current",
-      "publicationState": "published"
-    },
-    {
-      "registryId": "artifact-identity:public_stable:run-20260518-220935:blazor-desktop:macos:osx-arm64",
-      "artifactFamilyId": "artifact-family:blazor-desktop:macos:osx-arm64",
-      "artifactId": "blazor-desktop-osx-arm64-installer",
-      "channelId": "public_stable",
-      "releaseVersion": "run-20260518-220935",
-      "tupleId": "blazor-desktop:macos:osx-arm64",
-      "head": "blazor-desktop",
-      "platform": "macos",
-      "rid": "osx-arm64",
-      "arch": "arm64",
-      "kind": "installer",
-      "previewRef": "registry-preview:blazor-desktop-osx-arm64-installer:blazor-desktop:macos:osx-arm64",
-      "captionRef": "registry-caption:public_stable:run-20260518-220935:blazor-desktop:macos:osx-arm64",
-      "packetRef": "registry-packet:public_stable:run-20260518-220935:blazor-desktop-osx-arm64-installer",
-      "localeRef": "registry-locale:public_stable:run-20260518-220935:blazor-desktop-osx-arm64-installer",
-      "retentionRef": "registry-retention:public_stable:run-20260518-220935:blazor-desktop-osx-arm64-installer",
-      "publicationBindingId": "binding:public_stable:run-20260518-220935:blazor-desktop:macos:osx-arm64",
-      "signedInShelfRef": "shelf:signed-in:public_stable:run-20260518-220935:blazor-desktop-osx-arm64-installer",
-      "publicShelfRef": "shelf:public:public_stable:run-20260518-220935:blazor-desktop-osx-arm64-installer",
-      "publicInstallRoute": "/downloads/install/blazor-desktop-osx-arm64-installer",
       "retentionState": "retained",
       "publicationState": "retained"
     },
@@ -976,56 +737,6 @@
       "rationale": "public_stable keeps fallback tuple blazor-desktop:linux:linux-x64 retained so recovery-only shelf refs stay governed without relabeling the artifact as preview."
     },
     {
-      "bindingId": "binding:public_stable:run-20260518-220935:avalonia:macos:osx-arm64",
-      "artifactFamilyId": "artifact-family:avalonia:macos:osx-arm64",
-      "artifactId": "avalonia-osx-arm64-installer",
-      "channelId": "public_stable",
-      "releaseVersion": "run-20260518-220935",
-      "tupleId": "avalonia:macos:osx-arm64",
-      "head": "avalonia",
-      "platform": "macos",
-      "rid": "osx-arm64",
-      "arch": "arm64",
-      "kind": "installer",
-      "publicationScope": "signed-in-and-public",
-      "publicationState": "published",
-      "signedInShelfRef": "shelf:signed-in:public_stable:run-20260518-220935:avalonia-osx-arm64-installer",
-      "publicShelfRef": "shelf:public:public_stable:run-20260518-220935:avalonia-osx-arm64-installer",
-      "previewRef": "registry-preview:avalonia-osx-arm64-installer:avalonia:macos:osx-arm64",
-      "captionRef": "registry-caption:public_stable:run-20260518-220935:avalonia:macos:osx-arm64",
-      "packetRef": "registry-packet:public_stable:run-20260518-220935:avalonia-osx-arm64-installer",
-      "localeRef": "registry-locale:public_stable:run-20260518-220935:avalonia-osx-arm64-installer",
-      "retentionRef": "registry-retention:public_stable:run-20260518-220935:avalonia-osx-arm64-installer",
-      "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
-      "retentionState": "current",
-      "rationale": "public_stable keeps primary tuple avalonia:macos:osx-arm64 published so signed-in and public shelves cite the same governed preview, caption, and install refs."
-    },
-    {
-      "bindingId": "binding:public_stable:run-20260518-220935:blazor-desktop:macos:osx-arm64",
-      "artifactFamilyId": "artifact-family:blazor-desktop:macos:osx-arm64",
-      "artifactId": "blazor-desktop-osx-arm64-installer",
-      "channelId": "public_stable",
-      "releaseVersion": "run-20260518-220935",
-      "tupleId": "blazor-desktop:macos:osx-arm64",
-      "head": "blazor-desktop",
-      "platform": "macos",
-      "rid": "osx-arm64",
-      "arch": "arm64",
-      "kind": "installer",
-      "publicationScope": "signed-in-and-public",
-      "publicationState": "retained",
-      "signedInShelfRef": "shelf:signed-in:public_stable:run-20260518-220935:blazor-desktop-osx-arm64-installer",
-      "publicShelfRef": "shelf:public:public_stable:run-20260518-220935:blazor-desktop-osx-arm64-installer",
-      "previewRef": "registry-preview:blazor-desktop-osx-arm64-installer:blazor-desktop:macos:osx-arm64",
-      "captionRef": "registry-caption:public_stable:run-20260518-220935:blazor-desktop:macos:osx-arm64",
-      "packetRef": "registry-packet:public_stable:run-20260518-220935:blazor-desktop-osx-arm64-installer",
-      "localeRef": "registry-locale:public_stable:run-20260518-220935:blazor-desktop-osx-arm64-installer",
-      "retentionRef": "registry-retention:public_stable:run-20260518-220935:blazor-desktop-osx-arm64-installer",
-      "publicInstallRoute": "/downloads/install/blazor-desktop-osx-arm64-installer",
-      "retentionState": "retained",
-      "rationale": "public_stable keeps fallback tuple blazor-desktop:macos:osx-arm64 retained so recovery-only shelf refs stay governed without relabeling the artifact as preview."
-    },
-    {
       "bindingId": "binding:public_stable:run-20260518-220935:avalonia:windows:win-x64",
       "artifactFamilyId": "artifact-family:avalonia:windows:win-x64",
       "artifactId": "avalonia-win-x64-installer",
@@ -1083,30 +794,30 @@
       "publicationStatus": "published",
       "rolloutState": "public_stable",
       "supportabilityState": "gold_supported",
-      "recommendedRouteCount": 3,
+      "recommendedRouteCount": 2,
       "blockedRouteCount": 0,
       "revokedRouteCount": 0,
-      "summary": "Channel public_stable is live with 3 recommended primary routes, 0 promoted fallback recovery routes, 0 blocked routes, and 0 active revocations."
+      "summary": "Channel public_stable is live with 2 recommended primary routes, 0 promoted fallback recovery routes, 0 blocked routes, and 0 active revocations."
     },
     "adoptionHealth": {
       "status": "healthy",
-      "primaryPromotedCount": 3,
+      "primaryPromotedCount": 2,
       "publicInstallCount": 1,
-      "accountLinkedInstallCount": 2,
+      "accountLinkedInstallCount": 1,
       "fallbackRecoveryCount": 0,
       "blockedRouteCount": 0,
       "revokedRouteCount": 0,
-      "summary": "3 primary routes are promoted; 1 are guest-readable, 2 require account-linked install handoff, 0 fallback recovery routes are promoted, and 0 routes are still blocked on proof."
+      "summary": "2 primary routes are promoted; 1 are guest-readable, 1 require account-linked install handoff, 0 fallback recovery routes are promoted, and 0 routes are still blocked on proof."
     },
     "proofFreshness": {
       "status": "fresh",
       "releaseProofGeneratedAt": "2026-05-21T17:26:01Z",
-      "releaseProofAgeSeconds": 49,
+      "releaseProofAgeSeconds": 9211,
       "releaseProofMaxAgeSeconds": 604800,
       "uiLocalizationGeneratedAt": "2026-05-21T17:17:12Z",
-      "uiLocalizationAgeSeconds": 578,
+      "uiLocalizationAgeSeconds": 9740,
       "uiLocalizationMaxAgeSeconds": 604800,
-      "summary": "Release proof age is 49s (max 604800s) and UI localization gate age is 578s (max 604800s)."
+      "summary": "Release proof age is 9211s (max 604800s) and UI localization gate age is 9740s (max 604800s)."
     },
     "revocationFacts": {
       "status": "clear",
@@ -1123,50 +834,50 @@
     "releaseVersion": "run-20260518-220935",
     "persistence": {
       "contractName": "Chummer.Hub.Registry.Contracts",
-      "artifactCount": 6,
+      "artifactCount": 4,
       "runtimeBundleHeadCount": 0,
-      "registryProjectionCount": 24,
-      "summary": "Registry persistence owns 6 published artifacts, 0 runtime bundle heads, and 24 governed projection rows for public_stable/run-20260518-220935."
+      "registryProjectionCount": 16,
+      "summary": "Registry persistence owns 4 published artifacts, 0 runtime bundle heads, and 16 governed projection rows for public_stable/run-20260518-220935."
     },
     "releaseChannel": {
       "publicationStatus": "published",
       "rolloutState": "public_stable",
       "supportabilityState": "gold_supported",
       "desktopTupleComplete": true,
-      "promotedInstallerTupleCount": 3,
-      "desktopRouteTruthCount": 6,
+      "promotedInstallerTupleCount": 2,
+      "desktopRouteTruthCount": 4,
       "publicTrustPosture": "live",
-      "summary": "Release-channel truth for public_stable/run-20260518-220935 keeps 3 promoted installer tuples and 6 explicit desktop route-truth rows under public_stable rollout posture."
+      "summary": "Release-channel truth for public_stable/run-20260518-220935 keeps 2 promoted installer tuples and 4 explicit desktop route-truth rows under public_stable rollout posture."
     },
     "artifactLineage": {
-      "artifactIdentityCount": 6,
-      "publicationBindingCount": 6,
+      "artifactIdentityCount": 4,
+      "publicationBindingCount": 4,
       "exchangeLineageCount": 0,
-      "publishedArtifactCount": 3,
-      "retainedArtifactCount": 3,
-      "summary": "Artifact-lineage truth covers 6 artifact identity rows, 6 publication bindings, and 0 exchange-lineage rows."
+      "publishedArtifactCount": 2,
+      "retainedArtifactCount": 2,
+      "summary": "Artifact-lineage truth covers 4 artifact identity rows, 4 publication bindings, and 0 exchange-lineage rows."
     },
     "publication": {
-      "publishedBindingCount": 3,
-      "retainedBindingCount": 3,
-      "signedInAndPublicBindingCount": 6,
-      "currentRetentionCount": 3,
-      "summary": "Publication boundary keeps 3 published bindings, 3 retained bindings, and 6 signed-in/public shared shelf refs."
+      "publishedBindingCount": 2,
+      "retainedBindingCount": 2,
+      "signedInAndPublicBindingCount": 4,
+      "currentRetentionCount": 2,
+      "summary": "Publication boundary keeps 2 published bindings, 2 retained bindings, and 4 signed-in/public shared shelf refs."
     },
     "entitlement": {
-      "installAwareArtifactCount": 6,
-      "desktopSurfaceRefCount": 6,
+      "installAwareArtifactCount": 4,
+      "desktopSurfaceRefCount": 4,
       "openPublicSurfaceCount": 2,
-      "accountRequiredSurfaceCount": 4,
-      "summary": "Entitlement and install-hand-off truth spans 6 install-aware registry rows, 6 desktop surface refs, 2 guest-readable surfaces, and 4 account-required surfaces."
+      "accountRequiredSurfaceCount": 2,
+      "summary": "Entitlement and install-hand-off truth spans 4 install-aware registry rows, 4 desktop surface refs, 2 guest-readable surfaces, and 2 account-required surfaces."
     },
     "compatibility": {
       "compatibleArtifactCount": 0,
       "compatibleRuntimeBundleHeadCount": 0,
       "compatibleExchangeArtifactCount": 0,
-      "unknownArtifactCount": 6,
+      "unknownArtifactCount": 4,
       "unknownRuntimeBundleHeadCount": 0,
-      "summary": "Compatibility boundary tracks 0 compatible artifacts, 0 compatible runtime bundle heads, and 0 compatible exchange-lineage rows while 6 artifact rows and 0 runtime bundle heads remain unknown."
+      "summary": "Compatibility boundary tracks 0 compatible artifacts, 0 compatible runtime bundle heads, and 0 compatible exchange-lineage rows while 4 artifact rows and 0 runtime bundle heads remain unknown."
     },
     "summary": "Registry boundary coverage is closed for public_stable/run-20260518-220935 across persistence, release-channel, artifact-lineage, publication, entitlement, and compatibility surfaces."
   }
