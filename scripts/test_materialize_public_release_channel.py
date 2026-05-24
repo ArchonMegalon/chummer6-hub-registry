@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import argparse
 import hashlib
 import importlib.util
 import json
@@ -1183,6 +1184,113 @@ def test_desktop_tuple_coverage_dedupes_multiple_macos_install_media_per_tuple()
     ]
 
 
+def test_canonical_payload_keeps_mac_only_preview_registry_truth_scoped_to_mac_artifacts() -> None:
+    localization_domains = (
+        "app_chrome",
+        "install_update_support",
+        "explain_receipts",
+        "data_rules_names",
+        "generated_artifacts",
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        downloads_dir = root / "dist"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        for file_name, payload in (
+            ("chummer-avalonia-osx-arm64-installer.dmg", b"avalonia-installer"),
+            ("chummer-blazor-desktop-osx-arm64-installer.dmg", b"blazor-installer"),
+            ("chummer-avalonia-osx-arm64.zip", b"avalonia-archive"),
+            ("chummer-blazor-desktop-osx-arm64.zip", b"blazor-archive"),
+        ):
+            (downloads_dir / file_name).write_bytes(payload)
+
+        proof_path = root / "release-proof.json"
+        proof_path.write_text(
+            json.dumps(
+                {
+                    "status": "passed",
+                    "generatedAt": "2026-05-23T20:55:00Z",
+                    "baseUrl": "https://chummer.run",
+                    "journeysPassed": list(MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS),
+                    "proofRoutes": list(MODULE.REQUIRED_RELEASE_PROOF_ROUTES),
+                    "uiLocalizationReleaseGate": {
+                        "status": "passed",
+                        "generatedAt": "2026-05-23T20:54:00Z",
+                        "defaultKeyCount": 100,
+                        "explicitFallbackRuntime": "passed",
+                        "signoffSmokeRunnerStatus": "passed",
+                        "shippingLocales": list(MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES),
+                        "acceptanceGates": list(MODULE.REQUIRED_LOCALIZATION_ACCEPTANCE_GATES),
+                        "domainCoverage": {
+                            domain: "passed"
+                            for domain in localization_domains
+                        },
+                        "localeDomainCoverage": {
+                            locale: {
+                                domain: "passed"
+                                for domain in localization_domains
+                            }
+                            for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+                        },
+                        "blockingFindings": [],
+                        "blockingFindingsCount": 0,
+                        "translationBacklogFindings": [],
+                        "translationBacklogFindingsCount": 0,
+                        "localeSummary": [
+                            {
+                                "locale": locale,
+                                "untranslatedKeyCount": 0,
+                                "overrideCount": 1,
+                                "minimumOverrideCount": 1,
+                                "missingReleaseSeedKeys": [],
+                                "legacyXmlPresent": True,
+                                "legacyDataXmlPresent": True,
+                            }
+                            for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+                        ],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        payload = MODULE.canonical_payload(
+            argparse.Namespace(
+                manifest=None,
+                downloads_dir=downloads_dir,
+                startup_smoke_dir=None,
+                startup_smoke_max_age_seconds=MODULE.STARTUP_SMOKE_MAX_AGE_SECONDS,
+                startup_smoke_max_future_skew_seconds=MODULE.STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
+                skip_startup_smoke_filter=True,
+                output=root / "RELEASE_CHANNEL.generated.json",
+                compat_output=None,
+                runtime_bundles=None,
+                proof=proof_path,
+                ui_localization_release_gate=None,
+                product="chummer6",
+                channel="preview",
+                version="run-20260523-210354",
+                contract_name="",
+                published_at="2026-05-23T21:03:54Z",
+                artifact_source="ui_desktop_bundle",
+                downloads_prefix="/downloads/files",
+                required_desktop_heads="avalonia",
+            )
+        )
+
+    assert {artifact["platform"] for artifact in payload["artifacts"]} == {"macos"}
+    assert payload["desktopTupleCoverage"]["requiredDesktopPlatforms"] == ["macos"]
+    assert {row["platform"] for row in payload["desktopTupleCoverage"]["desktopRouteTruth"]} == {"macos"}
+    assert {row["platform"] for row in payload["artifactIdentityRegistry"]} == {"macos"}
+    assert {row["platform"] for row in payload["desktopSurfaceRefs"]} == {"macos"}
+    assert {row["artifactId"] for row in payload["artifactIdentityRegistry"]} == {
+        "avalonia-osx-arm64-installer",
+        "blazor-desktop-osx-arm64-installer",
+    }
+    assert payload["desktopTupleCoverage"]["missingRequiredPlatforms"] == []
+    assert payload["desktopTupleCoverage"]["missingRequiredPlatformHeadRidTuples"] == []
+
+
 def test_desktop_tuple_coverage_keeps_fallback_rollback_tuple_specific() -> None:
     coverage = MODULE.desktop_tuple_coverage(
         [
@@ -1647,27 +1755,22 @@ def test_desktop_surface_refs_derive_canonical_rows() -> None:
             "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
             "rationale": "docker keeps avalonia:linux:linux-x64 guest-readable so desktop channel, install guidance, participation, and reward refs stay governed without exposing provider internals.",
         },
-        {
-            "registryId": "desktop-surface:docker:run-20260420-072339:avalonia:windows:win-x64",
-            "artifactId": "avalonia-win-x64-installer",
-            "channelId": "docker",
-            "releaseVersion": "run-20260420-072339",
-            "tupleId": "avalonia:windows:win-x64",
-            "head": "avalonia",
-            "platform": "windows",
-            "rid": "win-x64",
-            "arch": "x64",
-            "kind": "installer",
-            "installAccessClass": "account_required",
-            "desktopChannelRef": "desktop-channel:docker:run-20260420-072339:avalonia:windows:win-x64",
-            "installGuidanceRef": "install-guidance:docker:run-20260420-072339:avalonia-win-x64-installer",
-            "participationReceiptRef": "participation-receipt:docker:run-20260420-072339:avalonia:windows:win-x64",
-            "rewardPublicationRef": "reward-publication:binding:docker:run-20260420-072339:avalonia:windows:win-x64",
-            "publicationBindingId": "binding:docker:run-20260420-072339:avalonia:windows:win-x64",
-            "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
-            "rationale": "docker keeps preview tuple avalonia:windows:win-x64 on entitlement-backed install guidance so desktop can explain claim, participation, and reward posture before wider publication.",
-        },
     ]
+
+
+def test_desktop_surface_refs_skip_proof_required_tuples() -> None:
+    artifacts, coverage = install_aware_payload()
+
+    rows = MODULE.desktop_surface_refs(
+        artifacts,
+        coverage,
+        channel_id="docker",
+        release_version="run-20260420-072339",
+    )
+
+    tuple_ids = {row["tupleId"] for row in rows}
+    assert "avalonia:linux:linux-x64" in tuple_ids
+    assert "avalonia:windows:win-x64" not in tuple_ids
 
 
 def test_artifact_identity_registry_derives_canonical_rows() -> None:

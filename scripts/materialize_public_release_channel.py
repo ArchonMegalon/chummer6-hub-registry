@@ -59,6 +59,7 @@ DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS = {
     "linux": ("linux-x64",),
     "windows": ("win-x64",),
 }
+CANONICAL_DESKTOP_PLATFORM_ORDER = ("linux", "windows", "macos")
 REQUIRED_RELEASE_PROOF_JOURNEYS = (
     "install_claim_restore_continue",
     "build_explain_publish",
@@ -1694,6 +1695,33 @@ def required_desktop_heads(raw: Any) -> list[str]:
     return dedupe_preserve_order([item for item in values if item])
 
 
+def materialization_required_platforms(
+    artifacts: list[dict[str, Any]],
+    configured_required_platforms: Any,
+) -> list[str]:
+    configured_platforms: list[str] = []
+    if isinstance(configured_required_platforms, list):
+        configured_platforms = [
+            platform
+            for platform in CANONICAL_DESKTOP_PLATFORM_ORDER
+            if platform in {normalize_platform_token(item) for item in configured_required_platforms}
+        ]
+    discovered_platforms = [
+        platform
+        for platform in CANONICAL_DESKTOP_PLATFORM_ORDER
+        if any(
+            normalize_platform_token(artifact.get("platform")) == platform
+            for artifact in artifacts
+            if isinstance(artifact, dict)
+        )
+    ]
+    if discovered_platforms:
+        return discovered_platforms
+    if configured_platforms:
+        return configured_platforms
+    return list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS)
+
+
 def verify_required_desktop_heads(required_heads: list[str], *, source: str) -> None:
     if not required_heads:
         raise ValueError(f"{source} must include at least one desktop head")
@@ -3053,8 +3081,15 @@ def desktop_surface_refs(
     for route_row in desktop_route_truth:
         if not isinstance(route_row, dict):
             continue
+        if normalized_token(route_row.get("promotionState")) != "promoted":
+            continue
+        if normalized_token(route_row.get("revokeState")) == "revoked":
+            continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
         if not artifact_id:
+            continue
+        route_artifact_id = normalize_token(route_row.get("artifactId"))
+        if not route_artifact_id or route_artifact_id != artifact_id:
             continue
         platform = normalize_platform_token(route_row.get("platform"))
         kind = normalize_token(route_row.get("kind")) or "installer"
@@ -3203,6 +3238,70 @@ def artifact_publication_bindings(
         )
     rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
     return rows
+
+
+def ensure_registry_truth_matches_artifacts(
+    artifacts: list[dict[str, Any]],
+    tuple_coverage: dict[str, Any] | None,
+    artifact_identity_registry_rows: list[dict[str, Any]],
+    desktop_surface_ref_rows: list[dict[str, Any]],
+) -> None:
+    artifact_ids = {
+        normalize_token(artifact.get("artifactId") or artifact.get("id"))
+        for artifact in artifacts
+        if isinstance(artifact, dict)
+    }
+    artifact_ids.discard("")
+    required_platforms = {
+        normalize_platform_token(item)
+        for item in ((tuple_coverage or {}).get("requiredDesktopPlatforms") or [])
+        if normalize_platform_token(item)
+    }
+
+    for row in artifact_identity_registry_rows:
+        artifact_id = normalize_token(row.get("artifactId"))
+        tuple_id = str(row.get("tupleId") or "").strip()
+        if artifact_id not in artifact_ids:
+            raise ValueError(
+                "artifactIdentityRegistry must only reference produced artifacts "
+                f"(tupleId={tuple_id}, artifactId={artifact_id})"
+            )
+        platform = normalize_platform_token(row.get("platform"))
+        if required_platforms and platform not in required_platforms:
+            raise ValueError(
+                "artifactIdentityRegistry platform must stay within materialized desktop coverage "
+                f"(tupleId={tuple_id}, platform={platform})"
+            )
+
+    surfaced_tuple_ids: set[str] = set()
+    for row in desktop_surface_ref_rows:
+        artifact_id = normalize_token(row.get("artifactId"))
+        tuple_id = str(row.get("tupleId") or "").strip()
+        surfaced_tuple_ids.add(tuple_id)
+        if artifact_id not in artifact_ids:
+            raise ValueError(
+                "desktopSurfaceRefs must only reference produced artifacts "
+                f"(tupleId={tuple_id}, artifactId={artifact_id})"
+            )
+        platform = normalize_platform_token(row.get("platform"))
+        if required_platforms and platform not in required_platforms:
+            raise ValueError(
+                "desktopSurfaceRefs platform must stay within materialized desktop coverage "
+                f"(tupleId={tuple_id}, platform={platform})"
+            )
+
+    coverage_complete = bool((tuple_coverage or {}).get("complete"))
+    missing_tuple_ids = {
+        str(item).strip()
+        for item in ((tuple_coverage or {}).get("missingRequiredPlatformHeadRidTuples") or [])
+        if str(item).strip()
+    }
+    if coverage_complete != (not missing_tuple_ids):
+        raise ValueError("desktopTupleCoverage.complete must agree with missing required tuple coverage")
+    if surfaced_tuple_ids & missing_tuple_ids:
+        raise ValueError(
+            "desktopSurfaceRefs must not surface tuples that desktopTupleCoverage still marks as missing"
+        )
 
 
 def derive_default_compatibility_state(status: str, proof: dict[str, Any] | None) -> str:
@@ -3512,7 +3611,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     artifacts = [
         artifact
         for artifact in artifacts
-        if normalize_platform_token(artifact.get("platform")) in DEFAULT_REQUIRED_DESKTOP_PLATFORMS
+        if normalize_platform_token(artifact.get("platform")) in CANONICAL_DESKTOP_PLATFORM_ORDER
     ]
     startup_smoke_receipts: list[dict[str, str]] | None
     if args.startup_smoke_dir is not None and not args.skip_startup_smoke_filter:
@@ -3612,13 +3711,22 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     if not required_heads:
         required_heads = list(DEFAULT_REQUIRED_DESKTOP_HEADS)
     verify_required_desktop_heads(required_heads, source="required_desktop_heads")
+    loaded_desktop_coverage = (
+        loaded.get("desktopTupleCoverage")
+        if isinstance(loaded.get("desktopTupleCoverage"), dict)
+        else {}
+    )
+    required_platforms = materialization_required_platforms(
+        artifacts,
+        loaded_desktop_coverage.get("requiredDesktopPlatforms"),
+    )
     loaded_rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip()
     loaded_rollout_reason = str(loaded.get("rolloutReason") or loaded.get("rollout_reason") or "").strip()
     loaded_known_issue_summary = str(loaded.get("knownIssueSummary") or loaded.get("known_issue_summary") or "").strip()
     tuple_coverage = desktop_tuple_coverage(
         artifacts,
         required_heads=required_heads,
-        required_platforms=list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS),
+        required_platforms=required_platforms,
         channel_id=raw_channel,
         release_version=version,
         channel_status=status,
@@ -3666,7 +3774,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         tuple_coverage = desktop_tuple_coverage(
             artifacts,
             required_heads=required_heads,
-            required_platforms=list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS),
+            required_platforms=required_platforms,
             channel_id=channel,
             release_version=version,
             channel_status=status,
