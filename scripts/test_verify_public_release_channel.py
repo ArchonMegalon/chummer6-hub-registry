@@ -299,6 +299,19 @@ def test_verify_desktop_surface_refs_rejects_drifted_reward_publication_ref() ->
         MODULE.verify_desktop_surface_refs(payload, "fixture")
 
 
+def test_expected_desktop_surface_refs_skip_proof_required_tuples() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+
+    rows = MODULE.expected_desktop_surface_ref_rows(payload)
+
+    tuple_ids = {row["tupleId"] for row in rows}
+    assert "avalonia:linux:linux-x64" in tuple_ids
+    assert "blazor-desktop:linux:linux-x64" not in tuple_ids
+    assert "avalonia:windows:win-x64" not in tuple_ids
+    assert "blazor-desktop:windows:win-x64" not in tuple_ids
+
+
 def test_verify_registry_boundary_coverage_accepts_canonical_projection() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)
@@ -721,6 +734,179 @@ def test_verify_artifact_identity_registry_writes_local_audit_bundle(tmp_path: P
     assert (audit_dir / "artifact-identity-registry.actual.json").is_file()
     assert (audit_dir / "artifact-identity-registry.expected.json").is_file()
     assert (audit_dir / "artifact-identity-registry.diff.txt").is_file()
+
+
+def test_verify_registry_tuple_consistency_rejects_split_brain_mac_preview_sections() -> None:
+    payload = {
+        "channelId": "preview",
+        "version": "run-20260525-202148",
+        "desktopTupleCoverage": {
+            "requiredDesktopPlatforms": ["macos"],
+            "requiredDesktopHeads": ["avalonia"],
+            "promotedInstallerTuples": [
+                {
+                    "tupleId": "avalonia:macos:osx-arm64",
+                    "head": "avalonia",
+                    "platform": "macos",
+                    "rid": "osx-arm64",
+                    "arch": "arm64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-osx-arm64-installer",
+                },
+                {
+                    "tupleId": "blazor-desktop:macos:osx-arm64",
+                    "head": "blazor-desktop",
+                    "platform": "macos",
+                    "rid": "osx-arm64",
+                    "arch": "arm64",
+                    "kind": "installer",
+                    "artifactId": "blazor-desktop-osx-arm64-installer",
+                },
+            ],
+            "promotedPlatformHeads": {"macos": ["avalonia", "blazor-desktop"]},
+            "requiredDesktopPlatformHeadRidTuples": ["avalonia:osx-arm64:macos"],
+            "promotedPlatformHeadRidTuples": [
+                "avalonia:osx-arm64:macos",
+                "blazor-desktop:osx-arm64:macos",
+            ],
+            "missingRequiredPlatforms": [],
+            "missingRequiredHeads": [],
+            "missingRequiredPlatformHeadPairs": [],
+            "missingRequiredPlatformHeadRidTuples": [],
+            "externalProofRequests": [],
+            "desktopRouteTruth": [
+                {
+                    "tupleId": "avalonia:macos:osx-arm64",
+                    "head": "avalonia",
+                    "platform": "macos",
+                    "rid": "osx-arm64",
+                    "arch": "arm64",
+                    "artifactId": "avalonia-osx-arm64-installer",
+                    "routeRole": "primary",
+                    "promotionState": "promoted",
+                    "revokeState": "not_revoked",
+                    "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
+                }
+            ],
+            "complete": True,
+        },
+        "artifacts": [
+            {
+                "artifactId": "avalonia-osx-arm64-installer",
+                "head": "avalonia",
+                "rid": "osx-arm64",
+                "platform": "macos",
+                "arch": "arm64",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "blazor-desktop-osx-arm64-installer",
+                "head": "blazor-desktop",
+                "rid": "osx-arm64",
+                "platform": "macos",
+                "arch": "arm64",
+                "kind": "installer",
+            },
+        ],
+        "installAwareArtifactRegistry": [
+            {
+                "registryId": "concierge:preview:run-20260525-202148:avalonia-osx-arm64-installer",
+                "artifactId": "avalonia-osx-arm64-installer",
+                "channelId": "preview",
+                "releaseVersion": "run-20260525-202148",
+                "tupleId": "avalonia:macos:osx-arm64",
+                "head": "avalonia",
+                "platform": "macos",
+                "rid": "osx-arm64",
+                "arch": "arm64",
+                "kind": "installer",
+                "installedBuildSelector": "preview/run-20260525-202148/avalonia/macos/arm64",
+                "currentForInstalledBuild": True,
+                "channelRationale": "x",
+                "correctnessReason": "x",
+                "recoveryProofRefs": ["/downloads/install/avalonia-osx-arm64-installer"],
+                "conciergeAssetRefs": {"releaseExplainerPacket": "x"},
+            }
+        ],
+        "desktopSurfaceRefs": [
+            {
+                "registryId": "desktop-surface:preview:run-20260525-202148:avalonia:macos:osx-arm64",
+                "artifactId": "avalonia-osx-arm64-installer",
+                "channelId": "preview",
+                "releaseVersion": "run-20260525-202148",
+                "tupleId": "avalonia:macos:osx-arm64",
+                "head": "avalonia",
+                "platform": "macos",
+                "rid": "osx-arm64",
+                "arch": "arm64",
+                "kind": "installer",
+                "installAccessClass": "account_required",
+                "desktopChannelRef": "x",
+                "installGuidanceRef": "x",
+                "participationReceiptRef": "x",
+                "rewardPublicationRef": "x",
+                "publicationBindingId": "x",
+                "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
+                "rationale": "x",
+            }
+        ],
+        "artifactIdentityRegistry": [
+            {
+                "registryId": "artifact-identity:preview:run-20260525-202148:avalonia:macos:osx-arm64",
+                "artifactFamilyId": "artifact-family:avalonia:macos:osx-arm64",
+                "artifactId": "avalonia-osx-arm64-installer",
+                "channelId": "preview",
+                "releaseVersion": "run-20260525-202148",
+                "tupleId": "avalonia:macos:osx-arm64",
+                "head": "avalonia",
+                "platform": "macos",
+                "rid": "osx-arm64",
+                "arch": "arm64",
+                "kind": "installer",
+                "previewRef": "x",
+                "captionRef": "x",
+                "packetRef": "x",
+                "localeRef": "x",
+                "retentionRef": "x",
+                "retentionState": "current",
+                "publicationBindingId": "x",
+                "publicationState": "published",
+                "signedInShelfRef": "x",
+                "publicShelfRef": "x",
+                "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
+            }
+        ],
+        "artifactPublicationBindings": [
+            {
+                "bindingId": "binding:preview:run-20260525-202148:avalonia:macos:osx-arm64",
+                "artifactFamilyId": "artifact-family:avalonia:macos:osx-arm64",
+                "artifactId": "avalonia-osx-arm64-installer",
+                "channelId": "preview",
+                "releaseVersion": "run-20260525-202148",
+                "tupleId": "avalonia:macos:osx-arm64",
+                "head": "avalonia",
+                "platform": "macos",
+                "rid": "osx-arm64",
+                "arch": "arm64",
+                "kind": "installer",
+                "publicationScope": "signed-in-and-public",
+                "publicationState": "published",
+                "signedInShelfRef": "x",
+                "publicShelfRef": "x",
+                "previewRef": "x",
+                "captionRef": "x",
+                "packetRef": "x",
+                "localeRef": "x",
+                "retentionRef": "x",
+                "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
+                "retentionState": "current",
+                "rationale": "x",
+            }
+        ],
+    }
+
+    with pytest.raises(SystemExit, match="promotedInstallerTuples and desktopRouteTruth promoted tuple set diverge"):
+        MODULE.verify_registry_tuple_consistency(payload, "release-channel.json")
 
 
 def test_verify_exchange_lineage_registry_rejects_stale_proof_output_readiness_drift() -> None:

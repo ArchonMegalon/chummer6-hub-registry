@@ -108,7 +108,7 @@ def summarize_registry_row_mismatch(
         tuple_id = actual_row.get("tupleId") or expected_row.get("tupleId") or f"index={index}"
         return f"first_diff tupleId={tuple_id} row_content_mismatch"
     return "rows differ but no first-diff summary was derived"
-REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows")
+REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
 REQUIRED_DESKTOP_HEADS = ("avalonia",)
 DESKTOP_ROUTE_TRUTH_HEADS = ("avalonia", "blazor-desktop")
 DESKTOP_ROUTE_ROLES = {
@@ -118,6 +118,7 @@ DESKTOP_ROUTE_ROLES = {
 DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS = {
     "linux": ("linux-x64",),
     "windows": ("win-x64",),
+    "macos": ("osx-arm64",),
 }
 REQUIRED_LOCALIZATION_SHIPPING_LOCALES = ("en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn")
 REQUIRED_LOCALIZATION_ACCEPTANCE_GATES = (
@@ -3300,8 +3301,15 @@ def expected_desktop_surface_ref_rows(payload: dict[str, Any]) -> list[dict[str,
     for route_row in desktop_route_truth:
         if not isinstance(route_row, dict):
             continue
+        if normalized_token(route_row.get("promotionState")) != "promoted":
+            continue
+        if normalized_token(route_row.get("revokeState")) == "revoked":
+            continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
         if not artifact_id:
+            continue
+        route_artifact_id = normalized_token(route_row.get("artifactId"))
+        if not route_artifact_id or route_artifact_id != artifact_id:
             continue
         platform = normalized_platform_token(route_row.get("platform"))
         kind = normalized_token(route_row.get("kind")) or "installer"
@@ -4234,6 +4242,82 @@ def verify_artifact_publication_bindings(payload: dict[str, Any], source: str) -
     expected_rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
     if normalized_rows != expected_rows:
         raise SystemExit(f"{source} artifactPublicationBindings does not match canonical publication binding truth")
+
+
+def verify_registry_tuple_consistency(payload: dict[str, Any], source: str) -> None:
+    coverage = payload.get("desktopTupleCoverage") if isinstance(payload.get("desktopTupleCoverage"), dict) else {}
+    desktop_route_truth = coverage.get("desktopRouteTruth") if isinstance(coverage, dict) else []
+    promoted_installers = coverage.get("promotedInstallerTuples") if isinstance(coverage, dict) else []
+    install_aware_registry = payload.get("installAwareArtifactRegistry") or []
+    desktop_surface_refs = payload.get("desktopSurfaceRefs") or []
+    artifact_identity_registry = payload.get("artifactIdentityRegistry") or []
+    artifact_publication_bindings = payload.get("artifactPublicationBindings") or []
+
+    route_tuple_ids = {
+        str(row.get("tupleId") or "").strip()
+        for row in desktop_route_truth
+        if isinstance(row, dict) and str(row.get("tupleId") or "").strip()
+    }
+    promoted_tuple_ids = {
+        str(row.get("tupleId") or "").strip()
+        for row in promoted_installers
+        if isinstance(row, dict) and str(row.get("tupleId") or "").strip()
+    }
+    install_aware_tuple_ids = {
+        str(row.get("tupleId") or "").strip()
+        for row in install_aware_registry
+        if isinstance(row, dict) and str(row.get("tupleId") or "").strip()
+    }
+    surface_tuple_ids = {
+        str(row.get("tupleId") or "").strip()
+        for row in desktop_surface_refs
+        if isinstance(row, dict) and str(row.get("tupleId") or "").strip()
+    }
+    identity_tuple_ids = {
+        str(row.get("tupleId") or "").strip()
+        for row in artifact_identity_registry
+        if isinstance(row, dict) and str(row.get("tupleId") or "").strip()
+    }
+    binding_tuple_ids = {
+        str(row.get("tupleId") or "").strip()
+        for row in artifact_publication_bindings
+        if isinstance(row, dict) and str(row.get("tupleId") or "").strip()
+    }
+
+    route_promoted_tuple_ids = {
+        str(row.get("tupleId") or "").strip()
+        for row in desktop_route_truth
+        if isinstance(row, dict)
+        and str(row.get("tupleId") or "").strip()
+        and normalized_token(row.get("promotionState")) == "promoted"
+        and normalized_token(row.get("revokeState")) != "revoked"
+    }
+
+    if route_promoted_tuple_ids != promoted_tuple_ids:
+        raise SystemExit(
+            f"{source} promotedInstallerTuples and desktopRouteTruth promoted tuple set diverge "
+            f"(promotedInstallerTuples={sorted(promoted_tuple_ids)} desktopRouteTruthPromoted={sorted(route_promoted_tuple_ids)})"
+        )
+    if install_aware_tuple_ids != route_tuple_ids:
+        raise SystemExit(
+            f"{source} installAwareArtifactRegistry tuple set diverges from desktopRouteTruth "
+            f"(installAwareArtifactRegistry={sorted(install_aware_tuple_ids)} desktopRouteTruth={sorted(route_tuple_ids)})"
+        )
+    if identity_tuple_ids != route_tuple_ids:
+        raise SystemExit(
+            f"{source} artifactIdentityRegistry tuple set diverges from desktopRouteTruth "
+            f"(artifactIdentityRegistry={sorted(identity_tuple_ids)} desktopRouteTruth={sorted(route_tuple_ids)})"
+        )
+    if binding_tuple_ids != route_tuple_ids:
+        raise SystemExit(
+            f"{source} artifactPublicationBindings tuple set diverges from desktopRouteTruth "
+            f"(artifactPublicationBindings={sorted(binding_tuple_ids)} desktopRouteTruth={sorted(route_tuple_ids)})"
+        )
+    if surface_tuple_ids != route_promoted_tuple_ids:
+        raise SystemExit(
+            f"{source} desktopSurfaceRefs tuple set diverges from promoted desktopRouteTruth tuples "
+            f"(desktopSurfaceRefs={sorted(surface_tuple_ids)} desktopRouteTruthPromoted={sorted(route_promoted_tuple_ids)})"
+        )
 
 
 def verify_exchange_lineage_registry(payload: dict[str, Any], source: str) -> None:
@@ -6242,6 +6326,7 @@ def main() -> int:
     verify_desktop_surface_refs(payload, source)
     verify_artifact_identity_registry(payload, source)
     verify_artifact_publication_bindings(payload, source)
+    verify_registry_tuple_consistency(payload, source)
     verify_exchange_lineage_registry(payload, source)
     verify_public_trust_metrics(payload, source)
     verify_registry_boundary_coverage(payload, source)

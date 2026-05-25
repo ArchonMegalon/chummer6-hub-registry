@@ -1318,6 +1318,66 @@ def test_canonical_payload_keeps_mac_only_preview_registry_truth_scoped_to_mac_a
     assert payload["desktopTupleCoverage"]["missingRequiredPlatformHeadRidTuples"] == []
 
 
+def test_ensure_registry_truth_matches_artifacts_rejects_split_brain_registry_rows() -> None:
+    artifacts = [
+        {
+            "artifactId": "avalonia-osx-arm64-installer",
+            "head": "avalonia",
+            "platform": "macos",
+            "rid": "osx-arm64",
+            "arch": "arm64",
+            "kind": "installer",
+        },
+        {
+            "artifactId": "blazor-desktop-osx-arm64-installer",
+            "head": "blazor-desktop",
+            "platform": "macos",
+            "rid": "osx-arm64",
+            "arch": "arm64",
+            "kind": "installer",
+        },
+    ]
+    coverage = MODULE.desktop_tuple_coverage(
+        artifacts,
+        required_heads=["avalonia"],
+        required_platforms=["macos"],
+        channel_id="preview",
+    )
+    artifact_identity_registry = MODULE.artifact_identity_registry(
+        coverage,
+        channel_id="preview",
+        release_version="run-20260525-202148",
+    )
+    desktop_surface_refs = MODULE.desktop_surface_refs(
+        artifacts,
+        coverage,
+        channel_id="preview",
+        release_version="run-20260525-202148",
+    )
+    install_aware_registry = MODULE.install_aware_artifact_registry(
+        artifacts,
+        coverage,
+        channel_id="preview",
+        release_version="run-20260525-202148",
+    )
+    publication_bindings = MODULE.artifact_publication_bindings(
+        coverage,
+        channel_id="preview",
+        release_version="run-20260525-202148",
+    )
+    artifact_identity_registry[0]["platform"] = "windows"
+
+    with pytest.raises(ValueError, match="artifactIdentityRegistry platform must stay within materialized desktop coverage"):
+        MODULE.ensure_registry_truth_matches_artifacts(
+            artifacts,
+            coverage,
+            artifact_identity_registry,
+            desktop_surface_refs,
+            install_aware_registry_rows=install_aware_registry,
+            artifact_publication_binding_rows=publication_bindings,
+        )
+
+
 def test_desktop_tuple_coverage_keeps_fallback_rollback_tuple_specific() -> None:
     coverage = MODULE.desktop_tuple_coverage(
         [

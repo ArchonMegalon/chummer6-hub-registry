@@ -3245,6 +3245,8 @@ def ensure_registry_truth_matches_artifacts(
     tuple_coverage: dict[str, Any] | None,
     artifact_identity_registry_rows: list[dict[str, Any]],
     desktop_surface_ref_rows: list[dict[str, Any]],
+    install_aware_registry_rows: list[dict[str, Any]] | None = None,
+    artifact_publication_binding_rows: list[dict[str, Any]] | None = None,
 ) -> None:
     artifact_ids = {
         normalize_token(artifact.get("artifactId") or artifact.get("id"))
@@ -3301,6 +3303,59 @@ def ensure_registry_truth_matches_artifacts(
     if surfaced_tuple_ids & missing_tuple_ids:
         raise ValueError(
             "desktopSurfaceRefs must not surface tuples that desktopTupleCoverage still marks as missing"
+        )
+
+    install_aware_tuple_ids: set[str] = set()
+    for row in install_aware_registry_rows or []:
+        if not isinstance(row, dict):
+            continue
+        artifact_id = normalize_token(row.get("artifactId"))
+        tuple_id = str(row.get("tupleId") or "").strip()
+        install_aware_tuple_ids.add(tuple_id)
+        if artifact_id not in artifact_ids:
+            raise ValueError(
+                "installAwareArtifactRegistry must only reference produced artifacts "
+                f"(tupleId={tuple_id}, artifactId={artifact_id})"
+            )
+        platform = normalize_platform_token(row.get("platform"))
+        if required_platforms and platform not in required_platforms:
+            raise ValueError(
+                "installAwareArtifactRegistry platform must stay within materialized desktop coverage "
+                f"(tupleId={tuple_id}, platform={platform})"
+            )
+
+    binding_tuple_ids: set[str] = set()
+    for row in artifact_publication_binding_rows or []:
+        if not isinstance(row, dict):
+            continue
+        artifact_id = normalize_token(row.get("artifactId"))
+        tuple_id = str(row.get("tupleId") or "").strip()
+        binding_tuple_ids.add(tuple_id)
+        if artifact_id not in artifact_ids:
+            raise ValueError(
+                "artifactPublicationBindings must only reference produced artifacts "
+                f"(tupleId={tuple_id}, artifactId={artifact_id})"
+            )
+        platform = normalize_platform_token(row.get("platform"))
+        if required_platforms and platform not in required_platforms:
+            raise ValueError(
+                "artifactPublicationBindings platform must stay within materialized desktop coverage "
+                f"(tupleId={tuple_id}, platform={platform})"
+            )
+
+    desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth") or []
+    expected_install_aware_tuple_ids = {
+        str(row.get("tupleId") or "").strip()
+        for row in desktop_route_truth
+        if isinstance(row, dict) and str(row.get("tupleId") or "").strip() and expected_installer_artifact_id_for_route(row)
+    }
+    if install_aware_registry_rows is not None and install_aware_tuple_ids != expected_install_aware_tuple_ids:
+        raise ValueError(
+            "installAwareArtifactRegistry tuple coverage must match desktopRouteTruth installer tuples"
+        )
+    if artifact_publication_binding_rows is not None and binding_tuple_ids != expected_install_aware_tuple_ids:
+        raise ValueError(
+            "artifactPublicationBindings tuple coverage must match desktopRouteTruth installer tuples"
         )
 
 
@@ -3853,6 +3908,14 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         channel_id=channel,
         release_version=version,
         proof_freshness_status=freshness_status,
+    )
+    ensure_registry_truth_matches_artifacts(
+        artifacts,
+        tuple_coverage,
+        artifact_identity_registry_rows,
+        desktop_surface_ref_rows,
+        install_aware_registry_rows=install_aware_registry,
+        artifact_publication_binding_rows=artifact_publication_binding_rows,
     )
     return {
         "generated_at": generated_at,
