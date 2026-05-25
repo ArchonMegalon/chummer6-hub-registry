@@ -3470,6 +3470,7 @@ def derive_rollout_reason(
 
 
 def derive_supportability_state(
+    channel: str,
     status: str,
     proof: dict[str, Any] | None,
     *,
@@ -3482,11 +3483,14 @@ def derive_supportability_state(
     if not localization_gate_allows_public_stable(proof):
         return "review_required"
     if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
+        if normalize_token(channel) == "preview":
+            return "preview_supported"
         return "gold_supported"
     return "review_required"
 
 
 def derive_supportability_summary(
+    channel: str,
     status: str,
     proof: dict[str, Any] | None,
     *,
@@ -3506,6 +3510,11 @@ def derive_supportability_summary(
             "Treat the current shelf as review-required until the UI localization release gate is fully green."
         )
     if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
+        proof_label = (
+            "Preview release proof passed"
+            if normalize_token(channel) == "preview"
+            else "Gold release proof passed"
+        )
         journeys = proof.get("journeysPassed") or []
         if journeys:
             journey_list = ", ".join(str(item) for item in journeys)
@@ -3523,8 +3532,8 @@ def derive_supportability_summary(
                     "Community organizer closure stayed grounded on the current shelf."
                 )
             note_suffix = (" " + " ".join(proof_notes)) if proof_notes else ""
-            return f"Gold release proof passed for: {journey_list}.{note_suffix}"
-        return "Gold release proof passed for the current shelf."
+            return f"{proof_label} for: {journey_list}.{note_suffix}"
+        return f"{proof_label} for the current shelf."
     return "Treat the current shelf as review-required until release proof and support closure checks pass."
 
 
@@ -3597,6 +3606,7 @@ def normalize_release_channel_posture(
         desktop_coverage_complete=desktop_coverage_complete,
     )
     derived_supportability_state = derive_supportability_state(
+        channel,
         status,
         proof,
         desktop_coverage_complete=desktop_coverage_complete,
@@ -3807,6 +3817,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     supportability_state = (
         str(loaded.get("supportabilityState") or loaded.get("supportability_state") or "").strip()
         or derive_supportability_state(
+            raw_channel,
             status,
             release_proof,
             desktop_coverage_complete=desktop_coverage_complete,
@@ -3841,6 +3852,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         desktop_coverage_complete = desktop_tuple_coverage_is_complete(tuple_coverage)
 
     derived_supportability_summary = derive_supportability_summary(
+        channel,
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
@@ -3852,6 +3864,11 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     if (
         supportability_state == "gold_supported"
         and loaded_supportability_summary.startswith("Local release proof passed",)
+    ):
+        supportability_summary = derived_supportability_summary
+    elif (
+        supportability_state == "preview_supported"
+        and loaded_supportability_summary.startswith("Gold release proof passed",)
     ):
         supportability_summary = derived_supportability_summary
     else:
@@ -3867,6 +3884,11 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     if (
         supportability_state == "gold_supported"
         and loaded_known_issue_summary.startswith("Preview caveats still apply",)
+    ):
+        known_issue_summary = derived_known_issue_summary
+    elif (
+        supportability_state == "preview_supported"
+        and loaded_known_issue_summary.startswith("Current release proof is green",)
     ):
         known_issue_summary = derived_known_issue_summary
     else:

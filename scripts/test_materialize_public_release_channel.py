@@ -114,11 +114,24 @@ def test_derive_rollout_state_preserves_preview_channel_for_complete_preview_rel
 def test_derive_supportability_state_uses_gold_supported_for_complete_published_release() -> None:
     assert (
         MODULE.derive_supportability_state(
+            "docker",
             "published",
             passing_release_proof(),
             desktop_coverage_complete=True,
         )
         == "gold_supported"
+    )
+
+
+def test_derive_supportability_state_preserves_preview_supported_for_complete_preview_release() -> None:
+    assert (
+        MODULE.derive_supportability_state(
+            "preview",
+            "published",
+            passing_release_proof(),
+            desktop_coverage_complete=True,
+        )
+        == "preview_supported"
     )
 
 
@@ -136,6 +149,17 @@ def test_normalize_release_channel_posture_upgrades_stale_local_docker_states() 
 def test_normalize_effective_channel_id_projects_public_stable_for_promoted_preview_release() -> None:
     assert MODULE.normalize_effective_channel_id("preview", "public_stable") == "public_stable"
     assert MODULE.normalize_effective_channel_id("docker", "public_stable") == "public_stable"
+
+
+def test_normalize_release_channel_posture_keeps_preview_supported_for_promoted_preview_release() -> None:
+    assert MODULE.normalize_release_channel_posture(
+        "promoted_preview",
+        "gold_supported",
+        channel="preview",
+        status="published",
+        proof=passing_release_proof(),
+        desktop_coverage_complete=True,
+    ) == ("promoted_preview", "preview_supported")
 
 
 def test_desktop_tuple_coverage_incomplete_when_only_rid_tuple_is_missing() -> None:
@@ -1316,6 +1340,12 @@ def test_canonical_payload_keeps_mac_only_preview_registry_truth_scoped_to_mac_a
     }
     assert payload["desktopTupleCoverage"]["missingRequiredPlatforms"] == []
     assert payload["desktopTupleCoverage"]["missingRequiredPlatformHeadRidTuples"] == []
+    assert payload["channel"] == "preview"
+    assert payload["rolloutState"] == "promoted_preview"
+    assert payload["supportabilityState"] == "preview_supported"
+    assert payload["publicTrustMetrics"]["releaseChannel"]["supportabilityState"] == "preview_supported"
+    assert payload["registryBoundaryCoverage"]["releaseChannel"]["supportabilityState"] == "preview_supported"
+    assert payload["supportabilitySummary"].startswith("Preview release proof passed")
 
 
 def test_ensure_registry_truth_matches_artifacts_rejects_split_brain_registry_rows() -> None:
