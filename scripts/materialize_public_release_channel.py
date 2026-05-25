@@ -54,10 +54,11 @@ DESKTOP_ROUTE_ROLES = {
     "avalonia": "primary",
     "blazor-desktop": "fallback",
 }
-DEFAULT_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows")
+DEFAULT_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
 DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS = {
     "linux": ("linux-x64",),
     "windows": ("win-x64",),
+    "macos": ("osx-arm64",),
 }
 CANONICAL_DESKTOP_PLATFORM_ORDER = ("linux", "windows", "macos")
 REQUIRED_RELEASE_PROOF_JOURNEYS = (
@@ -946,7 +947,6 @@ def filter_unproven_installers(
             receipt for receipt in matching_receipts if normalize_token(receipt.get("proofFreshness")) == "stale"
         ]
         if matching_stale_receipts:
-            filtered.append(artifact)
             continue
 
         if expected_digest:
@@ -3380,7 +3380,7 @@ def derive_rollout_state(
     if not localization_gate_allows_public_stable(proof):
         return "public_release_review_required"
     if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
-        return "public_stable" if channel in {"preview", "docker"} else channel
+        return "promoted_preview" if channel == "preview" else ("public_stable" if channel == "docker" else channel)
     return "promoted_preview" if channel in {"preview", "docker"} else channel
 
 
@@ -3862,6 +3862,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "contract_name": contract_name,
         "contractName": contract_name,
         "channelId": channel,
+        "channel": channel,
         "version": version,
         "publishedAt": published_at,
         "status": status,

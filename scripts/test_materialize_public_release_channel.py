@@ -22,6 +22,10 @@ VERIFY_MODULE = importlib.util.module_from_spec(VERIFY_MODULE_SPEC)
 VERIFY_MODULE_SPEC.loader.exec_module(VERIFY_MODULE)
 
 
+def load_tests(loader, tests, pattern):
+    return tests
+
+
 def install_aware_payload() -> tuple[list[dict], dict]:
     artifacts = [
         {
@@ -72,15 +76,38 @@ def install_aware_payload() -> tuple[list[dict], dict]:
     return artifacts, coverage
 
 
+def passing_release_proof() -> dict:
+    return {
+        "status": "passed",
+        "uiLocalizationReleaseGate": {
+            "status": "passed",
+            "explicitFallbackRuntime": "passed",
+            "signoffSmokeRunnerStatus": "passed",
+        },
+    }
+
+
 def test_derive_rollout_state_uses_public_stable_for_complete_published_docker_release() -> None:
     assert (
         MODULE.derive_rollout_state(
             "docker",
             "published",
-            {"status": "passed"},
+            passing_release_proof(),
             desktop_coverage_complete=True,
         )
         == "public_stable"
+    )
+
+
+def test_derive_rollout_state_preserves_preview_channel_for_complete_preview_release() -> None:
+    assert (
+        MODULE.derive_rollout_state(
+            "preview",
+            "published",
+            passing_release_proof(),
+            desktop_coverage_complete=True,
+        )
+        == "promoted_preview"
     )
 
 
@@ -88,7 +115,7 @@ def test_derive_supportability_state_uses_gold_supported_for_complete_published_
     assert (
         MODULE.derive_supportability_state(
             "published",
-            {"status": "passed"},
+            passing_release_proof(),
             desktop_coverage_complete=True,
         )
         == "gold_supported"
@@ -101,7 +128,7 @@ def test_normalize_release_channel_posture_upgrades_stale_local_docker_states() 
         "local_docker_proven",
         channel="docker",
         status="published",
-        proof={"status": "passed"},
+        proof=passing_release_proof(),
         desktop_coverage_complete=True,
     ) == ("public_stable", "gold_supported")
 
@@ -847,7 +874,7 @@ def test_filter_unproven_installers_rejects_identity_matched_installer_when_rece
     assert filtered == []
 
 
-def test_filter_unproven_installers_keeps_identity_matched_installer_when_receipt_is_stale_but_bytes_match() -> None:
+def test_filter_unproven_installers_rejects_identity_matched_installer_when_receipt_is_stale_even_if_bytes_match() -> None:
     artifacts = [
         {
             "artifactId": "avalonia-win-x64-installer",
@@ -874,7 +901,7 @@ def test_filter_unproven_installers_keeps_identity_matched_installer_when_receip
 
     filtered = MODULE.filter_unproven_installers(artifacts, startup_smoke_receipts)
 
-    assert filtered == artifacts
+    assert filtered == []
 
 
 def test_filter_unproven_installers_still_rejects_installer_without_matching_identity_or_digest() -> None:
