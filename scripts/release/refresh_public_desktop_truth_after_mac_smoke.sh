@@ -9,8 +9,10 @@ RECEIPT_PATH="${RECEIPT_PATH:-$REGISTRY_ROOT/.codex-studio/published/startup-smo
 INSTALLER_PATH="${INSTALLER_PATH:-$WORKSPACE_ROOT/chummer.run-services/Chummer.Portal/downloads/files/chummer-avalonia-osx-arm64-installer.dmg}"
 MAX_AGE_SECONDS="${MAX_AGE_SECONDS:-86400}"
 CHANNEL_ID="${CHANNEL_ID:-public_stable}"
+MAC_RELEASE_WORK_ROOT="${MAC_RELEASE_WORK_ROOT:-}"
+PREFLIGHT_ABORT_RECEIPT_PATH="${PREFLIGHT_ABORT_RECEIPT_PATH:-${MAC_RELEASE_WORK_ROOT:+$MAC_RELEASE_WORK_ROOT/release-evidence/preflight-capacity-abort.json}}"
 
-python3 - "$RECEIPT_PATH" "$INSTALLER_PATH" "$MAX_AGE_SECONDS" "$CHANNEL_ID" <<'PY'
+python3 - "$RECEIPT_PATH" "$INSTALLER_PATH" "$MAX_AGE_SECONDS" "$CHANNEL_ID" "$PREFLIGHT_ABORT_RECEIPT_PATH" <<'PY'
 import datetime as dt
 import hashlib
 import json
@@ -21,8 +23,17 @@ receipt_path = Path(sys.argv[1])
 installer_path = Path(sys.argv[2])
 max_age_seconds = int(sys.argv[3])
 expected_channel = str(sys.argv[4]).strip().lower()
+preflight_abort_receipt_path = Path(sys.argv[5]) if str(sys.argv[5]).strip() else None
 
 if not receipt_path.is_file():
+    if preflight_abort_receipt_path and preflight_abort_receipt_path.is_file():
+        preflight_abort = json.loads(preflight_abort_receipt_path.read_text(encoding="utf-8"))
+        abort_class = str(preflight_abort.get("abortClass") or "").strip()
+        if abort_class == "preflight_capacity_abort":
+            raise SystemExit(
+                "mac startup-smoke receipt is missing because the referenced mac release run aborted before clone/build/package/smoke. "
+                f"See {preflight_abort_receipt_path} (abortClass=preflight_capacity_abort)."
+            )
     raise SystemExit(f"missing mac startup-smoke receipt: {receipt_path}")
 if not installer_path.is_file():
     raise SystemExit(f"missing mac installer bytes: {installer_path}")

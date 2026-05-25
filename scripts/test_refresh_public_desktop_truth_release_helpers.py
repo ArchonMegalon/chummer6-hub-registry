@@ -70,6 +70,52 @@ class RefreshPublicDesktopTruthReleaseHelpersTests(unittest.TestCase):
 
             self.assertEqual(capture_path.read_text(encoding="utf-8"), str(installer_path))
 
+    def test_mac_wrapper_explains_preflight_capacity_abort_when_startup_smoke_is_missing(self) -> None:
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            release_dir = root / "scripts" / "release"
+            release_dir.mkdir(parents=True, exist_ok=True)
+
+            source_wrapper = RELEASE_DIR / "refresh_public_desktop_truth_after_mac_smoke.sh"
+            target_wrapper = release_dir / source_wrapper.name
+            shutil.copy2(source_wrapper, target_wrapper)
+            target_wrapper.chmod(0o755)
+
+            installer_path = root / "custom" / "validated-mac-installer.dmg"
+            installer_path.parent.mkdir(parents=True, exist_ok=True)
+            installer_path.write_bytes(b"mac-dmg-bytes")
+
+            preflight_abort_path = root / "run-20260525-193508" / "release-evidence" / "preflight-capacity-abort.json"
+            preflight_abort_path.parent.mkdir(parents=True, exist_ok=True)
+            preflight_abort_path.write_text(
+                json.dumps(
+                    {
+                        "contractName": "chummer6.mac_release_preflight_abort",
+                        "status": "abort",
+                        "abortClass": "preflight_capacity_abort",
+                    }
+                ),
+                encoding="utf-8",
+            )
+
+            env = os.environ.copy()
+            env["RECEIPT_PATH"] = str(root / "missing-startup-smoke.receipt.json")
+            env["INSTALLER_PATH"] = str(installer_path)
+            env["PREFLIGHT_ABORT_RECEIPT_PATH"] = str(preflight_abort_path)
+
+            result = subprocess.run(
+                [str(target_wrapper)],
+                check=False,
+                env=env,
+                cwd=root,
+                capture_output=True,
+                text=True,
+            )
+
+            self.assertNotEqual(result.returncode, 0)
+            self.assertIn("abortClass=preflight_capacity_abort", result.stderr)
+            self.assertIn("aborted before clone/build/package/smoke", result.stderr)
+
 
 if __name__ == "__main__":
     unittest.main()
