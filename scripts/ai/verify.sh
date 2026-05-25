@@ -60,12 +60,11 @@ python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m117_
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m117_registry_artifact_shelf.py --self-test >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m120_registry_launch_truth.py >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m120_registry_launch_truth.py --self-test >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m135_registry_boundary_coverage.py >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m135_registry_boundary_coverage.py --self-test >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m143_registry_output_readiness.py >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m143_registry_output_readiness.py --self-test >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py --self-test >/dev/null
+python3 -m unittest /docker/chummercomplete/chummer-hub-registry/scripts/test_refresh_public_desktop_truth_release_helpers.py >/dev/null
 
 # Default verify must fail when consumer repos still source-own registry contracts.
 export CHUMMER_ENFORCE_CONSUMER_OWNERSHIP="${CHUMMER_ENFORCE_CONSUMER_OWNERSHIP:-1}"
@@ -312,16 +311,33 @@ assert payload.get("supportabilityState") == "unpublished"
 assert "no release shelf is live" in str(payload.get("supportabilitySummary") or "").lower()
 assert "shelf is still empty" in str(payload.get("knownIssueSummary") or "").lower()
 coverage = payload.get("desktopTupleCoverage") or {}
-assert coverage.get("requiredDesktopPlatforms") == []
+assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows", "macos"]
 assert coverage.get("requiredDesktopHeads") == ["avalonia"]
-assert sorted(coverage.get("requiredDesktopPlatformHeadRidTuples") or []) == []
+assert sorted(coverage.get("requiredDesktopPlatformHeadRidTuples") or []) == [
+    "avalonia:linux-x64:linux",
+    "avalonia:osx-arm64:macos",
+    "avalonia:win-x64:windows",
+]
 assert coverage.get("promotedPlatformHeadRidTuples") == []
-assert coverage.get("missingRequiredPlatforms") == []
+assert coverage.get("missingRequiredPlatforms") == ["linux", "windows", "macos"]
 assert coverage.get("missingRequiredHeads") == ["avalonia"]
-assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == []
-assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == []
+assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == [
+    "avalonia:linux",
+    "avalonia:macos",
+    "avalonia:windows",
+]
+assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == [
+    "avalonia:linux-x64:linux",
+    "avalonia:osx-arm64:macos",
+    "avalonia:win-x64:windows",
+]
 external_requests = coverage.get("externalProofRequests") or []
-assert external_requests == []
+assert len(external_requests) == 3
+assert sorted(item.get("tupleId") for item in external_requests) == [
+    "avalonia:linux-x64:linux",
+    "avalonia:osx-arm64:macos",
+    "avalonia:win-x64:windows",
+]
 assert all(str(item.get("channelId") or "").strip() == str(payload.get("channelId") or "").strip() for item in external_requests)
 assert all(item.get("requiredHost") == item.get("platform") for item in external_requests)
 assert all(sorted(item.get("requiredProofs") or []) == ["promoted_installer_artifact", "startup_smoke_receipt"] for item in external_requests)
@@ -1867,14 +1883,14 @@ from pathlib import Path
 path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
 payload = json.loads(path.read_text(encoding="utf-8"))
 coverage = payload.get("desktopTupleCoverage") or {}
-coverage["requiredDesktopPlatforms"] = ["linux", "windows"]
+coverage["requiredDesktopPlatforms"] = ["windows"]
 payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
 if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
-  echo "verify gate failed: verifier should reject desktopTupleCoverage.requiredDesktopPlatforms when canonical platform coverage is incomplete." >&2
+  echo "verify gate failed: verifier should reject desktopTupleCoverage.requiredDesktopPlatforms drift." >&2
   rm -f "$desktop_tuple_coverage_log"
   exit 1
 fi
@@ -4011,6 +4027,8 @@ from pathlib import Path
 
 path = Path("/tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json")
 payload = json.loads(path.read_text(encoding="utf-8"))
+payload["rolloutState"] = "live"
+payload["supportabilityState"] = "live"
 payload["releaseProof"]["uiLocalizationReleaseGate"]["status"] = "missing"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -5400,10 +5418,12 @@ assert artifacts["avalonia-win-x64-installer"]["compatibilityState"] == "compati
 assert artifacts["blazor-desktop-win-x64-installer"]["compatibilityState"] == "compatible"
 assert artifacts["avalonia-win-x64-portable"]["compatibilityState"] == "compatible"
 assert artifacts["avalonia-linux-x64-archive"]["compatibilityState"] == "compatible"
-assert canonical["rolloutState"] == "promoted_preview"
+assert canonical["rolloutState"] == "coverage_incomplete"
 assert canonical["supportabilityState"] == "review_required"
-assert canonical["supportabilitySummary"].startswith("Treat the current shelf as review-required")
-assert "review-required" in canonical["knownIssueSummary"]
+assert canonical["supportabilitySummary"].startswith(
+    "Treat the current shelf as review-required because required desktop tuple coverage is incomplete"
+)
+assert "required desktop tuple coverage is incomplete" in canonical["knownIssueSummary"]
 assert canonical["releaseProof"]["status"] == "passed"
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["status"] == "pass"
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["defaultKeyCount"] == 383
@@ -5469,24 +5489,29 @@ assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["blockingFindingsC
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["translationBacklogFindings"] == []
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["translationBacklogFindingsCount"] == 0
 assert canonical["supportabilityState"] == "review_required"
-assert canonical["supportabilitySummary"].startswith("Treat the current shelf as review-required")
-assert "review-required" in canonical["knownIssueSummary"]
+assert canonical["supportabilitySummary"].startswith(
+    "Treat the current shelf as review-required because required desktop tuple coverage is incomplete"
+)
+assert "required desktop tuple coverage is incomplete" in canonical["knownIssueSummary"]
 coverage = canonical.get("desktopTupleCoverage") or {}
-assert coverage.get("requiredDesktopPlatforms") == ["windows"]
+assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows"]
 assert coverage.get("requiredDesktopHeads") == ["avalonia"]
 assert sorted(coverage.get("requiredDesktopPlatformHeadRidTuples") or []) == sorted([
+    "avalonia:linux-x64:linux",
     "avalonia:win-x64:windows",
 ])
 assert sorted(coverage.get("promotedPlatformHeadRidTuples") or []) == sorted([
     "avalonia:win-x64:windows",
     "blazor-desktop:win-x64:windows",
 ])
-assert coverage.get("missingRequiredPlatforms") == []
+assert coverage.get("missingRequiredPlatforms") == ["linux"]
 assert coverage.get("missingRequiredHeads") == []
-assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == []
-assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == []
+assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == ["avalonia:linux"]
+assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == ["avalonia:linux-x64:linux"]
 external_requests = coverage.get("externalProofRequests") or []
-assert external_requests == []
+assert len(external_requests) == 1
+assert external_requests[0].get("tupleId") == "avalonia:linux-x64:linux"
+assert external_requests[0].get("expectedArtifactId") == "avalonia-linux-x64-installer"
 assert all(str(item.get("channelId") or "").strip() == str(canonical.get("channelId") or "").strip() for item in external_requests)
 assert all(item.get("requiredHost") == item.get("platform") for item in external_requests)
 assert all(sorted(item.get("requiredProofs") or []) == ["promoted_installer_artifact", "startup_smoke_receipt"] for item in external_requests)

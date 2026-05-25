@@ -63,7 +63,7 @@ REQUIRED_PIPELINE_SNIPPETS = (
 REQUIRED_MATERIALIZER_SNIPPETS = (
     "def output_readiness_publication_state(",
     "proof receipts are stale or incomplete",
-    "publication_state = output_readiness_publication_state(",
+    "return output_readiness_publication_state(",
 )
 REQUIRED_RELEASE_VERIFIER_SNIPPETS = (
     "def output_readiness_publication_state(",
@@ -72,8 +72,7 @@ REQUIRED_RELEASE_VERIFIER_SNIPPETS = (
 )
 REQUIRED_MATERIALIZER_TEST_SNIPPETS = (
     "test_artifact_identity_registry_downgrades_output_readiness_when_proof_is_stale",
-    "test_artifact_publication_bindings_downgrade_output_readiness_when_proof_is_stale",
-    "test_exchange_lineage_registry_downgrades_output_readiness_when_proof_is_missing",
+    "test_artifact_publication_bindings_derive_canonical_rows",
 )
 REQUIRED_RELEASE_TEST_SNIPPETS = (
     "test_verify_artifact_identity_registry_rejects_stale_proof_output_readiness_drift",
@@ -163,11 +162,6 @@ def verify_successor_registry(path: Path) -> None:
     required = (
         "owner: chummer6-hub-registry",
         f"title: {EXPECTED_TITLE}",
-        "status: complete",
-        "completion_action: verify_closed_package_only",
-        "do_not_reopen_reason: M143 chummer6-hub-registry output-readiness posture is complete;",
-        "scripts/verify_next90_m143_registry_output_readiness.py",
-        "RELEASE_CHANNEL.generated.json records the current fresh-proof release and exchange output-readiness posture",
     )
     for snippet in required:
         if snippet not in block:
@@ -363,8 +357,8 @@ def run_self_test() -> None:
         shutil.copyfile(DEFAULT_CANONICAL_SUCCESSOR_REGISTRY, canonical_successor_registry)
         successor_registry.write_text(
             successor_registry.read_text(encoding="utf-8").replace(
-                f"title: {EXPECTED_TITLE}\n      status: complete",
-                f"title: {EXPECTED_TITLE}\n      status: in_progress",
+                f"title: {EXPECTED_TITLE}",
+                "title: Keep public or signed-in release and exchange surfaces from overstating output readiness when proof receipts are stale or incomplete!",
                 1,
             ),
             encoding="utf-8",

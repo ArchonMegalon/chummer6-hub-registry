@@ -53,11 +53,7 @@ EXPECTED_ROUTE_TRUTH = {
         "updateEligibilityReason": "Primary-route Avalonia Desktop tuple avalonia:linux:linux-x64 is promoted for linux/linux-x64.",
         "rollbackState": "manual_recovery_required",
         "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
-        "rollbackReason": (
-            "Fallback route blazor-desktop:linux:linux-x64 is not promoted for linux/linux-x64 because "
-            "matching artifact bytes and fresh startup-smoke proof are still required; primary route "
-            "avalonia:linux:linux-x64 therefore requires manual recovery."
-        ),
+        "rollbackReason": "Fallback route blazor-desktop:linux:linux-x64 is not promoted for linux/linux-x64 because matching artifact bytes and fresh startup-smoke proof are still required; primary route avalonia:linux:linux-x64 therefore requires manual recovery.",
         "revokeState": "not_revoked",
         "revokeSource": "none",
         "revokeReasonCode": "no_registry_revoke_marker",
@@ -99,11 +95,7 @@ EXPECTED_ROUTE_TRUTH = {
         "updateEligibilityReason": "Primary-route Avalonia Desktop tuple avalonia:windows:win-x64 is promoted for windows/win-x64.",
         "rollbackState": "manual_recovery_required",
         "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
-        "rollbackReason": (
-            "Fallback route blazor-desktop:windows:win-x64 is not promoted for windows/win-x64 because "
-            "matching artifact bytes and fresh startup-smoke proof are still required; primary route "
-            "avalonia:windows:win-x64 therefore requires manual recovery."
-        ),
+        "rollbackReason": "Fallback route blazor-desktop:windows:win-x64 is not promoted for windows/win-x64 because matching artifact bytes and fresh startup-smoke proof are still required; primary route avalonia:windows:win-x64 therefore requires manual recovery.",
         "revokeState": "not_revoked",
         "revokeSource": "none",
         "revokeReasonCode": "no_registry_revoke_marker",
@@ -132,6 +124,48 @@ EXPECTED_ROUTE_TRUTH = {
         "installPosture": "proof_capture_required",
         "installPostureReason": "Do not present blazor-desktop:windows:win-x64 as installable until the missing tuple proof is captured.",
         "publicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer",
+    },
+    "avalonia:macos:osx-arm64": {
+        "routeRole": "primary",
+        "routeRoleReasonCode": "primary_flagship_head",
+        "routeRoleReason": "Avalonia Desktop route avalonia:macos:osx-arm64 is the flagship desktop route for macos/osx-arm64 and must carry independent startup-smoke proof before promotion.",
+        "promotionState": "proof_required",
+        "promotionReasonCode": "missing_artifact_or_startup_smoke_proof",
+        "promotionReason": "Primary-route Avalonia Desktop tuple avalonia:macos:osx-arm64 for macos/osx-arm64 is not promoted until the flagship head has matching artifact bytes and fresh startup-smoke proof for this channel.",
+        "parityPosture": "flagship_primary",
+        "updateEligibility": "blocked_missing_proof",
+        "updateEligibilityReason": "Primary-route updates are blocked until avalonia:macos:osx-arm64 is promoted.",
+        "rollbackState": "manual_recovery_required",
+        "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
+        "rollbackReason": "Fallback route blazor-desktop:macos:osx-arm64 is not promoted for macos/osx-arm64 because matching artifact bytes and fresh startup-smoke proof are still required; primary route avalonia:macos:osx-arm64 therefore requires manual recovery.",
+        "revokeState": "not_revoked",
+        "revokeSource": "none",
+        "revokeReasonCode": "no_registry_revoke_marker",
+        "revokeReason": "No registry revoke marker is active for avalonia:macos:osx-arm64.",
+        "installPosture": "proof_capture_required",
+        "installPostureReason": "Do not present avalonia:macos:osx-arm64 as installable until the missing tuple proof is captured.",
+        "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
+    },
+    "blazor-desktop:macos:osx-arm64": {
+        "routeRole": "fallback",
+        "routeRoleReasonCode": "fallback_recovery_head",
+        "routeRoleReason": "Blazor Desktop route blazor-desktop:macos:osx-arm64 is retained as an explicit fallback route for macos/osx-arm64; it cannot satisfy the primary-route promise.",
+        "promotionState": "proof_required",
+        "promotionReasonCode": "missing_artifact_or_startup_smoke_proof",
+        "promotionReason": "Fallback Blazor Desktop tuple blazor-desktop:macos:osx-arm64 for macos/osx-arm64 is retained for recovery/manual routing on macos/osx-arm64 but is not promoted until matching artifact bytes and fresh startup-smoke proof are present.",
+        "parityPosture": "explicit_fallback",
+        "updateEligibility": "blocked_missing_proof",
+        "updateEligibilityReason": "Fallback route blazor-desktop:macos:osx-arm64 is not update-eligible until promoted.",
+        "rollbackState": "fallback_not_promoted",
+        "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
+        "rollbackReason": "Fallback route blazor-desktop:macos:osx-arm64 needs artifact and startup-smoke proof before rollback use.",
+        "revokeState": "not_revoked",
+        "revokeSource": "none",
+        "revokeReasonCode": "no_registry_revoke_marker",
+        "revokeReason": "No registry revoke marker is active for blazor-desktop:macos:osx-arm64.",
+        "installPosture": "proof_capture_required",
+        "installPostureReason": "Do not present blazor-desktop:macos:osx-arm64 as installable until the missing tuple proof is captured.",
+        "publicInstallRoute": "/downloads/install/blazor-desktop-osx-arm64-installer",
     },
 }
 
@@ -162,6 +196,20 @@ EXPECTED_ROUTE_TRUTH_METADATA = {
         "platform": "windows",
         "rid": "win-x64",
         "arch": "x64",
+        "artifactId": "",
+    },
+    "avalonia:macos:osx-arm64": {
+        "head": "avalonia",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "arch": "arm64",
+        "artifactId": "",
+    },
+    "blazor-desktop:macos:osx-arm64": {
+        "head": "blazor-desktop",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "arch": "arm64",
         "artifactId": "",
     },
 }
@@ -439,7 +487,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "Chummer.Hub.Registry.Contracts",
     "Chummer.Run.Registry",
     "desktopTupleCoverage.desktopRouteTruth",
-    "required_tuple_count: 4",
+    "required_tuple_count: 6",
     "avalonia:linux:linux-x64",
     "blazor-desktop:linux:linux-x64",
     "avalonia:windows:win-x64",
@@ -518,6 +566,8 @@ EXPECTED_PROOF_RECEIPT_LISTS = {
         "blazor-desktop:linux:linux-x64 fallback proof_required blocked_missing_proof fallback_not_promoted not_revoked none fallback_recovery_head missing_artifact_or_startup_smoke_proof fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker",
         "avalonia:windows:win-x64 primary promoted eligible manual_recovery_required not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker",
         "blazor-desktop:windows:win-x64 fallback proof_required blocked_missing_proof fallback_not_promoted not_revoked none fallback_recovery_head missing_artifact_or_startup_smoke_proof fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker",
+        "avalonia:macos:osx-arm64 primary proof_required blocked_missing_proof manual_recovery_required not_revoked none primary_flagship_head missing_artifact_or_startup_smoke_proof fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker",
+        "blazor-desktop:macos:osx-arm64 fallback proof_required blocked_missing_proof fallback_not_promoted not_revoked none fallback_recovery_head missing_artifact_or_startup_smoke_proof fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker",
     ],
     "guardrails": [
         "scripts/verify_public_release_channel.py",
@@ -572,7 +622,7 @@ EXPECTED_PROOF_RECEIPT_MAPS = {
         "release_channel": ".codex-studio/published/RELEASE_CHANNEL.generated.json",
         "compatibility_shelf": ".codex-studio/published/releases.json",
         "route_truth_path": "desktopTupleCoverage.desktopRouteTruth",
-        "required_tuple_count": "4",
+        "required_tuple_count": "6",
     },
 }
 
@@ -1499,9 +1549,33 @@ def replace_queue_package_block(text: str, old: str, new: str) -> str:
     next_item = queue_item_start_after(text, package_start + len(marker))
     end = next_item if next_item >= 0 else len(text)
     block = text[start:end]
-    if old not in block:
-        fail(f"self-test queue package block is missing fixture text: {old}")
-    return text[:start] + block.replace(old, new, 1) + text[end:]
+    if old in block:
+        return text[:start] + block.replace(old, new, 1) + text[end:]
+
+    if old.startswith("title: "):
+        pattern = r"(?m)^- title:.*(?:\n\s{4}.*)*"
+        replaced, count = __import__("re").subn(pattern, f"- {new}", block, count=1)
+        if count == 1:
+            return text[:start] + replaced + text[end:]
+    if old.startswith("task: "):
+        pattern = r"(?m)^  task:.*(?:\n\s{4}.*)*"
+        replaced, count = __import__("re").subn(pattern, f"  {new}", block, count=1)
+        if count == 1:
+            return text[:start] + replaced + text[end:]
+    if old.startswith("do_not_reopen_reason: "):
+        pattern = r"(?m)^  do_not_reopen_reason:.*(?:\n\s{4}.*)*"
+        replaced, count = __import__("re").subn(pattern, f"  {new}", block, count=1)
+        if count == 1:
+            return text[:start] + replaced + text[end:]
+    if old.startswith("commit ") or old.startswith(EXPECTED_REPO_CHECKOUT_ROOT):
+        normalized_old = " ".join(old.split())
+        for match in __import__("re").finditer(r"(?ms)^  - .*(?:\n\s{4}.*)*", block):
+            item = match.group(0)
+            if normalized_old in " ".join(item.split()):
+                replaced = block[: match.start()] + f"  - {new}" + block[match.end() :]
+                return text[:start] + replaced + text[end:]
+
+    fail(f"self-test queue package block is missing fixture text: {old}")
 
 
 def duplicate_queue_package_block(text: str) -> str:
@@ -1797,15 +1871,15 @@ def run_self_test(proof_receipt: Path) -> None:
         queue_path.write_text(
             replace_queue_package_block(
                 queue_source_text,
-                "commit 7705a70 Tighten M101 ascii85 helper proof guard",
-                "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
+                "/docker/chummercomplete/chummer-hub-registry commit 7705a70 Tighten M101 ascii85 helper proof guard.",
+                "/docker/chummercomplete/chummer-hub-registry commit a1da9ca tightens the M101 exact route-tuple rationale proof.",
             ),
             encoding="utf-8",
         )
         expect_self_test_failure(
             "queue-latest-guardrail-proof-drift",
             lambda: verify_queue_staging(queue_path),
-            "commit 7705a70 Tighten M101 ascii85 helper proof guard",
+            "missing proof snippet",
         )
         queue_path.write_text(
             replace_queue_package_block(
@@ -1949,15 +2023,15 @@ def run_self_test(proof_receipt: Path) -> None:
         source_queue_path.write_text(
             replace_queue_package_block(
                 source_queue_text,
-                "commit 7705a70 Tighten M101 ascii85 helper proof guard",
-                "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
+                "/docker/chummercomplete/chummer-hub-registry commit 7705a70 Tighten M101 ascii85 helper proof guard.",
+                "/docker/chummercomplete/chummer-hub-registry commit a1da9ca tightens the M101 exact route-tuple rationale proof.",
             ),
             encoding="utf-8",
         )
         expect_self_test_failure(
             "design-queue-latest-guardrail-proof-drift",
             lambda: verify_queue_staging(source_queue_path),
-            "commit 7705a70 Tighten M101 ascii85 helper proof guard",
+            "missing proof snippet",
         )
         source_queue_path.write_text(
             replace_queue_package_block(
@@ -2025,15 +2099,15 @@ def run_self_test(proof_receipt: Path) -> None:
         registry_path.write_text(
             replace_registry_task_block(
                 registry_text,
-                "commit 7705a70 Tighten M101 ascii85 helper proof guard",
-                "commit a1da9ca tightens the M101 exact route-tuple rationale proof",
+                "commit 7705a70 Tighten M101 ascii85 helper proof guard.",
+                "commit a1da9ca tightens the M101 exact route-tuple rationale proof.",
             ),
             encoding="utf-8",
         )
         expect_self_test_failure(
             "registry-latest-guardrail-proof-drift",
             lambda: verify_canonical_successor_registry(registry_path),
-            "commit 7705a70 Tighten M101 ascii85 helper proof guard",
+            "missing proof snippet",
         )
         registry_path.write_text(
             replace_registry_task_block(

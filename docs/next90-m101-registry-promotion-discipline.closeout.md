@@ -72,12 +72,12 @@ The current generated release channel publishes six verifier-bound `desktopTuple
 
 | Tuple | Role | Promotion | Rollback | Revoke | Install posture |
 | --- | --- | --- | --- | --- | --- |
-| `avalonia:linux:linux-x64` | primary | promoted | fallback_available | not_revoked | installer_first |
-| `blazor-desktop:linux:linux-x64` | fallback | promoted | fallback_available | not_revoked | installer_first |
+| `avalonia:linux:linux-x64` | primary | promoted | manual_recovery_required | not_revoked | installer_first |
+| `blazor-desktop:linux:linux-x64` | fallback | proof_required | fallback_not_promoted | not_revoked | proof_capture_required |
 | `avalonia:windows:win-x64` | primary | promoted | manual_recovery_required | not_revoked | installer_first |
 | `blazor-desktop:windows:win-x64` | fallback | proof_required | fallback_not_promoted | not_revoked | proof_capture_required |
-| `avalonia:macos:osx-arm64` | primary | promoted | fallback_available | not_revoked | installer_first |
-| `blazor-desktop:macos:osx-arm64` | fallback | promoted | fallback_available | not_revoked | installer_first |
+| `avalonia:macos:osx-arm64` | primary | proof_required | manual_recovery_required | not_revoked | proof_capture_required |
+| `blazor-desktop:macos:osx-arm64` | fallback | proof_required | fallback_not_promoted | not_revoked | proof_capture_required |
 
 The row contract carries nonblank rationale fields for:
 

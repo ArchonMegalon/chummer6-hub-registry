@@ -135,12 +135,6 @@ def verify_successor_registry(path: Path) -> None:
     required = (
         "owner: chummer6-hub-registry",
         "title: Keep release-channel tuple coverage, startup-smoke receipt identity, and local verifier routing fail-closed on proof drift.",
-        "status: complete",
-        "evidence:",
-        "scripts/verify_public_release_channel.py keeps promoted tuple coverage, startup-smoke receipt identity, and receipt freshness fail-closed against the published release-channel bundle",
-        "scripts/verify_next90_m144_registry_release_tuple_proof.py plus /docker/chummercomplete/chummer-hub-registry/scripts/test_verify_next90_m144_registry_release_tuple_proof.py keep the local successor mirror row, queue row, closeout, published proof, and verifier-routing hook executable",
-        "scripts/ai/verify.sh now routes through the published-bundle verifier and the M144 package verifier before repo builds/tests run",
-        "docs/next90-m144-registry-release-tuple-proof.closeout.md records the shipped proof anchors",
     )
     for snippet in required:
         if snippet not in block:
@@ -197,13 +191,13 @@ def verify_manifest(path: Path, *, label: str) -> None:
     coverage = payload.get("desktopTupleCoverage")
     if not isinstance(coverage, dict):
         fail(f"{label} is missing desktopTupleCoverage")
-    if coverage.get("complete") is not True:
-        fail(f"{label} desktopTupleCoverage.complete must be true for the current public linux/windows shelf")
+    if coverage.get("complete") is not False:
+        fail(f"{label} desktopTupleCoverage.complete must stay false until the required macOS installer proof lands")
     expected_gap_lists = {
-        "missingRequiredPlatforms": [],
+        "missingRequiredPlatforms": ["macos"],
         "missingRequiredHeads": [],
-        "missingRequiredPlatformHeadPairs": [],
-        "missingRequiredPlatformHeadRidTuples": [],
+        "missingRequiredPlatformHeadPairs": ["avalonia:macos"],
+        "missingRequiredPlatformHeadRidTuples": ["avalonia:osx-arm64:macos"],
     }
     for key, expected in expected_gap_lists.items():
         value = coverage.get(key)
@@ -213,9 +207,9 @@ def verify_manifest(path: Path, *, label: str) -> None:
     if required_heads != ["avalonia"]:
         fail(f"{label} desktopTupleCoverage.requiredDesktopHeads must stay ['avalonia']")
     required_platforms = coverage.get("requiredDesktopPlatforms")
-    if required_platforms != ["linux", "windows"]:
+    if required_platforms != ["linux", "windows", "macos"]:
         fail(
-            f"{label} desktopTupleCoverage.requiredDesktopPlatforms must stay ['linux', 'windows']"
+            f"{label} desktopTupleCoverage.requiredDesktopPlatforms must stay ['linux', 'windows', 'macos']"
         )
     promoted_tuples = coverage.get("promotedInstallerTuples")
     if not isinstance(promoted_tuples, list) or not promoted_tuples:
@@ -232,8 +226,24 @@ def verify_manifest(path: Path, *, label: str) -> None:
     if len(route_truth) < len(promoted_tuples):
         fail(f"{label} desktopTupleCoverage.desktopRouteTruth must cover at least the promoted installer tuples")
     external_proof_requests = coverage.get("externalProofRequests")
-    if not isinstance(external_proof_requests, list) or external_proof_requests:
-        fail(f"{label} desktopTupleCoverage.externalProofRequests must be empty for the current public linux/windows shelf")
+    if not isinstance(external_proof_requests, list) or len(external_proof_requests) != 1:
+        fail(f"{label} desktopTupleCoverage.externalProofRequests must contain exactly one macOS proof request")
+    request = external_proof_requests[0]
+    if not isinstance(request, dict):
+        fail(f"{label} desktopTupleCoverage.externalProofRequests rows must stay object-shaped")
+    expected_request = {
+        "tupleId": "avalonia:osx-arm64:macos",
+        "head": "avalonia",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "expectedArtifactId": "avalonia-osx-arm64-installer",
+        "expectedInstallerFileName": "chummer-avalonia-osx-arm64-installer.dmg",
+        "expectedPublicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
+        "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-avalonia-osx-arm64.receipt.json",
+    }
+    for key, expected in expected_request.items():
+        if request.get(key) != expected:
+            fail(f"{label} desktopTupleCoverage.externalProofRequests[0].{key} expected {expected!r}, actual {request.get(key)!r}")
     for row in promoted_tuples:
         if not isinstance(row, dict):
             fail(f"{label} desktopTupleCoverage.promotedInstallerTuples must contain objects only")

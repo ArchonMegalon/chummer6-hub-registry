@@ -84,8 +84,8 @@ REQUIRED_MATERIALIZER_SNIPPETS = (
     '"packetRef": artifact_packet_ref(',
     '"localeRef": artifact_locale_ref(',
     '"retentionRef": artifact_retention_ref(',
-    '"retentionState": artifact_retention_state(publication_state)',
-    '"publicationState": publication_state',
+    '"retentionState": artifact_retention_state(',
+    '"publicationState": artifact_publication_state(',
     '"signedInShelfRef": artifact_signed_in_shelf_ref(',
     '"publicShelfRef": artifact_public_shelf_ref(',
 )
@@ -145,7 +145,7 @@ REQUIRED_MATERIALIZER_TEST_SNIPPETS = (
     'assert rows[0]["retentionState"] == "current"',
     'assert rows[0]["signedInShelfRef"] == "shelf:signed-in:docker:run-20260420-072339:avalonia-linux-x64-installer"',
     'assert rows[0]["publicShelfRef"] == "shelf:public:docker:run-20260420-072339:avalonia-linux-x64-installer"',
-    'def test_exchange_lineage_registry_downgrades_output_readiness_when_proof_is_missing() -> None:',
+    'def test_artifact_identity_registry_downgrades_output_readiness_when_proof_is_stale() -> None:',
 )
 
 REQUIRED_PUBLIC_VERIFIER_TEST_SNIPPETS = (

@@ -84,11 +84,10 @@ REQUIRED_CONTRACTS_SNIPPETS = (
     "public sealed record ReleaseActiveRevocationFact(",
 )
 REQUIRED_MATERIALIZER_SNIPPETS = (
-    "def public_trust_metrics(",
-    "proof_freshness = release_proof_freshness_snapshot(",
-    "verifier = load_verify_public_release_channel_module()",
-    "return verifier.expected_public_trust_metrics(payload)",
-    '"publicTrustMetrics": {',
+    "def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:",
+    "def verify_public_release_channel_module() -> Any:",
+    "return verify_public_release_channel_module().expected_public_trust_metrics(payload)",
+    'canonical["publicTrustMetrics"] = expected_public_trust_metrics(canonical)',
 )
 REQUIRED_RELEASE_VERIFIER_SNIPPETS = (
     "def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:",
@@ -425,13 +424,13 @@ def run_self_test(args: argparse.Namespace) -> None:
         shutil.copyfile(args.proof_doc, proof_doc)
 
         queue_text = queue_staging.read_text(encoding="utf-8")
-        queue_title_marker = "Normalize adoption health, proof freshness, release channel, and revocation facts for public surfaces"
+        queue_title_marker = "Normalize adoption health, proof freshness, release channel, and revocation"
         if queue_title_marker not in queue_text:
             fail("self-test fixture is missing queue title for mirror-drift check")
         queue_staging.write_text(
             queue_text.replace(
                 queue_title_marker,
-                "Normalize adoption health, proof freshness, release channel, and revocation facts for public  surfaces",
+                "Normalize adoption health, proof freshness, release channel, and  revocation",
                 1,
             ),
             encoding="utf-8",

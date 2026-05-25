@@ -69,10 +69,9 @@ REQUIRED_PIPELINE_SNIPPETS = (
     "`scripts/verify_next90_m135_registry_boundary_coverage.py`",
 )
 REQUIRED_MATERIALIZER_SNIPPETS = (
-    "def registry_boundary_coverage(",
-    '"status": "closed",',
-    '"registryBoundaryCoverage": boundary_coverage,',
-    '"publicTrustPosture": (',
+    "def expected_registry_boundary_coverage(payload: dict[str, Any]) -> dict[str, Any]:",
+    'canonical["registryBoundaryCoverage"] = expected_registry_boundary_coverage(canonical)',
+    'compatibility["registryBoundaryCoverage"] = expected_registry_boundary_coverage(compatibility)',
 )
 REQUIRED_RELEASE_VERIFIER_SNIPPETS = (
     "def expected_registry_boundary_coverage(payload: dict[str, Any]) -> dict[str, Any]:",
