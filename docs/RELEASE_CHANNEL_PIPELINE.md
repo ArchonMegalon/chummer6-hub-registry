@@ -302,7 +302,8 @@ Typed registry consumers must receive the same tuple-level rationale that the JS
 
 ## Recent proven preview lane
 
-Preview release `run-20260525-210241` is the current end-to-end proof receipt for the macOS ARM64 preview lane.
+Preview release `run-20260525-213014` is the current end-to-end proof receipt for the macOS ARM64 preview lane.
+It is the second consecutive clean preview publish after `run-20260525-210241`, confirming that the live preview manifest path is now stable rather than only repaired for one run.
 
 That run completed:
 
@@ -322,7 +323,7 @@ The resulting live preview shelf was internally consistent:
 * exactly four published macOS artifacts
 * no stale Linux or Windows rows retained in the live preview manifest
 
-This proof matters because it closes the specific preview regressions that previously existed in this lane:
+This proof matters because it confirms, across two consecutive successful runs, that the specific preview regressions previously seen in this lane stay closed:
 
 * preview uploads no longer drift to `gold_supported`
 * live promotion no longer merges stale Linux/Windows artifact rows into a mac-only preview shelf
