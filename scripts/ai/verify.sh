@@ -64,6 +64,8 @@ python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m143_
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m143_registry_output_readiness.py --self-test >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py --self-test >/dev/null
+python3 /docker/chummercomplete/chummer-hub-registry/scripts/test_materialize_public_release_channel.py >/dev/null
+python3 -m unittest /docker/chummercomplete/chummer-hub-registry/scripts/test_verify_public_release_channel.py >/dev/null
 python3 -m unittest /docker/chummercomplete/chummer-hub-registry/scripts/test_refresh_public_desktop_truth_release_helpers.py >/dev/null
 
 # Default verify must fail when consumer repos still source-own registry contracts.
