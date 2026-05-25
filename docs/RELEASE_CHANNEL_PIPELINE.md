@@ -300,6 +300,41 @@ Typed registry consumers must receive the same tuple-level rationale that the JS
 `scripts/materialize_public_release_channel.py` now fail-closes missing release-proof payloads at projection time: `releaseProof` and `releaseProof.uiLocalizationReleaseGate` must be present (via `--proof` / `--ui-localization-release-gate` or embedded source payload values), so promoted channel artifacts cannot be materialized with placeholder-missing proof state.
 `scripts/materialize_public_release_channel.py` also fail-closes malformed source payloads instead of silently normalizing them away before verification: `releaseProof` rejects unexpected top-level keys and conflicting alias pairs (for example `baseUrl` vs `base_url`, `journeysPassed` vs `journeys_passed`, `proofRoutes` vs `proof_routes`, and `uiLocalizationReleaseGate` vs `ui_localization_release_gate`), `uiLocalizationReleaseGate` rejects unexpected top-level keys and conflicting nested alias pairs (for example `generatedAt` vs `generated_at`, `shippingLocales` vs `shipping_locales`, `acceptanceGates` vs `acceptance_gates`, `domainCoverage` vs `domain_coverage`, `localeDomainCoverage` vs `locale_domain_coverage`, `explicitFallbackRuntime` vs `explicit_fallback_runtime`, `signoffSmokeRunner` vs `signoff_smoke_runner`, `signoffSmokeRunnerStatus` vs `signoff_smoke_runner_status`, `blockingFindings` vs `blocking_findings`, `blockingFindingsCount` vs `blocking_findings_count`, `translationBacklogFindings` vs `translation_backlog_findings`, and `translationBacklogFindingsCount` vs `translation_backlog_findings_count`), and it fail-closes contradictory status between nested `signoff_smoke_runner.status` and top-level `signoff_smoke_runner_status`. `shipping_locales` / `acceptance_gates` reject blank/non-string/duplicate ids, `domain_coverage` / `locale_domain_coverage` reject duplicate ids that would collide after normalization (for example whitespace-padded aliases of the same token), and `locale_summary` rows reject unexpected keys plus conflicting per-row alias pairs (for example `untranslated_key_count` vs `untranslatedKeyCount`, `override_count` vs `overrideCount`, `minimum_override_count` vs `minimumOverrideCount`, `missing_release_seed_keys` vs `missingReleaseSeedKeys`, `legacy_xml_present` vs `legacyXmlPresent`, and `legacy_data_xml_present` vs `legacyDataXmlPresent`) so non-canonical row payload growth or alias drift cannot be silently dropped.
 
+## Recent proven preview lane
+
+Preview release `run-20260525-210241` is the current end-to-end proof receipt for the macOS ARM64 preview lane.
+
+That run completed:
+
+* bootstrap integrity verification
+* build and packaging for `avalonia-osx-arm64` and `blazor-desktop-osx-arm64`
+* startup smoke for both promoted installer heads
+* local manifest materialization and validation
+* upload
+* final live canonical manifest verification
+* final live release projection verification
+
+The resulting live preview shelf was internally consistent:
+
+* `channelId=preview`
+* `rolloutState=promoted_preview`
+* `supportabilityState=preview_supported`
+* exactly four published macOS artifacts
+* no stale Linux or Windows rows retained in the live preview manifest
+
+This proof matters because it closes the specific preview regressions that previously existed in this lane:
+
+* preview uploads no longer drift to `gold_supported`
+* live promotion no longer merges stale Linux/Windows artifact rows into a mac-only preview shelf
+* registry-boundary counts stay aligned with the final published artifact set
+
+This receipt is intentionally narrow:
+
+* it proves the preview macOS ARM64 lane
+* it does not certify `public_stable`
+* it does not certify signed/notarized stable closure
+* it does not justify any `all architectures` claim
+
 ## Operational rule
 
 Hub, guide generators, and any public download UX must consume the registry-owned release-channel artifact or its explicit compatibility projection.

@@ -35,6 +35,7 @@ This boundary explicitly excludes:
 
 The consumer migration map for that split is tracked in [docs/downstream-consumers.v1.md](docs/downstream-consumers.v1.md).
 The release/install/update split for desktop heads plus install-linking truth is tracked in [docs/RELEASE_CHANNEL_PIPELINE.md](docs/RELEASE_CHANNEL_PIPELINE.md).
+That pipeline doc now also records preview run `run-20260525-210241` as the current end-to-end proof receipt for the macOS ARM64 preview lane.
 
 ## Current maturity note
 
