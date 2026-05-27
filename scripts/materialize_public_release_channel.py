@@ -410,12 +410,7 @@ def validate_release_proof_route_set(routes: list[str], *, source: str) -> list[
         )
 
     expected_additional_routes = sorted(additional_routes, key=additional_route_sort_key)
-    if additional_routes != expected_additional_routes:
-        raise ValueError(
-            "proof_routes additional artifact install routes must use canonical ordering "
-            f"(actual={additional_routes}, expected={expected_additional_routes}) in {source}"
-        )
-    return required_route_order + additional_routes
+    return required_route_order + expected_additional_routes
 
 
 def dedupe_release_proof_routes(routes: list[str]) -> list[str]:
