@@ -3277,8 +3277,17 @@ def expected_desktop_surface_ref_rows(payload: dict[str, Any]) -> list[dict[str,
     for route_row in desktop_route_truth:
         if not isinstance(route_row, dict):
             continue
+        if normalized_token(route_row.get("promotionState")) != "promoted":
+            continue
+        if normalized_token(route_row.get("revokeState")) == "revoked":
+            continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
         if not artifact_id:
+            continue
+        route_artifact_id = normalized_token(route_row.get("artifactId"))
+        if not route_artifact_id or route_artifact_id != artifact_id:
+            continue
+        if artifact_id not in artifact_by_id:
             continue
         platform = normalized_platform_token(route_row.get("platform"))
         kind = normalized_token(route_row.get("kind")) or "installer"
