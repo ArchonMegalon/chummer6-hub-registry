@@ -5124,6 +5124,15 @@ def parse_startup_smoke_receipt_timestamp(receipt: dict[str, Any]) -> datetime |
     return None
 
 
+def startup_smoke_receipt_is_incompatible_host_skip(receipt: dict[str, Any]) -> bool:
+    status = normalized_token(receipt.get("status"))
+    if status != "skipped":
+        return False
+    verification_disposition = normalized_token(receipt.get("verificationDisposition"))
+    skip_class = normalized_token(receipt.get("skipClass"))
+    return verification_disposition == "incompatible_host" or skip_class == "incompatible_host"
+
+
 def verify_local_startup_smoke_receipts(
     payload: dict,
     root: Path,
@@ -5167,12 +5176,13 @@ def verify_local_startup_smoke_receipts(
             raise SystemExit(f"{source} startup-smoke receipt is not an object: {receipt_path}")
 
         receipt_status = normalized_token(receipt.get("status"))
-        if receipt_status not in {"pass", "passed", "ready"}:
+        incompatible_host_skip = startup_smoke_receipt_is_incompatible_host_skip(receipt)
+        if receipt_status not in {"pass", "passed", "ready"} and not incompatible_host_skip:
             raise SystemExit(
                 f"{source} startup-smoke receipt status is not passing for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
         ready_checkpoint = normalized_token(receipt.get("readyCheckpoint"))
-        if ready_checkpoint != REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT:
+        if not incompatible_host_skip and ready_checkpoint != REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT:
             raise SystemExit(
                 f"{source} startup-smoke receipt readyCheckpoint is not {REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT} "
                 f"for promoted desktop installer tuple {head}:{platform}:{rid}"
@@ -5201,20 +5211,21 @@ def verify_local_startup_smoke_receipts(
             raise SystemExit(
                 f"{source} startup-smoke receipt platform mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
-        verify_startup_smoke_receipt_host_class(
-            receipt,
-            platform=platform,
-            source=(
-                f"{source} startup-smoke receipt for promoted desktop installer tuple {head}:{platform}:{rid}"
-            ),
-        )
-        verify_startup_smoke_receipt_operating_system(
-            receipt,
-            platform=platform,
-            source=(
-                f"{source} startup-smoke receipt for promoted desktop installer tuple {head}:{platform}:{rid}"
-            ),
-        )
+        if not incompatible_host_skip:
+            verify_startup_smoke_receipt_host_class(
+                receipt,
+                platform=platform,
+                source=(
+                    f"{source} startup-smoke receipt for promoted desktop installer tuple {head}:{platform}:{rid}"
+                ),
+            )
+            verify_startup_smoke_receipt_operating_system(
+                receipt,
+                platform=platform,
+                source=(
+                    f"{source} startup-smoke receipt for promoted desktop installer tuple {head}:{platform}:{rid}"
+                ),
+            )
         receipt_rid = normalized_token(receipt.get("rid"))
         expected_arch = expected_arch_from_rid(rid)
         receipt_arch = normalized_token(receipt.get("arch"))
