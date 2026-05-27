@@ -2749,6 +2749,19 @@ def artifact_publication_state(
     return "preview"
 
 
+def artifact_retention_state(publication_state: str) -> str:
+    normalized_state = normalize_token(publication_state)
+    if normalized_state == "published":
+        return "current"
+    if normalized_state == "preview":
+        return "temporary"
+    if normalized_state == "revoked":
+        return "recoverable"
+    if normalized_state == "retained":
+        return "retained"
+    return "temporary"
+
+
 def artifact_publication_rationale(
     route_row: dict[str, Any],
     *,
