@@ -3312,8 +3312,6 @@ def expected_desktop_surface_ref_rows(payload: dict[str, Any]) -> list[dict[str,
         route_artifact_id = normalized_token(route_row.get("artifactId"))
         if not route_artifact_id or route_artifact_id != artifact_id:
             continue
-        if artifact_id not in artifact_by_id:
-            continue
         platform = normalized_platform_token(route_row.get("platform"))
         kind = normalized_token(route_row.get("kind")) or "installer"
         publication_binding_id = artifact_publication_binding_id(
