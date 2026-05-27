@@ -274,6 +274,37 @@ def add_registry_boundary_coverage(payload: dict) -> None:
     payload["registryBoundaryCoverage"] = MODULE.expected_registry_boundary_coverage(payload)
 
 
+def preview_projection_payload() -> dict:
+    return {
+        "status": "published",
+        "channelId": "preview",
+        "version": "run-20260527-131744",
+        "supportabilityState": "preview_supported",
+        "artifacts": [
+            {"artifactId": "avalonia-osx-arm64-installer"},
+            {"artifactId": "blazor-desktop-osx-arm64-installer"},
+            {"artifactId": "avalonia-osx-arm64-archive"},
+            {"artifactId": "blazor-desktop-osx-arm64-archive"},
+        ],
+        "publicTrustMetrics": {
+            "releaseChannel": {
+                "supportabilityState": "preview_supported",
+            },
+        },
+        "registryBoundaryCoverage": {
+            "releaseChannel": {
+                "supportabilityState": "preview_supported",
+            },
+            "persistence": {
+                "artifactCount": 4,
+            },
+            "compatibility": {
+                "compatibleArtifactCount": 4,
+            },
+        },
+    }
+
+
 def test_verify_contract_identity_rejects_noncanonical_contract_name() -> None:
     with pytest.raises(SystemExit, match="must declare canonical contract_name/contractName"):
         MODULE.verify_contract_identity(
@@ -356,6 +387,28 @@ def test_verify_registry_boundary_coverage_rejects_drifted_compatibility_count()
 
     with pytest.raises(SystemExit, match="does not match canonical registry boundary coverage"):
         MODULE.verify_registry_boundary_coverage(payload, "release-channel.json")
+
+
+def test_verify_release_projection_consistency_accepts_preview_supported_self_consistency() -> None:
+    payload = preview_projection_payload()
+
+    MODULE.verify_release_projection_consistency(payload, "release-channel.json")
+
+
+def test_verify_release_projection_consistency_rejects_preview_supportability_drift() -> None:
+    payload = preview_projection_payload()
+    payload["registryBoundaryCoverage"]["releaseChannel"]["supportabilityState"] = "review_required"
+
+    with pytest.raises(SystemExit, match="does not match top-level supportabilityState"):
+        MODULE.verify_release_projection_consistency(payload, "release-channel.json")
+
+
+def test_verify_release_projection_consistency_rejects_preview_compatible_artifact_count_drift() -> None:
+    payload = preview_projection_payload()
+    payload["registryBoundaryCoverage"]["compatibility"]["compatibleArtifactCount"] = 3
+
+    with pytest.raises(SystemExit, match="preview_supported release must keep"):
+        MODULE.verify_release_projection_consistency(payload, "release-channel.json")
 
 
 def test_startup_smoke_channel_matches_expected_accepts_preview_receipt_for_docker_channel() -> None:

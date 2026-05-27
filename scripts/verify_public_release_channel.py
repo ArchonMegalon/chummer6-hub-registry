@@ -4996,6 +4996,82 @@ def verify_registry_boundary_coverage(payload: dict[str, Any], source: str) -> N
         )
 
 
+def verify_release_projection_consistency(payload: dict[str, Any], source: str) -> None:
+    artifacts = list(iter_manifest_download_entries(payload))
+    artifact_count = len(artifacts)
+    top_level_supportability_state = normalized_token(payload.get("supportabilityState"))
+
+    public_trust_metrics = payload.get("publicTrustMetrics")
+    if not isinstance(public_trust_metrics, dict):
+        raise SystemExit(f"{source} publicTrustMetrics must be an object")
+    public_trust_release_channel = public_trust_metrics.get("releaseChannel")
+    if not isinstance(public_trust_release_channel, dict):
+        raise SystemExit(f"{source} publicTrustMetrics.releaseChannel must be an object")
+    trust_supportability_state = normalized_token(public_trust_release_channel.get("supportabilityState"))
+
+    registry_boundary_coverage = payload.get("registryBoundaryCoverage")
+    if not isinstance(registry_boundary_coverage, dict):
+        raise SystemExit(f"{source} registryBoundaryCoverage must be an object")
+    registry_release_channel = registry_boundary_coverage.get("releaseChannel")
+    if not isinstance(registry_release_channel, dict):
+        raise SystemExit(f"{source} registryBoundaryCoverage.releaseChannel must be an object")
+    registry_persistence = registry_boundary_coverage.get("persistence")
+    if not isinstance(registry_persistence, dict):
+        raise SystemExit(f"{source} registryBoundaryCoverage.persistence must be an object")
+    registry_compatibility = registry_boundary_coverage.get("compatibility")
+    if not isinstance(registry_compatibility, dict):
+        raise SystemExit(f"{source} registryBoundaryCoverage.compatibility must be an object")
+
+    registry_supportability_state = normalized_token(registry_release_channel.get("supportabilityState"))
+    if (
+        top_level_supportability_state
+        and trust_supportability_state
+        and top_level_supportability_state != trust_supportability_state
+    ):
+        raise SystemExit(
+            f"{source} publicTrustMetrics.releaseChannel.supportabilityState "
+            f"({trust_supportability_state}) does not match top-level supportabilityState "
+            f"({top_level_supportability_state})"
+        )
+    if (
+        top_level_supportability_state
+        and registry_supportability_state
+        and top_level_supportability_state != registry_supportability_state
+    ):
+        raise SystemExit(
+            f"{source} registryBoundaryCoverage.releaseChannel.supportabilityState "
+            f"({registry_supportability_state}) does not match top-level supportabilityState "
+            f"({top_level_supportability_state})"
+        )
+
+    persistence_artifact_count = parse_positive_int(registry_persistence.get("artifactCount"))
+    if persistence_artifact_count is None:
+        raise SystemExit(f"{source} registryBoundaryCoverage.persistence.artifactCount must be numeric")
+    if persistence_artifact_count != artifact_count:
+        raise SystemExit(
+            f"{source} registryBoundaryCoverage.persistence.artifactCount ({persistence_artifact_count}) "
+            f"does not match published artifact count ({artifact_count})"
+        )
+
+    compatibility_artifact_count = parse_positive_int(registry_compatibility.get("compatibleArtifactCount"))
+    if compatibility_artifact_count is None:
+        raise SystemExit(
+            f"{source} registryBoundaryCoverage.compatibility.compatibleArtifactCount must be numeric"
+        )
+    if compatibility_artifact_count > artifact_count:
+        raise SystemExit(
+            f"{source} registryBoundaryCoverage.compatibility.compatibleArtifactCount "
+            f"({compatibility_artifact_count}) cannot exceed published artifact count ({artifact_count})"
+        )
+
+    if top_level_supportability_state == "preview_supported" and compatibility_artifact_count != artifact_count:
+        raise SystemExit(
+            f"{source} preview_supported release must keep "
+            "registryBoundaryCoverage.compatibility.compatibleArtifactCount equal to "
+            f"published artifact count ({artifact_count}), got {compatibility_artifact_count}"
+        )
+
+
 def verify_desktop_tuple_honesty(payload: dict, source: str, coverage: dict[str, list[str]] | None) -> None:
     if not isinstance(coverage, dict):
         return
@@ -6345,6 +6421,7 @@ def main() -> int:
     verify_exchange_lineage_registry(payload, source)
     verify_public_trust_metrics(payload, source)
     verify_registry_boundary_coverage(payload, source)
+    verify_release_projection_consistency(payload, source)
     verify_local_download_files(
         payload,
         local_root,
