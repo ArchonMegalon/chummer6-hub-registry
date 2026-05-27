@@ -997,10 +997,44 @@ def validate_release_proof_route_set(routes: list[str], *, source: str) -> list[
             "releaseProof.proofRoutes declares unexpected non-artifact install routes "
             f"({', '.join(invalid_additional_routes)}) in {source}"
         )
-    if additional_routes != sorted(additional_routes):
+
+    def additional_route_sort_key(route: str) -> tuple[object, ...]:
+        match = RELEASE_PROOF_ARTIFACT_INSTALL_ROUTE_RE.fullmatch(route)
+        artifact_id = match.group("artifact_id") if match else ""
+        artifact_suffix = artifact_id
+        for head_prefix in APP_LABELS:
+            prefix = f"{head_prefix}-"
+            if artifact_suffix.startswith(prefix):
+                artifact_suffix = artifact_suffix[len(prefix):]
+                break
+        rid = artifact_suffix[:-len("-installer")] if artifact_suffix.endswith("-installer") else artifact_suffix
+        platform = {
+            "linux-x64": "linux",
+            "linux-arm64": "linux",
+            "osx-arm64": "macos",
+            "osx-x64": "macos",
+            "win-arm64": "windows",
+            "win-x64": "windows",
+        }.get(rid, "unknown")
+        arch = {
+            "linux-arm64": "arm64",
+            "osx-arm64": "arm64",
+            "win-arm64": "arm64",
+            "linux-x64": "x64",
+            "osx-x64": "x64",
+            "win-x64": "x64",
+        }.get(rid, "unknown")
+        return (
+            {"linux": 0, "macos": 1, "windows": 2}.get(platform, 99),
+            {"arm64": 0, "x64": 1, "x86": 2}.get(arch, 99),
+            artifact_id,
+        )
+
+    expected_additional_routes = sorted(additional_routes, key=additional_route_sort_key)
+    if additional_routes != expected_additional_routes:
         raise SystemExit(
             "releaseProof.proofRoutes additional artifact install routes must use canonical ordering "
-            f"(actual={additional_routes}, expected={sorted(additional_routes)}) in {source}"
+            f"(actual={additional_routes}, expected={expected_additional_routes}) in {source}"
         )
     return required_route_order + additional_routes
 

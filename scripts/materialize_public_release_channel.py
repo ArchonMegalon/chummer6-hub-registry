@@ -79,6 +79,16 @@ REQUIRED_RELEASE_PROOF_ROUTES = (
 RELEASE_PROOF_ARTIFACT_INSTALL_ROUTE_RE = re.compile(
     r"^/downloads/install/(?P<artifact_id>[a-z0-9][a-z0-9-]*)$"
 )
+RELEASE_PROOF_ARTIFACT_INSTALL_ROUTE_PLATFORM_ORDER = {
+    "linux": 0,
+    "macos": 1,
+    "windows": 2,
+}
+RELEASE_PROOF_ARTIFACT_INSTALL_ROUTE_ARCH_ORDER = {
+    "arm64": 0,
+    "x64": 1,
+    "x86": 2,
+}
 DEFAULT_EXTERNAL_PROOF_BASE_URL_EXPR = "${CHUMMER_EXTERNAL_PROOF_BASE_URL:-https://chummer.run}"
 DEFAULT_EXTERNAL_PROOF_AUTH_HEADER_EXPR = "${CHUMMER_EXTERNAL_PROOF_AUTH_HEADER:-}"
 DEFAULT_EXTERNAL_PROOF_COOKIE_HEADER_EXPR = "${CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER:-}"
@@ -381,10 +391,29 @@ def validate_release_proof_route_set(routes: list[str], *, source: str) -> list[
             "proof_routes declares unexpected non-artifact install routes "
             f"({', '.join(invalid_additional_routes)}) in {source}"
         )
-    if additional_routes != sorted(additional_routes):
+
+    def additional_route_sort_key(route: str) -> tuple[Any, ...]:
+        match = RELEASE_PROOF_ARTIFACT_INSTALL_ROUTE_RE.fullmatch(route)
+        artifact_id = match.group("artifact_id") if match else ""
+        artifact_suffix = artifact_id
+        for head_prefix in APP_LABELS:
+            prefix = f"{head_prefix}-"
+            if artifact_suffix.startswith(prefix):
+                artifact_suffix = artifact_suffix[len(prefix):]
+                break
+        rid = artifact_suffix[:-len("-installer")] if artifact_suffix.endswith("-installer") else artifact_suffix
+        platform, arch = RID_TO_PLATFORM_ARCH.get(rid, ("unknown", "unknown"))
+        return (
+            RELEASE_PROOF_ARTIFACT_INSTALL_ROUTE_PLATFORM_ORDER.get(platform, 99),
+            RELEASE_PROOF_ARTIFACT_INSTALL_ROUTE_ARCH_ORDER.get(arch, 99),
+            artifact_id,
+        )
+
+    expected_additional_routes = sorted(additional_routes, key=additional_route_sort_key)
+    if additional_routes != expected_additional_routes:
         raise ValueError(
             "proof_routes additional artifact install routes must use canonical ordering "
-            f"(actual={additional_routes}, expected={sorted(additional_routes)}) in {source}"
+            f"(actual={additional_routes}, expected={expected_additional_routes}) in {source}"
         )
     return required_route_order + additional_routes
 
