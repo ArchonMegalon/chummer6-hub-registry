@@ -2735,12 +2735,13 @@ def install_aware_artifact_registry(
         for artifact in artifacts
         if isinstance(artifact, dict)
     }
+    artifact_ids = set(artifact_by_id)
     rows: list[dict[str, Any]] = []
     for route_row in desktop_route_truth:
         if not isinstance(route_row, dict):
             continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
-        if not artifact_id:
+        if not artifact_id or artifact_id not in artifact_ids:
             continue
         installed_build_selector = install_aware_installed_build_selector(
             channel_id=channel_id,
@@ -2981,6 +2982,7 @@ def artifact_publication_rationale(
 
 def artifact_identity_registry(
     tuple_coverage: dict[str, Any] | None,
+    artifacts: list[dict[str, Any]],
     *,
     channel_id: str,
     release_version: str,
@@ -2989,12 +2991,18 @@ def artifact_identity_registry(
     desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
     if not isinstance(desktop_route_truth, list):
         return []
+    artifact_ids = {
+        normalize_token(artifact.get("artifactId") or artifact.get("id"))
+        for artifact in artifacts
+        if isinstance(artifact, dict)
+    }
+    artifact_ids.discard("")
     rows: list[dict[str, Any]] = []
     for route_row in desktop_route_truth:
         if not isinstance(route_row, dict):
             continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
-        if not artifact_id:
+        if not artifact_id or artifact_id not in artifact_ids:
             continue
         rows.append(
             {
@@ -3077,6 +3085,7 @@ def desktop_surface_refs(
         for artifact in artifacts
         if isinstance(artifact, dict)
     }
+    artifact_ids = set(artifact_by_id)
     rows: list[dict[str, Any]] = []
     for route_row in desktop_route_truth:
         if not isinstance(route_row, dict):
@@ -3090,6 +3099,8 @@ def desktop_surface_refs(
             continue
         route_artifact_id = normalize_token(route_row.get("artifactId"))
         if not route_artifact_id or route_artifact_id != artifact_id:
+            continue
+        if artifact_id not in artifact_ids:
             continue
         platform = normalize_platform_token(route_row.get("platform"))
         kind = normalize_token(route_row.get("kind")) or "installer"
@@ -3154,6 +3165,7 @@ def desktop_surface_refs(
 
 def artifact_publication_bindings(
     tuple_coverage: dict[str, Any] | None,
+    artifacts: list[dict[str, Any]],
     *,
     channel_id: str,
     release_version: str,
@@ -3162,12 +3174,18 @@ def artifact_publication_bindings(
     desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
     if not isinstance(desktop_route_truth, list):
         return []
+    artifact_ids = {
+        normalize_token(artifact.get("artifactId") or artifact.get("id"))
+        for artifact in artifacts
+        if isinstance(artifact, dict)
+    }
+    artifact_ids.discard("")
     rows: list[dict[str, Any]] = []
     for route_row in desktop_route_truth:
         if not isinstance(route_row, dict):
             continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
-        if not artifact_id:
+        if not artifact_id or artifact_id not in artifact_ids:
             continue
         rows.append(
             {
@@ -3347,7 +3365,9 @@ def ensure_registry_truth_matches_artifacts(
     expected_install_aware_tuple_ids = {
         str(row.get("tupleId") or "").strip()
         for row in desktop_route_truth
-        if isinstance(row, dict) and str(row.get("tupleId") or "").strip() and expected_installer_artifact_id_for_route(row)
+        if isinstance(row, dict)
+        and str(row.get("tupleId") or "").strip()
+        and normalize_token(expected_installer_artifact_id_for_route(row)) in artifact_ids
     }
     if install_aware_registry_rows is not None and install_aware_tuple_ids != expected_install_aware_tuple_ids:
         raise ValueError(
@@ -3915,6 +3935,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     )
     artifact_identity_registry_rows = artifact_identity_registry(
         tuple_coverage,
+        artifacts,
         channel_id=channel,
         release_version=version,
         proof_freshness_status=freshness_status,
@@ -3927,6 +3948,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     )
     artifact_publication_binding_rows = artifact_publication_bindings(
         tuple_coverage,
+        artifacts,
         channel_id=channel,
         release_version=version,
         proof_freshness_status=freshness_status,

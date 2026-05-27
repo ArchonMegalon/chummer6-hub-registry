@@ -3033,12 +3033,13 @@ def expected_install_aware_artifact_registry_rows(payload: dict[str, Any]) -> li
         artifact_id = normalized_token(artifact.get("artifactId") or artifact.get("id"))
         if artifact_id:
             artifact_by_id[artifact_id] = {"kind": normalized_token(artifact.get("kind"))}
+    artifact_ids = set(artifact_by_id)
     rows: list[dict[str, Any]] = []
     for route_row in route_truth:
         if not isinstance(route_row, dict):
             continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
-        if not artifact_id:
+        if not artifact_id or artifact_id not in artifact_ids:
             continue
         installed_build_selector = install_aware_installed_build_selector(
             channel_id=channel_id,
@@ -3310,6 +3311,8 @@ def expected_desktop_surface_ref_rows(payload: dict[str, Any]) -> list[dict[str,
             continue
         route_artifact_id = normalized_token(route_row.get("artifactId"))
         if not route_artifact_id or route_artifact_id != artifact_id:
+            continue
+        if artifact_id not in artifact_by_id:
             continue
         platform = normalized_platform_token(route_row.get("platform"))
         kind = normalized_token(route_row.get("kind")) or "installer"
@@ -3905,12 +3908,18 @@ def expected_artifact_identity_registry_rows(payload: dict[str, Any]) -> list[di
     channel_id = expected_channel_id(payload)
     release_version = release_version_for_registry(payload, source="artifact identity registry derivation")
     freshness_status = proof_freshness_status(payload)
+    artifact_ids = {
+        normalized_token(artifact.get("artifactId") or artifact.get("id"))
+        for artifact in iter_manifest_download_entries(payload)
+        if isinstance(artifact, dict)
+    }
+    artifact_ids.discard("")
     rows: list[dict[str, Any]] = []
     for route_row in route_truth:
         if not isinstance(route_row, dict):
             continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
-        if not artifact_id:
+        if not artifact_id or artifact_id not in artifact_ids:
             continue
         publication_state = artifact_publication_state(route_row, proof_freshness_status=freshness_status)
         rows.append(
@@ -3979,12 +3988,18 @@ def expected_artifact_publication_binding_rows(payload: dict[str, Any]) -> list[
     channel_id = expected_channel_id(payload)
     release_version = release_version_for_registry(payload, source="artifact publication binding derivation")
     freshness_status = proof_freshness_status(payload)
+    artifact_ids = {
+        normalized_token(artifact.get("artifactId") or artifact.get("id"))
+        for artifact in iter_manifest_download_entries(payload)
+        if isinstance(artifact, dict)
+    }
+    artifact_ids.discard("")
     rows: list[dict[str, Any]] = []
     for route_row in route_truth:
         if not isinstance(route_row, dict):
             continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
-        if not artifact_id:
+        if not artifact_id or artifact_id not in artifact_ids:
             continue
         publication_state = artifact_publication_state(route_row, proof_freshness_status=freshness_status)
         rows.append(

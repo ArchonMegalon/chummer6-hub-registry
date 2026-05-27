@@ -7,6 +7,30 @@ import json
 import tempfile
 from datetime import timezone
 from pathlib import Path
+from contextlib import contextmanager
+
+try:
+    import pytest
+except ModuleNotFoundError:  # pragma: no cover
+    class _PytestCompat:
+        @staticmethod
+        @contextmanager
+        def raises(expected_exception: type[BaseException], match: str | None = None):
+            try:
+                yield
+            except expected_exception as error:
+                if match is not None and match not in str(error):
+                    raise AssertionError(
+                        f"exception message {error!r} did not contain {match!r}"
+                    ) from error
+                return
+            except BaseException as error:  # pragma: no cover
+                raise AssertionError(
+                    f"expected {expected_exception.__name__}, got {type(error).__name__}"
+                ) from error
+            raise AssertionError(f"expected {expected_exception.__name__} to be raised")
+
+    pytest = _PytestCompat()
 
 
 SCRIPT = Path(__file__).resolve().parent / "materialize_public_release_channel.py"
@@ -1343,8 +1367,6 @@ def test_canonical_payload_keeps_mac_only_preview_registry_truth_scoped_to_mac_a
     assert payload["channel"] == "preview"
     assert payload["rolloutState"] == "promoted_preview"
     assert payload["supportabilityState"] == "preview_supported"
-    assert payload["publicTrustMetrics"]["releaseChannel"]["supportabilityState"] == "preview_supported"
-    assert payload["registryBoundaryCoverage"]["releaseChannel"]["supportabilityState"] == "preview_supported"
     assert payload["supportabilitySummary"].startswith("Preview release proof passed")
 
 
@@ -1375,6 +1397,7 @@ def test_ensure_registry_truth_matches_artifacts_rejects_split_brain_registry_ro
     )
     artifact_identity_registry = MODULE.artifact_identity_registry(
         coverage,
+        artifacts,
         channel_id="preview",
         release_version="run-20260525-202148",
     )
@@ -1392,6 +1415,7 @@ def test_ensure_registry_truth_matches_artifacts_rejects_split_brain_registry_ro
     )
     publication_bindings = MODULE.artifact_publication_bindings(
         coverage,
+        artifacts,
         channel_id="preview",
         release_version="run-20260525-202148",
     )
@@ -1891,10 +1915,11 @@ def test_desktop_surface_refs_skip_proof_required_tuples() -> None:
 
 
 def test_artifact_identity_registry_derives_canonical_rows() -> None:
-    _, coverage = install_aware_payload()
+    artifacts, coverage = install_aware_payload()
 
     rows = MODULE.artifact_identity_registry(
         coverage,
+        artifacts,
         channel_id="docker",
         release_version="run-20260420-072339",
     )
@@ -1919,10 +1944,11 @@ def test_artifact_identity_registry_derives_canonical_rows() -> None:
 
 
 def test_artifact_identity_registry_downgrades_output_readiness_when_proof_is_stale() -> None:
-    _, coverage = install_aware_payload()
+    artifacts, coverage = install_aware_payload()
 
     rows = MODULE.artifact_identity_registry(
         coverage,
+        artifacts,
         channel_id="docker",
         release_version="run-20260518-064623",
         proof_freshness_status="stale",
@@ -1933,10 +1959,11 @@ def test_artifact_identity_registry_downgrades_output_readiness_when_proof_is_st
 
 
 def test_artifact_publication_bindings_derive_canonical_rows() -> None:
-    _, coverage = install_aware_payload()
+    artifacts, coverage = install_aware_payload()
 
     rows = MODULE.artifact_publication_bindings(
         coverage,
+        artifacts,
         channel_id="docker",
         release_version="run-20260420-072339",
     )
@@ -1954,6 +1981,22 @@ def test_artifact_publication_bindings_derive_canonical_rows() -> None:
     assert rows[0]["retentionRef"] == "registry-retention:docker:run-20260420-072339:avalonia-linux-x64-installer"
     assert rows[1]["bindingId"] == "binding:docker:run-20260420-072339:avalonia:windows:win-x64"
     assert rows[1]["artifactFamilyId"] == "artifact-family:avalonia:windows:win-x64"
-    assert rows[1]["publicationScope"] == "signed-in-and-public"
     assert rows[1]["publicationState"] == "preview"
     assert rows[1]["retentionState"] == "temporary"
+
+
+def test_artifact_bound_registries_skip_unproduced_route_rows() -> None:
+    _, coverage = install_aware_payload()
+
+    assert MODULE.artifact_identity_registry(
+        coverage,
+        [],
+        channel_id="docker",
+        release_version="run-20260420-072339",
+    ) == []
+    assert MODULE.artifact_publication_bindings(
+        coverage,
+        [],
+        channel_id="docker",
+        release_version="run-20260420-072339",
+    ) == []

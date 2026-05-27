@@ -259,6 +259,17 @@ def add_public_trust_metrics(payload: dict) -> None:
     payload["publicTrustMetrics"] = MODULE.expected_public_trust_metrics(payload)
 
 
+def test_artifact_bound_registries_ignore_route_rows_without_produced_artifacts() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    payload["artifacts"] = []
+
+    assert MODULE.expected_install_aware_artifact_registry_rows(payload) == []
+    assert MODULE.expected_desktop_surface_ref_rows(payload) == []
+    assert MODULE.expected_artifact_identity_registry_rows(payload) == []
+    assert MODULE.expected_artifact_publication_binding_rows(payload) == []
+
+
 def add_registry_boundary_coverage(payload: dict) -> None:
     payload["registryBoundaryCoverage"] = MODULE.expected_registry_boundary_coverage(payload)
 
@@ -519,11 +530,12 @@ def test_verify_artifact_identity_registry_accepts_canonical_rows() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)
     payload["artifactIdentityRegistry"] = MODULE.expected_artifact_identity_registry_rows(payload)
-    fallback_row = payload["artifactIdentityRegistry"][1]
+    row = payload["artifactIdentityRegistry"][0]
 
-    assert fallback_row["tupleId"] == "blazor-desktop:windows:win-x64"
-    assert fallback_row["publicationState"] == "retained"
-    assert fallback_row["retentionState"] == "retained"
+    assert len(payload["artifactIdentityRegistry"]) == 1
+    assert row["tupleId"] == "avalonia:linux:linux-x64"
+    assert row["publicationState"] == "published"
+    assert row["retentionState"] == "current"
 
     MODULE.verify_artifact_identity_registry(payload, "release-channel.json")
 
@@ -540,19 +552,14 @@ def test_verify_artifact_publication_bindings_accepts_canonical_rows() -> None:
     add_install_aware_route_truth(payload)
     payload["artifactPublicationBindings"] = MODULE.expected_artifact_publication_binding_rows(payload)
     row = payload["artifactPublicationBindings"][0]
-    fallback_row = payload["artifactPublicationBindings"][1]
 
+    assert len(payload["artifactPublicationBindings"]) == 1
     assert row["previewRef"] == "registry-preview:avalonia-linux-x64-installer:avalonia:linux:linux-x64"
     assert row["captionRef"] == "registry-caption:docker:run-20260414-1836:avalonia:linux:linux-x64"
     assert row["signedInShelfRef"] == "shelf:signed-in:docker:run-20260414-1836:avalonia-linux-x64-installer"
     assert row["publicShelfRef"] == "shelf:public:docker:run-20260414-1836:avalonia-linux-x64-installer"
-    assert fallback_row["tupleId"] == "blazor-desktop:windows:win-x64"
-    assert fallback_row["publicationState"] == "retained"
-    assert fallback_row["retentionState"] == "retained"
-    assert (
-        fallback_row["rationale"]
-        == "docker keeps fallback tuple blazor-desktop:windows:win-x64 retained so recovery-only shelf refs stay governed without relabeling the artifact as preview."
-    )
+    assert row["publicationState"] == "published"
+    assert row["retentionState"] == "current"
 
     MODULE.verify_artifact_publication_bindings(payload, "release-channel.json")
 
@@ -567,6 +574,16 @@ def test_verify_artifact_publication_bindings_rejects_missing_registry() -> None
 def test_verify_artifact_publication_bindings_rejects_preview_drift_for_retained_fallback() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)
+    payload["artifacts"].append(
+        {
+            "artifactId": "blazor-desktop-win-x64-installer",
+            "head": "blazor-desktop",
+            "rid": "win-x64",
+            "platform": "windows",
+            "arch": "x64",
+            "kind": "installer",
+        }
+    )
     payload["artifactPublicationBindings"] = MODULE.expected_artifact_publication_binding_rows(payload)
     payload["artifactPublicationBindings"][1]["publicationState"] = "preview"
     payload["artifactPublicationBindings"][1]["retentionState"] = "temporary"
