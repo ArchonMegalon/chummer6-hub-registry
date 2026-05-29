@@ -2,7 +2,8 @@ schema_version: black-ledger-public-seed-v1
 world_id: emerald-sprawl-prelude
 public_name: 'Emerald Sprawl: First Pressure'
 public_subtitle: A fictional, public-safe Black Ledger seed world.
-status: seeded_preview
+source: chummer-owned seed
+status: flagship_seeded
 lore_mode: public_seed
 public_projection_allowed: true
 official_ip_names_present: false
@@ -21,7 +22,7 @@ source_policy:
   private_campaign_lore_labels_allowed_on_public_routes: false
   licensed_canon_pack_enabled: false
   license_receipt_required_for_official_lore: true
-  public_copy_note: Seeded fictional preview and opt-in aggregate only. The Ledger explains pressure, not people.
+  public_copy_note: Seeded fictional flagship board and opt-in aggregate only. The Ledger explains pressure, not people.
 public_ui_noise_policy:
   no_dead_links: true
   no_placeholder_buttons: true
@@ -593,6 +594,63 @@ turns:
     headline: Six factions entered the Ledger.
     summary: Six public-safe fictional factions entered the seeded world with contested route pressure and no human stewards assigned.
     effects: []
+    action_beats:
+      - beat_id: turn0_player_rust_debt_probe
+        actor_kind: player
+        actor_label: Rust Market runners
+        beat_label: Debt probe
+        action_summary: A seeded player cell pushed a gear-recovery probe through Rust Bazaar and exposed old favor debt before the first public tick opened.
+        stakes: If the probe failed, debt pressure would stay invisible until it became a city-wide logistics problem.
+        proof_note: Proof lane seeded into ledger_tick_0000_seed as anonymous setup motion.
+      - beat_id: turn0_player_ashline_reagent_pull
+        actor_kind: player
+        actor_label: Ashline awakened crew
+        beat_label: Reagent scramble
+        action_summary: A MysAd-heavy crew rushed a reagent pull and left a visible source-clarity dispute behind them.
+        stakes: That scramble seeded the awakened pressure that later surfaces as package demand instead of private table lore.
+        proof_note: Turn-0 setup receipt retained only aggregate awakened-pressure motion.
+      - beat_id: turn0_player_neon_route_patch
+        actor_kind: player
+        actor_label: Neon Docks riggers
+        beat_label: Route patch
+        action_summary: A player-side rigger patch kept one cargo lane open but burned maintenance slack across the dock drones.
+        stakes: The city stayed moving, but the repair debt guaranteed a visible turn-1 logistics beat.
+        proof_note: Receipt keeps route survival, not operator identity.
+      - beat_id: turn0_gm_ghostline_redaction
+        actor_kind: gm
+        actor_label: Ghostline field GM
+        beat_label: Rumor kill
+        action_summary: The seeded GM layer suppressed two rumor chains before they hardened into public package truth.
+        stakes: Without the GM intervention, the board would open with false certainty instead of useful pressure.
+        proof_note: Redaction-only proof logged under the turn-0 seed receipt.
+      - beat_id: turn0_gm_freeward_witness_net
+        actor_kind: gm
+        actor_label: Free Wardens field GM
+        beat_label: Witness net
+        action_summary: The GM side established a witness-safe closeout net so public outcomes could be shown without exposing tables or addresses.
+        stakes: This is what lets the board show consequence instead of flavor text.
+        proof_note: Witness-safe posture seeded before the first public dispatch lane opened.
+      - beat_id: turn0_gm_glass_gate
+        actor_kind: gm
+        actor_label: Glass Tower contract referee
+        beat_label: Access gate
+        action_summary: A seeded contract gate locked the polished districts down and forced pressure into the contested route spine.
+        stakes: Turn-1 trust loss only makes sense because the gate worked too well at turn 0.
+        proof_note: Contract gate posture recorded as city setup pressure, not private bureaucracy.
+      - beat_id: turn0_world_contested_spine
+        actor_kind: world
+        actor_label: Ledger GM
+        beat_label: Transit spine armed
+        action_summary: The world seed primed Transit Spine and Old Signal Loop as contested choke points instead of neutral map filler.
+        stakes: 'This gives the globe something to show immediately: routes, friction, and future collisions.'
+        proof_note: Seed geometry and pressure lanes stamped into the initial state hash.
+      - beat_id: turn0_intel_package_watch
+        actor_kind: intel
+        actor_label: Public Intel Provider
+        beat_label: Package watchlist
+        action_summary: The intel desk pre-tagged drone, awakened, and debt package watches so turn-1 motion could land as candidate work instead of a text-only headline.
+        stakes: Without this, the package lane would feel disconnected from the world board.
+        proof_note: Watchlist seeded as governed pressure, not roadmap truth.
     public_safe: true
   - turn: 1
     turn_id: turn_0001_preseeded
@@ -625,6 +683,49 @@ turns:
         metric: public_trust
         delta: -4
         public_reason: License polish increased but public confidence fell after a quiet contract sweep.
+    action_beats:
+      - beat_id: turn1_anchor_city_open
+        actor_kind: anchor
+        actor_label: Black Ledger Network
+        beat_label: Cold open
+        action_summary: The anchor desk opens on a city already in motion, not a brochure intro or a static explainer card.
+        stakes: The public route needs immediate consequence so the globe, video, and dispatch lanes all feel connected.
+        proof_note: Open on ledger_tick_0001_preseeded and the live district deltas.
+      - beat_id: turn1_rust_debt_flash
+        actor_kind: player
+        actor_label: Rust Market runners
+        beat_label: Debt flash
+        action_summary: Old favors came due around a failed gear reconciliation and shoved Debt Heat to the front of the board.
+        stakes: Recovery work is no longer optional; it is now a visible city pressure lane.
+        proof_note: Routed through dispatch_turn_0001_rust_market_old_favors.
+      - beat_id: turn1_ashline_awakened_push
+        actor_kind: player
+        actor_label: Ashline Circle crews
+        beat_label: Awakened push
+        action_summary: Three awakened-build signals cleared the public-safe threshold and turned private chaos into visible MysAd pressure.
+        stakes: If no one explains the pressure, rumor owns the story.
+        proof_note: Routed through dispatch_turn_0001_ashline_source_clarity.
+      - beat_id: turn1_ghostline_gm_cut
+        actor_kind: gm
+        actor_label: Ghostline field GM
+        beat_label: Signal cut
+        action_summary: Two rumor lanes were cut before they could land as fake package truth.
+        stakes: GM work changes the board here; it does not just annotate it after the fact.
+        proof_note: Routed through dispatch_turn_0001_ghostline_rumor_suppressed.
+      - beat_id: turn1_neon_route_rescue
+        actor_kind: gm
+        actor_label: Neon Docks route dispatcher
+        beat_label: Cargo rescue
+        action_summary: The docks kept cargo moving, but only by cashing in maintenance slack and exposing drone overlay demand.
+        stakes: Keeping the city breathing created the next package candidate.
+        proof_note: Routed through dispatch_turn_0001_neon_docks_drone_pressure.
+      - beat_id: turn1_freeward_closeout
+        actor_kind: world
+        actor_label: Free Wardens witness net
+        beat_label: Witness closeout
+        action_summary: Two public-safe outcomes were recorded as closeout witnesses, proving the board can show consequence without exposing people.
+        stakes: This is the payoff beat that keeps the newsreel from collapsing into pure hype.
+        proof_note: Routed through dispatch_turn_0001_free_wardens_witnesses.
     event_ids:
       - evt_0001_rust_old_favors
       - evt_0001_ashline_source_dispute
@@ -652,13 +753,94 @@ turns:
     input_state_hash: fixed-turn-0-state-v1
     decision_packet_hash: fixed-preseed-decision-packet-v1
     output_state_hash: fixed-turn-1-state-v1
+  - turn: 2
+    mode: deterministic_test
+    title: Turn 2 deterministic board
+    state: deterministic_board_ready
+    summary: Turn 2 keeps the city public-safe while route pressure shifts toward recovery work, dispatch clarity, and witnessed closeouts.
+    receipt_id: ledger_tick_0002_flagship_seeded
+    created_at_utc: 2026-05-19T15:20:00Z
+    effects:
+      - target: rust_market_syndicate
+        metric: recovery_work
+        delta: 6
+        public_reason: Recovery crews converted Rust Bazaar debt pressure into visible closeout work.
+      - target: ghostline_network
+        metric: proof_trail_strength
+        delta: 5
+        public_reason: Ghostline published cleaner receipt routing before rumor spillover reached the public board.
+      - target: barrens_free_wardens
+        metric: public_trust
+        delta: 4
+        public_reason: Free Wardens carried another witnessed closeout without exposing any private table detail.
+    action_beats:
+      - beat_id: turn2_rust_closeout_drive
+        actor_kind: player
+        actor_label: Rust Market runners
+        beat_label: Closeout drive
+        action_summary: Recovery crews forced a visible closeout push through Rust Bazaar instead of letting debt pressure stay abstract.
+        stakes: Turn 2 has to feel like operational follow-through, not just another summary card.
+        proof_note: Proof lane anchored to ledger_tick_0002_flagship_seeded and the Rust Bazaar recovery delta.
+        visual_hook: Rust Bazaar glows ember-orange while recovery crews cross the avenue in the lower third.
+        command_intent: Force Rust Bazaar debt into visible recovery work instead of passive heat.
+        consequence_line: Recovery is now a live city command, not a backlog rumor.
+      - beat_id: turn2_ghostline_receipt_clean
+        actor_kind: gm
+        actor_label: Ghostline field GM
+        beat_label: Receipt clean room
+        action_summary: Ghostline cut rumor spillover and replaced it with cleaner public receipt routing before the board drifted off-message.
+        stakes: If this fails, the city reads as noise instead of consequence.
+        proof_note: Proof lane anchored to the proof_trail_strength effect on ledger_tick_0002_flagship_seeded.
+        visual_hook: Ghostline cuts the screen with green receipt tracers over a darkened rumor grid.
+        command_intent: Replace rumor spillover with hard receipt routing before the board loses coherence.
+        consequence_line: Clean proof routing now determines which factions keep initiative.
+      - beat_id: turn2_freeward_witness_surge
+        actor_kind: world
+        actor_label: Free Wardens witness net
+        beat_label: Witness surge
+        action_summary: Witnessed closeouts stacked up fast enough to move public trust without exposing any private table actor.
+        stakes: This is the visible payoff that proves the public board can show outcomes, not just pressure.
+        proof_note: Proof lane anchored to the public_trust lift on ledger_tick_0002_flagship_seeded.
+        visual_hook: Witness lantern markers pulse across Free Ward while the trust meter climbs.
+        command_intent: Show a public-safe outcome that visibly changes the city without exposing people.
+        consequence_line: Public trust now moves because someone closed the loop, not because a narrator said so.
+      - beat_id: turn2_dispatch_shell_followthrough
+        actor_kind: gm
+        actor_label: Black Ledger dispatch desk
+        beat_label: Dispatch followthrough
+        action_summary: The desk reframed turn-one chaos into concrete recovery lanes, making the next package fights legible instead of vague.
+        stakes: The newsreel and globe need explicit causality or they slide back into generic worldbuilding.
+        proof_note: Routed through the deterministic board receipt and the visible package pressure lanes.
+        visual_hook: Dispatch cards snap onto the board in sync with the globe replay arrows.
+        command_intent: Turn turn-one chaos into concrete recovery lanes the player can chase.
+        consequence_line: Package fights are now legible command work instead of ambient world flavor.
+      - beat_id: turn2_ashline_explainer_breach
+        actor_kind: player
+        actor_label: Ashline Circle crews
+        beat_label: Explainer breach
+        action_summary: Awakened-build crews pushed explanations into the public lane before rumor merchants could own the frame.
+        stakes: If players do not press the frame, every strange signal looks like empty flavor instead of faction action.
+        proof_note: Backed by the awakened-build-explainers package pressure staying hot into turn 2.
+        visual_hook: Violet Ashline halos flare over Old Signal Loop while build explainers cut into the feed.
+        command_intent: Seize the public frame before rumor merchants can narrate the awakened spike.
+        consequence_line: Ashline now controls whether strange pressure reads as threat or competence.
+      - beat_id: turn2_city_anchor_reopen
+        actor_kind: anchor
+        actor_label: Black Ledger Network
+        beat_label: Reopen the board
+        action_summary: The anchor desk reopens on a city that is resolving visible pressure, not waiting for a narrator to invent tension.
+        stakes: The flagship globe has to feel like a live command deck, not a teaser surface.
+        proof_note: Open on ledger_tick_0002_flagship_seeded and the turn-2 deterministic board headline.
+        visual_hook: The anchor desk opens under a full Earth globe with district deltas already pulsing.
+        command_intent: Reopen the city as a live command deck, not a teaser screen.
+        consequence_line: Every downstream lane inherits its urgency from this turn-open.
 deterministic_test_ticks:
   - turn: 2
     seed_id: emerald-sprawl-prelude
     mode: deterministic_test
-    state: deterministic_preview_ready
-    summary: Turn 2 deterministic preview keeps the city public-safe while route pressure shifts toward recovery, dispatch clarity, and witnessed closeouts.
-    receipt_id: ledger_tick_0002_deterministic_preview
+    state: deterministic_flagship_ready
+    summary: Turn 2 deterministic board keeps the city public-safe while route pressure shifts toward recovery, dispatch clarity, and witnessed closeouts.
+    receipt_id: ledger_tick_0002_flagship_seeded
     created_at_utc: 2026-05-19T15:20:00Z
     effects:
       - target: rust_market_syndicate
@@ -680,7 +862,7 @@ deterministic_test_ticks:
         status: warming
         source_event_ids:
           - evt_0001_rust_old_favors
-        public_summary: Debt pressure remains visible, but the second-turn preview shows cleaner recovery rails and less rumor spillover.
+        public_summary: Debt pressure remains visible, but turn 2 shows cleaner recovery rails and less rumor spillover.
         route: /packages/debt-ledger-visibility
       - package_id: awakened-build-explainers
         public_name: Awakened Build Explainers
@@ -688,7 +870,7 @@ deterministic_test_ticks:
         status: warming
         source_event_ids:
           - evt_0001_ashline_source_dispute
-        public_summary: Turn 2 preview keeps awakened demand explainable instead of mystical handwaving.
+        public_summary: Turn 2 keeps awakened demand explainable instead of mystical handwaving.
         route: /packages/awakened-build-explainers
       - package_id: drone-logistics-overlay
         public_name: Drone Logistics Overlay
@@ -696,7 +878,7 @@ deterministic_test_ticks:
         status: monitoring
         source_event_ids:
           - evt_0001_neon_drone_overlay
-        public_summary: The preview keeps cargo and drone pressure visible without leaking private route assignments.
+        public_summary: Turn 2 keeps cargo and drone pressure visible without leaking private route assignments.
         route: /packages/drone-logistics-overlay
 dispatches:
   - dispatch_id: dispatch_turn_0001_main

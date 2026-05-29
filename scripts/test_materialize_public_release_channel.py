@@ -1367,6 +1367,8 @@ def test_canonical_payload_keeps_mac_only_preview_registry_truth_scoped_to_mac_a
     assert payload["channel"] == "preview"
     assert payload["rolloutState"] == "promoted_preview"
     assert payload["supportabilityState"] == "preview_supported"
+    assert payload["publicTrustMetrics"]["releaseChannel"]["supportabilityState"] == "preview_supported"
+    assert payload["registryBoundaryCoverage"]["releaseChannel"]["supportabilityState"] == "preview_supported"
     assert payload["supportabilitySummary"].startswith("Preview release proof passed")
 
 
@@ -1397,7 +1399,6 @@ def test_ensure_registry_truth_matches_artifacts_rejects_split_brain_registry_ro
     )
     artifact_identity_registry = MODULE.artifact_identity_registry(
         coverage,
-        artifacts,
         channel_id="preview",
         release_version="run-20260525-202148",
     )
@@ -1415,7 +1416,6 @@ def test_ensure_registry_truth_matches_artifacts_rejects_split_brain_registry_ro
     )
     publication_bindings = MODULE.artifact_publication_bindings(
         coverage,
-        artifacts,
         channel_id="preview",
         release_version="run-20260525-202148",
     )

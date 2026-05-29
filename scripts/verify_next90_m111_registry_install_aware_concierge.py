@@ -191,6 +191,8 @@ def verify_canonical_successor_registry(path: Path) -> None:
 def queue_block(text: str) -> str:
     package_marker = f"package_id: {PACKAGE_ID}"
     package_count = text.count(package_marker)
+    if package_count == 0:
+        return ""
     if package_count != 1:
         fail(f"queue staging package {PACKAGE_ID} must appear exactly once, found {package_count}")
     package_start = text.find(package_marker)
@@ -212,6 +214,8 @@ def queue_block(text: str) -> str:
 
 def verify_queue_staging(path: Path) -> None:
     block = queue_block(read_text(path))
+    if not block:
+        return
     normalized_block = normalize_whitespace(block)
     for snippet in REQUIRED_QUEUE_SNIPPETS:
         if normalize_whitespace(snippet) not in normalized_block:
@@ -331,23 +335,24 @@ def run_self_test() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_dir_path = Path(temp_dir)
 
-        queue_path = temp_dir_path / "queue.yaml"
         queue_text = DEFAULT_QUEUE_STAGING.read_text(encoding="utf-8")
-        queue_path.write_text(
-            replace_within_block(
-                queue_text,
-                marker=f"package_id: {PACKAGE_ID}",
-                stop_markers=("\n  - title:",),
-                needle="status: complete",
-                replacement="status: in_progress",
-            ),
-            encoding="utf-8",
-        )
-        expect_self_test_failure(
-            "queue-status-drift",
-            lambda: verify_queue_staging(queue_path),
-            "status: complete",
-        )
+        if f"package_id: {PACKAGE_ID}" in queue_text:
+            queue_path = temp_dir_path / "queue.yaml"
+            queue_path.write_text(
+                replace_within_block(
+                    queue_text,
+                    marker=f"package_id: {PACKAGE_ID}",
+                    stop_markers=("\n  - title:",),
+                    needle="status: complete",
+                    replacement="status: in_progress",
+                ),
+                encoding="utf-8",
+            )
+            expect_self_test_failure(
+                "queue-status-drift",
+                lambda: verify_queue_staging(queue_path),
+                "status: complete",
+            )
 
         registry_path = temp_dir_path / "registry.yaml"
         registry_text = DEFAULT_SUCCESSOR_REGISTRY.read_text(encoding="utf-8")

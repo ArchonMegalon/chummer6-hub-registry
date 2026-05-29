@@ -1,0 +1,24 @@
+{
+  "status": "passed",
+  "generatedAt": "2026-05-21T17:26:01Z",
+  "baseUrl": "https://chummer.run",
+  "journeysPassed": [
+    "install_claim_restore_continue",
+    "build_explain_publish",
+    "campaign_session_recover_recap",
+    "report_cluster_release_notify",
+    "organize_community_and_close_loop"
+  ],
+  "proofRoutes": [
+    "/downloads/install/avalonia-linux-x64-installer",
+    "/home/access",
+    "/home/work",
+    "/account/access",
+    "/account/work",
+    "/account/support",
+    "/contact",
+    "/downloads",
+    "/downloads/install/avalonia-osx-arm64-installer",
+    "/downloads/install/avalonia-win-x64-installer"
+  ]
+}

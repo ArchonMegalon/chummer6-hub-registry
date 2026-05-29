@@ -1,0 +1,137 @@
+{
+  "status": "pass",
+  "generatedAt": "2026-05-21T17:17:12Z",
+  "defaultKeyCount": 387,
+  "explicitFallbackRuntime": "pass",
+  "signoffSmokeRunnerStatus": "pass",
+  "shippingLocales": [
+    "en-us",
+    "de-de",
+    "fr-fr",
+    "ja-jp",
+    "pt-br",
+    "zh-cn"
+  ],
+  "localeSummary": [
+    {
+      "locale": "en-us",
+      "untranslatedKeyCount": 0,
+      "overrideCount": 387,
+      "minimumOverrideCount": 387,
+      "missingReleaseSeedKeys": [],
+      "legacyXmlPresent": true,
+      "legacyDataXmlPresent": true
+    },
+    {
+      "locale": "de-de",
+      "untranslatedKeyCount": 0,
+      "overrideCount": 387,
+      "minimumOverrideCount": 40,
+      "missingReleaseSeedKeys": [],
+      "legacyXmlPresent": true,
+      "legacyDataXmlPresent": true
+    },
+    {
+      "locale": "fr-fr",
+      "untranslatedKeyCount": 0,
+      "overrideCount": 387,
+      "minimumOverrideCount": 40,
+      "missingReleaseSeedKeys": [],
+      "legacyXmlPresent": true,
+      "legacyDataXmlPresent": true
+    },
+    {
+      "locale": "ja-jp",
+      "untranslatedKeyCount": 0,
+      "overrideCount": 387,
+      "minimumOverrideCount": 40,
+      "missingReleaseSeedKeys": [],
+      "legacyXmlPresent": true,
+      "legacyDataXmlPresent": true
+    },
+    {
+      "locale": "pt-br",
+      "untranslatedKeyCount": 0,
+      "overrideCount": 387,
+      "minimumOverrideCount": 40,
+      "missingReleaseSeedKeys": [],
+      "legacyXmlPresent": true,
+      "legacyDataXmlPresent": true
+    },
+    {
+      "locale": "zh-cn",
+      "untranslatedKeyCount": 0,
+      "overrideCount": 387,
+      "minimumOverrideCount": 40,
+      "missingReleaseSeedKeys": [],
+      "legacyXmlPresent": true,
+      "legacyDataXmlPresent": true
+    }
+  ],
+  "acceptanceGates": [
+    "pseudo_localization",
+    "missing_key_fail_fast",
+    "top_surface_overflow_checks",
+    "locale_smoke_first_launch",
+    "locale_smoke_settings",
+    "locale_smoke_explain",
+    "locale_smoke_updater",
+    "locale_smoke_support",
+    "non_english_generated_artifact_smoke"
+  ],
+  "domainCoverage": {
+    "app_chrome": "pass",
+    "data_rules_names": "pass",
+    "explain_receipts": "pass",
+    "generated_artifacts": "pass",
+    "install_update_support": "pass"
+  },
+  "localeDomainCoverage": {
+    "de-de": {
+      "app_chrome": "pass",
+      "data_rules_names": "pass",
+      "explain_receipts": "pass",
+      "generated_artifacts": "pass",
+      "install_update_support": "pass"
+    },
+    "en-us": {
+      "app_chrome": "pass",
+      "data_rules_names": "pass",
+      "explain_receipts": "pass",
+      "generated_artifacts": "pass",
+      "install_update_support": "pass"
+    },
+    "fr-fr": {
+      "app_chrome": "pass",
+      "data_rules_names": "pass",
+      "explain_receipts": "pass",
+      "generated_artifacts": "pass",
+      "install_update_support": "pass"
+    },
+    "ja-jp": {
+      "app_chrome": "pass",
+      "data_rules_names": "pass",
+      "explain_receipts": "pass",
+      "generated_artifacts": "pass",
+      "install_update_support": "pass"
+    },
+    "pt-br": {
+      "app_chrome": "pass",
+      "data_rules_names": "pass",
+      "explain_receipts": "pass",
+      "generated_artifacts": "pass",
+      "install_update_support": "pass"
+    },
+    "zh-cn": {
+      "app_chrome": "pass",
+      "data_rules_names": "pass",
+      "explain_receipts": "pass",
+      "generated_artifacts": "pass",
+      "install_update_support": "pass"
+    }
+  },
+  "blockingFindings": [],
+  "blockingFindingsCount": 0,
+  "translationBacklogFindings": [],
+  "translationBacklogFindingsCount": 0
+}

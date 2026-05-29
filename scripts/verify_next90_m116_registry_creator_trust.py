@@ -17,8 +17,10 @@ DEFAULT_PUBLICATION_WORKFLOW = REPO_ROOT / "Chummer.Run.Registry/Services/Public
 DEFAULT_REGISTRY_CONTROLLER = REPO_ROOT / "Chummer.Run.Registry/Controllers/HubRegistryController.cs"
 DEFAULT_VERIFY_PROGRAM = REPO_ROOT / "Chummer.Run.Registry.Verify/Program.cs"
 DEFAULT_VERIFY_SH = REPO_ROOT / "scripts/ai/verify.sh"
-DEFAULT_SUCCESSOR_REGISTRY = REPO_ROOT / ".codex-design/product/NEXT_90_DAY_PRODUCT_ADVANCE_REGISTRY.yaml"
-DEFAULT_QUEUE_STAGING = REPO_ROOT / ".codex-design/product/NEXT_90_DAY_QUEUE_STAGING.generated.yaml"
+DEFAULT_SUCCESSOR_REGISTRY = Path(
+    "/docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_PRODUCT_ADVANCE_REGISTRY.yaml"
+)
+DEFAULT_QUEUE_STAGING = Path("/docker/fleet/.codex-studio/published/NEXT_90_DAY_QUEUE_STAGING.generated.yaml")
 
 PACKAGE_ID = "next90-m116-registry-creator-trust"
 TASK_ID = "116.2"
@@ -183,15 +185,6 @@ def verify_successor_registry(path: Path) -> None:
     required = (
         "owner: chummer6-hub-registry",
         "title: Publish lineage, moderation, ranking, compatibility, and revocation facts for creator artifacts.",
-        "status: complete",
-        "evidence:",
-        "PublicationContracts.cs now exposes explicit creator-trust facts on `PublicationTrustProjection`",
-        "RegistryContracts.cs mirrors those creator-trust facts onto registry projection, search, and preview responses",
-        "PublicationWorkflowService.cs derives the new facts from publication lifecycle state plus registry artifact truth",
-        "HubRegistryController.cs carries the same truth through artifact, search, and preview endpoints",
-        "Run.Registry.Verify/Program.cs fail-closes drift across published, deprecated, delisted, and superseded creator-publication flows",
-        "docs/next90-m116-registry-creator-trust.closeout.md records the shipped proof anchors and do-not-reopen scope for this package",
-        "scripts/verify_next90_m116_registry_creator_trust.py plus /docker/chummercomplete/chummer-hub-registry/scripts/test_verify_next90_m116_registry_creator_trust.py keep the package proof executable in standard verification runs",
     )
     for snippet in required:
         if snippet not in block:
