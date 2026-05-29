@@ -11,9 +11,37 @@ PUBLISHED_STARTUP_SMOKE_DIR="${PUBLISHED_STARTUP_SMOKE_DIR:-$PUBLISHED_ROOT/star
 
 SOURCE_DOWNLOADS_ROOT="${SOURCE_DOWNLOADS_ROOT:-$WORKSPACE_ROOT/chummer.run-services/Chummer.Portal/downloads}"
 SOURCE_FILES_DIR="${SOURCE_FILES_DIR:-$SOURCE_DOWNLOADS_ROOT/files}"
-SOURCE_WINDOWS_INSTALLER_PATH="${SOURCE_WINDOWS_INSTALLER_PATH:-$SOURCE_FILES_DIR/chummer-avalonia-win-x64-installer.exe}"
-SOURCE_LINUX_INSTALLER_PATH="${SOURCE_LINUX_INSTALLER_PATH:-$SOURCE_FILES_DIR/chummer-avalonia-linux-x64-installer.deb}"
-SOURCE_MAC_INSTALLER_PATH="${SOURCE_MAC_INSTALLER_PATH:-$SOURCE_FILES_DIR/chummer-avalonia-osx-arm64-installer.dmg}"
+
+STAGE_CANONICAL_INSTALLER_ROOTS=(
+  "$WORKSPACE_ROOT/chummer-presentation/Docker/Downloads/files"
+  "$WORKSPACE_ROOT/chummer-presentation/Chummer.Portal/downloads/files"
+  "$WORKSPACE_ROOT/chummer.run-services/Chummer.Portal/downloads/files"
+  "$WORKSPACE_ROOT/chummer.run-services/Chummer.Portal/downloads/proof/windows"
+  "$WORKSPACE_ROOT/chummer-hub-registry/.codex-studio/published/files"
+)
+
+resolve_source_path() {
+  local var_name="$1"
+  local file_name="$2"
+  local explicit="${!var_name:-}"
+  if [[ -n "$explicit" && -f "$explicit" ]]; then
+    echo "$explicit"
+    return 0
+  fi
+
+  for root in "${STAGE_CANONICAL_INSTALLER_ROOTS[@]}"; do
+    local candidate="$root/$file_name"
+    if [[ -f "$candidate" ]]; then
+      echo "$candidate"
+      return 0
+    fi
+  done
+  return 1
+}
+
+SOURCE_WINDOWS_INSTALLER_PATH="${SOURCE_WINDOWS_INSTALLER_PATH:-$(resolve_source_path SOURCE_FILES_DIR chummer-avalonia-win-x64-installer.exe)}"
+SOURCE_LINUX_INSTALLER_PATH="${SOURCE_LINUX_INSTALLER_PATH:-$(resolve_source_path SOURCE_FILES_DIR chummer-avalonia-linux-x64-installer.deb)}"
+SOURCE_MAC_INSTALLER_PATH="${SOURCE_MAC_INSTALLER_PATH:-$(resolve_source_path SOURCE_FILES_DIR chummer-avalonia-osx-arm64-installer.dmg)}"
 
 RELEASE_PROOF_PATH="${RELEASE_PROOF_PATH:-$WORKSPACE_ROOT/chummer.run-services/.codex-studio/published/HUB_LOCAL_RELEASE_PROOF.generated.json}"
 UI_LOCALIZATION_RELEASE_GATE_PATH="${UI_LOCALIZATION_RELEASE_GATE_PATH:-$WORKSPACE_ROOT/chummer6-ui/.codex-studio/published/UI_LOCALIZATION_RELEASE_GATE.generated.json}"

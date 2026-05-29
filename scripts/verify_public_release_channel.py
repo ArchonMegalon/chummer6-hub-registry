@@ -4266,11 +4266,6 @@ def verify_registry_tuple_consistency(payload: dict[str, Any], source: str) -> N
     artifact_identity_registry = payload.get("artifactIdentityRegistry") or []
     artifact_publication_bindings = payload.get("artifactPublicationBindings") or []
 
-    route_tuple_ids = {
-        str(row.get("tupleId") or "").strip()
-        for row in desktop_route_truth
-        if isinstance(row, dict) and str(row.get("tupleId") or "").strip()
-    }
     promoted_tuple_ids = {
         str(row.get("tupleId") or "").strip()
         for row in promoted_installers
@@ -4305,26 +4300,38 @@ def verify_registry_tuple_consistency(payload: dict[str, Any], source: str) -> N
         and normalized_token(row.get("promotionState")) == "promoted"
         and normalized_token(row.get("revokeState")) != "revoked"
     }
+    artifact_ids = {
+        normalized_token(item.get("artifactId") or item.get("id"))
+        for item in iter_manifest_download_entries(payload)
+        if isinstance(item, dict)
+    }
+    route_installer_tuple_ids = {
+        str(route_row.get("tupleId") or "").strip()
+        for route_row in desktop_route_truth
+        if isinstance(route_row, dict)
+        and str(route_row.get("tupleId") or "").strip()
+        and expected_installer_artifact_id_for_route(route_row) in artifact_ids
+    }
 
     if route_promoted_tuple_ids != promoted_tuple_ids:
         raise SystemExit(
             f"{source} promotedInstallerTuples and desktopRouteTruth promoted tuple set diverge "
             f"(promotedInstallerTuples={sorted(promoted_tuple_ids)} desktopRouteTruthPromoted={sorted(route_promoted_tuple_ids)})"
         )
-    if install_aware_tuple_ids != route_tuple_ids:
+    if install_aware_tuple_ids != route_installer_tuple_ids:
         raise SystemExit(
-            f"{source} installAwareArtifactRegistry tuple set diverges from desktopRouteTruth "
-            f"(installAwareArtifactRegistry={sorted(install_aware_tuple_ids)} desktopRouteTruth={sorted(route_tuple_ids)})"
+            f"{source} installAwareArtifactRegistry tuple set diverges from materialized route installer tuples "
+            f"(installAwareArtifactRegistry={sorted(install_aware_tuple_ids)} materializedInstallerTuples={sorted(route_installer_tuple_ids)})"
         )
-    if identity_tuple_ids != route_tuple_ids:
+    if identity_tuple_ids != route_installer_tuple_ids:
         raise SystemExit(
-            f"{source} artifactIdentityRegistry tuple set diverges from desktopRouteTruth "
-            f"(artifactIdentityRegistry={sorted(identity_tuple_ids)} desktopRouteTruth={sorted(route_tuple_ids)})"
+            f"{source} artifactIdentityRegistry tuple set diverges from materialized route installer tuples "
+            f"(artifactIdentityRegistry={sorted(identity_tuple_ids)} materializedInstallerTuples={sorted(route_installer_tuple_ids)})"
         )
-    if binding_tuple_ids != route_tuple_ids:
+    if binding_tuple_ids != route_installer_tuple_ids:
         raise SystemExit(
-            f"{source} artifactPublicationBindings tuple set diverges from desktopRouteTruth "
-            f"(artifactPublicationBindings={sorted(binding_tuple_ids)} desktopRouteTruth={sorted(route_tuple_ids)})"
+            f"{source} artifactPublicationBindings tuple set diverges from materialized route installer tuples "
+            f"(artifactPublicationBindings={sorted(binding_tuple_ids)} materializedInstallerTuples={sorted(route_installer_tuple_ids)})"
         )
     if surface_tuple_ids != route_promoted_tuple_ids:
         raise SystemExit(
