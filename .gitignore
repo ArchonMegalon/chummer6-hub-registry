@@ -1,6 +1,10 @@
 bin/
 obj/
 
+# Binary payloads are published out-of-band; never commit generated binaries.
+*.bin
+*.exe
+
 # Local agent and worker artifacts
 .agent-memory.md
 AGENT_MEMORY.md
