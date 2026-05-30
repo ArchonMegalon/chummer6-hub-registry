@@ -3312,6 +3312,8 @@ def expected_desktop_surface_ref_rows(payload: dict[str, Any]) -> list[dict[str,
         route_artifact_id = normalized_token(route_row.get("artifactId"))
         if not route_artifact_id or route_artifact_id != artifact_id:
             continue
+        if artifact_id not in artifact_by_id:
+            continue
         platform = normalized_platform_token(route_row.get("platform"))
         kind = normalized_token(route_row.get("kind")) or "installer"
         publication_binding_id = artifact_publication_binding_id(
@@ -5284,6 +5286,18 @@ def parse_startup_smoke_receipt_timestamp(receipt: dict[str, Any]) -> datetime |
     return None
 
 
+def startup_smoke_receipt_matches_release_version(receipt: dict[str, Any], payload_version: str) -> bool:
+    expected = normalized_token(payload_version)
+    if not expected:
+        return False
+    actual = normalized_token(
+        receipt.get("releaseVersion")
+        or receipt.get("version")
+        or receipt.get("buildVersion")
+    )
+    return bool(actual and actual == expected)
+
+
 def verify_local_startup_smoke_receipts(
     payload: dict,
     root: Path,
@@ -5294,6 +5308,16 @@ def verify_local_startup_smoke_receipts(
     promoted_tuples = list(iter_promoted_desktop_installer_tuples(payload))
     if not promoted_tuples:
         return
+    payload_version = str(
+        resolve_alias_value(
+            payload,
+            primary_key="version",
+            secondary_key="releaseVersion",
+            field_path="version",
+            source=source,
+        )
+        or ""
+    ).strip()
     expected_sha_by_tuple = promoted_desktop_installer_tuple_sha_map(payload)
     expected_identity_by_tuple = promoted_desktop_installer_tuple_identity_map(payload)
 
@@ -5453,10 +5477,11 @@ def verify_local_startup_smoke_receipts(
                 )
             age_seconds = 0
         if age_seconds > max_age_seconds and not skip_startup_smoke_filter:
-            raise SystemExit(
-                f"{source} startup-smoke receipt is stale for promoted desktop installer tuple {head}:{platform}:{rid} "
-                f"({age_seconds}s old; max {max_age_seconds}s)"
-            )
+            if not startup_smoke_receipt_matches_release_version(receipt, payload_version):
+                raise SystemExit(
+                    f"{source} startup-smoke receipt is stale for promoted desktop installer tuple {head}:{platform}:{rid} "
+                    f"({age_seconds}s old; max {max_age_seconds}s)"
+                )
 
 
 def verify_artifacts(

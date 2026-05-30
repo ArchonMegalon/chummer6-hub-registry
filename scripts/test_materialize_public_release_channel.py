@@ -333,6 +333,52 @@ def test_load_startup_smoke_receipts_marks_stale_receipts_instead_of_dropping_th
     ]
 
 
+def test_load_startup_smoke_receipts_accepts_stale_receipt_when_release_version_matches() -> None:
+    now = MODULE.dt.datetime(2026, 5, 29, 22, 0, tzinfo=timezone.utc)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        receipt_path = root / "startup-smoke-avalonia-win-x64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "completedAtUtc": "2026-05-21T19:52:05Z",
+                    "headId": "avalonia",
+                    "platform": "windows",
+                    "arch": "x64",
+                    "rid": "win-x64",
+                    "hostClass": "windows-host",
+                    "operatingSystem": "Windows 11",
+                    "channelId": "public_stable",
+                    "releaseVersion": "run-20260518-220935",
+                    "artifactDigest": "sha256:54966da8ac6f1ca7321b301b025bfb626398f461c78441c132d5c59d9c2bedde",
+                    "artifactPath": "/tmp/chummer-avalonia-win-x64-installer.exe",
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipts = MODULE.load_startup_smoke_receipts(
+            root,
+            max_age_seconds=86400,
+            max_future_skew_seconds=60,
+            expected_channel="public_stable",
+            expected_release_version="run-20260518-220935",
+            now=now,
+        )
+    assert receipts == [
+        {
+            "head": "avalonia",
+            "platform": "windows",
+            "arch": "x64",
+            "artifactDigest": "sha256:54966da8ac6f1ca7321b301b025bfb626398f461c78441c132d5c59d9c2bedde",
+            "channelId": "public_stable",
+            "artifactId": "",
+            "artifactFileName": "chummer-avalonia-win-x64-installer.exe",
+        }
+    ]
+
+
 def test_load_startup_smoke_receipts_rejects_missing_host_class_for_platform() -> None:
     now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
     with tempfile.TemporaryDirectory() as tmp:
@@ -441,6 +487,47 @@ def test_load_startup_smoke_receipts_accepts_missing_channel_when_expected_chann
             "platform": "macos",
             "arch": "arm64",
             "artifactDigest": "sha256:abc123",
+            "channelId": "",
+            "artifactId": "",
+            "artifactFileName": "chummer-avalonia-osx-arm64-installer.dmg",
+        }
+    ]
+
+
+def test_load_startup_smoke_receipts_derives_platform_and_arch_from_rid_when_missing() -> None:
+    now = MODULE.dt.datetime(2026, 5, 29, 22, 0, tzinfo=timezone.utc)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        receipt_path = root / "startup-smoke-avalonia-osx-arm64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": "2026-05-29T21:59:45Z",
+                    "headId": "avalonia",
+                    "rid": "osx-arm64",
+                    "hostClass": "macos-host",
+                    "operatingSystem": "macOS 15.0",
+                    "artifactSha256": "282adc773f1a86f81a89aefa82d595e67d9f663e4eedab2cd45269d6ab0e9a45",
+                    "artifactPath": "/tmp/chummer-avalonia-osx-arm64-installer.dmg",
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipts = MODULE.load_startup_smoke_receipts(
+            root,
+            max_age_seconds=86400,
+            max_future_skew_seconds=60,
+            expected_channel="public_stable",
+            now=now,
+        )
+    assert receipts == [
+        {
+            "head": "avalonia",
+            "platform": "macos",
+            "arch": "arm64",
+            "artifactDigest": "282adc773f1a86f81a89aefa82d595e67d9f663e4eedab2cd45269d6ab0e9a45",
             "channelId": "",
             "artifactId": "",
             "artifactFileName": "chummer-avalonia-osx-arm64-installer.dmg",
@@ -979,6 +1066,35 @@ def test_filter_unproven_installers_still_rejects_installer_without_matching_ide
     filtered = MODULE.filter_unproven_installers(artifacts, startup_smoke_receipts)
 
     assert filtered == []
+
+
+def test_filter_unproven_installers_accepts_digest_matched_installer_when_receipt_uses_derived_rid_identity() -> None:
+    artifacts = [
+        {
+            "artifactId": "avalonia-osx-arm64-installer",
+            "head": "avalonia",
+            "platform": "macos",
+            "arch": "arm64",
+            "kind": "installer",
+            "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
+            "sha256": "282adc773f1a86f81a89aefa82d595e67d9f663e4eedab2cd45269d6ab0e9a45",
+        }
+    ]
+    startup_smoke_receipts = [
+        {
+            "head": "avalonia",
+            "platform": "macos",
+            "arch": "arm64",
+            "artifactDigest": "sha256:282adc773f1a86f81a89aefa82d595e67d9f663e4eedab2cd45269d6ab0e9a45",
+            "channelId": "",
+            "artifactId": "",
+            "artifactFileName": "chummer-avalonia-osx-arm64-installer.dmg",
+        }
+    ]
+
+    filtered = MODULE.filter_unproven_installers(artifacts, startup_smoke_receipts)
+
+    assert filtered == artifacts
 
 
 def test_desktop_tuple_coverage_emits_explicit_complete_flag() -> None:

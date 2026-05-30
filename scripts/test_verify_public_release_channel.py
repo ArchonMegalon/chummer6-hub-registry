@@ -1496,6 +1496,127 @@ def test_verify_local_download_files_accepts_stale_receipt_only_when_skip_enable
     )
 
 
+def test_verify_local_download_files_accepts_stale_startup_smoke_receipt_when_release_version_matches() -> None:
+    manifest_root = Path(tempfile.mkdtemp())
+    files_dir = manifest_root / "files"
+    startup_smoke_dir = manifest_root / "startup-smoke"
+    files_dir.mkdir(parents=True, exist_ok=True)
+    startup_smoke_dir.mkdir(parents=True, exist_ok=True)
+
+    installer_name = "chummer-avalonia-win-x64-installer.exe"
+    installer_path = files_dir / installer_name
+    installer_bytes = b"windows-installer"
+    installer_path.write_bytes(installer_bytes)
+    installer_sha = hashlib.sha256(installer_bytes).hexdigest()
+
+    payload = {
+        "channelId": "public_stable",
+        "channel": "public_stable",
+        "version": "run-20260518-220935",
+        "releaseVersion": "run-20260518-220935",
+        "status": "pass",
+        "generatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+        "downloads": [
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "platform": "windows",
+                "rid": "win-x64",
+                "arch": "x64",
+                "kind": "installer",
+                "channelId": "public_stable",
+                "version": "run-20260518-220935",
+                "releaseVersion": "run-20260518-220935",
+                "fileName": installer_name,
+                "url": f"/downloads/files/{installer_name}",
+                "sizeBytes": len(installer_bytes),
+                "sha256": installer_sha,
+            }
+        ],
+        "desktopTupleCoverage": {
+            "requiredDesktopPlatforms": ["linux", "windows", "macos"],
+            "requiredDesktopHeads": ["avalonia"],
+            "promotedInstallerTuples": [
+                {
+                    "tupleId": "avalonia:windows:win-x64",
+                    "head": "avalonia",
+                    "platform": "windows",
+                    "rid": "win-x64",
+                    "arch": "x64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-win-x64-installer",
+                }
+            ],
+            "promotedPlatformHeads": {"linux": [], "windows": ["avalonia"], "macos": []},
+            "requiredDesktopPlatformHeadRidTuples": [
+                "avalonia:linux-x64:linux",
+                "avalonia:win-x64:windows",
+                "avalonia:osx-arm64:macos",
+            ],
+            "promotedPlatformHeadRidTuples": ["avalonia:win-x64:windows"],
+            "missingRequiredPlatforms": ["linux", "macos"],
+            "missingRequiredHeads": [],
+            "missingRequiredPlatformHeadPairs": ["avalonia:linux", "avalonia:macos"],
+            "missingRequiredPlatformHeadRidTuples": [
+                "avalonia:linux-x64:linux",
+                "avalonia:osx-arm64:macos",
+            ],
+            "externalProofRequests": [],
+            "desktopRouteTruth": [],
+            "complete": False,
+        },
+        "artifacts": [
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "platform": "windows",
+                "rid": "win-x64",
+                "arch": "x64",
+                "kind": "installer",
+                "channelId": "public_stable",
+                "version": "run-20260518-220935",
+                "releaseVersion": "run-20260518-220935",
+                "fileName": installer_name,
+                "url": f"/downloads/files/{installer_name}",
+                "sizeBytes": len(installer_bytes),
+                "sha256": installer_sha,
+            }
+        ],
+    }
+
+    receipt_path = startup_smoke_dir / "startup-smoke-avalonia-win-x64.receipt.json"
+    receipt_path.write_text(
+        json.dumps(
+            {
+                "status": "pass",
+                "readyCheckpoint": MODULE.REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT,
+                "headId": "avalonia",
+                "platform": "windows",
+                "rid": "win-x64",
+                "arch": "x64",
+                "hostClass": "windows-host",
+                "operatingSystem": "Windows 11",
+                "artifactDigest": f"sha256:{installer_sha}",
+                "artifactId": "avalonia-win-x64-installer",
+                "artifactPath": str(installer_path),
+                "channelId": "public_stable",
+                "channel": "public_stable",
+                "version": "run-20260518-220935",
+                "releaseVersion": "run-20260518-220935",
+                "completedAtUtc": (
+                    datetime.now(timezone.utc) - timedelta(days=8)
+                ).isoformat().replace("+00:00", "Z"),
+            },
+            indent=2,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    MODULE.verify_local_download_files(payload, manifest_root, str(manifest_root))
+
+
 def test_expected_external_proof_capture_commands_include_operating_system_hint() -> None:
     commands = MODULE.expected_external_proof_capture_commands(
         head="avalonia",

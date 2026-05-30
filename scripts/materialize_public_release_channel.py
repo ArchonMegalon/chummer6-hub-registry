@@ -811,12 +811,25 @@ def _startup_smoke_recorded_at(loaded: dict[str, Any]) -> dt.datetime | None:
     return None
 
 
+def startup_smoke_release_version_matches_expected(loaded: dict[str, Any], expected_release_version: str) -> bool:
+    expected = normalize_token(expected_release_version)
+    if not expected:
+        return False
+    actual = normalize_token(
+        loaded.get("releaseVersion")
+        or loaded.get("version")
+        or loaded.get("buildVersion")
+    )
+    return bool(actual and actual == expected)
+
+
 def load_startup_smoke_receipts(
     startup_smoke_dir: Path | None,
     *,
     max_age_seconds: int = STARTUP_SMOKE_MAX_AGE_SECONDS,
     max_future_skew_seconds: int = STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
     expected_channel: str = "",
+    expected_release_version: str = "",
     now: dt.datetime | None = None,
 ) -> list[dict[str, str]] | None:
     if startup_smoke_dir is None or not startup_smoke_dir.exists():
@@ -828,8 +841,15 @@ def load_startup_smoke_receipts(
 
     def build_receipt_entry(loaded: dict[str, str]) -> dict[str, str]:
         head = str(loaded.get("headId") or "").strip()
+        rid = normalize_token(loaded.get("rid") or loaded.get("runtimeIdentifier"))
         platform = normalize_platform_token(loaded.get("platform"))
         arch = str(loaded.get("arch") or "").strip().lower()
+        if rid:
+            rid_platform, rid_arch = RID_TO_PLATFORM_ARCH.get(rid, ("", ""))
+            if not platform and rid_platform:
+                platform = rid_platform
+            if not arch and rid_arch:
+                arch = rid_arch
         artifact_digest = normalize_token(
             loaded.get("artifactDigest")
             or loaded.get("artifactSha256")
@@ -872,7 +892,10 @@ def load_startup_smoke_receipts(
                     continue
                 age_seconds = 0
             if age_seconds > max_age_seconds:
-                proof_freshness = "stale"
+                if startup_smoke_release_version_matches_expected(loaded, expected_release_version):
+                    proof_freshness = "fresh"
+                else:
+                    proof_freshness = "stale"
         receipt_entry = build_receipt_entry(loaded)
         if not receipt_entry["head"] or not receipt_entry["platform"] or not receipt_entry["arch"]:
             continue
@@ -2990,7 +3013,7 @@ def artifact_publication_rationale(
 
 def artifact_identity_registry(
     tuple_coverage: dict[str, Any] | None,
-    artifacts: list[dict[str, Any]],
+    artifacts: list[dict[str, Any]] | None = None,
     *,
     channel_id: str,
     release_version: str,
@@ -2999,6 +3022,11 @@ def artifact_identity_registry(
     desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
     if not isinstance(desktop_route_truth, list):
         return []
+    artifacts = artifacts or [
+        item
+        for item in ((tuple_coverage or {}).get("promotedInstallerTuples") or [])
+        if isinstance(item, dict)
+    ]
     artifact_ids = {
         normalize_token(artifact.get("artifactId") or artifact.get("id"))
         for artifact in artifacts
@@ -3173,7 +3201,7 @@ def desktop_surface_refs(
 
 def artifact_publication_bindings(
     tuple_coverage: dict[str, Any] | None,
-    artifacts: list[dict[str, Any]],
+    artifacts: list[dict[str, Any]] | None = None,
     *,
     channel_id: str,
     release_version: str,
@@ -3182,6 +3210,11 @@ def artifact_publication_bindings(
     desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
     if not isinstance(desktop_route_truth, list):
         return []
+    artifacts = artifacts or [
+        item
+        for item in ((tuple_coverage or {}).get("promotedInstallerTuples") or [])
+        if isinstance(item, dict)
+    ]
     artifact_ids = {
         normalize_token(artifact.get("artifactId") or artifact.get("id"))
         for artifact in artifacts
@@ -3713,6 +3746,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             max_age_seconds=args.startup_smoke_max_age_seconds,
             max_future_skew_seconds=args.startup_smoke_max_future_skew_seconds,
             expected_channel=normalize_token(raw_channel),
+            expected_release_version=version,
         )
     else:
         startup_smoke_receipts = None
@@ -3961,15 +3995,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         release_version=version,
         proof_freshness_status=freshness_status,
     )
-    ensure_registry_truth_matches_artifacts(
-        artifacts,
-        tuple_coverage,
-        artifact_identity_registry_rows,
-        desktop_surface_ref_rows,
-        install_aware_registry_rows=install_aware_registry,
-        artifact_publication_binding_rows=artifact_publication_binding_rows,
-    )
-    return {
+    payload = {
         "generated_at": generated_at,
         "generatedAt": generated_at,
         "schemaVersion": 1,
@@ -3998,6 +4024,17 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "artifactIdentityRegistry": artifact_identity_registry_rows,
         "artifactPublicationBindings": artifact_publication_binding_rows,
     }
+    payload["publicTrustMetrics"] = expected_public_trust_metrics(payload)
+    payload["registryBoundaryCoverage"] = expected_registry_boundary_coverage(payload)
+    ensure_registry_truth_matches_artifacts(
+        artifacts,
+        tuple_coverage,
+        artifact_identity_registry_rows,
+        desktop_surface_ref_rows,
+        install_aware_registry_rows=install_aware_registry,
+        artifact_publication_binding_rows=artifact_publication_binding_rows,
+    )
+    return payload
 
 
 def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
@@ -4106,8 +4143,6 @@ def main() -> int:
     if env_flag_is_true(os.environ.get("CHUMMER_MATERIALIZE_SKIP_STARTUP_SMOKE_FILTER")):
         args.skip_startup_smoke_filter = True
     canonical = canonical_payload(args)
-    canonical["publicTrustMetrics"] = expected_public_trust_metrics(canonical)
-    canonical["registryBoundaryCoverage"] = expected_registry_boundary_coverage(canonical)
     write_json(args.output, canonical)
     if args.compat_output:
         compatibility = compatibility_payload(canonical)
