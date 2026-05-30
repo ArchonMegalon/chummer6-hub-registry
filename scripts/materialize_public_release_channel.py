@@ -2771,9 +2771,9 @@ def install_aware_artifact_registry(
     for route_row in desktop_route_truth:
         if not isinstance(route_row, dict):
             continue
-        if not route_has_materialized_installer_artifact(route_row, artifact_ids):
-            continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
+        if not artifact_id:
+            continue
         installed_build_selector = install_aware_installed_build_selector(
             channel_id=channel_id,
             release_version=release_version,
@@ -3037,9 +3037,9 @@ def artifact_identity_registry(
     for route_row in desktop_route_truth:
         if not isinstance(route_row, dict):
             continue
-        if not route_has_materialized_installer_artifact(route_row, artifact_ids):
-            continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
+        if not artifact_id:
+            continue
         rows.append(
             {
                 "registryId": f"artifact-identity:{channel_id}:{release_version}:{str(route_row.get('tupleId') or '').strip()}",
@@ -3225,9 +3225,9 @@ def artifact_publication_bindings(
     for route_row in desktop_route_truth:
         if not isinstance(route_row, dict):
             continue
-        if not route_has_materialized_installer_artifact(route_row, artifact_ids):
-            continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
+        if not artifact_id:
+            continue
         rows.append(
             {
                 "bindingId": artifact_publication_binding_id(
