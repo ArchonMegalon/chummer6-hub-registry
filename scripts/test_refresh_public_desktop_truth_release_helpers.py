@@ -17,6 +17,17 @@ RELEASE_DIR = REPO_ROOT / "scripts" / "release"
 
 
 class RefreshPublicDesktopTruthReleaseHelpersTests(unittest.TestCase):
+    def test_refresh_script_prefers_canonical_run_services_download_shelf(self) -> None:
+        script = (RELEASE_DIR / "refresh_public_desktop_truth.sh").read_text(encoding="utf-8")
+        source_files_index = script.index('"$SOURCE_FILES_DIR"')
+        presentation_index = script.index('"$WORKSPACE_ROOT/chummer-presentation/Docker/Downloads/files"')
+
+        self.assertLess(
+            source_files_index,
+            presentation_index,
+            "Canonical run-services shelf bytes must win over stale local presentation build outputs.",
+        )
+
     def test_mac_wrapper_passes_validated_installer_path_to_refresh_script(self) -> None:
         with tempfile.TemporaryDirectory() as temp_dir:
             root = Path(temp_dir)

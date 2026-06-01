@@ -1276,6 +1276,30 @@ def test_desktop_tuple_coverage_marks_unpromoted_fallback_as_proof_required() ->
     assert fallback["installPosture"] == "proof_capture_required"
 
 
+def test_desktop_tuple_coverage_allows_primary_reinstall_for_public_stable_without_fallback() -> None:
+    coverage = MODULE.desktop_tuple_coverage(
+        [
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "platform": "windows",
+                "rid": "win-x64",
+                "arch": "x64",
+                "kind": "installer",
+            },
+        ],
+        required_heads=["avalonia"],
+        required_platforms=["windows"],
+        channel_id="public_stable",
+        rollout_state="public_stable",
+    )
+
+    primary = next(row for row in coverage["desktopRouteTruth"] if row["head"] == "avalonia")
+    assert primary["rollbackState"] == "primary_reinstall_available"
+    assert primary["rollbackReasonCode"] == "primary_installer_reinstall_available"
+    assert "promoted primary installer avalonia-win-x64-installer" in primary["rollbackReason"]
+
+
 def test_desktop_tuple_coverage_marks_primary_manual_recovery_when_fallback_is_revoked() -> None:
     coverage = MODULE.desktop_tuple_coverage(
         [

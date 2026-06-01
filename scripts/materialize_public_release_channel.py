@@ -3902,7 +3902,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         desktop_coverage_complete=desktop_coverage_complete,
     )
     channel = normalize_effective_channel_id(raw_channel, rollout_state)
-    if channel != raw_channel:
+    if channel != raw_channel or rollout_state != loaded_rollout_state:
         for artifact in artifacts:
             if isinstance(artifact, dict):
                 artifact["channelId"] = channel

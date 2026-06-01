@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-05-30T20:51:29Z",
-  "generatedAt": "2026-05-30T20:51:29Z",
+  "generated_at": "2026-06-01T14:52:35Z",
+  "generatedAt": "2026-06-01T14:52:35Z",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "version": "run-20260530-184515",
   "channel": "public_stable",
-  "publishedAt": "2026-05-30T20:51:28Z",
+  "publishedAt": "2026-06-01T14:52:33Z",
   "downloads": [
     {
       "id": "avalonia-linux-x64-installer",
@@ -51,36 +51,6 @@
       "arch": "x64",
       "fileName": "chummer-avalonia-win-x64-installer.exe",
       "installAccessClass": "account_required"
-    },
-    {
-      "id": "avalonia-osx-arm64-archive",
-      "platform": "Avalonia Desktop macOS ARM64",
-      "url": "/downloads/files/chummer-avalonia-osx-arm64.tar.gz",
-      "sha256": "98589a998f0f0f322090d9c43657c8ccc463fad80b708bcfd56616e55ec3bdf0",
-      "sizeBytes": 45379460,
-      "format": "tar.gz",
-      "flavor": "archive",
-      "kind": "archive",
-      "head": "avalonia",
-      "platformId": "macos-arm64",
-      "arch": "arm64",
-      "fileName": "chummer-avalonia-osx-arm64.tar.gz",
-      "installAccessClass": "open_public"
-    },
-    {
-      "id": "blazor-desktop-osx-arm64-archive",
-      "platform": "Blazor Desktop macOS ARM64",
-      "url": "/downloads/files/chummer-blazor-desktop-osx-arm64.tar.gz",
-      "sha256": "154e1ea403b78876734bec58e101524c065c81040841484ce70dbed1db273ff4",
-      "sizeBytes": 44838966,
-      "format": "tar.gz",
-      "flavor": "archive",
-      "kind": "archive",
-      "head": "blazor-desktop",
-      "platformId": "macos-arm64",
-      "arch": "arm64",
-      "fileName": "chummer-blazor-desktop-osx-arm64.tar.gz",
-      "installAccessClass": "open_public"
     }
   ],
   "source": "registry",
@@ -94,7 +64,7 @@
   "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
   "releaseProof": {
     "status": "passed",
-    "generatedAt": "2026-05-30T18:48:23Z",
+    "generatedAt": "2026-06-01T13:11:47Z",
     "baseUrl": "https://chummer.run",
     "journeysPassed": [
       "install_claim_restore_continue",
@@ -117,7 +87,7 @@
     ],
     "uiLocalizationReleaseGate": {
       "status": "pass",
-      "generatedAt": "2026-05-30T17:23:06Z",
+      "generatedAt": "2026-06-01T07:05:46Z",
       "defaultKeyCount": 387,
       "explicitFallbackRuntime": "pass",
       "signoffSmokeRunnerStatus": "pass",
@@ -800,13 +770,13 @@
     },
     "proofFreshness": {
       "status": "fresh",
-      "releaseProofGeneratedAt": "2026-05-30T18:48:23Z",
-      "releaseProofAgeSeconds": 7386,
+      "releaseProofGeneratedAt": "2026-06-01T13:11:47Z",
+      "releaseProofAgeSeconds": 6048,
       "releaseProofMaxAgeSeconds": 604800,
-      "uiLocalizationGeneratedAt": "2026-05-30T17:23:06Z",
-      "uiLocalizationAgeSeconds": 12503,
+      "uiLocalizationGeneratedAt": "2026-06-01T07:05:46Z",
+      "uiLocalizationAgeSeconds": 28009,
       "uiLocalizationMaxAgeSeconds": 604800,
-      "summary": "Release proof age is 7386s (max 604800s) and UI localization gate age is 12503s (max 604800s)."
+      "summary": "Release proof age is 6048s (max 604800s) and UI localization gate age is 28009s (max 604800s)."
     },
     "revocationFacts": {
       "status": "clear",
@@ -823,10 +793,10 @@
     "releaseVersion": "run-20260530-184515",
     "persistence": {
       "contractName": "Chummer.Hub.Registry.Contracts",
-      "artifactCount": 5,
+      "artifactCount": 3,
       "runtimeBundleHeadCount": 0,
       "registryProjectionCount": 12,
-      "summary": "Registry persistence owns 5 published artifacts, 0 runtime bundle heads, and 12 governed projection rows for public_stable/run-20260530-184515."
+      "summary": "Registry persistence owns 3 published artifacts, 0 runtime bundle heads, and 12 governed projection rows for public_stable/run-20260530-184515."
     },
     "releaseChannel": {
       "publicationStatus": "published",
@@ -864,9 +834,9 @@
       "compatibleArtifactCount": 0,
       "compatibleRuntimeBundleHeadCount": 0,
       "compatibleExchangeArtifactCount": 0,
-      "unknownArtifactCount": 5,
+      "unknownArtifactCount": 3,
       "unknownRuntimeBundleHeadCount": 0,
-      "summary": "Compatibility boundary tracks 0 compatible artifacts, 0 compatible runtime bundle heads, and 0 compatible exchange-lineage rows while 5 artifact rows and 0 runtime bundle heads remain unknown."
+      "summary": "Compatibility boundary tracks 0 compatible artifacts, 0 compatible runtime bundle heads, and 0 compatible exchange-lineage rows while 3 artifact rows and 0 runtime bundle heads remain unknown."
     },
     "summary": "Registry boundary coverage is closed for public_stable/run-20260530-184515 across persistence, release-channel, artifact-lineage, publication, entitlement, and compatibility surfaces."
   }

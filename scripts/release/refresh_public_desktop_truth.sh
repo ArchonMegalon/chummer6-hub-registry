@@ -13,6 +13,7 @@ SOURCE_DOWNLOADS_ROOT="${SOURCE_DOWNLOADS_ROOT:-$WORKSPACE_ROOT/chummer.run-serv
 SOURCE_FILES_DIR="${SOURCE_FILES_DIR:-$SOURCE_DOWNLOADS_ROOT/files}"
 
 STAGE_CANONICAL_INSTALLER_ROOTS=(
+  "$SOURCE_FILES_DIR"
   "$WORKSPACE_ROOT/chummer-presentation/Docker/Downloads/files"
   "$WORKSPACE_ROOT/chummer-presentation/Chummer.Portal/downloads/files"
   "$WORKSPACE_ROOT/chummer.run-services/Chummer.Portal/downloads/files"
