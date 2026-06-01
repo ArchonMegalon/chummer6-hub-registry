@@ -848,7 +848,10 @@ def load_payload(raw_target: str) -> tuple[dict, str, Path | None]:
         return json.loads(path.read_text(encoding="utf-8")), str(path), root
     if not path.exists():
         raise SystemExit(f"Manifest file not found: {path}")
-    local_root = resolve_authoritative_local_root(path) or path.parent
+    # Keep repo-local manifest paths anchored to their own shelf.  The
+    # authoritative run-services fallback is only for bare manifest files that
+    # do not carry a sibling files/ directory.
+    local_root = path.parent if (path.parent / "files").is_dir() else (resolve_authoritative_local_root(path) or path.parent)
     return json.loads(path.read_text(encoding="utf-8")), str(path), local_root
 
 

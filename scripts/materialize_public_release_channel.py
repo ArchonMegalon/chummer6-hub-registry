@@ -60,6 +60,7 @@ DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS = {
     "windows": ("win-x64",),
     "macos": ("osx-arm64",),
 }
+CANONICAL_DESKTOP_PLATFORM_ORDER = ("linux", "windows", "macos")
 REQUIRED_RELEASE_PROOF_JOURNEYS = (
     "install_claim_restore_continue",
     "build_explain_publish",
@@ -645,8 +646,8 @@ def parse_args() -> argparse.Namespace:
         help="Optional UI localization release-gate payload bound into releaseProof for desktop shelf trust.",
     )
     parser.add_argument("--product", default="chummer6")
-    parser.add_argument("--channel", default="preview")
-    parser.add_argument("--version", default="unpublished")
+    parser.add_argument("--channel", default="")
+    parser.add_argument("--version", default="")
     parser.add_argument(
         "--contract-name",
         default="",
@@ -843,12 +844,25 @@ def _startup_smoke_recorded_at(loaded: dict[str, Any]) -> dt.datetime | None:
     return None
 
 
+def startup_smoke_release_version_matches_expected(loaded: dict[str, Any], expected_release_version: str) -> bool:
+    expected = normalize_token(expected_release_version)
+    if not expected:
+        return False
+    actual = normalize_token(
+        loaded.get("releaseVersion")
+        or loaded.get("version")
+        or loaded.get("buildVersion")
+    )
+    return bool(actual and actual == expected)
+
+
 def load_startup_smoke_receipts(
     startup_smoke_dir: Path | None,
     *,
     max_age_seconds: int = STARTUP_SMOKE_MAX_AGE_SECONDS,
     max_future_skew_seconds: int = STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
     expected_channel: str = "",
+    expected_release_version: str = "",
     now: dt.datetime | None = None,
 ) -> list[dict[str, str]] | None:
     if startup_smoke_dir is None or not startup_smoke_dir.exists():
@@ -860,8 +874,15 @@ def load_startup_smoke_receipts(
 
     def build_receipt_entry(loaded: dict[str, str]) -> dict[str, str]:
         head = str(loaded.get("headId") or "").strip()
+        rid = normalize_token(loaded.get("rid") or loaded.get("runtimeIdentifier"))
         platform = normalize_platform_token(loaded.get("platform"))
         arch = str(loaded.get("arch") or "").strip().lower()
+        if rid:
+            rid_platform, rid_arch = RID_TO_PLATFORM_ARCH.get(rid, ("", ""))
+            if not platform and rid_platform:
+                platform = rid_platform
+            if not arch and rid_arch:
+                arch = rid_arch
         artifact_digest = normalize_token(
             loaded.get("artifactDigest")
             or loaded.get("artifactSha256")
@@ -905,7 +926,10 @@ def load_startup_smoke_receipts(
                     continue
                 age_seconds = 0
             if age_seconds > max_age_seconds:
-                proof_freshness = "stale"
+                if startup_smoke_release_version_matches_expected(loaded, expected_release_version):
+                    proof_freshness = "fresh"
+                else:
+                    proof_freshness = "stale"
         receipt_entry = build_receipt_entry(loaded)
         if not receipt_entry["head"] or not receipt_entry["platform"] or not receipt_entry["arch"]:
             continue
@@ -980,7 +1004,6 @@ def filter_unproven_installers(
             receipt for receipt in matching_receipts if normalize_token(receipt.get("proofFreshness")) == "stale"
         ]
         if matching_stale_receipts:
-            filtered.append(artifact)
             continue
 
         if expected_digest:
@@ -1727,6 +1750,33 @@ def required_desktop_heads(raw: Any) -> list[str]:
     else:
         values = [normalized_token(item) for item in str(raw or "").split(",")]
     return dedupe_preserve_order([item for item in values if item])
+
+
+def materialization_required_platforms(
+    artifacts: list[dict[str, Any]],
+    configured_required_platforms: Any,
+) -> list[str]:
+    configured_platforms: list[str] = []
+    if isinstance(configured_required_platforms, list):
+        configured_platforms = [
+            platform
+            for platform in CANONICAL_DESKTOP_PLATFORM_ORDER
+            if platform in {normalize_platform_token(item) for item in configured_required_platforms}
+        ]
+    discovered_platforms = [
+        platform
+        for platform in CANONICAL_DESKTOP_PLATFORM_ORDER
+        if any(
+            normalize_platform_token(artifact.get("platform")) == platform
+            for artifact in artifacts
+            if isinstance(artifact, dict)
+        )
+    ]
+    if discovered_platforms:
+        return discovered_platforms
+    if configured_platforms:
+        return configured_platforms
+    return list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS)
 
 
 def verify_required_desktop_heads(required_heads: list[str], *, source: str) -> None:
@@ -2628,6 +2678,14 @@ def expected_installer_artifact_id_for_route(route_row: dict[str, Any]) -> str:
     return ""
 
 
+def route_has_materialized_installer_artifact(
+    route_row: dict[str, Any],
+    artifact_ids: set[str],
+) -> bool:
+    artifact_id = expected_installer_artifact_id_for_route(route_row)
+    return bool(artifact_id and artifact_id in artifact_ids)
+
+
 def install_aware_artifact_kind(
     artifact_by_id: dict[str, dict[str, Any]],
     artifact_id: str,
@@ -2742,12 +2800,15 @@ def install_aware_artifact_registry(
         for artifact in artifacts
         if isinstance(artifact, dict)
     }
+    artifact_ids = set(artifact_by_id)
     rows: list[dict[str, Any]] = []
     for route_row in desktop_route_truth:
         if not isinstance(route_row, dict):
             continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
         if not artifact_id:
+            continue
+        if artifact_ids and artifact_id not in artifact_ids:
             continue
         installed_build_selector = install_aware_installed_build_selector(
             channel_id=channel_id,
@@ -2988,6 +3049,7 @@ def artifact_publication_rationale(
 
 def artifact_identity_registry(
     tuple_coverage: dict[str, Any] | None,
+    artifacts: list[dict[str, Any]] | None = None,
     *,
     channel_id: str,
     release_version: str,
@@ -2996,12 +3058,26 @@ def artifact_identity_registry(
     desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
     if not isinstance(desktop_route_truth, list):
         return []
+    if artifacts is None:
+        artifacts = [
+            item
+            for item in ((tuple_coverage or {}).get("promotedInstallerTuples") or [])
+            if isinstance(item, dict)
+        ]
+    artifact_ids = {
+        normalize_token(artifact.get("artifactId") or artifact.get("id"))
+        for artifact in artifacts
+        if isinstance(artifact, dict)
+    }
+    artifact_ids.discard("")
     rows: list[dict[str, Any]] = []
     for route_row in desktop_route_truth:
         if not isinstance(route_row, dict):
             continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
         if not artifact_id:
+            continue
+        if artifact_ids and artifact_id not in artifact_ids:
             continue
         rows.append(
             {
@@ -3084,12 +3160,22 @@ def desktop_surface_refs(
         for artifact in artifacts
         if isinstance(artifact, dict)
     }
+    artifact_ids = set(artifact_by_id)
     rows: list[dict[str, Any]] = []
     for route_row in desktop_route_truth:
         if not isinstance(route_row, dict):
             continue
+        if normalized_token(route_row.get("promotionState")) != "promoted":
+            continue
+        if normalized_token(route_row.get("revokeState")) == "revoked":
+            continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
         if not artifact_id:
+            continue
+        route_artifact_id = normalize_token(route_row.get("artifactId"))
+        if not route_artifact_id or route_artifact_id != artifact_id:
+            continue
+        if artifact_id not in artifact_ids:
             continue
         platform = normalize_platform_token(route_row.get("platform"))
         kind = normalize_token(route_row.get("kind")) or "installer"
@@ -3154,6 +3240,7 @@ def desktop_surface_refs(
 
 def artifact_publication_bindings(
     tuple_coverage: dict[str, Any] | None,
+    artifacts: list[dict[str, Any]] | None = None,
     *,
     channel_id: str,
     release_version: str,
@@ -3162,12 +3249,26 @@ def artifact_publication_bindings(
     desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
     if not isinstance(desktop_route_truth, list):
         return []
+    if artifacts is None:
+        artifacts = [
+            item
+            for item in ((tuple_coverage or {}).get("promotedInstallerTuples") or [])
+            if isinstance(item, dict)
+        ]
+    artifact_ids = {
+        normalize_token(artifact.get("artifactId") or artifact.get("id"))
+        for artifact in artifacts
+        if isinstance(artifact, dict)
+    }
+    artifact_ids.discard("")
     rows: list[dict[str, Any]] = []
     for route_row in desktop_route_truth:
         if not isinstance(route_row, dict):
             continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
         if not artifact_id:
+            continue
+        if artifact_ids and artifact_id not in artifact_ids:
             continue
         rows.append(
             {
@@ -3238,6 +3339,127 @@ def artifact_publication_bindings(
         )
     rows.sort(key=lambda row: (row["platform"], row["head"], row["rid"], row["artifactId"]))
     return rows
+
+
+def ensure_registry_truth_matches_artifacts(
+    artifacts: list[dict[str, Any]],
+    tuple_coverage: dict[str, Any] | None,
+    artifact_identity_registry_rows: list[dict[str, Any]],
+    desktop_surface_ref_rows: list[dict[str, Any]],
+    install_aware_registry_rows: list[dict[str, Any]] | None = None,
+    artifact_publication_binding_rows: list[dict[str, Any]] | None = None,
+) -> None:
+    artifact_ids = {
+        normalize_token(artifact.get("artifactId") or artifact.get("id"))
+        for artifact in artifacts
+        if isinstance(artifact, dict)
+    }
+    artifact_ids.discard("")
+    required_platforms = {
+        normalize_platform_token(item)
+        for item in ((tuple_coverage or {}).get("requiredDesktopPlatforms") or [])
+        if normalize_platform_token(item)
+    }
+
+    for row in artifact_identity_registry_rows:
+        artifact_id = normalize_token(row.get("artifactId"))
+        tuple_id = str(row.get("tupleId") or "").strip()
+        if artifact_id not in artifact_ids:
+            raise ValueError(
+                "artifactIdentityRegistry must only reference produced artifacts "
+                f"(tupleId={tuple_id}, artifactId={artifact_id})"
+            )
+        platform = normalize_platform_token(row.get("platform"))
+        if required_platforms and platform not in required_platforms:
+            raise ValueError(
+                "artifactIdentityRegistry platform must stay within materialized desktop coverage "
+                f"(tupleId={tuple_id}, platform={platform})"
+            )
+
+    surfaced_tuple_ids: set[str] = set()
+    for row in desktop_surface_ref_rows:
+        artifact_id = normalize_token(row.get("artifactId"))
+        tuple_id = str(row.get("tupleId") or "").strip()
+        surfaced_tuple_ids.add(tuple_id)
+        if artifact_id not in artifact_ids:
+            raise ValueError(
+                "desktopSurfaceRefs must only reference produced artifacts "
+                f"(tupleId={tuple_id}, artifactId={artifact_id})"
+            )
+        platform = normalize_platform_token(row.get("platform"))
+        if required_platforms and platform not in required_platforms:
+            raise ValueError(
+                "desktopSurfaceRefs platform must stay within materialized desktop coverage "
+                f"(tupleId={tuple_id}, platform={platform})"
+            )
+
+    coverage_complete = bool((tuple_coverage or {}).get("complete"))
+    missing_tuple_ids = {
+        str(item).strip()
+        for item in ((tuple_coverage or {}).get("missingRequiredPlatformHeadRidTuples") or [])
+        if str(item).strip()
+    }
+    if coverage_complete != (not missing_tuple_ids):
+        raise ValueError("desktopTupleCoverage.complete must agree with missing required tuple coverage")
+    if surfaced_tuple_ids & missing_tuple_ids:
+        raise ValueError(
+            "desktopSurfaceRefs must not surface tuples that desktopTupleCoverage still marks as missing"
+        )
+
+    install_aware_tuple_ids: set[str] = set()
+    for row in install_aware_registry_rows or []:
+        if not isinstance(row, dict):
+            continue
+        artifact_id = normalize_token(row.get("artifactId"))
+        tuple_id = str(row.get("tupleId") or "").strip()
+        install_aware_tuple_ids.add(tuple_id)
+        if artifact_id not in artifact_ids:
+            raise ValueError(
+                "installAwareArtifactRegistry must only reference produced artifacts "
+                f"(tupleId={tuple_id}, artifactId={artifact_id})"
+            )
+        platform = normalize_platform_token(row.get("platform"))
+        if required_platforms and platform not in required_platforms:
+            raise ValueError(
+                "installAwareArtifactRegistry platform must stay within materialized desktop coverage "
+                f"(tupleId={tuple_id}, platform={platform})"
+            )
+
+    binding_tuple_ids: set[str] = set()
+    for row in artifact_publication_binding_rows or []:
+        if not isinstance(row, dict):
+            continue
+        artifact_id = normalize_token(row.get("artifactId"))
+        tuple_id = str(row.get("tupleId") or "").strip()
+        binding_tuple_ids.add(tuple_id)
+        if artifact_id not in artifact_ids:
+            raise ValueError(
+                "artifactPublicationBindings must only reference produced artifacts "
+                f"(tupleId={tuple_id}, artifactId={artifact_id})"
+            )
+        platform = normalize_platform_token(row.get("platform"))
+        if required_platforms and platform not in required_platforms:
+            raise ValueError(
+                "artifactPublicationBindings platform must stay within materialized desktop coverage "
+                f"(tupleId={tuple_id}, platform={platform})"
+            )
+
+    desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth") or []
+    expected_install_aware_tuple_ids = {
+        str(row.get("tupleId") or "").strip()
+        for row in desktop_route_truth
+        if isinstance(row, dict)
+        and str(row.get("tupleId") or "").strip()
+        and route_has_materialized_installer_artifact(row, artifact_ids)
+    }
+    if install_aware_registry_rows is not None and install_aware_tuple_ids != expected_install_aware_tuple_ids:
+        raise ValueError(
+            "installAwareArtifactRegistry tuple coverage must match desktopRouteTruth installer tuples"
+        )
+    if artifact_publication_binding_rows is not None and binding_tuple_ids != expected_install_aware_tuple_ids:
+        raise ValueError(
+            "artifactPublicationBindings tuple coverage must match desktopRouteTruth installer tuples"
+        )
 
 
 def derive_default_compatibility_state(status: str, proof: dict[str, Any] | None) -> str:
@@ -3316,7 +3538,7 @@ def derive_rollout_state(
     if not localization_gate_allows_public_stable(proof):
         return "public_release_review_required"
     if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
-        return "public_stable" if channel in {"preview", "docker"} else channel
+        return "promoted_preview" if channel == "preview" else ("public_stable" if channel == "docker" else channel)
     return "promoted_preview" if channel in {"preview", "docker"} else channel
 
 
@@ -3351,6 +3573,7 @@ def derive_rollout_reason(
 
 
 def derive_supportability_state(
+    channel: str,
     status: str,
     proof: dict[str, Any] | None,
     *,
@@ -3363,11 +3586,14 @@ def derive_supportability_state(
     if not localization_gate_allows_public_stable(proof):
         return "review_required"
     if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
+        if normalize_token(channel) == "preview":
+            return "preview_supported"
         return "gold_supported"
     return "review_required"
 
 
 def derive_supportability_summary(
+    channel: str,
     status: str,
     proof: dict[str, Any] | None,
     *,
@@ -3387,6 +3613,11 @@ def derive_supportability_summary(
             "Treat the current shelf as review-required until the UI localization release gate is fully green."
         )
     if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
+        proof_label = (
+            "Preview release proof passed"
+            if normalize_token(channel) == "preview"
+            else "Gold release proof passed"
+        )
         journeys = proof.get("journeysPassed") or []
         if journeys:
             journey_list = ", ".join(str(item) for item in journeys)
@@ -3404,8 +3635,8 @@ def derive_supportability_summary(
                     "Community organizer closure stayed grounded on the current shelf."
                 )
             note_suffix = (" " + " ".join(proof_notes)) if proof_notes else ""
-            return f"Gold release proof passed for: {journey_list}.{note_suffix}"
-        return "Gold release proof passed for the current shelf."
+            return f"{proof_label} for: {journey_list}.{note_suffix}"
+        return f"{proof_label} for the current shelf."
     return "Treat the current shelf as review-required until release proof and support closure checks pass."
 
 
@@ -3478,6 +3709,7 @@ def normalize_release_channel_posture(
         desktop_coverage_complete=desktop_coverage_complete,
     )
     derived_supportability_state = derive_supportability_state(
+        channel,
         status,
         proof,
         desktop_coverage_complete=desktop_coverage_complete,
@@ -3544,6 +3776,11 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         args.downloads_dir,
         downloads_prefix=args.downloads_prefix,
     )
+    artifacts = [
+        artifact
+        for artifact in artifacts
+        if normalize_platform_token(artifact.get("platform")) in CANONICAL_DESKTOP_PLATFORM_ORDER
+    ]
     startup_smoke_receipts: list[dict[str, str]] | None
     if args.startup_smoke_dir is not None and not args.skip_startup_smoke_filter:
         startup_smoke_receipts = load_startup_smoke_receipts(
@@ -3551,6 +3788,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             max_age_seconds=args.startup_smoke_max_age_seconds,
             max_future_skew_seconds=args.startup_smoke_max_future_skew_seconds,
             expected_channel=normalize_token(raw_channel),
+            expected_release_version=version,
         )
     else:
         startup_smoke_receipts = None
@@ -3642,13 +3880,22 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     if not required_heads:
         required_heads = list(DEFAULT_REQUIRED_DESKTOP_HEADS)
     verify_required_desktop_heads(required_heads, source="required_desktop_heads")
+    loaded_desktop_coverage = (
+        loaded.get("desktopTupleCoverage")
+        if isinstance(loaded.get("desktopTupleCoverage"), dict)
+        else {}
+    )
+    required_platforms = materialization_required_platforms(
+        artifacts,
+        loaded_desktop_coverage.get("requiredDesktopPlatforms"),
+    )
     loaded_rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip()
     loaded_rollout_reason = str(loaded.get("rolloutReason") or loaded.get("rollout_reason") or "").strip()
     loaded_known_issue_summary = str(loaded.get("knownIssueSummary") or loaded.get("known_issue_summary") or "").strip()
     tuple_coverage = desktop_tuple_coverage(
         artifacts,
         required_heads=required_heads,
-        required_platforms=list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS),
+        required_platforms=required_platforms,
         channel_id=raw_channel,
         release_version=version,
         channel_status=status,
@@ -3674,6 +3921,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     supportability_state = (
         str(loaded.get("supportabilityState") or loaded.get("supportability_state") or "").strip()
         or derive_supportability_state(
+            raw_channel,
             status,
             release_proof,
             desktop_coverage_complete=desktop_coverage_complete,
@@ -3696,7 +3944,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         tuple_coverage = desktop_tuple_coverage(
             artifacts,
             required_heads=required_heads,
-            required_platforms=list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS),
+            required_platforms=required_platforms,
             channel_id=channel,
             release_version=version,
             channel_status=status,
@@ -3708,6 +3956,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         desktop_coverage_complete = desktop_tuple_coverage_is_complete(tuple_coverage)
 
     derived_supportability_summary = derive_supportability_summary(
+        channel,
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
@@ -3719,6 +3968,11 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     if (
         supportability_state == "gold_supported"
         and loaded_supportability_summary.startswith("Local release proof passed",)
+    ):
+        supportability_summary = derived_supportability_summary
+    elif (
+        supportability_state == "preview_supported"
+        and loaded_supportability_summary.startswith("Gold release proof passed",)
     ):
         supportability_summary = derived_supportability_summary
     else:
@@ -3734,6 +3988,11 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     if (
         supportability_state == "gold_supported"
         and loaded_known_issue_summary.startswith("Preview caveats still apply",)
+    ):
+        known_issue_summary = derived_known_issue_summary
+    elif (
+        supportability_state == "preview_supported"
+        and loaded_known_issue_summary.startswith("Current release proof is green",)
     ):
         known_issue_summary = derived_known_issue_summary
     else:
@@ -3760,6 +4019,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     )
     artifact_identity_registry_rows = artifact_identity_registry(
         tuple_coverage,
+        artifacts,
         channel_id=channel,
         release_version=version,
         proof_freshness_status=freshness_status,
@@ -3772,11 +4032,34 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     )
     artifact_publication_binding_rows = artifact_publication_bindings(
         tuple_coverage,
+        artifacts,
         channel_id=channel,
         release_version=version,
         proof_freshness_status=freshness_status,
     )
-    return {
+    materialized_artifact_ids = {
+        normalize_token(artifact.get("artifactId") or artifact.get("id"))
+        for artifact in artifacts
+        if isinstance(artifact, dict)
+    }
+    materialized_artifact_ids.discard("")
+    install_aware_registry = [
+        row for row in install_aware_registry
+        if normalize_token(row.get("artifactId")) in materialized_artifact_ids
+    ]
+    desktop_surface_ref_rows = [
+        row for row in desktop_surface_ref_rows
+        if normalize_token(row.get("artifactId")) in materialized_artifact_ids
+    ]
+    artifact_identity_registry_rows = [
+        row for row in artifact_identity_registry_rows
+        if normalize_token(row.get("artifactId")) in materialized_artifact_ids
+    ]
+    artifact_publication_binding_rows = [
+        row for row in artifact_publication_binding_rows
+        if normalize_token(row.get("artifactId")) in materialized_artifact_ids
+    ]
+    payload = {
         "generated_at": generated_at,
         "generatedAt": generated_at,
         "schemaVersion": 1,
@@ -3784,6 +4067,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "contract_name": contract_name,
         "contractName": contract_name,
         "channelId": channel,
+        "channel": channel,
         "version": version,
         "publishedAt": published_at,
         "status": status,
@@ -3804,6 +4088,17 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "artifactIdentityRegistry": artifact_identity_registry_rows,
         "artifactPublicationBindings": artifact_publication_binding_rows,
     }
+    payload["publicTrustMetrics"] = expected_public_trust_metrics(payload)
+    payload["registryBoundaryCoverage"] = expected_registry_boundary_coverage(payload)
+    ensure_registry_truth_matches_artifacts(
+        artifacts,
+        tuple_coverage,
+        artifact_identity_registry_rows,
+        desktop_surface_ref_rows,
+        install_aware_registry_rows=install_aware_registry,
+        artifact_publication_binding_rows=artifact_publication_binding_rows,
+    )
+    return payload
 
 
 def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
