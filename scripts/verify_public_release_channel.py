@@ -855,6 +855,59 @@ def load_payload(raw_target: str) -> tuple[dict, str, Path | None]:
     return json.loads(path.read_text(encoding="utf-8")), str(path), local_root
 
 
+def route_truth_alignment_floor(payload: dict) -> list[dict[str, str]]:
+    coverage = payload.get("desktopTupleCoverage")
+    if not isinstance(coverage, dict):
+        raise SystemExit("desktopTupleCoverage is missing from release projection")
+    rows = coverage.get("desktopRouteTruth")
+    if not isinstance(rows, list):
+        raise SystemExit("desktopTupleCoverage.desktopRouteTruth is missing from release projection")
+    floor: list[dict[str, str]] = []
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict):
+            raise SystemExit(f"desktopTupleCoverage.desktopRouteTruth[{index}] must be an object")
+        floor.append(
+            {
+                key: str(row.get(key) or "").strip()
+                for key in (
+                    "tupleId",
+                    "routeRole",
+                    "promotionState",
+                    "updateEligibility",
+                    "rollbackState",
+                    "revokeState",
+                    "revokeSource",
+                    "routeRoleReasonCode",
+                    "promotionReasonCode",
+                    "rollbackReasonCode",
+                    "revokeReasonCode",
+                    "artifactId",
+                    "installPosture",
+                    "publicInstallRoute",
+                )
+            }
+        )
+    return floor
+
+
+def verify_directory_projection_alignment(raw_target: str) -> None:
+    if raw_target.startswith(("http://", "https://")):
+        return
+    root = Path(raw_target).expanduser()
+    if not root.is_dir():
+        return
+    release_path = root / "RELEASE_CHANNEL.generated.json"
+    compat_path = root / "releases.json"
+    if not release_path.is_file() or not compat_path.is_file():
+        return
+    release_payload = json.loads(release_path.read_text(encoding="utf-8"))
+    compat_payload = json.loads(compat_path.read_text(encoding="utf-8"))
+    if route_truth_alignment_floor(release_payload) != route_truth_alignment_floor(compat_payload):
+        raise SystemExit(
+            f"{compat_path} desktop route truth does not match {release_path}; regenerate both projections together"
+        )
+
+
 def manifest_file_names(payload: dict) -> set[str]:
     file_names: set[str] = set()
     if isinstance(payload.get("artifacts"), list):
@@ -6461,6 +6514,7 @@ def main() -> int:
         source,
         skip_startup_smoke_filter=skip_startup_smoke_filter,
     )
+    verify_directory_projection_alignment(target)
     print(f"verified public release manifest: {source}")
     return 0
 

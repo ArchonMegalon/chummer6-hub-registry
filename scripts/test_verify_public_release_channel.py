@@ -3513,5 +3513,34 @@ def test_expected_desktop_route_truth_rows_treat_artifact_rollout_state_as_tuple
     )
 
 
+def test_directory_projection_alignment_rejects_route_truth_drift() -> None:
+    row = {
+        "tupleId": "avalonia:linux:linux-x64",
+        "routeRole": "primary",
+        "promotionState": "promoted",
+        "updateEligibility": "eligible",
+        "rollbackState": "primary_reinstall_available",
+        "revokeState": "not_revoked",
+        "revokeSource": "none",
+        "routeRoleReasonCode": "primary_flagship_head",
+        "promotionReasonCode": "installer_smoke_and_release_proof_passed",
+        "rollbackReasonCode": "primary_installer_reinstall_available",
+        "revokeReasonCode": "no_registry_revoke_marker",
+        "artifactId": "avalonia-linux-x64-installer",
+        "installPosture": "installer_first",
+        "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
+    }
+    payload = {"desktopTupleCoverage": {"desktopRouteTruth": [row]}}
+    with tempfile.TemporaryDirectory() as temp_dir:
+        root = Path(temp_dir)
+        (root / "RELEASE_CHANNEL.generated.json").write_text(json.dumps(payload), encoding="utf-8")
+        compat = json.loads(json.dumps(payload))
+        compat["desktopTupleCoverage"]["desktopRouteTruth"][0]["rollbackState"] = "manual_recovery_required"
+        (root / "releases.json").write_text(json.dumps(compat), encoding="utf-8")
+
+        with pytest.raises(SystemExit, match="desktop route truth does not match"):
+            MODULE.verify_directory_projection_alignment(str(root))
+
+
 if __name__ == "__main__":
     unittest.main()
