@@ -2774,6 +2774,8 @@ def install_aware_artifact_registry(
         artifact_id = expected_installer_artifact_id_for_route(route_row)
         if not artifact_id:
             continue
+        if artifact_ids and artifact_id not in artifact_ids:
+            continue
         installed_build_selector = install_aware_installed_build_selector(
             channel_id=channel_id,
             release_version=release_version,
@@ -3022,11 +3024,12 @@ def artifact_identity_registry(
     desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
     if not isinstance(desktop_route_truth, list):
         return []
-    artifacts = artifacts or [
-        item
-        for item in ((tuple_coverage or {}).get("promotedInstallerTuples") or [])
-        if isinstance(item, dict)
-    ]
+    if artifacts is None:
+        artifacts = [
+            item
+            for item in ((tuple_coverage or {}).get("promotedInstallerTuples") or [])
+            if isinstance(item, dict)
+        ]
     artifact_ids = {
         normalize_token(artifact.get("artifactId") or artifact.get("id"))
         for artifact in artifacts
@@ -3039,6 +3042,8 @@ def artifact_identity_registry(
             continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
         if not artifact_id:
+            continue
+        if artifact_ids and artifact_id not in artifact_ids:
             continue
         rows.append(
             {
@@ -3210,11 +3215,12 @@ def artifact_publication_bindings(
     desktop_route_truth = (tuple_coverage or {}).get("desktopRouteTruth")
     if not isinstance(desktop_route_truth, list):
         return []
-    artifacts = artifacts or [
-        item
-        for item in ((tuple_coverage or {}).get("promotedInstallerTuples") or [])
-        if isinstance(item, dict)
-    ]
+    if artifacts is None:
+        artifacts = [
+            item
+            for item in ((tuple_coverage or {}).get("promotedInstallerTuples") or [])
+            if isinstance(item, dict)
+        ]
     artifact_ids = {
         normalize_token(artifact.get("artifactId") or artifact.get("id"))
         for artifact in artifacts
@@ -3227,6 +3233,8 @@ def artifact_publication_bindings(
             continue
         artifact_id = expected_installer_artifact_id_for_route(route_row)
         if not artifact_id:
+            continue
+        if artifact_ids and artifact_id not in artifact_ids:
             continue
         rows.append(
             {
@@ -3995,6 +4003,28 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         release_version=version,
         proof_freshness_status=freshness_status,
     )
+    materialized_artifact_ids = {
+        normalize_token(artifact.get("artifactId") or artifact.get("id"))
+        for artifact in artifacts
+        if isinstance(artifact, dict)
+    }
+    materialized_artifact_ids.discard("")
+    install_aware_registry = [
+        row for row in install_aware_registry
+        if normalize_token(row.get("artifactId")) in materialized_artifact_ids
+    ]
+    desktop_surface_ref_rows = [
+        row for row in desktop_surface_ref_rows
+        if normalize_token(row.get("artifactId")) in materialized_artifact_ids
+    ]
+    artifact_identity_registry_rows = [
+        row for row in artifact_identity_registry_rows
+        if normalize_token(row.get("artifactId")) in materialized_artifact_ids
+    ]
+    artifact_publication_binding_rows = [
+        row for row in artifact_publication_binding_rows
+        if normalize_token(row.get("artifactId")) in materialized_artifact_ids
+    ]
     payload = {
         "generated_at": generated_at,
         "generatedAt": generated_at,
@@ -4143,6 +4173,8 @@ def main() -> int:
     if env_flag_is_true(os.environ.get("CHUMMER_MATERIALIZE_SKIP_STARTUP_SMOKE_FILTER")):
         args.skip_startup_smoke_filter = True
     canonical = canonical_payload(args)
+    canonical["publicTrustMetrics"] = expected_public_trust_metrics(canonical)
+    canonical["registryBoundaryCoverage"] = expected_registry_boundary_coverage(canonical)
     write_json(args.output, canonical)
     if args.compat_output:
         compatibility = compatibility_payload(canonical)

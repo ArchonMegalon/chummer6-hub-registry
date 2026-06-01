@@ -8,6 +8,7 @@ import shutil
 import subprocess
 import tempfile
 import unittest
+from datetime import datetime, timezone
 from pathlib import Path
 
 
@@ -39,7 +40,7 @@ class RefreshPublicDesktopTruthReleaseHelpersTests(unittest.TestCase):
                 "channelId": "public_stable",
                 "status": "pass",
                 "readyCheckpoint": "pre_ui_event_loop",
-                "recordedAtUtc": "2026-05-25T08:00:00+00:00",
+                "recordedAtUtc": datetime.now(timezone.utc).isoformat(),
                 "artifactRelativePath": f"files/{installer_path.name}",
                 "artifactDigest": f"sha256:{digest}",
             }
