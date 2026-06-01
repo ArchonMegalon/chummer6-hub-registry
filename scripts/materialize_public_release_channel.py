@@ -908,11 +908,10 @@ def load_startup_smoke_receipts(
         if not isinstance(loaded, dict):
             continue
         status = str(loaded.get("status") or "").strip().lower()
-        incompatible_host_skip = startup_smoke_receipt_is_incompatible_host_skip(loaded)
-        if status not in {"pass", "passed", "ready"} and not incompatible_host_skip:
+        if status not in {"pass", "passed", "ready"}:
             continue
         ready_checkpoint = str(loaded.get("readyCheckpoint") or "").strip().lower()
-        if not incompatible_host_skip and ready_checkpoint != STARTUP_SMOKE_REQUIRED_READY_CHECKPOINT:
+        if ready_checkpoint != STARTUP_SMOKE_REQUIRED_READY_CHECKPOINT:
             continue
         recorded_at = _startup_smoke_recorded_at(loaded)
         if recorded_at is None:
@@ -933,9 +932,9 @@ def load_startup_smoke_receipts(
         receipt_entry = build_receipt_entry(loaded)
         if not receipt_entry["head"] or not receipt_entry["platform"] or not receipt_entry["arch"]:
             continue
-        if not incompatible_host_skip and not startup_smoke_host_class_matches_platform(loaded, platform=receipt_entry["platform"]):
+        if not startup_smoke_host_class_matches_platform(loaded, platform=receipt_entry["platform"]):
             continue
-        if not incompatible_host_skip and not startup_smoke_operating_system_matches_platform(loaded, platform=receipt_entry["platform"]):
+        if not startup_smoke_operating_system_matches_platform(loaded, platform=receipt_entry["platform"]):
             continue
         if not startup_smoke_channel_matches_expected(expected_channel, receipt_entry["channelId"]):
             continue

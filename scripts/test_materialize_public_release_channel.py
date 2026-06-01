@@ -287,6 +287,40 @@ def test_load_startup_smoke_receipts_rejects_missing_host_class_for_platform() -
     assert receipts == []
 
 
+def test_load_startup_smoke_receipts_rejects_incompatible_host_skip() -> None:
+    now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        receipt_path = root / "startup-smoke-avalonia-linux-arm64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "skipped",
+                    "verificationDisposition": "incompatible_host",
+                    "recordedAtUtc": "2026-04-04T21:59:45Z",
+                    "completedAtUtc": "2026-04-04T21:59:45Z",
+                    "headId": "avalonia",
+                    "platform": "linux",
+                    "rid": "linux-arm64",
+                    "arch": "arm64",
+                    "hostClass": "github-actions-linux-arm64",
+                    "channelId": "preview",
+                    "artifactDigest": "sha256:abc123",
+                    "artifactPath": "/tmp/chummer-avalonia-linux-arm64-installer.deb",
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipts = MODULE.load_startup_smoke_receipts(
+            root,
+            max_age_seconds=86400,
+            max_future_skew_seconds=60,
+            expected_channel="preview",
+            now=now,
+        )
+    assert receipts == []
+
+
 def test_load_startup_smoke_receipts_accepts_host_class_alias_when_platform_matches() -> None:
     now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
     with tempfile.TemporaryDirectory() as tmp:
