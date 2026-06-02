@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-06-01T07:06:51Z",
-  "generatedAt": "2026-06-01T07:06:51Z",
+  "generated_at": "2026-06-02T07:22:46Z",
+  "generatedAt": "2026-06-02T07:22:46Z",
   "schemaVersion": 1,
   "product": "chummer6",
   "contract_name": "Chummer.Hub.Registry.Contracts",
@@ -8,7 +8,7 @@
   "channelId": "public_stable",
   "channel": "public_stable",
   "version": "run-20260601-070650",
-  "publishedAt": "2026-06-01T07:06:50Z",
+  "publishedAt": "2026-06-02T07:22:44Z",
   "status": "published",
   "artifactSource": "ui_desktop_bundle",
   "message": null,
@@ -20,7 +20,7 @@
   "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
   "releaseProof": {
     "status": "passed",
-    "generatedAt": "2026-05-30T18:48:23Z",
+    "generatedAt": "2026-06-01T13:11:47Z",
     "baseUrl": "https://chummer.run",
     "journeysPassed": [
       "install_claim_restore_continue",
@@ -43,7 +43,7 @@
     ],
     "uiLocalizationReleaseGate": {
       "status": "pass",
-      "generatedAt": "2026-06-01T07:05:46Z",
+      "generatedAt": "2026-06-02T06:11:51Z",
       "defaultKeyCount": 387,
       "explicitFallbackRuntime": "pass",
       "signoffSmokeRunnerStatus": "pass",
@@ -200,8 +200,8 @@
       "channel": "public_stable",
       "version": "run-20260601-070650",
       "releaseVersion": "run-20260601-070650",
-      "generated_at": "2026-06-01T07:06:51Z",
-      "generatedAt": "2026-06-01T07:06:51Z",
+      "generated_at": "2026-06-02T07:22:46Z",
+      "generatedAt": "2026-06-02T07:22:46Z",
       "id": "avalonia-linux-x64-installer"
     },
     {
@@ -224,8 +224,8 @@
       "channel": "public_stable",
       "version": "run-20260601-070650",
       "releaseVersion": "run-20260601-070650",
-      "generated_at": "2026-06-01T07:06:51Z",
-      "generatedAt": "2026-06-01T07:06:51Z",
+      "generated_at": "2026-06-02T07:22:46Z",
+      "generatedAt": "2026-06-02T07:22:46Z",
       "id": "avalonia-osx-arm64-installer"
     },
     {
@@ -243,13 +243,13 @@
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
-      "installAccessClass": "open_public",
+      "installAccessClass": "account_required",
       "channelId": "public_stable",
       "channel": "public_stable",
       "version": "run-20260601-070650",
       "releaseVersion": "run-20260601-070650",
-      "generated_at": "2026-06-01T07:06:51Z",
-      "generatedAt": "2026-06-01T07:06:51Z",
+      "generated_at": "2026-06-02T07:22:46Z",
+      "generatedAt": "2026-06-02T07:22:46Z",
       "id": "avalonia-win-x64-installer"
     }
   ],
@@ -616,14 +616,14 @@
       "rid": "win-x64",
       "arch": "x64",
       "kind": "installer",
-      "installAccessClass": "open_public",
+      "installAccessClass": "account_required",
       "desktopChannelRef": "desktop-channel:public_stable:run-20260601-070650:avalonia:windows:win-x64",
       "installGuidanceRef": "install-guidance:public_stable:run-20260601-070650:avalonia-win-x64-installer",
       "participationReceiptRef": "participation-receipt:public_stable:run-20260601-070650:avalonia:windows:win-x64",
       "rewardPublicationRef": "reward-publication:binding:public_stable:run-20260601-070650:avalonia:windows:win-x64",
       "publicationBindingId": "binding:public_stable:run-20260601-070650:avalonia:windows:win-x64",
       "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
-      "rationale": "public_stable keeps avalonia:windows:win-x64 guest-readable so desktop channel, install guidance, participation, and reward refs stay governed without exposing provider internals."
+      "rationale": "public_stable keeps avalonia:windows:win-x64 entitlement-backed so desktop channel, install guidance, participation, and reward refs stay governed without exposing provider internals."
     }
   ],
   "artifactIdentityRegistry": [
@@ -792,22 +792,22 @@
     "adoptionHealth": {
       "status": "healthy",
       "primaryPromotedCount": 3,
-      "publicInstallCount": 2,
-      "accountLinkedInstallCount": 1,
+      "publicInstallCount": 1,
+      "accountLinkedInstallCount": 2,
       "fallbackRecoveryCount": 0,
       "blockedRouteCount": 0,
       "revokedRouteCount": 0,
-      "summary": "3 primary routes are promoted; 2 are guest-readable, 1 require account-linked install handoff, 0 fallback recovery routes are promoted, and 0 routes are still blocked on proof."
+      "summary": "3 primary routes are promoted; 1 are guest-readable, 2 require account-linked install handoff, 0 fallback recovery routes are promoted, and 0 routes are still blocked on proof."
     },
     "proofFreshness": {
       "status": "fresh",
-      "releaseProofGeneratedAt": "2026-05-30T18:48:23Z",
-      "releaseProofAgeSeconds": 130708,
+      "releaseProofGeneratedAt": "2026-06-01T13:11:47Z",
+      "releaseProofAgeSeconds": 65459,
       "releaseProofMaxAgeSeconds": 604800,
-      "uiLocalizationGeneratedAt": "2026-06-01T07:05:46Z",
-      "uiLocalizationAgeSeconds": 65,
+      "uiLocalizationGeneratedAt": "2026-06-02T06:11:51Z",
+      "uiLocalizationAgeSeconds": 4255,
       "uiLocalizationMaxAgeSeconds": 604800,
-      "summary": "Release proof age is 130708s (max 604800s) and UI localization gate age is 65s (max 604800s)."
+      "summary": "Release proof age is 65459s (max 604800s) and UI localization gate age is 4255s (max 604800s)."
     },
     "revocationFacts": {
       "status": "clear",
@@ -857,9 +857,9 @@
     "entitlement": {
       "installAwareArtifactCount": 3,
       "desktopSurfaceRefCount": 3,
-      "openPublicSurfaceCount": 2,
-      "accountRequiredSurfaceCount": 1,
-      "summary": "Entitlement and install-hand-off truth spans 3 install-aware registry rows, 3 desktop surface refs, 2 guest-readable surfaces, and 1 account-required surfaces."
+      "openPublicSurfaceCount": 1,
+      "accountRequiredSurfaceCount": 2,
+      "summary": "Entitlement and install-hand-off truth spans 3 install-aware registry rows, 3 desktop surface refs, 1 guest-readable surfaces, and 2 account-required surfaces."
     },
     "compatibility": {
       "compatibleArtifactCount": 3,
