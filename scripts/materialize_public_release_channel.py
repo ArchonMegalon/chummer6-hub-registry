@@ -4105,6 +4105,12 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
                 "platformId": f"{platform}-{arch}" if platform and arch else platform or None,
                 "arch": arch or None,
                 "fileName": artifact.get("fileName"),
+                "channelId": artifact.get("channelId") or artifact.get("channel") or channel_id or None,
+                "channel": artifact.get("channel") or artifact.get("channelId") or channel_id or None,
+                "version": artifact.get("version") or artifact.get("releaseVersion") or canonical.get("version"),
+                "releaseVersion": artifact.get("releaseVersion") or artifact.get("version") or canonical.get("version"),
+                "compatibilityState": artifact.get("compatibilityState"),
+                "compatibilityReason": artifact.get("compatibilityReason"),
                 "installAccessClass": (
                     str(artifact.get("installAccessClass") or "").strip()
                     or default_install_access_class(platform, kind)

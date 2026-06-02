@@ -766,9 +766,9 @@ turns:
         delta: 6
         public_reason: Recovery crews converted Rust Bazaar debt pressure into visible closeout work.
       - target: ghostline_network
-        metric: proof_trail_strength
+        metric: signal_discipline
         delta: 5
-        public_reason: Ghostline published cleaner receipt routing before rumor spillover reached the public board.
+        public_reason: Ghostline published cleaner dispatch routing before rumor spillover reached the public board.
       - target: barrens_free_wardens
         metric: public_trust
         delta: 4
@@ -790,9 +790,9 @@ turns:
         beat_label: Receipt clean room
         action_summary: Ghostline cut rumor spillover and replaced it with cleaner public receipt routing before the board drifted off-message.
         stakes: If this fails, the city reads as noise instead of consequence.
-        proof_note: Proof lane anchored to the proof_trail_strength effect on ledger_tick_0002_flagship_seeded.
-        visual_hook: Ghostline cuts the screen with green receipt tracers over a darkened rumor grid.
-        command_intent: Replace rumor spillover with hard receipt routing before the board loses coherence.
+        proof_note: Review lane anchored to the signal_discipline effect on ledger_tick_0002_flagship_seeded.
+        visual_hook: Ghostline cuts the screen with green dispatch tracers over a darkened rumor grid.
+        command_intent: Replace rumor spillover with hard dispatch routing before the board loses coherence.
         consequence_line: Clean proof routing now determines which factions keep initiative.
       - beat_id: turn2_freeward_witness_surge
         actor_kind: world
@@ -956,7 +956,7 @@ dispatches:
     body_markdown: |
       Ghostline killed two rumors before they learned to walk.
 
-      No spectacle followed. No faction claimed the save. The public record only shows false-signal suppression rising and proof trail strength holding. That is how Ghostline prefers it: less noise, fewer names, cleaner receipts.
+      No spectacle followed. No faction claimed the save. The public board only shows false-signal suppression rising and signal discipline holding. That is how Ghostline prefers it: less noise, fewer names, cleaner routing.
 
       The Ledger did not call it heroic. It called it useful.
 

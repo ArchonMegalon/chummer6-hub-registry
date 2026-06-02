@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-06-02T07:22:46Z",
-  "generatedAt": "2026-06-02T07:22:46Z",
+  "generated_at": "2026-06-02T09:46:12Z",
+  "generatedAt": "2026-06-02T09:46:12Z",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "version": "run-20260601-070650",
@@ -20,6 +20,12 @@
       "platformId": "linux-x64",
       "arch": "x64",
       "fileName": "chummer-avalonia-linux-x64-installer.deb",
+      "channelId": "public_stable",
+      "channel": "public_stable",
+      "version": "run-20260601-070650",
+      "releaseVersion": "run-20260601-070650",
+      "compatibilityState": "compatible",
+      "compatibilityReason": null,
       "installAccessClass": "open_public"
     },
     {
@@ -35,6 +41,12 @@
       "platformId": "macos-arm64",
       "arch": "arm64",
       "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
+      "channelId": "public_stable",
+      "channel": "public_stable",
+      "version": "run-20260601-070650",
+      "releaseVersion": "run-20260601-070650",
+      "compatibilityState": "compatible",
+      "compatibilityReason": null,
       "installAccessClass": "account_required"
     },
     {
@@ -50,6 +62,12 @@
       "platformId": "windows-x64",
       "arch": "x64",
       "fileName": "chummer-avalonia-win-x64-installer.exe",
+      "channelId": "public_stable",
+      "channel": "public_stable",
+      "version": "run-20260601-070650",
+      "releaseVersion": "run-20260601-070650",
+      "compatibilityState": "compatible",
+      "compatibilityReason": null,
       "installAccessClass": "account_required"
     }
   ],
@@ -771,12 +789,12 @@
     "proofFreshness": {
       "status": "fresh",
       "releaseProofGeneratedAt": "2026-06-01T13:11:47Z",
-      "releaseProofAgeSeconds": 65459,
+      "releaseProofAgeSeconds": 74065,
       "releaseProofMaxAgeSeconds": 604800,
       "uiLocalizationGeneratedAt": "2026-06-02T06:11:51Z",
-      "uiLocalizationAgeSeconds": 4255,
+      "uiLocalizationAgeSeconds": 12861,
       "uiLocalizationMaxAgeSeconds": 604800,
-      "summary": "Release proof age is 65459s (max 604800s) and UI localization gate age is 4255s (max 604800s)."
+      "summary": "Release proof age is 74065s (max 604800s) and UI localization gate age is 12861s (max 604800s)."
     },
     "revocationFacts": {
       "status": "clear",
@@ -831,12 +849,12 @@
       "summary": "Entitlement and install-hand-off truth spans 3 install-aware registry rows, 3 desktop surface refs, 1 guest-readable surfaces, and 2 account-required surfaces."
     },
     "compatibility": {
-      "compatibleArtifactCount": 0,
+      "compatibleArtifactCount": 3,
       "compatibleRuntimeBundleHeadCount": 0,
       "compatibleExchangeArtifactCount": 0,
-      "unknownArtifactCount": 3,
+      "unknownArtifactCount": 0,
       "unknownRuntimeBundleHeadCount": 0,
-      "summary": "Compatibility boundary tracks 0 compatible artifacts, 0 compatible runtime bundle heads, and 0 compatible exchange-lineage rows while 3 artifact rows and 0 runtime bundle heads remain unknown."
+      "summary": "Compatibility boundary tracks 3 compatible artifacts, 0 compatible runtime bundle heads, and 0 compatible exchange-lineage rows while 0 artifact rows and 0 runtime bundle heads remain unknown."
     },
     "summary": "Registry boundary coverage is closed for public_stable/run-20260601-070650 across persistence, release-channel, artifact-lineage, publication, entitlement, and compatibility surfaces."
   }

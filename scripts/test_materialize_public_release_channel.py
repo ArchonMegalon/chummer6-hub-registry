@@ -710,6 +710,79 @@ def test_compatibility_payload_projects_public_stable_channel() -> None:
     assert payload["channel"] == "public_stable"
 
 
+def test_compatibility_payload_preserves_download_compatibility_state_for_boundary_coverage() -> None:
+    canonical = {
+        "generatedAt": "2026-06-02T09:40:12Z",
+        "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+        "channelId": "preview",
+        "channel": "preview",
+        "rolloutState": "promoted_preview",
+        "version": "run-20260602-094012",
+        "publishedAt": "2026-06-02T09:40:12Z",
+        "status": "published",
+        "supportabilityState": "preview_supported",
+        "artifacts": [
+            {
+                "artifactId": "avalonia-osx-arm64-installer",
+                "head": "avalonia",
+                "platform": "macos",
+                "platformLabel": "macOS",
+                "arch": "arm64",
+                "rid": "osx-arm64",
+                "kind": "dmg",
+                "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
+                "downloadUrl": "/downloads/files/chummer-avalonia-osx-arm64-installer.dmg",
+                "sha256": "a" * 64,
+                "sizeBytes": 42,
+                "channelId": "preview",
+                "channel": "preview",
+                "version": "run-20260602-094012",
+                "releaseVersion": "run-20260602-094012",
+                "compatibilityState": "compatible",
+                "compatibilityReason": "Startup smoke passed.",
+            },
+            {
+                "artifactId": "blazor-desktop-osx-arm64-installer",
+                "head": "blazor-desktop",
+                "platform": "macos",
+                "platformLabel": "macOS",
+                "arch": "arm64",
+                "rid": "osx-arm64",
+                "kind": "dmg",
+                "fileName": "chummer-blazor-desktop-osx-arm64-installer.dmg",
+                "downloadUrl": "/downloads/files/chummer-blazor-desktop-osx-arm64-installer.dmg",
+                "sha256": "b" * 64,
+                "sizeBytes": 43,
+                "channelId": "preview",
+                "channel": "preview",
+                "version": "run-20260602-094012",
+                "releaseVersion": "run-20260602-094012",
+                "compatibilityState": "compatible",
+                "compatibilityReason": "Startup smoke passed.",
+            },
+        ],
+        "desktopTupleCoverage": {
+            "complete": True,
+            "promotedInstallerTuples": ["avalonia:macos:osx-arm64"],
+            "desktopRouteTruth": [],
+        },
+        "runtimeBundleHeads": [],
+        "installAwareArtifactRegistry": [],
+        "desktopSurfaceRefs": [],
+        "artifactIdentityRegistry": [],
+        "artifactPublicationBindings": [],
+    }
+
+    payload = MODULE.compatibility_payload(canonical)
+    payload["publicTrustMetrics"] = MODULE.expected_public_trust_metrics(payload)
+    payload["registryBoundaryCoverage"] = MODULE.expected_registry_boundary_coverage(payload)
+
+    assert {download["compatibilityState"] for download in payload["downloads"]} == {"compatible"}
+    assert payload["registryBoundaryCoverage"]["persistence"]["artifactCount"] == 2
+    assert payload["registryBoundaryCoverage"]["compatibility"]["compatibleArtifactCount"] == 2
+    assert payload["registryBoundaryCoverage"]["compatibility"]["unknownArtifactCount"] == 0
+
+
 def test_normalize_release_proof_payload_ignores_extra_metadata_keys() -> None:
     payload = MODULE.normalize_release_proof_payload(
         {
