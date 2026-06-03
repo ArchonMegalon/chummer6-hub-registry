@@ -260,7 +260,14 @@ def startup_smoke_channel_matches_expected(expected_channel: str, actual_channel
     if expected == actual:
         return True
     if expected == "docker":
-        return actual in {"preview", "smoke", "local", "local_docker_preview"}
+        return actual in {
+            "preview",
+            "smoke",
+            "local",
+            "local_docker_preview",
+            "public_stable",
+            "public_edge",
+        }
     return False
 
 
@@ -3030,6 +3037,8 @@ def artifact_identity_registry(
             for item in ((tuple_coverage or {}).get("promotedInstallerTuples") or [])
             if isinstance(item, dict)
         ]
+    if artifacts is None or not artifacts:
+        return []
     artifact_ids = {
         normalize_token(artifact.get("artifactId") or artifact.get("id"))
         for artifact in artifacts
@@ -3221,6 +3230,8 @@ def artifact_publication_bindings(
             for item in ((tuple_coverage or {}).get("promotedInstallerTuples") or [])
             if isinstance(item, dict)
         ]
+    if artifacts is None or not artifacts:
+        return []
     artifact_ids = {
         normalize_token(artifact.get("artifactId") or artifact.get("id"))
         for artifact in artifacts
@@ -3766,7 +3777,10 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         from datetime import datetime, timezone
 
         published_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    generated_at = dt.datetime.now(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    generated_at_dt = parse_iso(published_at)
+    if generated_at_dt is None:
+        generated_at_dt = dt.datetime.now(UTC).replace(microsecond=0)
+    generated_at = generated_at_dt.replace(microsecond=0).isoformat().replace("+00:00", "Z")
     for artifact in artifacts:
         if isinstance(artifact, dict):
             artifact["channelId"] = raw_channel

@@ -1183,7 +1183,7 @@ def startup_smoke_channel_matches_expected(expected_channel: str, actual_channel
     if expected == actual:
         return True
     if expected == "docker":
-        return actual in {"preview", "smoke", "local", "local_docker_preview"}
+        return actual in {"preview", "smoke", "local", "local_docker_preview", "public_stable", "public_edge"}
     return False
 
 

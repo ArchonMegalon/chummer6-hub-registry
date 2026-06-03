@@ -415,6 +415,14 @@ def test_startup_smoke_channel_matches_expected_accepts_preview_receipt_for_dock
     assert MODULE.startup_smoke_channel_matches_expected("docker", "preview") is True
 
 
+def test_startup_smoke_channel_matches_expected_accepts_public_stable_receipt_for_docker_channel() -> None:
+    assert MODULE.startup_smoke_channel_matches_expected("docker", "public_stable") is True
+
+
+def test_startup_smoke_channel_matches_expected_accepts_public_edge_receipt_for_docker_channel() -> None:
+    assert MODULE.startup_smoke_channel_matches_expected("docker", "public_edge") is True
+
+
 def test_load_payload_uses_run_services_downloads_root_for_registry_published_manifest() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = Path(temp_dir)

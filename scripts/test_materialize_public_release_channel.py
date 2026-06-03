@@ -645,6 +645,92 @@ def test_load_startup_smoke_receipts_accepts_preview_channel_when_expected_chann
     ]
 
 
+def test_load_startup_smoke_receipts_accepts_public_stable_channel_when_expected_channel_is_docker() -> None:
+    now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        receipt_path = root / "startup-smoke-avalonia-osx-arm64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": "2026-04-04T21:59:45Z",
+                    "headId": "avalonia",
+                    "platform": "macos",
+                    "arch": "arm64",
+                    "hostClass": "macos-host",
+                    "operatingSystem": "Darwin 23.0",
+                    "channelId": "public_stable",
+                    "artifactDigest": "sha256:abc123",
+                    "artifactPath": "/tmp/chummer-avalonia-osx-arm64-installer.dmg",
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipts = MODULE.load_startup_smoke_receipts(
+            root,
+            max_age_seconds=86400,
+            max_future_skew_seconds=60,
+            expected_channel="docker",
+            now=now,
+        )
+    assert receipts == [
+        {
+            "head": "avalonia",
+            "platform": "macos",
+            "arch": "arm64",
+            "artifactDigest": "sha256:abc123",
+            "channelId": "public_stable",
+            "artifactId": "",
+            "artifactFileName": "chummer-avalonia-osx-arm64-installer.dmg",
+        }
+    ]
+
+
+def test_load_startup_smoke_receipts_accepts_public_edge_channel_when_expected_channel_is_docker() -> None:
+    now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        receipt_path = root / "startup-smoke-avalonia-osx-arm64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": "2026-04-04T21:59:45Z",
+                    "headId": "avalonia",
+                    "platform": "macos",
+                    "arch": "arm64",
+                    "hostClass": "macos-host",
+                    "operatingSystem": "Darwin 23.0",
+                    "channelId": "public_edge",
+                    "artifactDigest": "sha256:abc123",
+                    "artifactPath": "/tmp/chummer-avalonia-osx-arm64-installer.dmg",
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipts = MODULE.load_startup_smoke_receipts(
+            root,
+            max_age_seconds=86400,
+            max_future_skew_seconds=60,
+            expected_channel="docker",
+            now=now,
+        )
+    assert receipts == [
+        {
+            "head": "avalonia",
+            "platform": "macos",
+            "arch": "arm64",
+            "artifactDigest": "sha256:abc123",
+            "channelId": "public_edge",
+            "artifactId": "",
+            "artifactFileName": "chummer-avalonia-osx-arm64-installer.dmg",
+        }
+    ]
+
+
 def test_load_startup_smoke_receipts_rejects_missing_artifact_identity() -> None:
     now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
     with tempfile.TemporaryDirectory() as tmp:
