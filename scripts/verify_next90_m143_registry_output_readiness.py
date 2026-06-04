@@ -162,6 +162,7 @@ def verify_successor_registry(path: Path) -> None:
     required = (
         "owner: chummer6-hub-registry",
         f"title: {EXPECTED_TITLE}",
+        "status: complete",
     )
     for snippet in required:
         if snippet not in block:
@@ -264,7 +265,7 @@ def verify_manifest(path: Path, *, label: str) -> None:
         value = str(payload.get(field_name) or "").strip().lower()
         if value and "stale or incomplete proof receipts" not in value:
             fail(
-                f"{label} {field_name} must explain stale or incomplete proof receipts while proof freshness is {freshness_status}"
+                f"{label} {field_name} still overstates output readiness because it does not explain stale or incomplete proof receipts while proof freshness is {freshness_status}"
             )
 
     identity_rows = payload.get("artifactIdentityRegistry")
