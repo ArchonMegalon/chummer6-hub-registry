@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-06-05T05:05:03Z",
-  "generatedAt": "2026-06-05T05:05:03Z",
+  "generated_at": "2026-06-07T17:41:06Z",
+  "generatedAt": "2026-06-07T17:41:06Z",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "version": "run-20260601-070650",
   "channel": "public_stable",
-  "publishedAt": "2026-06-05T05:05:03Z",
+  "publishedAt": "2026-06-07T17:41:06Z",
   "downloads": [
     {
       "id": "avalonia-linux-x64-installer",
@@ -82,7 +82,7 @@
   "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
   "releaseProof": {
     "status": "passed",
-    "generatedAt": "2026-06-05T04:10:25Z",
+    "generatedAt": "2026-06-07T16:47:44Z",
     "baseUrl": "https://chummer.run",
     "journeysPassed": [
       "install_claim_restore_continue",
@@ -788,13 +788,13 @@
     },
     "proofFreshness": {
       "status": "fresh",
-      "releaseProofGeneratedAt": "2026-06-05T04:10:25Z",
-      "releaseProofAgeSeconds": 3278,
+      "releaseProofGeneratedAt": "2026-06-07T16:47:44Z",
+      "releaseProofAgeSeconds": 3202,
       "releaseProofMaxAgeSeconds": 604800,
       "uiLocalizationGeneratedAt": "2026-06-05T03:16:17Z",
-      "uiLocalizationAgeSeconds": 6526,
+      "uiLocalizationAgeSeconds": 224689,
       "uiLocalizationMaxAgeSeconds": 604800,
-      "summary": "Release proof age is 3278s (max 604800s) and UI localization gate age is 6526s (max 604800s)."
+      "summary": "Release proof age is 3202s (max 604800s) and UI localization gate age is 224689s (max 604800s)."
     },
     "revocationFacts": {
       "status": "clear",
