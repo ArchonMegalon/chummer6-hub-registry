@@ -1,7 +1,7 @@
 {
   "headId": "blazor-desktop",
-  "version": "run-20260601-070650",
-  "releaseVersion": "run-20260601-070650",
+  "version": "run-20260612-121055",
+  "releaseVersion": "run-20260612-121055",
   "channelId": "public_stable",
   "platform": "macos",
   "arch": "arm64",
@@ -13,9 +13,9 @@
   "artifactDigestSource": "artifact_path",
   "framework": ".NET 10.0.5",
   "operatingSystem": "macOS 26.4.1",
-  "recordedAtUtc": "2026-04-26T17:48:52.122405+00:00",
-  "startedAtUtc": "2026-04-26T17:48:52.118057+00:00",
-  "completedAtUtc": "2026-04-26T17:48:52.122413+00:00",
+  "recordedAtUtc": "2026-06-12T12:30:16Z",
+  "startedAtUtc": "2026-06-12T12:30:16Z",
+  "completedAtUtc": "2026-06-12T12:30:16Z",
   "status": "pass",
   "artifactId": "blazor-desktop-osx-arm64-installer",
   "artifactPath": "/tmp/tmp.b9ItJQId4l/chummer-blazor-desktop-osx-arm64-installer.dmg",
@@ -23,5 +23,6 @@
   "artifactRelativePath": "files/chummer-blazor-desktop-osx-arm64-installer.dmg",
   "artifactSha256": "f8a9f3647a9859c2810c7980d917cf7241ee685105c67df53ea99d4dfcabb2f9",
   "channel": "public_stable",
-  "fileName": "chummer-blazor-desktop-osx-arm64-installer.dmg"
+  "fileName": "chummer-blazor-desktop-osx-arm64-installer.dmg",
+  "generatedAt": "2026-06-12T12:30:16Z"
 }

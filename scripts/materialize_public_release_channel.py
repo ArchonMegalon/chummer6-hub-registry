@@ -3581,13 +3581,13 @@ def derive_supportability_summary(
         return "No published channel support posture exists because no release shelf is live."
     if not desktop_coverage_complete:
         return (
-            "Treat the current shelf as review-required because "
+            "Treat the current release as review-required because "
             + desktop_tuple_coverage_gap_summary(coverage)
             + "."
         )
     if not localization_gate_allows_public_stable(proof):
         return (
-            "Treat the current shelf as review-required until the UI localization release gate is fully green."
+            "Treat the current release as review-required until the UI localization release gate is fully green."
         )
     if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         proof_label = (
@@ -3601,20 +3601,20 @@ def derive_supportability_summary(
             proof_notes: list[str] = []
             if any(str(item).strip() == "install_claim_restore_continue" for item in journeys):
                 proof_notes.append(
-                    "Claimed-device restore and bounded offline prefetch stayed grounded on the current shelf."
+                    "Claimed-device restore and bounded offline prefetch stayed grounded on the current release."
                 )
             if any(str(item).strip() == "report_cluster_release_notify" for item in journeys):
                 proof_notes.append(
-                    "Clustered release notification stayed grounded on the current shelf."
+                    "Clustered release notification stayed grounded on the current release."
                 )
             if any(str(item).strip() == "organize_community_and_close_loop" for item in journeys):
                 proof_notes.append(
-                    "Community organizer closure stayed grounded on the current shelf."
+                    "Community organizer closure stayed grounded on the current release."
                 )
             note_suffix = (" " + " ".join(proof_notes)) if proof_notes else ""
             return f"{proof_label} for: {journey_list}.{note_suffix}"
-        return f"{proof_label} for the current shelf."
-    return "Treat the current shelf as review-required until release proof and support closure checks pass."
+        return f"{proof_label} for the current release."
+    return "Treat the current release as review-required until release proof and support closure checks pass."
 
 
 def derive_known_issue_summary(

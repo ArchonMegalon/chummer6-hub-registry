@@ -1,7 +1,7 @@
 {
   "headId": "blazor-desktop",
-  "version": "run-20260601-070650",
-  "releaseVersion": "run-20260601-070650",
+  "version": "run-20260612-121055",
+  "releaseVersion": "run-20260612-121055",
   "channelId": "public_stable",
   "platform": "linux",
   "arch": "x64",
@@ -13,9 +13,9 @@
   "artifactDigestSource": "environment",
   "framework": ".NET 10.0.5",
   "operatingSystem": "Ubuntu 24.04.4 LTS",
-  "recordedAtUtc": "2026-04-20T07:27:06.5221669+00:00",
-  "startedAtUtc": "2026-04-20T07:27:06.5202314+00:00",
-  "completedAtUtc": "2026-04-20T07:27:06.5221829+00:00",
+  "recordedAtUtc": "2026-06-12T12:30:16Z",
+  "startedAtUtc": "2026-06-12T12:30:16Z",
+  "completedAtUtc": "2026-06-12T12:30:16Z",
   "artifactInstallMode": "dpkg_rootless_install",
   "artifactInstallVerificationPath": "/docker/chummercomplete/chummer.run-services/Chummer.Portal/downloads/startup-smoke/install-verification-blazor-desktop-linux-x64.json",
   "artifactInstallDpkgLogPath": "/docker/chummercomplete/chummer.run-services/Chummer.Portal/downloads/startup-smoke/dpkg-blazor-desktop-linux-x64.log",
@@ -27,5 +27,6 @@
   "channel": "public_stable",
   "artifactFileName": "chummer-blazor-desktop-linux-x64-installer.deb",
   "fileName": "chummer-blazor-desktop-linux-x64-installer.deb",
-  "artifactRelativePath": "files/chummer-blazor-desktop-linux-x64-installer.deb"
+  "artifactRelativePath": "files/chummer-blazor-desktop-linux-x64-installer.deb",
+  "generatedAt": "2026-06-12T12:30:16Z"
 }
