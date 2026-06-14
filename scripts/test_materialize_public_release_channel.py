@@ -1702,7 +1702,7 @@ def test_canonical_payload_keeps_mac_only_preview_registry_truth_scoped_to_mac_a
     assert payload["supportabilityState"] == "preview_supported"
     assert payload["publicTrustMetrics"]["releaseChannel"]["supportabilityState"] == "preview_supported"
     assert payload["registryBoundaryCoverage"]["releaseChannel"]["supportabilityState"] == "preview_supported"
-    assert payload["supportabilitySummary"].startswith("Preview release proof passed")
+    assert payload["supportabilitySummary"].startswith("Current preview release is supported")
 
 
 def test_ensure_registry_truth_matches_artifacts_rejects_split_brain_registry_rows() -> None:

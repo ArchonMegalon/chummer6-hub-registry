@@ -1025,7 +1025,7 @@ def test_verify_output_readiness_honesty_rejects_stale_supported_copy() -> None:
     payload["publicTrustMetrics"]["proofFreshness"]["status"] = "stale"
     payload["supportabilityState"] = "gold_supported"
     payload["rolloutReason"] = "Current release shelf was exercised by the local docker release proof harness before publication."
-    payload["supportabilitySummary"] = "Gold release proof passed for the current shelf."
+    payload["supportabilitySummary"] = "Current public release is supported on the promoted routes."
     payload["knownIssueSummary"] = "Current release checks are clear, and the downloads page has recent install coverage."
     payload["fixAvailabilitySummary"] = (
         "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf."

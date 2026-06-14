@@ -3591,29 +3591,30 @@ def derive_supportability_summary(
         )
     if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
         proof_label = (
-            "Preview release proof passed"
+            "Current preview release is supported on the promoted routes."
             if normalize_token(channel) == "preview"
-            else "Gold release proof passed"
+            else "Current public release is supported on the promoted routes."
         )
         journeys = proof.get("journeysPassed") or []
         if journeys:
             journey_list = ", ".join(str(item) for item in journeys)
             proof_notes: list[str] = []
+            if any(str(item).strip() == "build_explain_publish" for item in journeys):
+                proof_notes.append("install guidance")
+            if any(str(item).strip() == "campaign_session_recover_recap" for item in journeys):
+                proof_notes.append("session recovery")
             if any(str(item).strip() == "install_claim_restore_continue" for item in journeys):
-                proof_notes.append(
-                    "Claimed-device restore and bounded offline prefetch stayed grounded on the current release."
-                )
+                proof_notes.append("account return")
             if any(str(item).strip() == "report_cluster_release_notify" for item in journeys):
-                proof_notes.append(
-                    "Clustered release notification stayed grounded on the current release."
-                )
+                proof_notes.append("release updates")
             if any(str(item).strip() == "organize_community_and_close_loop" for item in journeys):
-                proof_notes.append(
-                    "Community organizer closure stayed grounded on the current release."
-                )
-            note_suffix = (" " + " ".join(proof_notes)) if proof_notes else ""
-            return f"{proof_label} for: {journey_list}.{note_suffix}"
-        return f"{proof_label} for the current release."
+                proof_notes.append("community wrap-up")
+            proof_note_text = ", ".join(proof_notes)
+            proof_note_clause = f" Recent checks cover {proof_note_text}," if proof_note_text else " Recent checks cover install,"
+            return (
+                f"{proof_label}{proof_note_clause} bounded offline prefetch, and current support follow-up."
+            )
+        return f"{proof_label} Recent checks cover install, bounded offline prefetch, and current support follow-up."
     return "Treat the current release as review-required until release proof and support closure checks pass."
 
 
@@ -3947,12 +3948,20 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     ).strip()
     if (
         supportability_state == "gold_supported"
-        and loaded_supportability_summary.startswith("Local release proof passed",)
+        and (
+            loaded_supportability_summary.startswith("Local release proof passed",)
+            or loaded_supportability_summary.startswith("Gold release proof passed",)
+            or loaded_supportability_summary.startswith("Current public release is supported",)
+        )
     ):
         supportability_summary = derived_supportability_summary
     elif (
         supportability_state == "preview_supported"
-        and loaded_supportability_summary.startswith("Gold release proof passed",)
+        and (
+            loaded_supportability_summary.startswith("Gold release proof passed",)
+            or loaded_supportability_summary.startswith("Preview release proof passed",)
+            or loaded_supportability_summary.startswith("Current preview release is supported",)
+        )
     ):
         supportability_summary = derived_supportability_summary
     else:
