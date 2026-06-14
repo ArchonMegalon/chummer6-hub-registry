@@ -3637,16 +3637,16 @@ def derive_known_issue_summary(
         journeys = proof.get("journeysPassed") or []
         proof_notes: list[str] = []
         if any(str(item).strip() == "install_claim_restore_continue" for item in journeys):
-            proof_notes.append("claimed-device recovery")
+            proof_notes.append("account return")
         if any(str(item).strip() == "report_cluster_release_notify" for item in journeys):
-            proof_notes.append("clustered release notification")
+            proof_notes.append("release updates")
         if any(str(item).strip() == "organize_community_and_close_loop" for item in journeys):
-            proof_notes.append("community closure")
+            proof_notes.append("community wrap-up")
         proof_note_text = ", ".join(proof_notes)
         proof_note_clause = f", {proof_note_text}" if proof_note_text else ""
         return (
-            "Current release proof is green, and the shelf has recent install"
-            f"{proof_note_clause}, bounded offline prefetch, and support proof instead of only manifest presence."
+            "Current release checks are clear, and the downloads page has recent install"
+            f"{proof_note_clause}, bounded offline prefetch, and current support follow-up coverage."
         )
     return f"The {channel} shelf is visible, but known-issue review should stay front-and-center until proof is refreshed."
 
@@ -3970,10 +3970,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         and loaded_known_issue_summary.startswith("Preview caveats still apply",)
     ):
         known_issue_summary = derived_known_issue_summary
-    elif (
-        supportability_state == "preview_supported"
-        and loaded_known_issue_summary.startswith("Current release proof is green",)
-    ):
+    elif loaded_known_issue_summary.startswith("Current release proof is green",) or loaded_known_issue_summary.startswith("Current release checks are clear",):
         known_issue_summary = derived_known_issue_summary
     else:
         known_issue_summary = loaded_known_issue_summary or derived_known_issue_summary

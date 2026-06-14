@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-06-12T12:29:42Z",
-  "generatedAt": "2026-06-12T12:29:42Z",
+  "generated_at": "2026-06-13T18:49:54Z",
+  "generatedAt": "2026-06-13T18:49:54Z",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "version": "run-20260612-121055",
   "channel": "public_stable",
-  "publishedAt": "2026-06-12T13:20:46Z",
+  "publishedAt": "2026-06-13T18:49:54Z",
   "downloads": [
     {
       "id": "avalonia-linux-x64-installer",
@@ -26,8 +26,7 @@
       "releaseVersion": "run-20260612-121055",
       "compatibilityState": "compatible",
       "compatibilityReason": null,
-      "installAccessClass": "open_public",
-      "rid": "linux-x64"
+      "installAccessClass": "open_public"
     },
     {
       "id": "avalonia-osx-arm64-installer",
@@ -54,13 +53,13 @@
       "id": "avalonia-win-x64-installer",
       "platform": "Avalonia Desktop Windows X64 Installer",
       "url": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
-      "sha256": "8341f191e65ded9b00f75290d65e58e01a4fa29c89fc970e975ddbc5c1999a33",
-      "sizeBytes": 150422394,
+      "sha256": "c9aa9e23cac7423e5954d8f24067f9f7fdb37db2b09c7c084055ebef03c71464",
+      "sizeBytes": 101138617,
       "format": "exe",
       "flavor": "installer",
       "kind": "installer",
       "head": "avalonia",
-      "platformId": "windows",
+      "platformId": "windows-x64",
       "arch": "x64",
       "fileName": "chummer-avalonia-win-x64-installer.exe",
       "channelId": "public_stable",
@@ -69,49 +68,49 @@
       "releaseVersion": "run-20260612-121055",
       "compatibilityState": "compatible",
       "compatibilityReason": null,
-      "installAccessClass": "account_required",
-      "rid": "win-x64",
-      "artifactId": "avalonia-win-x64-installer"
+      "installAccessClass": "account_required"
     },
     {
       "id": "avalonia-win-x64-portable",
-      "artifactId": "avalonia-win-x64-portable",
-      "fileName": "chummer-avalonia-win-x64.exe",
       "platform": "Avalonia Desktop Windows X64 Portable",
-      "platformId": "windows",
-      "rid": "win-x64",
-      "head": "avalonia",
-      "arch": "x64",
-      "kind": "portable",
-      "sizeBytes": 433152,
-      "sha256": "200e1e92bf7d5535643cc3bcbc5b6f34efe083c39ce5f2ddbbad11fecf4a66f2",
       "url": "/downloads/files/chummer-avalonia-win-x64.exe",
-      "installAccessClass": "direct_download",
-      "compatibilityState": "compatible",
-      "channel": "public_stable",
+      "sha256": "200e1e92bf7d5535643cc3bcbc5b6f34efe083c39ce5f2ddbbad11fecf4a66f2",
+      "sizeBytes": 433152,
+      "format": "exe",
+      "flavor": "portable",
+      "kind": "portable",
+      "head": "avalonia",
+      "platformId": "windows-x64",
+      "arch": "x64",
+      "fileName": "chummer-avalonia-win-x64.exe",
       "channelId": "public_stable",
+      "channel": "public_stable",
+      "version": "run-20260612-121055",
       "releaseVersion": "run-20260612-121055",
-      "version": "run-20260612-121055"
+      "compatibilityState": "compatible",
+      "compatibilityReason": null,
+      "installAccessClass": "account_required"
     },
     {
       "id": "avalonia-win-x64-archive",
-      "artifactId": "avalonia-win-x64-archive",
-      "fileName": "chummer-avalonia-win-x64.zip",
       "platform": "Avalonia Desktop Windows X64 Portable",
-      "platformId": "windows",
-      "rid": "win-x64",
-      "head": "avalonia",
-      "arch": "x64",
-      "kind": "archive",
-      "sizeBytes": 49292098,
-      "sha256": "ac19fcf4c6233f12abd2c77c9c2dff89541a097704eb8af8307fc3237ba2972e",
       "url": "/downloads/files/chummer-avalonia-win-x64.zip",
-      "installAccessClass": "direct_download",
-      "compatibilityState": "compatible",
-      "channel": "public_stable",
+      "sha256": "ac19fcf4c6233f12abd2c77c9c2dff89541a097704eb8af8307fc3237ba2972e",
+      "sizeBytes": 49292098,
+      "format": "zip",
+      "flavor": "archive",
+      "kind": "archive",
+      "head": "avalonia",
+      "platformId": "windows-x64",
+      "arch": "x64",
+      "fileName": "chummer-avalonia-win-x64.zip",
       "channelId": "public_stable",
+      "channel": "public_stable",
+      "version": "run-20260612-121055",
       "releaseVersion": "run-20260612-121055",
-      "version": "run-20260612-121055"
+      "compatibilityState": "compatible",
+      "compatibilityReason": null,
+      "installAccessClass": "direct_download"
     }
   ],
   "source": "registry",
@@ -120,12 +119,12 @@
   "rolloutState": "public_stable",
   "rolloutReason": "Current release shelf was exercised by the local docker release proof harness before publication.",
   "supportabilityState": "gold_supported",
-  "supportabilitySummary": "Gold release shelf refreshed to run-20260612-121055 with today's Windows x64 artifacts and existing green public journey proof.",
-  "knownIssueSummary": "Current release proof is green, including current cross-platform startup-smoke and executable-gate proof for the promoted flagship bytes.",
+  "supportabilitySummary": "Gold release proof passed for: install_claim_restore_continue, build_explain_publish, campaign_session_recover_recap, report_cluster_release_notify, organize_community_and_close_loop. Claimed-device restore and bounded offline prefetch stayed grounded on the current release. Clustered release notification stayed grounded on the current release. Community organizer closure stayed grounded on the current release.",
+  "knownIssueSummary": "Current release checks are clear, and the downloads page has recent install, account return, release updates, community wrap-up, bounded offline prefetch, and current support follow-up coverage.",
   "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
   "releaseProof": {
     "status": "passed",
-    "generatedAt": "2026-06-12T12:29:42Z",
+    "generatedAt": "2026-06-13T11:59:37Z",
     "baseUrl": "https://chummer.run",
     "journeysPassed": [
       "install_claim_restore_continue",
@@ -148,8 +147,8 @@
     ],
     "uiLocalizationReleaseGate": {
       "status": "pass",
-      "generatedAt": "2026-06-12T12:29:42Z",
-      "defaultKeyCount": 389,
+      "generatedAt": "2026-06-14T06:37:06Z",
+      "defaultKeyCount": 398,
       "explicitFallbackRuntime": "pass",
       "signoffSmokeRunnerStatus": "pass",
       "shippingLocales": [
@@ -164,8 +163,8 @@
         {
           "locale": "en-us",
           "untranslatedKeyCount": 0,
-          "overrideCount": 389,
-          "minimumOverrideCount": 389,
+          "overrideCount": 398,
+          "minimumOverrideCount": 398,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
           "legacyDataXmlPresent": true
@@ -173,7 +172,7 @@
         {
           "locale": "de-de",
           "untranslatedKeyCount": 0,
-          "overrideCount": 389,
+          "overrideCount": 398,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -182,7 +181,7 @@
         {
           "locale": "fr-fr",
           "untranslatedKeyCount": 0,
-          "overrideCount": 389,
+          "overrideCount": 398,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -191,7 +190,7 @@
         {
           "locale": "ja-jp",
           "untranslatedKeyCount": 0,
-          "overrideCount": 389,
+          "overrideCount": 398,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -200,7 +199,7 @@
         {
           "locale": "pt-br",
           "untranslatedKeyCount": 0,
-          "overrideCount": 389,
+          "overrideCount": 398,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -209,7 +208,7 @@
         {
           "locale": "zh-cn",
           "untranslatedKeyCount": 0,
-          "overrideCount": 389,
+          "overrideCount": 398,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -319,8 +318,7 @@
         "rid": "win-x64",
         "arch": "x64",
         "kind": "installer",
-        "artifactId": "avalonia-win-x64-installer",
-        "sha256": "8341f191e65ded9b00f75290d65e58e01a4fa29c89fc970e975ddbc5c1999a33"
+        "artifactId": "avalonia-win-x64-installer"
       }
     ],
     "promotedPlatformHeads": {
@@ -429,8 +427,7 @@
         "revokeReason": "No registry revoke marker is active for avalonia:windows:win-x64.",
         "installPosture": "installer_first",
         "installPostureReason": "Promoted installer media avalonia-win-x64-installer is present for Avalonia Desktop tuple avalonia:windows:win-x64 on windows/win-x64.",
-        "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
-        "sha256": "8341f191e65ded9b00f75290d65e58e01a4fa29c89fc970e975ddbc5c1999a33"
+        "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer"
       },
       {
         "tupleId": "blazor-desktop:windows:win-x64",
@@ -593,8 +590,7 @@
         "releaseExplainerPacket": "concierge/release/public_stable/run-20260612-121055/avalonia-win-x64-installer",
         "supportClosurePacket": "concierge/support/public_stable/run-20260612-121055/avalonia-win-x64-installer",
         "publicTrustWrapper": "/downloads/install/avalonia-win-x64-installer"
-      },
-      "sha256": "8341f191e65ded9b00f75290d65e58e01a4fa29c89fc970e975ddbc5c1999a33"
+      }
     }
   ],
   "desktopSurfaceRefs": [
@@ -656,8 +652,7 @@
       "rewardPublicationRef": "reward-publication:binding:public_stable:run-20260612-121055:avalonia:windows:win-x64",
       "publicationBindingId": "binding:public_stable:run-20260612-121055:avalonia:windows:win-x64",
       "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
-      "rationale": "public_stable keeps avalonia:windows:win-x64 entitlement-backed so desktop channel, install guidance, participation, and reward refs stay governed without exposing provider internals.",
-      "sha256": "8341f191e65ded9b00f75290d65e58e01a4fa29c89fc970e975ddbc5c1999a33"
+      "rationale": "public_stable keeps avalonia:windows:win-x64 entitlement-backed so desktop channel, install guidance, participation, and reward refs stay governed without exposing provider internals."
     }
   ],
   "artifactIdentityRegistry": [
@@ -678,12 +673,12 @@
       "packetRef": "registry-packet:public_stable:run-20260612-121055:avalonia-linux-x64-installer",
       "localeRef": "registry-locale:public_stable:run-20260612-121055:avalonia-linux-x64-installer",
       "retentionRef": "registry-retention:public_stable:run-20260612-121055:avalonia-linux-x64-installer",
-      "retentionState": "current",
       "publicationBindingId": "binding:public_stable:run-20260612-121055:avalonia:linux:linux-x64",
-      "publicationState": "published",
       "signedInShelfRef": "shelf:signed-in:public_stable:run-20260612-121055:avalonia-linux-x64-installer",
       "publicShelfRef": "shelf:public:public_stable:run-20260612-121055:avalonia-linux-x64-installer",
-      "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer"
+      "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
+      "retentionState": "current",
+      "publicationState": "published"
     },
     {
       "registryId": "artifact-identity:public_stable:run-20260612-121055:avalonia:macos:osx-arm64",
@@ -702,12 +697,12 @@
       "packetRef": "registry-packet:public_stable:run-20260612-121055:avalonia-osx-arm64-installer",
       "localeRef": "registry-locale:public_stable:run-20260612-121055:avalonia-osx-arm64-installer",
       "retentionRef": "registry-retention:public_stable:run-20260612-121055:avalonia-osx-arm64-installer",
-      "retentionState": "current",
       "publicationBindingId": "binding:public_stable:run-20260612-121055:avalonia:macos:osx-arm64",
-      "publicationState": "published",
       "signedInShelfRef": "shelf:signed-in:public_stable:run-20260612-121055:avalonia-osx-arm64-installer",
       "publicShelfRef": "shelf:public:public_stable:run-20260612-121055:avalonia-osx-arm64-installer",
-      "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer"
+      "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
+      "retentionState": "current",
+      "publicationState": "published"
     },
     {
       "registryId": "artifact-identity:public_stable:run-20260612-121055:avalonia:windows:win-x64",
@@ -726,13 +721,12 @@
       "packetRef": "registry-packet:public_stable:run-20260612-121055:avalonia-win-x64-installer",
       "localeRef": "registry-locale:public_stable:run-20260612-121055:avalonia-win-x64-installer",
       "retentionRef": "registry-retention:public_stable:run-20260612-121055:avalonia-win-x64-installer",
-      "retentionState": "current",
       "publicationBindingId": "binding:public_stable:run-20260612-121055:avalonia:windows:win-x64",
-      "publicationState": "published",
       "signedInShelfRef": "shelf:signed-in:public_stable:run-20260612-121055:avalonia-win-x64-installer",
       "publicShelfRef": "shelf:public:public_stable:run-20260612-121055:avalonia-win-x64-installer",
       "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
-      "sha256": "8341f191e65ded9b00f75290d65e58e01a4fa29c89fc970e975ddbc5c1999a33"
+      "retentionState": "current",
+      "publicationState": "published"
     }
   ],
   "artifactPublicationBindings": [
@@ -757,8 +751,8 @@
       "packetRef": "registry-packet:public_stable:run-20260612-121055:avalonia-linux-x64-installer",
       "localeRef": "registry-locale:public_stable:run-20260612-121055:avalonia-linux-x64-installer",
       "retentionRef": "registry-retention:public_stable:run-20260612-121055:avalonia-linux-x64-installer",
-      "retentionState": "current",
       "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
+      "retentionState": "current",
       "rationale": "public_stable keeps primary tuple avalonia:linux:linux-x64 published so signed-in and public shelves cite the same governed preview, caption, and install refs."
     },
     {
@@ -782,8 +776,8 @@
       "packetRef": "registry-packet:public_stable:run-20260612-121055:avalonia-osx-arm64-installer",
       "localeRef": "registry-locale:public_stable:run-20260612-121055:avalonia-osx-arm64-installer",
       "retentionRef": "registry-retention:public_stable:run-20260612-121055:avalonia-osx-arm64-installer",
-      "retentionState": "current",
       "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer",
+      "retentionState": "current",
       "rationale": "public_stable keeps primary tuple avalonia:macos:osx-arm64 published so signed-in and public shelves cite the same governed preview, caption, and install refs."
     },
     {
@@ -807,10 +801,9 @@
       "packetRef": "registry-packet:public_stable:run-20260612-121055:avalonia-win-x64-installer",
       "localeRef": "registry-locale:public_stable:run-20260612-121055:avalonia-win-x64-installer",
       "retentionRef": "registry-retention:public_stable:run-20260612-121055:avalonia-win-x64-installer",
-      "retentionState": "current",
       "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
-      "rationale": "public_stable keeps primary tuple avalonia:windows:win-x64 published so signed-in and public shelves cite the same governed preview, caption, and install refs.",
-      "sha256": "8341f191e65ded9b00f75290d65e58e01a4fa29c89fc970e975ddbc5c1999a33"
+      "retentionState": "current",
+      "rationale": "public_stable keeps primary tuple avalonia:windows:win-x64 published so signed-in and public shelves cite the same governed preview, caption, and install refs."
     }
   ],
   "publicTrustMetrics": {
@@ -837,13 +830,13 @@
     },
     "proofFreshness": {
       "status": "fresh",
-      "releaseProofGeneratedAt": "2026-06-12T12:29:42Z",
-      "releaseProofAgeSeconds": 0,
+      "releaseProofGeneratedAt": "2026-06-13T11:59:37Z",
+      "releaseProofAgeSeconds": 24617,
       "releaseProofMaxAgeSeconds": 604800,
-      "uiLocalizationGeneratedAt": "2026-06-12T12:29:42Z",
+      "uiLocalizationGeneratedAt": "2026-06-14T06:37:06Z",
       "uiLocalizationAgeSeconds": 0,
       "uiLocalizationMaxAgeSeconds": 604800,
-      "summary": "Release proof age is 0s (max 604800s) and UI localization gate age is 0s (max 604800s)."
+      "summary": "Release proof age is 24617s (max 604800s) and UI localization gate age is 0s (max 604800s)."
     },
     "revocationFacts": {
       "status": "clear",
@@ -898,12 +891,12 @@
       "summary": "Entitlement and install-hand-off truth spans 3 install-aware registry rows, 3 desktop surface refs, 1 guest-readable surfaces, and 2 account-required surfaces."
     },
     "compatibility": {
-      "compatibleArtifactCount": 0,
+      "compatibleArtifactCount": 5,
       "compatibleRuntimeBundleHeadCount": 0,
       "compatibleExchangeArtifactCount": 0,
-      "unknownArtifactCount": 5,
+      "unknownArtifactCount": 0,
       "unknownRuntimeBundleHeadCount": 0,
-      "summary": "Compatibility boundary tracks 0 compatible artifacts, 0 compatible runtime bundle heads, and 0 compatible exchange-lineage rows while 5 artifact rows and 0 runtime bundle heads remain unknown."
+      "summary": "Compatibility boundary tracks 5 compatible artifacts, 0 compatible runtime bundle heads, and 0 compatible exchange-lineage rows while 0 artifact rows and 0 runtime bundle heads remain unknown."
     },
     "summary": "Registry boundary coverage is closed for public_stable/run-20260612-121055 across persistence, release-channel, artifact-lineage, publication, entitlement, and compatibility surfaces."
   }

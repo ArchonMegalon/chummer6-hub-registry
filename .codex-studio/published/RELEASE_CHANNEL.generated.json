@@ -1,6 +1,6 @@
 {
-  "generated_at": "2026-06-12T12:29:42Z",
-  "generatedAt": "2026-06-12T12:29:42Z",
+  "generated_at": "2026-06-13T18:49:54Z",
+  "generatedAt": "2026-06-13T18:49:54Z",
   "schemaVersion": 1,
   "product": "chummer6",
   "contract_name": "Chummer.Hub.Registry.Contracts",
@@ -8,19 +8,19 @@
   "channelId": "public_stable",
   "channel": "public_stable",
   "version": "run-20260612-121055",
-  "publishedAt": "2026-06-12T13:20:46Z",
+  "publishedAt": "2026-06-13T18:49:54Z",
   "status": "published",
   "artifactSource": "ui_desktop_bundle",
   "message": null,
   "rolloutState": "public_stable",
   "rolloutReason": "Current release shelf was exercised by the local docker release proof harness before publication.",
   "supportabilityState": "gold_supported",
-  "supportabilitySummary": "Gold release shelf refreshed to run-20260612-121055 with today's Windows x64 artifacts and existing green public journey proof.",
-  "knownIssueSummary": "Current release proof is green, including current cross-platform startup-smoke and executable-gate proof for the promoted flagship bytes.",
+  "supportabilitySummary": "Gold release proof passed for: install_claim_restore_continue, build_explain_publish, campaign_session_recover_recap, report_cluster_release_notify, organize_community_and_close_loop. Claimed-device restore and bounded offline prefetch stayed grounded on the current release. Clustered release notification stayed grounded on the current release. Community organizer closure stayed grounded on the current release.",
+  "knownIssueSummary": "Current release checks are clear, and the downloads page has recent install, account return, release updates, community wrap-up, bounded offline prefetch, and current support follow-up coverage.",
   "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
   "releaseProof": {
     "status": "passed",
-    "generatedAt": "2026-06-12T12:29:42Z",
+    "generatedAt": "2026-06-13T11:59:37Z",
     "baseUrl": "https://chummer.run",
     "journeysPassed": [
       "install_claim_restore_continue",
@@ -43,8 +43,8 @@
     ],
     "uiLocalizationReleaseGate": {
       "status": "pass",
-      "generatedAt": "2026-06-12T12:29:42Z",
-      "defaultKeyCount": 389,
+      "generatedAt": "2026-06-14T06:37:06Z",
+      "defaultKeyCount": 398,
       "explicitFallbackRuntime": "pass",
       "signoffSmokeRunnerStatus": "pass",
       "shippingLocales": [
@@ -59,8 +59,8 @@
         {
           "locale": "en-us",
           "untranslatedKeyCount": 0,
-          "overrideCount": 389,
-          "minimumOverrideCount": 389,
+          "overrideCount": 398,
+          "minimumOverrideCount": 398,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
           "legacyDataXmlPresent": true
@@ -68,7 +68,7 @@
         {
           "locale": "de-de",
           "untranslatedKeyCount": 0,
-          "overrideCount": 389,
+          "overrideCount": 398,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -77,7 +77,7 @@
         {
           "locale": "fr-fr",
           "untranslatedKeyCount": 0,
-          "overrideCount": 389,
+          "overrideCount": 398,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -86,7 +86,7 @@
         {
           "locale": "ja-jp",
           "untranslatedKeyCount": 0,
-          "overrideCount": 389,
+          "overrideCount": 398,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -95,7 +95,7 @@
         {
           "locale": "pt-br",
           "untranslatedKeyCount": 0,
-          "overrideCount": 389,
+          "overrideCount": 398,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -104,7 +104,7 @@
         {
           "locale": "zh-cn",
           "untranslatedKeyCount": 0,
-          "overrideCount": 389,
+          "overrideCount": 398,
           "minimumOverrideCount": 40,
           "missingReleaseSeedKeys": [],
           "legacyXmlPresent": true,
@@ -201,8 +201,8 @@
       "channel": "public_stable",
       "version": "run-20260612-121055",
       "releaseVersion": "run-20260612-121055",
-      "generated_at": "2026-06-12T12:29:42Z",
-      "generatedAt": "2026-06-12T12:29:42Z",
+      "generated_at": "2026-06-13T18:49:54Z",
+      "generatedAt": "2026-06-13T18:49:54Z",
       "id": "avalonia-linux-x64-installer"
     },
     {
@@ -226,8 +226,8 @@
       "channel": "public_stable",
       "version": "run-20260612-121055",
       "releaseVersion": "run-20260612-121055",
-      "generated_at": "2026-06-12T12:29:42Z",
-      "generatedAt": "2026-06-12T12:29:42Z",
+      "generated_at": "2026-06-13T18:49:54Z",
+      "generatedAt": "2026-06-13T18:49:54Z",
       "id": "avalonia-osx-arm64-installer"
     },
     {
@@ -239,8 +239,8 @@
       "kind": "installer",
       "fileName": "chummer-avalonia-win-x64-installer.exe",
       "downloadUrl": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
-      "sha256": "8341f191e65ded9b00f75290d65e58e01a4fa29c89fc970e975ddbc5c1999a33",
-      "sizeBytes": 150422394,
+      "sha256": "c9aa9e23cac7423e5954d8f24067f9f7fdb37db2b09c7c084055ebef03c71464",
+      "sizeBytes": 101138617,
       "platformLabel": "Avalonia Desktop Windows X64 Installer",
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
@@ -251,8 +251,8 @@
       "channel": "public_stable",
       "version": "run-20260612-121055",
       "releaseVersion": "run-20260612-121055",
-      "generated_at": "2026-06-12T12:29:42Z",
-      "generatedAt": "2026-06-12T12:29:42Z",
+      "generated_at": "2026-06-13T18:49:54Z",
+      "generatedAt": "2026-06-13T18:49:54Z",
       "id": "avalonia-win-x64-installer"
     },
     {
@@ -270,13 +270,14 @@
       "updateFeedUrl": null,
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
-      "installAccessClass": "direct_download",
+      "installAccessClass": "account_required",
+      "compatibilityReason": null,
       "channelId": "public_stable",
       "channel": "public_stable",
       "version": "run-20260612-121055",
       "releaseVersion": "run-20260612-121055",
-      "generated_at": "2026-06-12T12:29:42Z",
-      "generatedAt": "2026-06-12T12:29:42Z",
+      "generated_at": "2026-06-13T18:49:54Z",
+      "generatedAt": "2026-06-13T18:49:54Z",
       "id": "avalonia-win-x64-portable"
     },
     {
@@ -295,12 +296,13 @@
       "embeddedRuntimeBundleHeadId": null,
       "compatibilityState": "compatible",
       "installAccessClass": "direct_download",
+      "compatibilityReason": null,
       "channelId": "public_stable",
       "channel": "public_stable",
       "version": "run-20260612-121055",
       "releaseVersion": "run-20260612-121055",
-      "generated_at": "2026-06-12T12:29:42Z",
-      "generatedAt": "2026-06-12T12:29:42Z",
+      "generated_at": "2026-06-13T18:49:54Z",
+      "generatedAt": "2026-06-13T18:49:54Z",
       "id": "avalonia-win-x64-archive"
     }
   ],
@@ -852,13 +854,13 @@
     },
     "proofFreshness": {
       "status": "fresh",
-      "releaseProofGeneratedAt": "2026-06-12T12:29:42Z",
-      "releaseProofAgeSeconds": 0,
+      "releaseProofGeneratedAt": "2026-06-13T11:59:37Z",
+      "releaseProofAgeSeconds": 24617,
       "releaseProofMaxAgeSeconds": 604800,
-      "uiLocalizationGeneratedAt": "2026-06-12T12:29:42Z",
+      "uiLocalizationGeneratedAt": "2026-06-14T06:37:06Z",
       "uiLocalizationAgeSeconds": 0,
       "uiLocalizationMaxAgeSeconds": 604800,
-      "summary": "Release proof age is 0s (max 604800s) and UI localization gate age is 0s (max 604800s)."
+      "summary": "Release proof age is 24617s (max 604800s) and UI localization gate age is 0s (max 604800s)."
     },
     "revocationFacts": {
       "status": "clear",
