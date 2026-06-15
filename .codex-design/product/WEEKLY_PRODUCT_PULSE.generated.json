@@ -1,8 +1,8 @@
 {
   "contract_name": "chummer.weekly_product_pulse",
   "contract_version": 3,
-  "generated_at": "2026-06-12T15:25:45Z",
-  "as_of": "2026-06-12",
+  "generated_at": "2026-06-14T11:55:25Z",
+  "as_of": "2026-06-14",
   "scorecard_source": "products/chummer/PRODUCT_HEALTH_SCORECARD.yaml",
   "progress_report_source": "products/chummer/PROGRESS_REPORT.generated.json",
   "progress_history_source": "products/chummer/PROGRESS_HISTORY.generated.json",
@@ -70,7 +70,7 @@
   "public_promise_drift_count": 0,
   "governor_decisions": [
     {
-      "decision_id": "2026-06-12-focus-next-12-biggest-wins",
+      "decision_id": "2026-06-14-focus-next-12-biggest-wins",
       "action": "focus_shift",
       "reason": "Keep delivery focus on Next 12 Biggest Wins. The pulse shows 100% overall progress in 'Public-fit polish', history depth has reached 39 snapshots, and the pacing risk remains concentrated in Core Engine while trust/publication/utility closure still needs measured completion on the active registry.",
       "cited_signals": [
@@ -83,9 +83,9 @@
       ]
     },
     {
-      "decision_id": "2026-06-12-launch-governance",
-      "action": "freeze_launch",
-      "reason": "Freeze launch expansion until the whole-product final claim returns to pass (current: fail).",
+      "decision_id": "2026-06-14-launch-governance",
+      "action": "launch_expand",
+      "reason": "Launch expansion is approved for the next bounded window while canaries and support closure remain clear.",
       "cited_signals": [
         "journey_gate_state=ready",
         "journey_gate_blocked_count=0",
@@ -97,7 +97,7 @@
         "successor_dependency_state=ready",
         "successor_open_dependency_ids=",
         "successor_open_dependency_work_task_ids=",
-        "status_plane_final_claim_status=fail"
+        "status_plane_final_claim_status=pass"
       ]
     }
   ],
@@ -164,7 +164,7 @@
     "public_promise_drift_count": 0,
     "governor_decisions": [
       {
-        "decision_id": "2026-06-12-focus-next-12-biggest-wins",
+        "decision_id": "2026-06-14-focus-next-12-biggest-wins",
         "action": "focus_shift",
         "reason": "Keep delivery focus on Next 12 Biggest Wins. The pulse shows 100% overall progress in 'Public-fit polish', history depth has reached 39 snapshots, and the pacing risk remains concentrated in Core Engine while trust/publication/utility closure still needs measured completion on the active registry.",
         "cited_signals": [
@@ -177,9 +177,9 @@
         ]
       },
       {
-        "decision_id": "2026-06-12-launch-governance",
-        "action": "freeze_launch",
-        "reason": "Freeze launch expansion until the whole-product final claim returns to pass (current: fail).",
+        "decision_id": "2026-06-14-launch-governance",
+        "action": "launch_expand",
+        "reason": "Launch expansion is approved for the next bounded window while canaries and support closure remain clear.",
         "cited_signals": [
           "journey_gate_state=ready",
           "journey_gate_blocked_count=0",
@@ -191,7 +191,7 @@
           "successor_dependency_state=ready",
           "successor_open_dependency_ids=",
           "successor_open_dependency_work_task_ids=",
-          "status_plane_final_claim_status=fail"
+          "status_plane_final_claim_status=pass"
         ]
       }
     ],
@@ -203,7 +203,7 @@
     "phase_label": "Public-fit polish",
     "history_snapshot_count": 39,
     "longest_pole": "Core Engine",
-    "launch_readiness": "Hold launch expansion until the whole-product final claim returns to pass (current: fail).",
+    "launch_readiness": "Route-canary validation is green; widen launch only while support fallout remains stable.",
     "provider_route_stewardship": {
       "default_status": "Pilot defaults are governed",
       "canary_status": "Canary green on all active lanes",

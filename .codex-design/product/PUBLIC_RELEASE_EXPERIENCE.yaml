@@ -3,6 +3,7 @@ surface: chummer.run
 version: 1
 guest_readable_channels:
   - stable
+  - public_stable
   - preview
 release_notes_summary: The current preview centers one clear public download, a visible proof trail, and help that matches the posted shelf you can actually use today without letting artifact explainers or fallback routes masquerade as the main route.
 download_authority_summary: chummer.run is the only official client download source. GitHub is source and development evidence only, never a public binary release shelf for installers, archives, update payloads, or preview clients.
@@ -55,7 +56,7 @@ flagship_release_rules:
   - Flagship desktop quality requires polished install, update, crash-recovery, and support flows in addition to build/startup proof.
   - Claim and restore guidance must not imply that a recovered workspace is safe when required rule packs or amend packages are missing locally.
 default_public_channel_label: Preview channel
-unpublished_build_label: Current preview build
+unpublished_build_label: Current release build
 build_label_prefix: Build
 public_channel_labels:
   - id: stable
