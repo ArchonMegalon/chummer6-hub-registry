@@ -755,7 +755,7 @@ turns:
     output_state_hash: fixed-turn-1-state-v1
   - turn: 2
     mode: deterministic_test
-    title: Turn 2 deterministic board
+    title: Turn 2 live board
     state: deterministic_board_ready
     summary: Turn 2 keeps the city public-safe while route pressure shifts toward recovery work, dispatch clarity, and witnessed closeouts.
     receipt_id: ledger_tick_0002_flagship_seeded
@@ -780,7 +780,7 @@ turns:
         beat_label: Closeout drive
         action_summary: Recovery crews forced a visible closeout push through Rust Bazaar instead of letting debt pressure stay abstract.
         stakes: Turn 2 has to feel like a real operational next step, not just another summary card.
-        proof_note: Proof lane anchored to ledger_tick_0002_flagship_seeded and the Rust Bazaar recovery delta.
+        proof_note: Visible move: ledger_tick_0002_flagship_seeded and the Rust Bazaar recovery delta.
         visual_hook: Rust Bazaar glows ember-orange while recovery crews cross the avenue in the lower third.
         command_intent: Force Rust Bazaar debt into visible recovery work instead of passive heat.
         consequence_line: Recovery is now a live city command, not a backlog rumor.
@@ -790,7 +790,7 @@ turns:
         beat_label: Receipt clean room
         action_summary: Ghostline cut rumor spillover and replaced it with cleaner public receipt routing before the board drifted off-message.
         stakes: If this fails, the city reads as noise instead of consequence.
-        proof_note: Review lane anchored to the signal_discipline effect on ledger_tick_0002_flagship_seeded.
+        proof_note: Visible move: the signal_discipline effect on ledger_tick_0002_flagship_seeded.
         visual_hook: Ghostline cuts the screen with green dispatch tracers over a darkened rumor grid.
         command_intent: Replace rumor spillover with hard dispatch routing before the board loses coherence.
         consequence_line: Clean proof routing now determines which factions keep initiative.
@@ -800,7 +800,7 @@ turns:
         beat_label: Witness surge
         action_summary: Witnessed closeouts stacked up fast enough to move public trust without exposing any private table actor.
         stakes: This is the visible payoff that proves the public board can show outcomes, not just pressure.
-        proof_note: Proof lane anchored to the public_trust lift on ledger_tick_0002_flagship_seeded.
+        proof_note: Visible move: the public_trust lift on ledger_tick_0002_flagship_seeded.
         visual_hook: Witness lantern markers pulse across Free Ward while the trust meter climbs.
         command_intent: Show a public-safe outcome that visibly changes the city without exposing people.
         consequence_line: Public trust now moves because someone closed the loop, not because a narrator said so.
@@ -810,7 +810,7 @@ turns:
         beat_label: Dispatch followthrough
         action_summary: The desk reframed turn-one chaos into concrete recovery lanes, making the next package fights legible instead of vague.
         stakes: The newsreel and globe need explicit causality or they slide back into generic worldbuilding.
-        proof_note: Routed through the deterministic board receipt and the visible package pressure lanes.
+        proof_note: Seen in the live board and the visible package pressure lanes.
         visual_hook: Dispatch cards snap onto the board in sync with the globe replay arrows.
         command_intent: Turn turn-one chaos into concrete recovery lanes the player can chase.
         consequence_line: Package fights are now legible command work instead of ambient world flavor.
@@ -830,7 +830,7 @@ turns:
         beat_label: Reopen the board
         action_summary: The anchor desk reopens on a city that is resolving visible pressure, not waiting for a narrator to invent tension.
         stakes: The flagship globe has to feel like a live command deck, not a teaser surface.
-        proof_note: Open on ledger_tick_0002_flagship_seeded and the turn-2 deterministic board headline.
+        proof_note: Open on ledger_tick_0002_flagship_seeded and the turn-2 live board headline.
         visual_hook: The anchor desk opens under a full Earth globe with district deltas already pulsing.
         command_intent: Reopen the city as a live command deck, not a teaser screen.
         consequence_line: Every downstream lane inherits its urgency from this turn-open.
@@ -839,7 +839,7 @@ deterministic_test_ticks:
     seed_id: emerald-sprawl-prelude
     mode: deterministic_test
     state: deterministic_flagship_ready
-    summary: Turn 2 deterministic board keeps the city public-safe while route pressure shifts toward recovery, dispatch clarity, and witnessed closeouts.
+    summary: Turn 2 live board keeps the city public-safe while route pressure shifts toward recovery, dispatch clarity, and witnessed closeouts.
     receipt_id: ledger_tick_0002_flagship_seeded
     created_at_utc: 2026-05-19T15:20:00Z
     effects:
