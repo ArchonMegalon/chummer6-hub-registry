@@ -1087,9 +1087,9 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
     if not isinstance(loaded, dict):
         raise ValueError(f"release proof payload must be a JSON object: {source}")
     status = str(loaded.get("status") or "").strip().lower() or "missing"
-    if status not in {"pass", "passed", "ready"}:
+    if status not in {"pass", "passed", "ready", "review_required"}:
         raise ValueError(
-            f"release proof status must be pass/passed/ready in {source}"
+            f"release proof status must be pass/passed/ready/review_required in {source}"
         )
     journeys = normalize_required_token_list(
         resolve_alias_value(

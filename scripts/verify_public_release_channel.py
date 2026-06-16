@@ -5681,11 +5681,18 @@ def verify_release_truth(payload: dict, source: str) -> None:
             "releaseProof has unexpected keys "
             f"({', '.join(unexpected_release_proof_keys)}) in {source}"
         )
+    normalized_rollout_state = normalized_token(payload.get("rolloutState"))
+    normalized_supportability_state = normalized_token(payload.get("supportabilityState"))
     status = proof.get("status")
     if status in (None, "") or not isinstance(status, str):
         raise SystemExit(f"releaseProof.status is required in {source}")
     normalized_status = normalized_token(status)
-    if normalized_status not in {"pass", "passed", "ready"}:
+    release_proof_review_required = (
+        normalized_status == "review_required"
+        and normalized_supportability_state == "review_required"
+        and normalized_rollout_state in {"public_release_review_required", "coverage_incomplete", "blocked"}
+    )
+    if normalized_status not in {"pass", "passed", "ready"} and not release_proof_review_required:
         raise SystemExit(
             f"releaseProof.status must be pass/passed/ready in {source}"
         )
@@ -5859,8 +5866,6 @@ def verify_release_truth(payload: dict, source: str) -> None:
             f"({', '.join(unexpected_localization_gate_keys)}) in {source}"
         )
 
-    normalized_rollout_state = normalized_token(payload.get("rolloutState"))
-    normalized_supportability_state = normalized_token(payload.get("supportabilityState"))
     gate_status = normalized_token(ui_localization_release_gate.get("status"))
     localization_review_required = (
         gate_status not in {"pass", "passed", "ready"}

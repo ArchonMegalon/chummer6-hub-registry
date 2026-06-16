@@ -111,6 +111,72 @@ def passing_release_proof() -> dict:
     }
 
 
+def test_normalize_release_proof_payload_accepts_review_required_for_preview_publication() -> None:
+    payload = MODULE.normalize_release_proof_payload(
+        {
+            "status": "review_required",
+            "generatedAt": "2026-06-16T13:40:00Z",
+            "baseUrl": "https://chummer.run",
+            "journeysPassed": [
+                "install_claim_restore_continue",
+                "build_explain_publish",
+            ],
+            "proofRoutes": [
+                "/downloads",
+                "/downloads/install/avalonia-win-x64-installer",
+            ],
+            "uiLocalizationReleaseGate": {
+                "status": "pass",
+                "generatedAt": "2026-06-14T06:37:06Z",
+                "defaultKeyCount": 398,
+                "explicitFallbackRuntime": "pass",
+                "signoffSmokeRunnerStatus": "pass",
+                "shippingLocales": ["en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn"],
+                "acceptanceGates": [
+                    "pseudo_localization",
+                    "missing_key_fail_fast",
+                    "top_surface_overflow_checks",
+                    "locale_smoke_first_launch",
+                    "locale_smoke_settings",
+                    "locale_smoke_explain",
+                    "locale_smoke_updater",
+                    "locale_smoke_support",
+                    "non_english_generated_artifact_smoke",
+                ],
+                "domainCoverage": {
+                    "app_chrome": "pass",
+                    "data_rules_names": "pass",
+                    "explain_receipts": "pass",
+                    "generated_artifacts": "pass",
+                    "install_update_support": "pass",
+                },
+                "localeDomainCoverage": {
+                    "en-us": {"app_chrome": "pass", "data_rules_names": "pass", "explain_receipts": "pass", "generated_artifacts": "pass", "install_update_support": "pass"},
+                    "de-de": {"app_chrome": "pass", "data_rules_names": "pass", "explain_receipts": "pass", "generated_artifacts": "pass", "install_update_support": "pass"},
+                    "fr-fr": {"app_chrome": "pass", "data_rules_names": "pass", "explain_receipts": "pass", "generated_artifacts": "pass", "install_update_support": "pass"},
+                    "ja-jp": {"app_chrome": "pass", "data_rules_names": "pass", "explain_receipts": "pass", "generated_artifacts": "pass", "install_update_support": "pass"},
+                    "pt-br": {"app_chrome": "pass", "data_rules_names": "pass", "explain_receipts": "pass", "generated_artifacts": "pass", "install_update_support": "pass"},
+                    "zh-cn": {"app_chrome": "pass", "data_rules_names": "pass", "explain_receipts": "pass", "generated_artifacts": "pass", "install_update_support": "pass"},
+                },
+                "localeSummary": [
+                    {"locale": "en-us", "untranslatedKeyCount": 0, "overrideCount": 398, "minimumOverrideCount": 398, "missingReleaseSeedKeys": [], "legacyXmlPresent": True, "legacyDataXmlPresent": True},
+                    {"locale": "de-de", "untranslatedKeyCount": 0, "overrideCount": 398, "minimumOverrideCount": 40, "missingReleaseSeedKeys": [], "legacyXmlPresent": True, "legacyDataXmlPresent": True},
+                    {"locale": "fr-fr", "untranslatedKeyCount": 0, "overrideCount": 398, "minimumOverrideCount": 40, "missingReleaseSeedKeys": [], "legacyXmlPresent": True, "legacyDataXmlPresent": True},
+                    {"locale": "ja-jp", "untranslatedKeyCount": 0, "overrideCount": 398, "minimumOverrideCount": 40, "missingReleaseSeedKeys": [], "legacyXmlPresent": True, "legacyDataXmlPresent": True},
+                    {"locale": "pt-br", "untranslatedKeyCount": 0, "overrideCount": 398, "minimumOverrideCount": 40, "missingReleaseSeedKeys": [], "legacyXmlPresent": True, "legacyDataXmlPresent": True},
+                    {"locale": "zh-cn", "untranslatedKeyCount": 0, "overrideCount": 398, "minimumOverrideCount": 40, "missingReleaseSeedKeys": [], "legacyXmlPresent": True, "legacyDataXmlPresent": True},
+                ],
+                "blockingFindings": [],
+                "translationBacklogFindings": [],
+            },
+        },
+        source="test",
+    )
+
+    assert payload is not None
+    assert payload["status"] == "review_required"
+
+
 def test_derive_rollout_state_uses_public_stable_for_complete_published_docker_release() -> None:
     assert (
         MODULE.derive_rollout_state(
