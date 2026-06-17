@@ -5218,6 +5218,7 @@ def verify_local_download_files(
     source: str,
     *,
     skip_startup_smoke_filter: bool = False,
+    allow_skipped_startup_smoke: bool = False,
 ) -> None:
     if root is None:
         return
@@ -5232,6 +5233,7 @@ def verify_local_download_files(
         root,
         source,
         skip_startup_smoke_filter=skip_startup_smoke_filter,
+        allow_skipped_startup_smoke=allow_skipped_startup_smoke,
     )
 
     expected_file_names = manifest_file_names(payload)
@@ -5360,6 +5362,7 @@ def verify_local_startup_smoke_receipts(
     source: str,
     *,
     skip_startup_smoke_filter: bool = False,
+    allow_skipped_startup_smoke: bool = False,
 ) -> None:
     promoted_tuples = list(iter_promoted_desktop_installer_tuples(payload))
     if not promoted_tuples:
@@ -5408,6 +5411,8 @@ def verify_local_startup_smoke_receipts(
 
         receipt_status = normalized_token(receipt.get("status"))
         if receipt_status not in {"pass", "passed", "ready"}:
+            if allow_skipped_startup_smoke and receipt_status == "skipped":
+                continue
             raise SystemExit(
                 f"{source} startup-smoke receipt status is not passing for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
@@ -6482,6 +6487,7 @@ def main() -> int:
         raise SystemExit("Provide a manifest path or URL.")
     require_complete_desktop_coverage = args.require_complete_desktop_coverage
     skip_startup_smoke_filter = args.skip_startup_smoke_filter
+    allow_skipped_startup_smoke = False
     if str(os.environ.get("CHUMMER_VERIFY_REQUIRE_COMPLETE_DESKTOP_COVERAGE", "")).strip().lower() in {"1", "true", "yes", "on"}:
         require_complete_desktop_coverage = True
     if str(
@@ -6490,6 +6496,12 @@ def main() -> int:
         or ""
     ).strip().lower() in {"1", "true", "yes", "on"}:
         skip_startup_smoke_filter = True
+    if str(
+        os.environ.get("CHUMMER_VERIFY_ALLOW_SKIPPED_STARTUP_SMOKE")
+        or os.environ.get("CHUMMER_ALLOW_SKIPPED_STARTUP_SMOKE")
+        or ""
+    ).strip().lower() in {"1", "true", "yes", "on"}:
+        allow_skipped_startup_smoke = True
     payload, source, local_root = load_payload(target)
     if not isinstance(payload, dict):
         raise SystemExit(f"manifest must be a JSON object: {source}")
@@ -6518,6 +6530,7 @@ def main() -> int:
         local_root,
         source,
         skip_startup_smoke_filter=skip_startup_smoke_filter,
+        allow_skipped_startup_smoke=allow_skipped_startup_smoke,
     )
     verify_directory_projection_alignment(target)
     print(f"verified public release manifest: {source}")
