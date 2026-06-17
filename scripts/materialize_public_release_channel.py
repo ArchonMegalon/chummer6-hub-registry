@@ -661,7 +661,7 @@ def artifact_kind(ext: str, installer_suffix: bool) -> str:
 def default_install_access_class(platform: str, kind: str) -> str:
     normalized_platform = str(platform or "").strip().lower()
     normalized_kind = str(kind or "").strip().lower()
-    if normalized_platform in {"macos", "windows"} and normalized_kind in {"installer", "portable"}:
+    if normalized_platform == "macos" and normalized_kind in {"installer", "portable"}:
         return "account_required"
     if normalized_platform == "macos" and normalized_kind in {"dmg", "pkg"}:
         return "account_required"
@@ -670,7 +670,7 @@ def default_install_access_class(platform: str, kind: str) -> str:
 
 def effective_install_access_class(platform: str, kind: str, requested: Any) -> str:
     default = default_install_access_class(platform, kind)
-    if default == "account_required":
+    if str(platform or "").strip().lower() == "macos" and default == "account_required":
         return default
     requested_value = str(requested or "").strip()
     return requested_value or default

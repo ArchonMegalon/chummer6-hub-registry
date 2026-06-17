@@ -1,11 +1,11 @@
 {
-  "generated_at": "2026-06-17T05:14:49Z",
-  "generatedAt": "2026-06-17T05:14:49Z",
+  "generated_at": "2026-06-17T05:13:03Z",
+  "generatedAt": "2026-06-17T05:13:03Z",
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "version": "run-20260617-061500",
   "channel": "preview",
-  "publishedAt": "2026-06-17T05:14:49Z",
+  "publishedAt": "2026-06-17T05:13:03Z",
   "downloads": [
     {
       "id": "avalonia-linux-x64-installer",
@@ -47,7 +47,7 @@
       "releaseVersion": "run-20260617-061500",
       "compatibilityState": "compatible",
       "compatibilityReason": null,
-      "installAccessClass": "account_required"
+      "installAccessClass": "open_public"
     }
   ],
   "source": "registry",
@@ -61,7 +61,7 @@
   "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
   "releaseProof": {
     "status": "passed",
-    "generatedAt": "2026-06-13T11:59:37Z",
+    "generatedAt": "2026-06-17T05:36:42Z",
     "baseUrl": "https://chummer.run",
     "journeysPassed": [
       "install_claim_restore_continue",
@@ -467,14 +467,14 @@
       "rid": "win-x64",
       "arch": "x64",
       "kind": "installer",
-      "installAccessClass": "account_required",
+      "installAccessClass": "open_public",
       "desktopChannelRef": "desktop-channel:preview:run-20260617-061500:avalonia:windows:win-x64",
       "installGuidanceRef": "install-guidance:preview:run-20260617-061500:avalonia-win-x64-installer",
       "participationReceiptRef": "participation-receipt:preview:run-20260617-061500:avalonia:windows:win-x64",
       "rewardPublicationRef": "reward-publication:binding:preview:run-20260617-061500:avalonia:windows:win-x64",
       "publicationBindingId": "binding:preview:run-20260617-061500:avalonia:windows:win-x64",
       "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
-      "rationale": "preview keeps avalonia:windows:win-x64 entitlement-backed so desktop channel, install guidance, participation, and reward refs stay governed without exposing provider internals."
+      "rationale": "preview keeps avalonia:windows:win-x64 guest-readable so desktop channel, install guidance, participation, and reward refs stay governed without exposing provider internals."
     }
   ],
   "artifactIdentityRegistry": [
@@ -594,22 +594,22 @@
     "adoptionHealth": {
       "status": "healthy",
       "primaryPromotedCount": 2,
-      "publicInstallCount": 1,
-      "accountLinkedInstallCount": 1,
+      "publicInstallCount": 2,
+      "accountLinkedInstallCount": 0,
       "fallbackRecoveryCount": 0,
       "blockedRouteCount": 0,
       "revokedRouteCount": 0,
-      "summary": "2 primary routes are promoted; 1 are guest-readable, 1 require account-linked install handoff, 0 fallback recovery routes are promoted, and 0 routes are still blocked on proof."
+      "summary": "2 primary routes are promoted; 2 are guest-readable, 0 require account-linked install handoff, 0 fallback recovery routes are promoted, and 0 routes are still blocked on proof."
     },
     "proofFreshness": {
       "status": "fresh",
-      "releaseProofGeneratedAt": "2026-06-13T11:59:37Z",
-      "releaseProofAgeSeconds": 321312,
+      "releaseProofGeneratedAt": "2026-06-17T05:36:42Z",
+      "releaseProofAgeSeconds": 0,
       "releaseProofMaxAgeSeconds": 604800,
       "uiLocalizationGeneratedAt": "2026-06-14T06:37:06Z",
-      "uiLocalizationAgeSeconds": 254263,
+      "uiLocalizationAgeSeconds": 254157,
       "uiLocalizationMaxAgeSeconds": 604800,
-      "summary": "Release proof age is 321312s (max 604800s) and UI localization gate age is 254263s (max 604800s)."
+      "summary": "Release proof age is 0s (max 604800s) and UI localization gate age is 254157s (max 604800s)."
     },
     "revocationFacts": {
       "status": "clear",
@@ -659,9 +659,9 @@
     "entitlement": {
       "installAwareArtifactCount": 2,
       "desktopSurfaceRefCount": 2,
-      "openPublicSurfaceCount": 1,
-      "accountRequiredSurfaceCount": 1,
-      "summary": "Entitlement and install-hand-off truth spans 2 install-aware registry rows, 2 desktop surface refs, 1 guest-readable surfaces, and 1 account-required surfaces."
+      "openPublicSurfaceCount": 2,
+      "accountRequiredSurfaceCount": 0,
+      "summary": "Entitlement and install-hand-off truth spans 2 install-aware registry rows, 2 desktop surface refs, 2 guest-readable surfaces, and 0 account-required surfaces."
     },
     "compatibility": {
       "compatibleArtifactCount": 2,

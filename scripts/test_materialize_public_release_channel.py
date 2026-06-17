@@ -2313,6 +2313,14 @@ def test_desktop_surface_refs_skip_proof_required_tuples() -> None:
     assert "avalonia:windows:win-x64" not in tuple_ids
 
 
+def test_windows_installers_default_to_open_public_for_preview_publication() -> None:
+    assert MODULE.default_install_access_class("windows", "installer") == "open_public"
+    assert MODULE.effective_install_access_class("windows", "installer", "") == "open_public"
+    assert MODULE.effective_install_access_class("windows", "installer", "open_public") == "open_public"
+    assert MODULE.default_install_access_class("macos", "dmg") == "account_required"
+    assert MODULE.effective_install_access_class("macos", "dmg", "open_public") == "account_required"
+
+
 def test_artifact_identity_registry_derives_canonical_rows() -> None:
     artifacts, coverage = install_aware_payload()
 
