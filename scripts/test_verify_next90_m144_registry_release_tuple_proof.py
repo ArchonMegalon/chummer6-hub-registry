@@ -92,10 +92,10 @@ class VerifyNext90M144RegistryReleaseTupleProofTests(unittest.TestCase):
             temp_root = Path(temp_dir)
             startup_smoke_dir = temp_root / "startup-smoke"
             shutil.copytree(REPO_ROOT / ".codex-studio/published/startup-smoke", startup_smoke_dir)
-            (startup_smoke_dir / "startup-smoke-avalonia-win-x64.receipt.json").unlink()
+            (startup_smoke_dir / "startup-smoke-avalonia-linux-x64.receipt.json").unlink()
             with self.assertRaisesRegex(
                 SystemExit,
-                "missing promoted tuple receipt startup-smoke-avalonia-win-x64.receipt.json",
+                "missing promoted tuple receipt startup-smoke-avalonia-linux-x64.receipt.json",
             ):
                 MODULE.verify_startup_smoke_dir(
                     startup_smoke_dir,
@@ -131,13 +131,13 @@ class VerifyNext90M144RegistryReleaseTupleProofTests(unittest.TestCase):
             temp_root = Path(temp_dir)
             startup_smoke_dir = temp_root / "startup-smoke"
             shutil.copytree(REPO_ROOT / ".codex-studio/published/startup-smoke", startup_smoke_dir)
-            receipt_path = startup_smoke_dir / "startup-smoke-avalonia-win-x64.receipt.json"
+            receipt_path = startup_smoke_dir / "startup-smoke-avalonia-linux-x64.receipt.json"
             payload = json.loads(receipt_path.read_text(encoding="utf-8"))
             payload["artifactDigest"] = "sha256:deadbeef"
             receipt_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
             with self.assertRaisesRegex(
                 SystemExit,
-                "artifactDigest drifted from promoted tuple avalonia:windows:win-x64",
+                "artifactDigest drifted from promoted tuple avalonia:linux:linux-x64",
             ):
                 MODULE.verify_startup_smoke_dir(
                     startup_smoke_dir,
@@ -152,13 +152,13 @@ class VerifyNext90M144RegistryReleaseTupleProofTests(unittest.TestCase):
             temp_root = Path(temp_dir)
             startup_smoke_dir = temp_root / "startup-smoke"
             shutil.copytree(REPO_ROOT / ".codex-studio/published/startup-smoke", startup_smoke_dir)
-            receipt_path = startup_smoke_dir / "startup-smoke-avalonia-win-x64.receipt.json"
+            receipt_path = startup_smoke_dir / "startup-smoke-avalonia-linux-x64.receipt.json"
             payload = json.loads(receipt_path.read_text(encoding="utf-8"))
             payload["channel"] = "stable"
             receipt_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
             with self.assertRaisesRegex(
                 SystemExit,
-                "channelId/channel alias drifted for promoted tuple avalonia:windows:win-x64",
+                "channelId/channel alias drifted for promoted tuple avalonia:linux:linux-x64",
             ):
                 MODULE.verify_startup_smoke_dir(
                     startup_smoke_dir,

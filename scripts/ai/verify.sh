@@ -5425,7 +5425,7 @@ assert artifacts["avalonia-linux-x64-archive"]["compatibilityState"] == "compati
 assert canonical["rolloutState"] == "coverage_incomplete"
 assert canonical["supportabilityState"] == "review_required"
 assert canonical["supportabilitySummary"].startswith(
-    "Treat the current shelf as review-required because required desktop tuple coverage is incomplete"
+    "Treat the current release as review-required because required desktop tuple coverage is incomplete"
 )
 assert "required desktop tuple coverage is incomplete" in canonical["knownIssueSummary"]
 assert canonical["releaseProof"]["status"] == "passed"
@@ -5494,7 +5494,7 @@ assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["translationBacklo
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["translationBacklogFindingsCount"] == 0
 assert canonical["supportabilityState"] == "review_required"
 assert canonical["supportabilitySummary"].startswith(
-    "Treat the current shelf as review-required because required desktop tuple coverage is incomplete"
+    "Treat the current release as review-required because required desktop tuple coverage is incomplete"
 )
 assert "required desktop tuple coverage is incomplete" in canonical["knownIssueSummary"]
 coverage = canonical.get("desktopTupleCoverage") or {}
@@ -5525,6 +5525,6 @@ assert downloads["blazor-desktop-win-x64-installer"]["kind"] == "installer"
 assert downloads["avalonia-win-x64-portable"]["kind"] == "portable"
 assert downloads["avalonia-linux-x64-archive"]["format"] == "tar.gz"
 assert compat["supportabilityState"] == "review_required"
-assert compat["supportabilitySummary"].startswith("Treat the current shelf as review-required")
+assert compat["supportabilitySummary"].startswith("Treat the current release as review-required")
 assert compat.get("desktopTupleCoverage") == canonical.get("desktopTupleCoverage")
 PY

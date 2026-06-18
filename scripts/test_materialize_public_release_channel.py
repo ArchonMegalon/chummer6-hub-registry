@@ -1367,6 +1367,28 @@ def test_desktop_tuple_coverage_emits_explicit_complete_flag() -> None:
     assert "missingRequiredPlatformHeadRidTuples" in coverage
 
 
+def test_materialization_required_platforms_prefers_configured_proof_floor_over_partial_artifacts() -> None:
+    artifacts = [
+        {
+            "artifactId": "avalonia-linux-x64-installer",
+            "head": "avalonia",
+            "platform": "linux",
+            "rid": "linux-x64",
+            "arch": "x64",
+            "kind": "installer",
+        }
+    ]
+
+    assert MODULE.materialization_required_platforms(
+        artifacts,
+        ["linux", "windows", "macos"],
+    ) == ["linux", "windows", "macos"]
+    assert MODULE.materialization_required_platforms(
+        artifacts,
+        "linux,windows,macos",
+    ) == ["linux", "windows", "macos"]
+
+
 def test_desktop_tuple_coverage_emits_route_truth_for_primary_and_fallback_heads() -> None:
     coverage = MODULE.desktop_tuple_coverage(
         [
