@@ -5356,6 +5356,110 @@ def startup_smoke_receipt_matches_release_version(receipt: dict[str, Any], paylo
     return bool(actual and actual == expected)
 
 
+def verify_skipped_startup_smoke_receipt_boundary(
+    receipt: dict[str, Any],
+    *,
+    head: str,
+    platform: str,
+    rid: str,
+    payload_version: str,
+    channel_id: str,
+    expected_sha: str,
+    expected_artifact_identity: tuple[str, str],
+    now: datetime,
+    max_age_seconds: int,
+    max_future_skew_seconds: int,
+    skip_startup_smoke_filter: bool,
+    source: str,
+) -> None:
+    if normalized_token(receipt.get("status")) != "skipped":
+        raise SystemExit(f"{source} startup-smoke receipt is not an explicit skipped receipt")
+    if platform != "windows":
+        raise SystemExit(
+            f"{source} startup-smoke skipped receipts are only accepted for Windows incompatible-host rolling publication"
+        )
+    if (
+        normalized_token(receipt.get("verificationDisposition")) != "incompatible_host"
+        and normalized_token(receipt.get("skipClass")) != "incompatible_host"
+    ):
+        raise SystemExit(
+            f"{source} startup-smoke skipped receipt is not marked as an incompatible-host boundary"
+        )
+
+    receipt_head_id = normalized_token(receipt.get("headId"))
+    receipt_head_alias = normalized_token(receipt.get("head"))
+    if receipt_head_id and receipt_head_alias and receipt_head_id != receipt_head_alias:
+        raise SystemExit(f"{source} startup-smoke skipped receipt headId/head alias mismatch")
+    receipt_head = receipt_head_id or receipt_head_alias
+    if receipt_head != head:
+        raise SystemExit(f"{source} startup-smoke skipped receipt head mismatch")
+
+    receipt_platform = normalized_platform_token(receipt.get("platform"))
+    if receipt_platform != platform:
+        raise SystemExit(f"{source} startup-smoke skipped receipt platform mismatch")
+
+    receipt_rid = normalized_token(receipt.get("rid"))
+    if receipt_rid != rid:
+        raise SystemExit(f"{source} startup-smoke skipped receipt rid mismatch")
+
+    expected_arch = expected_arch_from_rid(rid)
+    receipt_arch = normalized_token(receipt.get("arch"))
+    if expected_arch and receipt_arch != expected_arch:
+        raise SystemExit(f"{source} startup-smoke skipped receipt arch mismatch")
+
+    receipt_digest = normalized_receipt_artifact_digest(receipt.get("artifactDigest"))
+    if not receipt_digest:
+        raise SystemExit(f"{source} startup-smoke skipped receipt artifactDigest is missing")
+    if expected_sha and receipt_digest != expected_sha:
+        raise SystemExit(
+            f"{source} startup-smoke skipped receipt artifactDigest does not match release-channel artifact sha256"
+        )
+
+    expected_installer_relative_path = (
+        f"files/{expected_artifact_identity[1]}"
+        if expected_artifact_identity[1]
+        else ""
+    )
+    verify_startup_smoke_receipt_artifact_identity(
+        receipt,
+        expected_artifact_id=expected_artifact_identity[0],
+        expected_file_name=expected_artifact_identity[1],
+        expected_relative_path=expected_installer_relative_path,
+        source=source,
+    )
+
+    if channel_id:
+        receipt_channel_id = normalized_token(receipt.get("channelId"))
+        receipt_channel_alias = normalized_token(receipt.get("channel"))
+        if receipt_channel_id and receipt_channel_alias and receipt_channel_id != receipt_channel_alias:
+            raise SystemExit(f"{source} startup-smoke skipped receipt channelId/channel alias mismatch")
+        receipt_channel = receipt_channel_id or receipt_channel_alias
+        if not receipt_channel:
+            raise SystemExit(f"{source} startup-smoke skipped receipt channelId is missing")
+        if not startup_smoke_channel_matches_expected(channel_id, receipt_channel):
+            raise SystemExit(f"{source} startup-smoke skipped receipt channelId mismatch")
+
+    if payload_version and not startup_smoke_receipt_matches_release_version(receipt, payload_version):
+        raise SystemExit(f"{source} startup-smoke skipped receipt version does not match release version")
+
+    receipt_timestamp = parse_startup_smoke_receipt_timestamp(receipt)
+    if receipt_timestamp is None:
+        raise SystemExit(f"{source} startup-smoke skipped receipt timestamp is missing/invalid")
+    age_seconds = int((now - receipt_timestamp).total_seconds())
+    if age_seconds < 0:
+        future_skew_seconds = abs(age_seconds)
+        if future_skew_seconds > max_future_skew_seconds:
+            raise SystemExit(
+                f"{source} startup-smoke skipped receipt timestamp is in the future "
+                f"({future_skew_seconds}s ahead; max {max_future_skew_seconds}s)"
+            )
+        age_seconds = 0
+    if age_seconds > max_age_seconds and not skip_startup_smoke_filter:
+        raise SystemExit(
+            f"{source} startup-smoke skipped receipt is stale ({age_seconds}s old; max {max_age_seconds}s)"
+        )
+
+
 def verify_local_startup_smoke_receipts(
     payload: dict,
     root: Path,
@@ -5412,6 +5516,24 @@ def verify_local_startup_smoke_receipts(
         receipt_status = normalized_token(receipt.get("status"))
         if receipt_status not in {"pass", "passed", "ready"}:
             if allow_skipped_startup_smoke and receipt_status == "skipped":
+                verify_skipped_startup_smoke_receipt_boundary(
+                    receipt,
+                    head=head,
+                    platform=platform,
+                    rid=rid,
+                    payload_version=payload_version,
+                    channel_id=channel_id,
+                    expected_sha=normalize_sha256(expected_sha_by_tuple.get((head, platform, rid), "")),
+                    expected_artifact_identity=expected_identity_by_tuple.get((head, platform, rid), ("", "")),
+                    now=now,
+                    max_age_seconds=max_age_seconds,
+                    max_future_skew_seconds=max_future_skew_seconds,
+                    skip_startup_smoke_filter=skip_startup_smoke_filter,
+                    source=(
+                        f"{source} startup-smoke receipt for promoted desktop installer tuple "
+                        f"{head}:{platform}:{rid}"
+                    ),
+                )
                 continue
             raise SystemExit(
                 f"{source} startup-smoke receipt status is not passing for promoted desktop installer tuple {head}:{platform}:{rid}"

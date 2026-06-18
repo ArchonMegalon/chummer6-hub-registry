@@ -1382,6 +1382,175 @@ def test_verify_startup_smoke_receipt_artifact_identity_accepts_matching_relativ
     )
 
 
+def _write_windows_release_fixture(tmp_path: Path) -> tuple[dict, Path, str, str]:
+    manifest_root = tmp_path / "downloads"
+    files_dir = manifest_root / "files"
+    startup_smoke_dir = manifest_root / "startup-smoke"
+    files_dir.mkdir(parents=True)
+    startup_smoke_dir.mkdir(parents=True)
+
+    installer_name = "chummer-avalonia-win-x64-installer.exe"
+    installer_path = files_dir / installer_name
+    installer_bytes = b"windows-installer"
+    installer_path.write_bytes(installer_bytes)
+    installer_sha = hashlib.sha256(installer_bytes).hexdigest()
+    payload = {
+        "channelId": "stable",
+        "channel": "stable",
+        "version": "run-20260618-061908",
+        "releaseVersion": "run-20260618-061908",
+        "status": "published",
+        "generatedAt": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+        "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+        "downloads": [
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "platform": "windows",
+                "rid": "win-x64",
+                "arch": "x64",
+                "kind": "installer",
+                "channelId": "stable",
+                "version": "run-20260618-061908",
+                "releaseVersion": "run-20260618-061908",
+                "fileName": installer_name,
+                "url": f"/downloads/files/{installer_name}",
+                "sizeBytes": len(installer_bytes),
+                "sha256": installer_sha,
+            }
+        ],
+        "desktopTupleCoverage": {
+            "requiredDesktopPlatforms": ["windows"],
+            "requiredDesktopHeads": ["avalonia"],
+            "promotedInstallerTuples": [
+                {
+                    "tupleId": "avalonia:windows:win-x64",
+                    "head": "avalonia",
+                    "platform": "windows",
+                    "rid": "win-x64",
+                    "arch": "x64",
+                    "kind": "installer",
+                    "artifactId": "avalonia-win-x64-installer",
+                }
+            ],
+            "promotedPlatformHeads": {"windows": ["avalonia"]},
+            "requiredDesktopPlatformHeadRidTuples": ["avalonia:win-x64:windows"],
+            "promotedPlatformHeadRidTuples": ["avalonia:win-x64:windows"],
+            "missingRequiredPlatforms": [],
+            "missingRequiredHeads": [],
+            "missingRequiredPlatformHeadPairs": [],
+            "missingRequiredPlatformHeadRidTuples": [],
+            "externalProofRequests": [],
+            "desktopRouteTruth": [],
+            "complete": True,
+        },
+        "artifacts": [
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "platform": "windows",
+                "rid": "win-x64",
+                "arch": "x64",
+                "kind": "installer",
+                "channelId": "stable",
+                "version": "run-20260618-061908",
+                "releaseVersion": "run-20260618-061908",
+                "fileName": installer_name,
+                "url": f"/downloads/files/{installer_name}",
+                "sizeBytes": len(installer_bytes),
+                "sha256": installer_sha,
+            }
+        ],
+    }
+    return payload, manifest_root, installer_name, installer_sha
+
+
+def _write_skipped_windows_startup_smoke(
+    manifest_root: Path,
+    *,
+    installer_name: str,
+    installer_sha: str,
+    **overrides,
+) -> Path:
+    receipt = {
+        "status": "skipped",
+        "headId": "avalonia",
+        "platform": "windows",
+        "rid": "win-x64",
+        "arch": "x64",
+        "hostClass": "local-win-x64",
+        "artifactDigest": f"sha256:{installer_sha}",
+        "artifactId": "avalonia-win-x64-installer",
+        "artifactRelativePath": f"files/{installer_name}",
+        "artifactFileName": installer_name,
+        "channelId": "stable",
+        "channel": "stable",
+        "version": "run-20260618-061908",
+        "releaseVersion": "run-20260618-061908",
+        "skipClass": "incompatible_host",
+        "verificationDisposition": "incompatible_host",
+        "skipReason": "Windows startup smoke requires a Windows-compatible host.",
+        "completedAtUtc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    }
+    receipt.update(overrides)
+    receipt_path = manifest_root / "startup-smoke" / "startup-smoke-avalonia-win-x64.receipt.json"
+    receipt_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    return receipt_path
+
+
+def test_verify_local_download_files_accepts_exact_windows_incompatible_host_skip_when_enabled(tmp_path: Path) -> None:
+    payload, manifest_root, installer_name, installer_sha = _write_windows_release_fixture(tmp_path)
+    _write_skipped_windows_startup_smoke(
+        manifest_root,
+        installer_name=installer_name,
+        installer_sha=installer_sha,
+    )
+
+    MODULE.verify_local_download_files(
+        payload,
+        manifest_root,
+        str(manifest_root),
+        allow_skipped_startup_smoke=True,
+    )
+
+
+def test_verify_local_download_files_rejects_generic_skipped_startup_smoke_even_when_enabled(tmp_path: Path) -> None:
+    payload, manifest_root, installer_name, installer_sha = _write_windows_release_fixture(tmp_path)
+    _write_skipped_windows_startup_smoke(
+        manifest_root,
+        installer_name=installer_name,
+        installer_sha=installer_sha,
+        skipClass="operator_deferred",
+        verificationDisposition="operator_deferred",
+    )
+
+    with pytest.raises(SystemExit, match="not marked as an incompatible-host boundary"):
+        MODULE.verify_local_download_files(
+            payload,
+            manifest_root,
+            str(manifest_root),
+            allow_skipped_startup_smoke=True,
+        )
+
+
+def test_verify_local_download_files_rejects_skipped_startup_smoke_digest_mismatch(tmp_path: Path) -> None:
+    payload, manifest_root, installer_name, installer_sha = _write_windows_release_fixture(tmp_path)
+    _write_skipped_windows_startup_smoke(
+        manifest_root,
+        installer_name=installer_name,
+        installer_sha=installer_sha,
+        artifactDigest="sha256:" + ("0" * 64),
+    )
+
+    with pytest.raises(SystemExit, match="artifactDigest does not match"):
+        MODULE.verify_local_download_files(
+            payload,
+            manifest_root,
+            str(manifest_root),
+            allow_skipped_startup_smoke=True,
+        )
+
+
 def test_verify_local_download_files_accepts_stale_receipt_only_when_skip_enabled(tmp_path: Path) -> None:
     manifest_root = tmp_path / "downloads"
     files_dir = manifest_root / "files"
