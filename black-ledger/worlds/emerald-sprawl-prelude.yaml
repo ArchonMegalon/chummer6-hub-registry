@@ -697,35 +697,35 @@ turns:
         beat_label: Debt flash
         action_summary: Old favors came due around a failed gear reconciliation and shoved Debt Heat to the front of the board.
         stakes: Recovery work is no longer optional; it is now a visible city pressure lane.
-        proof_note: On the board: dispatch_turn_0001_rust_market_old_favors.
+        proof_note: "On the board: dispatch_turn_0001_rust_market_old_favors."
       - beat_id: turn1_ashline_awakened_push
         actor_kind: player
         actor_label: Ashline Circle crews
         beat_label: Awakened push
         action_summary: Three awakened-build signals cleared the public-safe threshold and turned private chaos into visible MysAd pressure.
         stakes: If no one explains the pressure, rumor owns the story.
-        proof_note: On the board: dispatch_turn_0001_ashline_source_clarity.
+        proof_note: "On the board: dispatch_turn_0001_ashline_source_clarity."
       - beat_id: turn1_ghostline_gm_cut
         actor_kind: gm
         actor_label: Ghostline field GM
         beat_label: Signal cut
         action_summary: Two rumor lanes were cut before they could land as fake package truth.
         stakes: GM work changes the board here; it does not just annotate it after the fact.
-        proof_note: On the board: dispatch_turn_0001_ghostline_rumor_suppressed.
+        proof_note: "On the board: dispatch_turn_0001_ghostline_rumor_suppressed."
       - beat_id: turn1_neon_route_rescue
         actor_kind: gm
         actor_label: Neon Docks route dispatcher
         beat_label: Cargo rescue
         action_summary: The docks kept cargo moving, but only by cashing in maintenance slack and exposing drone overlay demand.
         stakes: Keeping the city breathing created the next package candidate.
-        proof_note: On the board: dispatch_turn_0001_neon_docks_drone_pressure.
+        proof_note: "On the board: dispatch_turn_0001_neon_docks_drone_pressure."
       - beat_id: turn1_freeward_closeout
         actor_kind: world
         actor_label: Free Wardens witness net
         beat_label: Witness closeout
         action_summary: Two public-safe outcomes were recorded as closeout witnesses, proving the board can show consequence without exposing people.
         stakes: This is the payoff beat that keeps the newsreel from collapsing into pure hype.
-        proof_note: On the board: dispatch_turn_0001_free_wardens_witnesses.
+        proof_note: "On the board: dispatch_turn_0001_free_wardens_witnesses."
     event_ids:
       - evt_0001_rust_old_favors
       - evt_0001_ashline_source_dispute
@@ -780,7 +780,7 @@ turns:
         beat_label: Closeout drive
         action_summary: Recovery crews forced a visible closeout push through Rust Bazaar instead of letting debt pressure stay abstract.
         stakes: Turn 2 has to feel like a real operational next step, not just another summary card.
-        proof_note: On the board: ledger_tick_0002_flagship_seeded and the Rust Bazaar recovery delta.
+        proof_note: "On the board: ledger_tick_0002_flagship_seeded and the Rust Bazaar recovery delta."
         visual_hook: Rust Bazaar glows ember-orange while recovery crews cross the avenue in the lower third.
         command_intent: Force Rust Bazaar debt into visible recovery work instead of passive heat.
         consequence_line: Recovery is now a live city command, not a backlog rumor.
@@ -790,7 +790,7 @@ turns:
         beat_label: Receipt clean room
         action_summary: Ghostline cut rumor spillover and replaced it with cleaner public receipt routing before the board drifted off-message.
         stakes: If this fails, the city reads as noise instead of consequence.
-        proof_note: On the board: the signal_discipline effect on ledger_tick_0002_flagship_seeded.
+        proof_note: "On the board: the signal_discipline effect on ledger_tick_0002_flagship_seeded."
         visual_hook: Ghostline cuts the screen with green dispatch tracers over a darkened rumor grid.
         command_intent: Replace rumor spillover with hard dispatch routing before the board loses coherence.
         consequence_line: Clean proof routing now determines which factions keep initiative.
@@ -800,7 +800,7 @@ turns:
         beat_label: Witness surge
         action_summary: Witnessed closeouts stacked up fast enough to move public trust without exposing any private table actor.
         stakes: This is the visible payoff that proves the public board can show outcomes, not just pressure.
-        proof_note: On the board: the public_trust lift on ledger_tick_0002_flagship_seeded.
+        proof_note: "On the board: the public_trust lift on ledger_tick_0002_flagship_seeded."
         visual_hook: Witness lantern markers pulse across Free Ward while the trust meter climbs.
         command_intent: Show a public-safe outcome that visibly changes the city without exposing people.
         consequence_line: Public trust now moves because someone closed the loop, not because a narrator said so.
