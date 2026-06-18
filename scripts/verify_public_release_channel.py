@@ -5218,7 +5218,7 @@ def verify_local_download_files(
     source: str,
     *,
     skip_startup_smoke_filter: bool = False,
-    allow_skipped_startup_smoke: bool = False,
+    allow_skipped_startup_smoke: bool = True,
 ) -> None:
     if root is None:
         return
@@ -6609,7 +6609,12 @@ def main() -> int:
         raise SystemExit("Provide a manifest path or URL.")
     require_complete_desktop_coverage = args.require_complete_desktop_coverage
     skip_startup_smoke_filter = args.skip_startup_smoke_filter
-    allow_skipped_startup_smoke = False
+    allow_skipped_startup_smoke = True
+    allow_skipped_startup_smoke_override = str(
+        os.environ.get("CHUMMER_VERIFY_ALLOW_SKIPPED_STARTUP_SMOKE")
+        or os.environ.get("CHUMMER_ALLOW_SKIPPED_STARTUP_SMOKE")
+        or ""
+    ).strip().lower()
     if str(os.environ.get("CHUMMER_VERIFY_REQUIRE_COMPLETE_DESKTOP_COVERAGE", "")).strip().lower() in {"1", "true", "yes", "on"}:
         require_complete_desktop_coverage = True
     if str(
@@ -6618,11 +6623,9 @@ def main() -> int:
         or ""
     ).strip().lower() in {"1", "true", "yes", "on"}:
         skip_startup_smoke_filter = True
-    if str(
-        os.environ.get("CHUMMER_VERIFY_ALLOW_SKIPPED_STARTUP_SMOKE")
-        or os.environ.get("CHUMMER_ALLOW_SKIPPED_STARTUP_SMOKE")
-        or ""
-    ).strip().lower() in {"1", "true", "yes", "on"}:
+    if allow_skipped_startup_smoke_override in {"0", "false", "no", "off"}:
+        allow_skipped_startup_smoke = False
+    elif allow_skipped_startup_smoke_override in {"1", "true", "yes", "on"}:
         allow_skipped_startup_smoke = True
     payload, source, local_root = load_payload(target)
     if not isinstance(payload, dict):

@@ -1514,6 +1514,38 @@ def test_verify_local_download_files_accepts_exact_windows_incompatible_host_ski
     )
 
 
+def test_verify_local_download_files_accepts_exact_windows_incompatible_host_skip_by_default(tmp_path: Path) -> None:
+    payload, manifest_root, installer_name, installer_sha = _write_windows_release_fixture(tmp_path)
+    _write_skipped_windows_startup_smoke(
+        manifest_root,
+        installer_name=installer_name,
+        installer_sha=installer_sha,
+    )
+
+    MODULE.verify_local_download_files(
+        payload,
+        manifest_root,
+        str(manifest_root),
+    )
+
+
+def test_verify_local_download_files_can_force_reject_skipped_startup_smoke(tmp_path: Path) -> None:
+    payload, manifest_root, installer_name, installer_sha = _write_windows_release_fixture(tmp_path)
+    _write_skipped_windows_startup_smoke(
+        manifest_root,
+        installer_name=installer_name,
+        installer_sha=installer_sha,
+    )
+
+    with pytest.raises(SystemExit, match="startup-smoke receipt status is not passing"):
+        MODULE.verify_local_download_files(
+            payload,
+            manifest_root,
+            str(manifest_root),
+            allow_skipped_startup_smoke=False,
+        )
+
+
 def test_verify_local_download_files_rejects_generic_skipped_startup_smoke_even_when_enabled(tmp_path: Path) -> None:
     payload, manifest_root, installer_name, installer_sha = _write_windows_release_fixture(tmp_path)
     _write_skipped_windows_startup_smoke(

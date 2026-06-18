@@ -58,7 +58,7 @@ REQUIRED_PIPELINE_SNIPPETS = (
     "Startup-smoke receipts only count when they are passing, at `readyCheckpoint=pre_ui_event_loop`",
     "Windows incompatible-host skip receipts are accepted only as an explicit rolling-publication boundary",
     "Conflicting startup-smoke receipt aliases are fail-closed (`headId` vs `head`, `channelId` vs `channel`)",
-    "`scripts/verify_public_release_channel.py` now fail-closes if any promoted installer tuple is missing a matching fresh passing receipt",
+    "`scripts/verify_public_release_channel.py` now fail-closes if any promoted installer tuple is missing a matching fresh passing receipt at `readyCheckpoint=pre_ui_event_loop`, or the exact Windows incompatible-host rolling-publication receipt",
     "Repo-local verification for this proof lane must route through `scripts/ai/verify.sh`, which runs `scripts/verify_public_release_channel.py .codex-studio/published`, `scripts/verify_next90_m143_registry_output_readiness.py`, and `scripts/verify_next90_m144_registry_release_tuple_proof.py`",
 )
 ROLLING_PUBLICATION_CHANNELS = {"preview", "stable", "public_stable", "nightly"}
