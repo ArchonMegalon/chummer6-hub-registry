@@ -2326,7 +2326,7 @@ def test_verify_desktop_tuple_coverage_rejects_platform_only_route_role_rational
     rows = MODULE.expected_desktop_route_truth_rows(payload)
     rows[0]["routeRoleReason"] = (
         "Avalonia Desktop is the flagship desktop route for linux/linux-x64 and must carry "
-        "independent startup-smoke proof before promotion."
+        "independent startup verification before promotion."
     )
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
 
@@ -2600,7 +2600,7 @@ def test_verify_desktop_tuple_coverage_rejects_primary_manual_rollback_when_fall
     rows[0]["rollbackReasonCode"] = "fallback_missing_artifact_or_startup_smoke_proof"
     rows[0]["rollbackReason"] = (
         "Fallback route blazor-desktop:linux:linux-x64 is not promoted for linux/linux-x64 because "
-        "matching artifact bytes and fresh startup-smoke proof are still required; primary route "
+        "matching artifact bytes and fresh startup verification are still required; primary route "
         "avalonia:linux:linux-x64 therefore requires manual recovery."
     )
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows

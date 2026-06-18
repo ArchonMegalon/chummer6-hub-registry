@@ -1803,7 +1803,7 @@ def desktop_route_role_reason(head: str, platform: str, rid: str) -> str:
     if DESKTOP_ROUTE_ROLES.get(head_token) == "primary":
         return (
             f"{APP_LABELS.get(head_token, head_token)} route {route_tuple_label} is the flagship "
-            f"desktop route for {tuple_label} and must carry independent startup-smoke proof before promotion."
+            f"desktop route for {tuple_label} and must carry independent startup verification before promotion."
         )
     return (
         f"{APP_LABELS.get(head_token, head_token)} route {route_tuple_label} is retained as an "
@@ -1957,13 +1957,13 @@ def desktop_route_truth(
                         promotion_reason = (
                             f"{promotion_subject} tuple {route_tuple_label} for {tuple_label} is promoted because the "
                             "flagship head is present on the registry shelf and passed independent "
-                            "startup-smoke and release-proof gates for this channel."
+                            "startup verification and release verification gates for this channel."
                         )
                     else:
                         promotion_reason = (
                             f"{promotion_subject} tuple {route_tuple_label} for {tuple_label} is promoted for "
                             "recovery/manual routing because it is present on the registry shelf and "
-                            "passed the current startup-smoke and release-proof gates for this channel."
+                            "passed the current startup verification and release verification gates for this channel."
                         )
                     install_posture = "installer_first"
                     install_posture_reason = (
@@ -1977,14 +1977,14 @@ def desktop_route_truth(
                     if route_role == "primary":
                         promotion_reason = (
                             f"{promotion_subject} tuple {route_tuple_label} for {tuple_label} is not promoted until "
-                            "the flagship head has matching artifact bytes and fresh startup-smoke proof "
+                            "the flagship head has matching artifact bytes and fresh startup verification "
                             "for this channel."
                         )
                     else:
                         promotion_reason = (
                             f"{promotion_subject} tuple {route_tuple_label} for {tuple_label} is retained for "
                             f"recovery/manual routing on {tuple_label} but is not promoted until matching "
-                            "artifact bytes and fresh startup-smoke proof are present."
+                            "artifact bytes and fresh startup verification are present."
                         )
                     install_posture = "proof_capture_required"
                     install_posture_reason = (
@@ -2045,7 +2045,7 @@ def desktop_route_truth(
                         rollback_reason_code = "fallback_missing_artifact_or_startup_smoke_proof"
                         rollback_reason = (
                             f"Fallback route {fallback_route_tuple_label} is not promoted for {tuple_label} because "
-                            "matching artifact bytes and fresh startup-smoke proof are still required; "
+                            "matching artifact bytes and fresh startup verification are still required; "
                             f"primary route {route_tuple_label} therefore requires manual recovery."
                         )
                 else:
@@ -2068,7 +2068,7 @@ def desktop_route_truth(
                         rollback_state = "fallback_not_promoted"
                         rollback_reason_code = "fallback_missing_artifact_or_startup_smoke_proof"
                         rollback_reason = (
-                            f"Fallback route {route_tuple_label} needs artifact and startup-smoke proof before rollback use."
+                            f"Fallback route {route_tuple_label} needs artifact and startup verification before rollback use."
                         )
 
                 if revoke_state == "revoked":
@@ -2720,7 +2720,7 @@ def install_aware_channel_rationale(
         )
     return (
         f"Published {channel_id} channel keeps {route_role}-route {tuple_id} blocked "
-        f"for installed build selector {installed_build_selector} until installer and startup-smoke proof are present."
+        f"for installed build selector {installed_build_selector} until installer and startup verification are present."
     )
 
 
@@ -3880,7 +3880,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         else {}
     )
     configured_required_platforms = (
-        args.required_desktop_platforms
+        getattr(args, "required_desktop_platforms", None)
         or loaded_desktop_coverage.get("requiredDesktopPlatforms")
     )
     required_platforms = materialization_required_platforms(
