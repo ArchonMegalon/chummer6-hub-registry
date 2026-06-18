@@ -154,11 +154,55 @@ class VerifyNext90M144RegistryReleaseTupleProofTests(unittest.TestCase):
             shutil.copytree(REPO_ROOT / ".codex-studio/published/startup-smoke", startup_smoke_dir)
             receipt_path = startup_smoke_dir / "startup-smoke-avalonia-linux-x64.receipt.json"
             payload = json.loads(receipt_path.read_text(encoding="utf-8"))
-            payload["channel"] = "stable"
+            payload["channel"] = "drifted-channel"
             receipt_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
             with self.assertRaisesRegex(
                 SystemExit,
                 "channelId/channel alias drifted for promoted tuple avalonia:linux:linux-x64",
+            ):
+                MODULE.verify_startup_smoke_dir(
+                    startup_smoke_dir,
+                    promoted_tuples=promoted_tuples,
+                    artifact_map=artifact_map,
+                    channel_id=channel_id,
+                )
+
+    def test_startup_smoke_dir_accepts_stable_windows_incompatible_host_skip_boundary(self) -> None:
+        promoted_tuples, artifact_map, channel_id = self.load_promoted_tuple_inputs()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            startup_smoke_dir = temp_root / "startup-smoke"
+            shutil.copytree(REPO_ROOT / ".codex-studio/published/startup-smoke", startup_smoke_dir)
+            receipt_path = startup_smoke_dir / "startup-smoke-avalonia-win-x64.receipt.json"
+            payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+            payload["status"] = "skipped"
+            payload["channelId"] = channel_id
+            payload["channel"] = channel_id
+            payload["skipReason"] = "Windows startup smoke cannot execute on this incompatible Linux host."
+            receipt_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            MODULE.verify_startup_smoke_dir(
+                startup_smoke_dir,
+                promoted_tuples=promoted_tuples,
+                artifact_map=artifact_map,
+                channel_id=channel_id,
+            )
+
+    def test_startup_smoke_dir_rejects_windows_skip_without_incompatible_host_reason(self) -> None:
+        promoted_tuples, artifact_map, channel_id = self.load_promoted_tuple_inputs()
+        with tempfile.TemporaryDirectory() as temp_dir:
+            temp_root = Path(temp_dir)
+            startup_smoke_dir = temp_root / "startup-smoke"
+            shutil.copytree(REPO_ROOT / ".codex-studio/published/startup-smoke", startup_smoke_dir)
+            receipt_path = startup_smoke_dir / "startup-smoke-avalonia-win-x64.receipt.json"
+            payload = json.loads(receipt_path.read_text(encoding="utf-8"))
+            payload["status"] = "skipped"
+            payload["skipReason"] = ""
+            receipt_path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+            with self.assertRaisesRegex(
+                SystemExit,
+                "must keep passing status for promoted tuple avalonia:windows:win-x64",
             ):
                 MODULE.verify_startup_smoke_dir(
                     startup_smoke_dir,

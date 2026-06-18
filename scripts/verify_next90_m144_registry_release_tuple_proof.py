@@ -56,10 +56,12 @@ REQUIRED_CLOSEOUT_SNIPPETS = (
 REQUIRED_PIPELINE_SNIPPETS = (
     "Promoted installer media (`installer`, `.dmg`, `.pkg`, `.msix`) is startup-smoke gated across Linux, Windows, and macOS.",
     "Startup-smoke receipts only count when they are passing, at `readyCheckpoint=pre_ui_event_loop`",
+    "Windows incompatible-host skip receipts are accepted only as an explicit rolling-publication boundary",
     "Conflicting startup-smoke receipt aliases are fail-closed (`headId` vs `head`, `channelId` vs `channel`)",
     "`scripts/verify_public_release_channel.py` now fail-closes if any promoted installer tuple is missing a matching fresh passing receipt",
     "Repo-local verification for this proof lane must route through `scripts/ai/verify.sh`, which runs `scripts/verify_public_release_channel.py .codex-studio/published`, `scripts/verify_next90_m143_registry_output_readiness.py`, and `scripts/verify_next90_m144_registry_release_tuple_proof.py`",
 )
+ROLLING_PUBLICATION_CHANNELS = {"preview", "stable", "public_stable", "nightly"}
 REQUIRED_RELEASE_VERIFIER_SNIPPETS = (
     "def verify_local_startup_smoke_receipts(",
     "startup-smoke receipt artifactDigest does not match release-channel artifact sha256",
@@ -309,6 +311,27 @@ def startup_smoke_receipt_name(tuple_row: dict[str, object]) -> str:
     return f"startup-smoke-{head}-{rid}.receipt.json"
 
 
+def is_windows_incompatible_host_skip(
+    payload: dict[str, object],
+    *,
+    channel_id: str,
+    platform: str,
+    status: str,
+) -> bool:
+    if channel_id not in ROLLING_PUBLICATION_CHANNELS or platform != "windows":
+        return False
+    if status not in {"skipped", "skipped_incompatible_host"}:
+        return False
+    skip_reason = normalize_token(payload.get("skipReason") or payload.get("reason"))
+    return (
+        "incompatible" in skip_reason
+        or "cannot_execute" in skip_reason
+        or "cannot execute" in skip_reason
+        or "wine" in skip_reason
+        or "windows-compatible shell" in skip_reason
+    )
+
+
 def verify_startup_smoke_dir(
     path: Path,
     *,
@@ -343,15 +366,16 @@ def verify_startup_smoke_dir(
         if not isinstance(payload, dict):
             fail(f"{receipt_path} must stay a JSON object for promoted tuple {tuple_id}")
         status = str(payload.get("status") or "").strip().lower()
-        skipped_preview_windows = (
-            channel_id == "preview"
-            and platform == "windows"
-            and status in {"skipped", "skipped_incompatible_host"}
+        windows_incompatible_host_skip = is_windows_incompatible_host_skip(
+            payload,
+            channel_id=channel_id,
+            platform=platform,
+            status=status,
         )
-        if status not in {"pass", "passed", "ready"} and not skipped_preview_windows:
+        if status not in {"pass", "passed", "ready"} and not windows_incompatible_host_skip:
             fail(f"{receipt_path} must keep passing status for promoted tuple {tuple_id}")
         checkpoint = str(payload.get("readyCheckpoint") or "").strip()
-        if not skipped_preview_windows and checkpoint != "pre_ui_event_loop":
+        if not windows_incompatible_host_skip and checkpoint != "pre_ui_event_loop":
             fail(f"{receipt_path} must keep readyCheckpoint=pre_ui_event_loop for promoted tuple {tuple_id}")
         receipt_head_id = normalize_token(payload.get("headId"))
         receipt_head_alias = normalize_token(payload.get("head"))
