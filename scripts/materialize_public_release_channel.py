@@ -635,6 +635,11 @@ def parse_args() -> argparse.Namespace:
         default=",".join(DEFAULT_REQUIRED_DESKTOP_HEADS),
         help="comma-separated required desktop head ids for tuple coverage proof",
     )
+    parser.add_argument(
+        "--required-desktop-platforms",
+        default="",
+        help="comma-separated required desktop platform ids for tuple coverage proof",
+    )
     return parser.parse_args()
 
 
@@ -1725,17 +1730,27 @@ def required_desktop_heads(raw: Any) -> list[str]:
     return dedupe_preserve_order([item for item in values if item])
 
 
+def required_desktop_platforms(raw: Any) -> list[str]:
+    if isinstance(raw, list):
+        values = [normalize_platform_token(item) for item in raw]
+    else:
+        values = [normalize_platform_token(item) for item in str(raw or "").split(",")]
+    allowed = set(CANONICAL_DESKTOP_PLATFORM_ORDER)
+    normalized_values = {value for value in values if value in allowed}
+    return [
+        platform
+        for platform in CANONICAL_DESKTOP_PLATFORM_ORDER
+        if platform in normalized_values
+    ]
+
+
 def materialization_required_platforms(
     artifacts: list[dict[str, Any]],
     configured_required_platforms: Any,
 ) -> list[str]:
-    configured_platforms: list[str] = []
-    if isinstance(configured_required_platforms, list):
-        configured_platforms = [
-            platform
-            for platform in CANONICAL_DESKTOP_PLATFORM_ORDER
-            if platform in {normalize_platform_token(item) for item in configured_required_platforms}
-        ]
+    configured_platforms = required_desktop_platforms(configured_required_platforms)
+    if configured_platforms:
+        return configured_platforms
     discovered_platforms = [
         platform
         for platform in CANONICAL_DESKTOP_PLATFORM_ORDER
@@ -1747,8 +1762,6 @@ def materialization_required_platforms(
     ]
     if discovered_platforms:
         return discovered_platforms
-    if configured_platforms:
-        return configured_platforms
     return list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS)
 
 
@@ -3866,9 +3879,13 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         if isinstance(loaded.get("desktopTupleCoverage"), dict)
         else {}
     )
+    configured_required_platforms = (
+        args.required_desktop_platforms
+        or loaded_desktop_coverage.get("requiredDesktopPlatforms")
+    )
     required_platforms = materialization_required_platforms(
         artifacts,
-        loaded_desktop_coverage.get("requiredDesktopPlatforms"),
+        configured_required_platforms,
     )
     loaded_rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip()
     loaded_rollout_reason = str(loaded.get("rolloutReason") or loaded.get("rollout_reason") or "").strip()

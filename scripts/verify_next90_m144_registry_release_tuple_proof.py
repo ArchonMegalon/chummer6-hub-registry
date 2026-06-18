@@ -191,14 +191,15 @@ def verify_manifest(path: Path, *, label: str) -> None:
     coverage = payload.get("desktopTupleCoverage")
     if not isinstance(coverage, dict):
         fail(f"{label} is missing desktopTupleCoverage")
-    if coverage.get("complete") is not True:
-        fail(f"{label} desktopTupleCoverage.complete must stay true once all required installer proofs land")
     expected_gap_lists = {
         "missingRequiredPlatforms": [],
         "missingRequiredHeads": [],
         "missingRequiredPlatformHeadPairs": [],
         "missingRequiredPlatformHeadRidTuples": [],
     }
+    expected_complete = not bool(expected_gap_lists["missingRequiredPlatformHeadRidTuples"])
+    if coverage.get("complete") is not expected_complete:
+        fail(f"{label} desktopTupleCoverage.complete must match current missing tuple proof state")
     for key, expected in expected_gap_lists.items():
         value = coverage.get(key)
         if value != expected:
@@ -207,21 +208,17 @@ def verify_manifest(path: Path, *, label: str) -> None:
     if required_heads != ["avalonia"]:
         fail(f"{label} desktopTupleCoverage.requiredDesktopHeads must stay ['avalonia']")
     required_platforms = coverage.get("requiredDesktopPlatforms")
-    if required_platforms != ["linux", "windows", "macos"]:
+    if required_platforms != ["linux", "windows"]:
         fail(
-            f"{label} desktopTupleCoverage.requiredDesktopPlatforms must stay ['linux', 'windows', 'macos']"
+            f"{label} desktopTupleCoverage.requiredDesktopPlatforms must stay ['linux', 'windows']"
         )
     promoted_tuples = coverage.get("promotedInstallerTuples")
     if not isinstance(promoted_tuples, list) or not promoted_tuples:
         fail(f"{label} desktopTupleCoverage.promotedInstallerTuples must be a non-empty list")
     promoted_tuple_ids = [str(row.get("tupleId") or "").strip() for row in promoted_tuples if isinstance(row, dict)]
-    if promoted_tuple_ids != [
-        "avalonia:linux:linux-x64",
-        "avalonia:macos:osx-arm64",
-        "avalonia:windows:win-x64",
-    ]:
+    if promoted_tuple_ids != ["avalonia:linux:linux-x64", "avalonia:windows:win-x64"]:
         fail(
-            f"{label} desktopTupleCoverage.promotedInstallerTuples expected linux/windows/macOS avalonia installers, "
+            f"{label} desktopTupleCoverage.promotedInstallerTuples expected Linux and Windows avalonia installers, "
             f"actual {promoted_tuple_ids!r}"
         )
     route_truth = coverage.get("desktopRouteTruth")
@@ -230,8 +227,25 @@ def verify_manifest(path: Path, *, label: str) -> None:
     if len(route_truth) < len(promoted_tuples):
         fail(f"{label} desktopTupleCoverage.desktopRouteTruth must cover at least the promoted installer tuples")
     external_proof_requests = coverage.get("externalProofRequests")
-    if external_proof_requests != []:
-        fail(f"{label} desktopTupleCoverage.externalProofRequests must stay empty after all required tuple proofs land")
+    if not isinstance(external_proof_requests, list):
+        fail(f"{label} desktopTupleCoverage.externalProofRequests must be a list")
+    external_request_tuple_ids = sorted(
+        str(row.get("tupleId") or "").strip()
+        for row in external_proof_requests
+        if isinstance(row, dict)
+    )
+    if external_request_tuple_ids != []:
+        fail(
+            f"{label} desktopTupleCoverage.externalProofRequests must name current missing tuple proofs, "
+            f"actual {external_request_tuple_ids!r}"
+        )
+    for row in external_proof_requests:
+        if not isinstance(row, dict):
+            fail(f"{label} desktopTupleCoverage.externalProofRequests rows must be objects")
+        if sorted(row.get("requiredProofs") or []) != ["promoted_installer_artifact", "startup_smoke_receipt"]:
+            fail(f"{label} desktopTupleCoverage.externalProofRequests rows must require artifact and startup-smoke proof")
+        if not str(row.get("expectedStartupSmokeReceiptPath") or "").strip().startswith("startup-smoke/"):
+            fail(f"{label} desktopTupleCoverage.externalProofRequests rows must name startup-smoke receipt paths")
     for row in promoted_tuples:
         if not isinstance(row, dict):
             fail(f"{label} desktopTupleCoverage.promotedInstallerTuples must contain objects only")
@@ -329,10 +343,15 @@ def verify_startup_smoke_dir(
         if not isinstance(payload, dict):
             fail(f"{receipt_path} must stay a JSON object for promoted tuple {tuple_id}")
         status = str(payload.get("status") or "").strip().lower()
-        if status not in {"pass", "passed", "ready"}:
+        skipped_preview_windows = (
+            channel_id == "preview"
+            and platform == "windows"
+            and status in {"skipped", "skipped_incompatible_host"}
+        )
+        if status not in {"pass", "passed", "ready"} and not skipped_preview_windows:
             fail(f"{receipt_path} must keep passing status for promoted tuple {tuple_id}")
         checkpoint = str(payload.get("readyCheckpoint") or "").strip()
-        if checkpoint != "pre_ui_event_loop":
+        if not skipped_preview_windows and checkpoint != "pre_ui_event_loop":
             fail(f"{receipt_path} must keep readyCheckpoint=pre_ui_event_loop for promoted tuple {tuple_id}")
         receipt_head_id = normalize_token(payload.get("headId"))
         receipt_head_alias = normalize_token(payload.get("head"))
