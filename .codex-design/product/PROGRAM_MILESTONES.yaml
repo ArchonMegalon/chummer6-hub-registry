@@ -131,7 +131,7 @@ program_phases:
     exit:
     - Owned tools are mapped to promoted, bounded, parked, or non-product states.
     - Explicit owners exist for promoted and bounded product lanes.
-    - "`EXTERNAL_TOOLS_PLANE.md` and `LTD_CAPABILITY_MAP.md` agree."
+    - "`chummer-design/products/chummer/EXTERNAL_TOOLS_PLANE.md` and `chummer-design/products/chummer/LTD_CAPABILITY_MAP.md` agree."
   - id: H3
     title: First bounded horizon promoted to research-ready
     owners:
@@ -161,7 +161,7 @@ program_phases:
     status: complete
     exit:
     - "`TABLE PULSE LIVE` and `TABLE PULSE AFTERMATH` exist with explicit consent, privacy, and non-truth boundaries."
-    - "`Nonverbia` posture is canonical across `HORIZON_REGISTRY.yaml`, `EXTERNAL_TOOLS_PLANE.md`, and `LTD_CAPABILITY_MAP.md`."
+    - "`Nonverbia` posture is canonical across `HORIZON_REGISTRY.yaml`, `chummer-design/products/chummer/EXTERNAL_TOOLS_PLANE.md`, and `chummer-design/products/chummer/LTD_CAPABILITY_MAP.md`."
     - Post-session coaching outputs remain scoped to `TABLE PULSE AFTERMATH` and distinct from session truth, moderation truth, and player scoring.
 - id: I
   title: Participation and bootstrap evolution
@@ -348,7 +348,7 @@ program_phases:
     - chummer6-hub
     status: complete
     exit:
-    - "`FEEDBACK_AND_CRASH_REPORTING_SYSTEM.md` exists and agrees with `OWNERSHIP_MATRIX.md`, `PUBLIC_HELP_COPY.md`, and `EXTERNAL_TOOLS_PLANE.md`."
+    - "`FEEDBACK_AND_CRASH_REPORTING_SYSTEM.md` exists and agrees with `OWNERSHIP_MATRIX.md`, `PUBLIC_HELP_COPY.md`, and `chummer-design/products/chummer/EXTERNAL_TOOLS_PLANE.md`."
     - Crash reports, bug reports, and feedback are explicitly different intake lanes.
     - The support assistant is explicitly phase 2 rather than phase 0.
   - id: L1
