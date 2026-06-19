@@ -1,0 +1,23 @@
+pkgbase = chummer6-bin
+	pkgdesc = Shadowrun character and campaign companion desktop build
+	pkgver = 20260619.134242
+	pkgrel = 1
+	url = https://chummer.run
+	arch = x86_64
+	license = custom
+	depends = fontconfig
+	depends = gtk3
+	depends = libx11
+	depends = libxcursor
+	depends = libxext
+	depends = libxfixes
+	depends = libxi
+	depends = libxinerama
+	depends = libxrandr
+	depends = libxrender
+	depends = libglvnd
+	depends = zlib
+	source_x86_64 = chummer-avalonia-linux-x64-installer.deb::https://chummer.run/downloads/files/chummer-avalonia-linux-x64-installer.deb
+	sha256sums_x86_64 = 469f43592bce83cf82f81e760e0e3769325752e9f29d6c6608275e4a0d9e8801
+
+pkgname = chummer6-bin
