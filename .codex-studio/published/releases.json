@@ -4,62 +4,17 @@
   "contract_name": "Chummer.Hub.Registry.Contracts",
   "contractName": "Chummer.Hub.Registry.Contracts",
   "version": "run-258",
-  "channel": "public_stable",
+  "channel": "preview",
   "publishedAt": "2026-06-20T08:00:00Z",
-  "downloads": [
-    {
-      "id": "avalonia-linux-x64-installer",
-      "platform": "Avalonia Desktop Linux X64 Installer",
-      "url": "https://chummer.run/downloads/files/chummer-avalonia-linux-x64-installer.deb",
-      "sha256": "0d2fbf54d4e02bf4f95405fd7bbdbf3bce6650508ecbba30633eeeaccd2befe3",
-      "sizeBytes": 36870300,
-      "format": "deb",
-      "flavor": "installer",
-      "kind": "installer",
-      "head": "avalonia",
-      "platformId": "linux",
-      "arch": "x64",
-      "fileName": "chummer-avalonia-linux-x64-installer.deb",
-      "channelId": "public_stable",
-      "channel": "public_stable",
-      "version": "run-258",
-      "releaseVersion": "run-258",
-      "compatibilityState": "compatible",
-      "compatibilityReason": null,
-      "installAccessClass": "open_public",
-      "artifactId": "avalonia-linux-x64-installer"
-    },
-    {
-      "id": "avalonia-win-x64-installer",
-      "platform": "Avalonia Desktop Windows X64 Installer",
-      "url": "https://chummer.run/downloads/files/chummer-avalonia-win-x64-installer.exe",
-      "sha256": "c41d17cea200060b0940f37f18eea6b0bd407c447cd9cd62a8e140e965bc6a51",
-      "sizeBytes": 98973352,
-      "format": "exe",
-      "flavor": "installer",
-      "kind": "installer",
-      "head": "avalonia",
-      "platformId": "windows",
-      "arch": "x64",
-      "fileName": "chummer-avalonia-win-x64-installer.exe",
-      "channelId": "public_stable",
-      "channel": "public_stable",
-      "version": "run-258",
-      "releaseVersion": "run-258",
-      "compatibilityState": "compatible",
-      "compatibilityReason": null,
-      "installAccessClass": "open_public",
-      "artifactId": "avalonia-win-x64-installer"
-    }
-  ],
+  "downloads": [],
   "source": "registry",
   "status": "published",
   "message": null,
-  "rolloutState": "public_stable",
+  "rolloutState": "coverage_incomplete",
   "rolloutReason": "Current release shelf was exercised by the local docker release proof harness before publication.",
-  "supportabilityState": "gold_supported",
+  "supportabilityState": "review_required",
   "supportabilitySummary": "Current public release is supported on the promoted routes. Recent checks cover install guidance, session recovery, account return, release updates, community wrap-up, bounded offline prefetch, and current support follow-up.",
-  "knownIssueSummary": "Current release checks are clear, and the downloads page has recent install, account return, release updates, community wrap-up, bounded offline prefetch, and current support follow-up coverage.",
+  "knownIssueSummary": "Known issue: required desktop tuple coverage is incomplete (platforms: linux, windows; heads: avalonia; pairs: avalonia:linux, avalonia:windows; tuples: avalonia:linux-x64:linux, avalonia:win-x64:windows).",
   "fixAvailabilitySummary": "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
   "releaseProof": {
     "status": "passed",
@@ -78,11 +33,12 @@
       "/home/work",
       "/account/access",
       "/account/work",
-    "/account/support",
-    "/contact",
-    "/downloads",
-    "/downloads/install/avalonia-win-x64-installer"
-  ],
+      "/account/support",
+      "/contact",
+      "/downloads",
+      "/downloads/install/avalonia-osx-arm64-installer",
+      "/downloads/install/avalonia-win-x64-installer"
+    ],
     "uiLocalizationReleaseGate": {
       "status": "pass",
       "generatedAt": "2026-06-18T20:04:47Z",
@@ -229,47 +185,103 @@
     "requiredDesktopHeads": [
       "avalonia"
     ],
-    "promotedInstallerTuples": [
-      {
-        "tupleId": "avalonia:linux:linux-x64",
-        "head": "avalonia",
-        "platform": "linux",
-        "rid": "linux-x64",
-        "arch": "x64",
-        "kind": "installer",
-        "artifactId": "avalonia-linux-x64-installer"
-      },
-      {
-        "tupleId": "avalonia:windows:win-x64",
-        "head": "avalonia",
-        "platform": "windows",
-        "rid": "win-x64",
-        "arch": "x64",
-        "kind": "installer",
-        "artifactId": "avalonia-win-x64-installer"
-      }
-    ],
+    "promotedInstallerTuples": [],
     "promotedPlatformHeads": {
-      "linux": [
-        "avalonia"
-      ],
-      "windows": [
-        "avalonia"
-      ]
+      "linux": [],
+      "windows": []
     },
     "requiredDesktopPlatformHeadRidTuples": [
       "avalonia:linux-x64:linux",
       "avalonia:win-x64:windows"
     ],
-    "promotedPlatformHeadRidTuples": [
+    "promotedPlatformHeadRidTuples": [],
+    "missingRequiredPlatforms": [
+      "linux",
+      "windows"
+    ],
+    "missingRequiredHeads": [
+      "avalonia"
+    ],
+    "missingRequiredPlatformHeadPairs": [
+      "avalonia:linux",
+      "avalonia:windows"
+    ],
+    "missingRequiredPlatformHeadRidTuples": [
       "avalonia:linux-x64:linux",
       "avalonia:win-x64:windows"
     ],
-    "missingRequiredPlatforms": [],
-    "missingRequiredHeads": [],
-    "missingRequiredPlatformHeadPairs": [],
-    "missingRequiredPlatformHeadRidTuples": [],
-    "externalProofRequests": [],
+    "externalProofRequests": [
+      {
+        "tupleId": "avalonia:linux-x64:linux",
+        "channelId": "preview",
+        "head": "avalonia",
+        "platform": "linux",
+        "rid": "linux-x64",
+        "requiredHost": "linux",
+        "requiredProofs": [
+          "promoted_installer_artifact",
+          "startup_smoke_receipt"
+        ],
+        "expectedArtifactId": "avalonia-linux-x64-installer",
+        "expectedInstallerFileName": "chummer-avalonia-linux-x64-installer.deb",
+        "expectedInstallerRelativePath": "files/chummer-avalonia-linux-x64-installer.deb",
+        "expectedInstallerSha256": "0d2fbf54d4e02bf4f95405fd7bbdbf3bce6650508ecbba30633eeeaccd2befe3",
+        "expectedPublicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
+        "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json",
+        "startupSmokeReceiptContract": {
+          "statusAnyOf": [
+            "pass",
+            "passed",
+            "ready"
+          ],
+          "readyCheckpoint": "pre_ui_event_loop",
+          "headId": "avalonia",
+          "platform": "linux",
+          "rid": "linux-x64",
+          "hostClassContains": "linux"
+        },
+        "proofCaptureCommands": [
+          "REPO_ROOT=\"${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui}\" && export REPO_ROOT && INSTALLER_PATH=\"$REPO_ROOT/Docker/Downloads/files/chummer-avalonia-linux-x64-installer.deb\" && EXPECTED_INSTALLER_SHA256=0d2fbf54d4e02bf4f95405fd7bbdbf3bce6650508ecbba30633eeeaccd2befe3 && EXPECTED_INSTALLER_MAGIC='!<arch>\\n' && export INSTALLER_PATH EXPECTED_INSTALLER_SHA256 EXPECTED_INSTALLER_MAGIC && cd \"$REPO_ROOT\" && mkdir -p \"$(dirname \"$INSTALLER_PATH\")\" && python3 -c 'import hashlib, os, pathlib; p=pathlib.Path(os.environ['\"'\"'INSTALLER_PATH'\"'\"']); expected=os.environ['\"'\"'EXPECTED_INSTALLER_SHA256'\"'\"']; import sys; sys.exit(0) if (not p.is_file()) else None; digest=hashlib.sha256(p.read_bytes()).hexdigest().lower(); sys.exit(0) if digest==expected else print(f'\"'\"'installer-preflight-sha256-mismatch:{p}:digest={digest}:expected={expected}'\"'\"') or p.unlink()' && if [ ! -s \"$INSTALLER_PATH\" ]; then if [ -z \"${CHUMMER_EXTERNAL_PROOF_AUTH_HEADER:-}\" ] && [ -z \"${CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER:-}\" ] && [ -z \"${CHUMMER_EXTERNAL_PROOF_COOKIE_JAR:-}\" ] && [ \"${CHUMMER_EXTERNAL_PROOF_ALLOW_GUEST_DOWNLOAD:-0}\" != \"1\" ]; then echo 'external-proof-auth-missing: set CHUMMER_EXTERNAL_PROOF_AUTH_HEADER, CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER, or CHUMMER_EXTERNAL_PROOF_COOKIE_JAR (or set CHUMMER_EXTERNAL_PROOF_ALLOW_GUEST_DOWNLOAD=1 to bypass)' >&2; exit 1; fi; set -- curl -fL --retry 3 --retry-delay 2; if [ -n \"${CHUMMER_EXTERNAL_PROOF_AUTH_HEADER:-}\" ]; then set -- \"$@\" -H \"${CHUMMER_EXTERNAL_PROOF_AUTH_HEADER:-}\"; fi; if [ -n \"${CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER:-}\" ]; then set -- \"$@\" -H \"Cookie: ${CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER:-}\"; fi; if [ -n \"${CHUMMER_EXTERNAL_PROOF_COOKIE_JAR:-}\" ]; then set -- \"$@\" --cookie \"${CHUMMER_EXTERNAL_PROOF_COOKIE_JAR:-}\"; fi; set -- \"$@\" \"${CHUMMER_EXTERNAL_PROOF_BASE_URL:-https://chummer.run}/downloads/install/avalonia-linux-x64-installer\" -o \"$INSTALLER_PATH\"; \"$@\"; fi; python3 -c 'import os, pathlib, sys; p=pathlib.Path(os.environ['\"'\"'INSTALLER_PATH'\"'\"']); expected_magic=os.environ['\"'\"'EXPECTED_INSTALLER_MAGIC'\"'\"']; sys.exit(f'\"'\"'installer-download-missing:{p}'\"'\"') if (not p.is_file()) else None; probe=p.read_bytes()[:8192]; probe_text=probe.decode('\"'\"'latin-1'\"'\"', errors='\"'\"'ignore'\"'\"').lower(); auth_header_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_AUTH_HEADER'\"'\"','\"'\"''\"'\"')).strip()); cookie_header_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER'\"'\"','\"'\"''\"'\"')).strip()); cookie_jar_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_COOKIE_JAR'\"'\"','\"'\"''\"'\"')).strip()); html_like=('\"'\"'<!doctype html'\"'\"' in probe_text) or ('\"'\"'<html'\"'\"' in probe_text) or ('\"'\"'<head'\"'\"' in probe_text); sys.exit(f'\"'\"'installer-download-html-response:{p}:auth_header_set={auth_header_set}:cookie_header_set={cookie_header_set}:cookie_jar_set={cookie_jar_set}:hint=signed-in-download-route-required-or-missing-auth'\"'\"') if html_like else None; sys.exit(0) if (not expected_magic or probe.startswith(expected_magic.encode('\"'\"'latin-1'\"'\"'))) else sys.exit(f'\"'\"'installer-download-signature-mismatch:{p}:expected_magic={expected_magic}:auth_header_set={auth_header_set}:cookie_header_set={cookie_header_set}:cookie_jar_set={cookie_jar_set}:hint=unexpected-binary-format-or-route-response'\"'\"')'; python3 -c 'import hashlib, os, pathlib, sys; p=pathlib.Path(os.environ['\"'\"'INSTALLER_PATH'\"'\"']); expected=os.environ['\"'\"'EXPECTED_INSTALLER_SHA256'\"'\"']; sys.exit(f'\"'\"'installer-download-missing:{p}'\"'\"') if (not p.is_file()) else None; digest=hashlib.sha256(p.read_bytes()).hexdigest().lower(); auth_header_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_AUTH_HEADER'\"'\"','\"'\"''\"'\"')).strip()); cookie_header_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER'\"'\"','\"'\"''\"'\"')).strip()); cookie_jar_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_COOKIE_JAR'\"'\"','\"'\"''\"'\"')).strip()); sys.exit(0) if digest==expected else sys.exit(f'\"'\"'installer-postdownload-sha256-mismatch:{p}:digest={digest}:expected={expected}:auth_header_set={auth_header_set}:cookie_header_set={cookie_header_set}:cookie_jar_set={cookie_jar_set}:hint=signed-in-download-route-required-or-bytes-drift'\"'\"')'",
+          "REPO_ROOT=\"${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui}\" && export REPO_ROOT && INSTALLER_PATH=\"$REPO_ROOT/Docker/Downloads/files/chummer-avalonia-linux-x64-installer.deb\" && STARTUP_SMOKE_DIR=\"$REPO_ROOT/Docker/Downloads/startup-smoke\" && cd \"$REPO_ROOT\" && CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=linux-host CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=Linux ./scripts/run-desktop-startup-smoke.sh \"$INSTALLER_PATH\" avalonia linux-x64 Chummer.Avalonia \"$STARTUP_SMOKE_DIR\" run-258",
+          "REPO_ROOT=\"${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui}\" && export REPO_ROOT && cd \"$REPO_ROOT\" && ./scripts/generate-releases-manifest.sh"
+        ]
+      },
+      {
+        "tupleId": "avalonia:win-x64:windows",
+        "channelId": "preview",
+        "head": "avalonia",
+        "platform": "windows",
+        "rid": "win-x64",
+        "requiredHost": "windows",
+        "requiredProofs": [
+          "promoted_installer_artifact",
+          "startup_smoke_receipt"
+        ],
+        "expectedArtifactId": "avalonia-win-x64-installer",
+        "expectedInstallerFileName": "chummer-avalonia-win-x64-installer.exe",
+        "expectedInstallerRelativePath": "files/chummer-avalonia-win-x64-installer.exe",
+        "expectedInstallerSha256": "c41d17cea200060b0940f37f18eea6b0bd407c447cd9cd62a8e140e965bc6a51",
+        "expectedPublicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
+        "expectedStartupSmokeReceiptPath": "startup-smoke/startup-smoke-avalonia-win-x64.receipt.json",
+        "startupSmokeReceiptContract": {
+          "statusAnyOf": [
+            "pass",
+            "passed",
+            "ready"
+          ],
+          "readyCheckpoint": "pre_ui_event_loop",
+          "headId": "avalonia",
+          "platform": "windows",
+          "rid": "win-x64",
+          "hostClassContains": "windows"
+        },
+        "proofCaptureCommands": [
+          "REPO_ROOT=\"${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui}\" && export REPO_ROOT && INSTALLER_PATH=\"$REPO_ROOT/Docker/Downloads/files/chummer-avalonia-win-x64-installer.exe\" && EXPECTED_INSTALLER_SHA256=c41d17cea200060b0940f37f18eea6b0bd407c447cd9cd62a8e140e965bc6a51 && EXPECTED_INSTALLER_MAGIC=MZ && export INSTALLER_PATH EXPECTED_INSTALLER_SHA256 EXPECTED_INSTALLER_MAGIC && cd \"$REPO_ROOT\" && mkdir -p \"$(dirname \"$INSTALLER_PATH\")\" && python3 -c 'import hashlib, os, pathlib; p=pathlib.Path(os.environ['\"'\"'INSTALLER_PATH'\"'\"']); expected=os.environ['\"'\"'EXPECTED_INSTALLER_SHA256'\"'\"']; import sys; sys.exit(0) if (not p.is_file()) else None; digest=hashlib.sha256(p.read_bytes()).hexdigest().lower(); sys.exit(0) if digest==expected else print(f'\"'\"'installer-preflight-sha256-mismatch:{p}:digest={digest}:expected={expected}'\"'\"') or p.unlink()' && if [ ! -s \"$INSTALLER_PATH\" ]; then if [ -z \"${CHUMMER_EXTERNAL_PROOF_AUTH_HEADER:-}\" ] && [ -z \"${CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER:-}\" ] && [ -z \"${CHUMMER_EXTERNAL_PROOF_COOKIE_JAR:-}\" ] && [ \"${CHUMMER_EXTERNAL_PROOF_ALLOW_GUEST_DOWNLOAD:-0}\" != \"1\" ]; then echo 'external-proof-auth-missing: set CHUMMER_EXTERNAL_PROOF_AUTH_HEADER, CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER, or CHUMMER_EXTERNAL_PROOF_COOKIE_JAR (or set CHUMMER_EXTERNAL_PROOF_ALLOW_GUEST_DOWNLOAD=1 to bypass)' >&2; exit 1; fi; set -- curl -fL --retry 3 --retry-delay 2; if [ -n \"${CHUMMER_EXTERNAL_PROOF_AUTH_HEADER:-}\" ]; then set -- \"$@\" -H \"${CHUMMER_EXTERNAL_PROOF_AUTH_HEADER:-}\"; fi; if [ -n \"${CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER:-}\" ]; then set -- \"$@\" -H \"Cookie: ${CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER:-}\"; fi; if [ -n \"${CHUMMER_EXTERNAL_PROOF_COOKIE_JAR:-}\" ]; then set -- \"$@\" --cookie \"${CHUMMER_EXTERNAL_PROOF_COOKIE_JAR:-}\"; fi; set -- \"$@\" \"${CHUMMER_EXTERNAL_PROOF_BASE_URL:-https://chummer.run}/downloads/install/avalonia-win-x64-installer\" -o \"$INSTALLER_PATH\"; \"$@\"; fi; python3 -c 'import os, pathlib, sys; p=pathlib.Path(os.environ['\"'\"'INSTALLER_PATH'\"'\"']); expected_magic=os.environ['\"'\"'EXPECTED_INSTALLER_MAGIC'\"'\"']; sys.exit(f'\"'\"'installer-download-missing:{p}'\"'\"') if (not p.is_file()) else None; probe=p.read_bytes()[:8192]; probe_text=probe.decode('\"'\"'latin-1'\"'\"', errors='\"'\"'ignore'\"'\"').lower(); auth_header_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_AUTH_HEADER'\"'\"','\"'\"''\"'\"')).strip()); cookie_header_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER'\"'\"','\"'\"''\"'\"')).strip()); cookie_jar_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_COOKIE_JAR'\"'\"','\"'\"''\"'\"')).strip()); html_like=('\"'\"'<!doctype html'\"'\"' in probe_text) or ('\"'\"'<html'\"'\"' in probe_text) or ('\"'\"'<head'\"'\"' in probe_text); sys.exit(f'\"'\"'installer-download-html-response:{p}:auth_header_set={auth_header_set}:cookie_header_set={cookie_header_set}:cookie_jar_set={cookie_jar_set}:hint=signed-in-download-route-required-or-missing-auth'\"'\"') if html_like else None; sys.exit(0) if (not expected_magic or probe.startswith(expected_magic.encode('\"'\"'latin-1'\"'\"'))) else sys.exit(f'\"'\"'installer-download-signature-mismatch:{p}:expected_magic={expected_magic}:auth_header_set={auth_header_set}:cookie_header_set={cookie_header_set}:cookie_jar_set={cookie_jar_set}:hint=unexpected-binary-format-or-route-response'\"'\"')'; python3 -c 'import hashlib, os, pathlib, sys; p=pathlib.Path(os.environ['\"'\"'INSTALLER_PATH'\"'\"']); expected=os.environ['\"'\"'EXPECTED_INSTALLER_SHA256'\"'\"']; sys.exit(f'\"'\"'installer-download-missing:{p}'\"'\"') if (not p.is_file()) else None; digest=hashlib.sha256(p.read_bytes()).hexdigest().lower(); auth_header_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_AUTH_HEADER'\"'\"','\"'\"''\"'\"')).strip()); cookie_header_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER'\"'\"','\"'\"''\"'\"')).strip()); cookie_jar_set=bool(str(os.environ.get('\"'\"'CHUMMER_EXTERNAL_PROOF_COOKIE_JAR'\"'\"','\"'\"''\"'\"')).strip()); sys.exit(0) if digest==expected else sys.exit(f'\"'\"'installer-postdownload-sha256-mismatch:{p}:digest={digest}:expected={expected}:auth_header_set={auth_header_set}:cookie_header_set={cookie_header_set}:cookie_jar_set={cookie_jar_set}:hint=signed-in-download-route-required-or-bytes-drift'\"'\"')'",
+          "REPO_ROOT=\"${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui}\" && export REPO_ROOT && INSTALLER_PATH=\"$REPO_ROOT/Docker/Downloads/files/chummer-avalonia-win-x64-installer.exe\" && STARTUP_SMOKE_DIR=\"$REPO_ROOT/Docker/Downloads/startup-smoke\" && cd \"$REPO_ROOT\" && CHUMMER_DESKTOP_STARTUP_SMOKE_HOST_CLASS=windows-host CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=Windows ./scripts/run-desktop-startup-smoke.sh \"$INSTALLER_PATH\" avalonia win-x64 Chummer.Avalonia.exe \"$STARTUP_SMOKE_DIR\" run-258",
+          "REPO_ROOT=\"${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui}\" && export REPO_ROOT && cd \"$REPO_ROOT\" && ./scripts/generate-releases-manifest.sh"
+        ]
+      }
+    ],
     "desktopRouteTruth": [
       {
         "tupleId": "avalonia:linux:linux-x64",
@@ -277,25 +289,25 @@
         "platform": "linux",
         "rid": "linux-x64",
         "arch": "x64",
-        "artifactId": "avalonia-linux-x64-installer",
+        "artifactId": "",
         "routeRole": "primary",
         "routeRoleReasonCode": "primary_flagship_head",
         "routeRoleReason": "Avalonia Desktop route avalonia:linux:linux-x64 is the flagship desktop route for linux/linux-x64 and must carry independent startup verification before promotion.",
-        "promotionState": "promoted",
-        "promotionReasonCode": "installer_smoke_and_release_proof_passed",
-        "promotionReason": "Primary-route Avalonia Desktop tuple avalonia:linux:linux-x64 for linux/linux-x64 is promoted because the flagship head is present on the registry shelf and passed independent startup verification and release verification gates for this channel.",
+        "promotionState": "proof_required",
+        "promotionReasonCode": "missing_artifact_or_startup_smoke_proof",
+        "promotionReason": "Primary-route Avalonia Desktop tuple avalonia:linux:linux-x64 for linux/linux-x64 is not promoted until the flagship head has matching artifact bytes and fresh startup verification for this channel.",
         "parityPosture": "flagship_primary",
-        "updateEligibility": "eligible",
-        "updateEligibilityReason": "Primary-route Avalonia Desktop tuple avalonia:linux:linux-x64 is promoted for linux/linux-x64.",
-        "rollbackState": "primary_reinstall_available",
-        "rollbackReasonCode": "primary_installer_reinstall_available",
-        "rollbackReason": "Fallback route blazor-desktop:linux:linux-x64 remains an unpromoted compatibility lane for linux/linux-x64; recover avalonia:linux:linux-x64 from the promoted primary installer avalonia-linux-x64-installer until a separately proved fallback is published.",
+        "updateEligibility": "blocked_missing_proof",
+        "updateEligibilityReason": "Primary-route updates are blocked until avalonia:linux:linux-x64 is promoted.",
+        "rollbackState": "manual_recovery_required",
+        "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
+        "rollbackReason": "Fallback route blazor-desktop:linux:linux-x64 is not promoted for linux/linux-x64 because matching artifact bytes and fresh startup verification are still required; primary route avalonia:linux:linux-x64 therefore requires manual recovery.",
         "revokeState": "not_revoked",
         "revokeSource": "none",
         "revokeReasonCode": "no_registry_revoke_marker",
         "revokeReason": "No registry revoke marker is active for avalonia:linux:linux-x64.",
-        "installPosture": "installer_first",
-        "installPostureReason": "Promoted installer media avalonia-linux-x64-installer is present for Avalonia Desktop tuple avalonia:linux:linux-x64 on linux/linux-x64.",
+        "installPosture": "proof_capture_required",
+        "installPostureReason": "Do not present avalonia:linux:linux-x64 as installable until the missing tuple proof is captured.",
         "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer"
       },
       {
@@ -331,25 +343,25 @@
         "platform": "windows",
         "rid": "win-x64",
         "arch": "x64",
-        "artifactId": "avalonia-win-x64-installer",
+        "artifactId": "",
         "routeRole": "primary",
         "routeRoleReasonCode": "primary_flagship_head",
         "routeRoleReason": "Avalonia Desktop route avalonia:windows:win-x64 is the flagship desktop route for windows/win-x64 and must carry independent startup verification before promotion.",
-        "promotionState": "promoted",
-        "promotionReasonCode": "installer_smoke_and_release_proof_passed",
-        "promotionReason": "Primary-route Avalonia Desktop tuple avalonia:windows:win-x64 for windows/win-x64 is promoted because the flagship head is present on the registry shelf and passed independent startup verification and release verification gates for this channel.",
+        "promotionState": "proof_required",
+        "promotionReasonCode": "missing_artifact_or_startup_smoke_proof",
+        "promotionReason": "Primary-route Avalonia Desktop tuple avalonia:windows:win-x64 for windows/win-x64 is not promoted until the flagship head has matching artifact bytes and fresh startup verification for this channel.",
         "parityPosture": "flagship_primary",
-        "updateEligibility": "eligible",
-        "updateEligibilityReason": "Primary-route Avalonia Desktop tuple avalonia:windows:win-x64 is promoted for windows/win-x64.",
-        "rollbackState": "primary_reinstall_available",
-        "rollbackReasonCode": "primary_installer_reinstall_available",
-        "rollbackReason": "Fallback route blazor-desktop:windows:win-x64 remains an unpromoted compatibility lane for windows/win-x64; recover avalonia:windows:win-x64 from the promoted primary installer avalonia-win-x64-installer until a separately proved fallback is published.",
+        "updateEligibility": "blocked_missing_proof",
+        "updateEligibilityReason": "Primary-route updates are blocked until avalonia:windows:win-x64 is promoted.",
+        "rollbackState": "manual_recovery_required",
+        "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
+        "rollbackReason": "Fallback route blazor-desktop:windows:win-x64 is not promoted for windows/win-x64 because matching artifact bytes and fresh startup verification are still required; primary route avalonia:windows:win-x64 therefore requires manual recovery.",
         "revokeState": "not_revoked",
         "revokeSource": "none",
         "revokeReasonCode": "no_registry_revoke_marker",
         "revokeReason": "No registry revoke marker is active for avalonia:windows:win-x64.",
-        "installPosture": "installer_first",
-        "installPostureReason": "Promoted installer media avalonia-win-x64-installer is present for Avalonia Desktop tuple avalonia:windows:win-x64 on windows/win-x64.",
+        "installPosture": "proof_capture_required",
+        "installPostureReason": "Do not present avalonia:windows:win-x64 as installable until the missing tuple proof is captured.",
         "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer"
       },
       {
@@ -380,227 +392,33 @@
         "publicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer"
       }
     ],
-    "complete": true
+    "complete": false
   },
-  "installAwareArtifactRegistry": [
-    {
-      "registryId": "concierge:public_stable:run-258:avalonia-linux-x64-installer",
-      "artifactId": "avalonia-linux-x64-installer",
-      "channelId": "public_stable",
-      "releaseVersion": "run-258",
-      "tupleId": "avalonia:linux:linux-x64",
-      "head": "avalonia",
-      "platform": "linux",
-      "rid": "linux-x64",
-      "arch": "x64",
-      "kind": "installer",
-      "installedBuildSelector": "public_stable/run-258/avalonia/linux/x64",
-      "currentForInstalledBuild": true,
-      "channelRationale": "Published public_stable channel keeps primary-route avalonia:linux:linux-x64 current for installed build selector public_stable/run-258/avalonia/linux/x64.",
-      "correctnessReason": "Offer avalonia-linux-x64-installer to installed build selector public_stable/run-258/avalonia/linux/x64 because tuple avalonia:linux:linux-x64 is currently promoted for this channel.",
-      "recoveryProofRefs": [
-        "/downloads/install/avalonia-linux-x64-installer",
-        "startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json",
-        "desktopTupleCoverage.desktopRouteTruth[avalonia:linux:linux-x64]"
-      ],
-      "conciergeAssetRefs": {
-        "releaseExplainerPacket": "concierge/release/public_stable/run-258/avalonia-linux-x64-installer",
-        "supportClosurePacket": "concierge/support/public_stable/run-258/avalonia-linux-x64-installer",
-        "publicTrustWrapper": "/downloads/install/avalonia-linux-x64-installer"
-      }
-    },
-    {
-      "registryId": "concierge:public_stable:run-258:avalonia-win-x64-installer",
-      "artifactId": "avalonia-win-x64-installer",
-      "channelId": "public_stable",
-      "releaseVersion": "run-258",
-      "tupleId": "avalonia:windows:win-x64",
-      "head": "avalonia",
-      "platform": "windows",
-      "rid": "win-x64",
-      "arch": "x64",
-      "kind": "installer",
-      "installedBuildSelector": "public_stable/run-258/avalonia/windows/x64",
-      "currentForInstalledBuild": true,
-      "channelRationale": "Published public_stable channel keeps primary-route avalonia:windows:win-x64 current for installed build selector public_stable/run-258/avalonia/windows/x64.",
-      "correctnessReason": "Offer avalonia-win-x64-installer to installed build selector public_stable/run-258/avalonia/windows/x64 because tuple avalonia:windows:win-x64 is currently promoted for this channel.",
-      "recoveryProofRefs": [
-        "/downloads/install/avalonia-win-x64-installer",
-        "startup-smoke/startup-smoke-avalonia-win-x64.receipt.json",
-        "desktopTupleCoverage.desktopRouteTruth[avalonia:windows:win-x64]"
-      ],
-      "conciergeAssetRefs": {
-        "releaseExplainerPacket": "concierge/release/public_stable/run-258/avalonia-win-x64-installer",
-        "supportClosurePacket": "concierge/support/public_stable/run-258/avalonia-win-x64-installer",
-        "publicTrustWrapper": "/downloads/install/avalonia-win-x64-installer"
-      }
-    }
-  ],
-  "desktopSurfaceRefs": [
-    {
-      "registryId": "desktop-surface:public_stable:run-258:avalonia:linux:linux-x64",
-      "artifactId": "avalonia-linux-x64-installer",
-      "channelId": "public_stable",
-      "releaseVersion": "run-258",
-      "tupleId": "avalonia:linux:linux-x64",
-      "head": "avalonia",
-      "platform": "linux",
-      "rid": "linux-x64",
-      "arch": "x64",
-      "kind": "installer",
-      "installAccessClass": "open_public",
-      "desktopChannelRef": "desktop-channel:public_stable:run-258:avalonia:linux:linux-x64",
-      "installGuidanceRef": "install-guidance:public_stable:run-258:avalonia-linux-x64-installer",
-      "participationReceiptRef": "participation-receipt:public_stable:run-258:avalonia:linux:linux-x64",
-      "rewardPublicationRef": "reward-publication:binding:public_stable:run-258:avalonia:linux:linux-x64",
-      "publicationBindingId": "binding:public_stable:run-258:avalonia:linux:linux-x64",
-      "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
-      "rationale": "public_stable keeps avalonia:linux:linux-x64 guest-readable so desktop channel, install guidance, participation, and reward refs stay governed without exposing provider internals."
-    },
-    {
-      "registryId": "desktop-surface:public_stable:run-258:avalonia:windows:win-x64",
-      "artifactId": "avalonia-win-x64-installer",
-      "channelId": "public_stable",
-      "releaseVersion": "run-258",
-      "tupleId": "avalonia:windows:win-x64",
-      "head": "avalonia",
-      "platform": "windows",
-      "rid": "win-x64",
-      "arch": "x64",
-      "kind": "installer",
-      "installAccessClass": "open_public",
-      "desktopChannelRef": "desktop-channel:public_stable:run-258:avalonia:windows:win-x64",
-      "installGuidanceRef": "install-guidance:public_stable:run-258:avalonia-win-x64-installer",
-      "participationReceiptRef": "participation-receipt:public_stable:run-258:avalonia:windows:win-x64",
-      "rewardPublicationRef": "reward-publication:binding:public_stable:run-258:avalonia:windows:win-x64",
-      "publicationBindingId": "binding:public_stable:run-258:avalonia:windows:win-x64",
-      "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
-      "rationale": "public_stable keeps avalonia:windows:win-x64 guest-readable so desktop channel, install guidance, participation, and reward refs stay governed without exposing provider internals."
-    }
-  ],
-  "artifactIdentityRegistry": [
-    {
-      "registryId": "artifact-identity:public_stable:run-258:avalonia:linux:linux-x64",
-      "artifactFamilyId": "artifact-family:avalonia:linux:linux-x64",
-      "artifactId": "avalonia-linux-x64-installer",
-      "channelId": "public_stable",
-      "releaseVersion": "run-258",
-      "tupleId": "avalonia:linux:linux-x64",
-      "head": "avalonia",
-      "platform": "linux",
-      "rid": "linux-x64",
-      "arch": "x64",
-      "kind": "installer",
-      "previewRef": "registry-preview:avalonia-linux-x64-installer:avalonia:linux:linux-x64",
-      "captionRef": "registry-caption:public_stable:run-258:avalonia:linux:linux-x64",
-      "packetRef": "registry-packet:public_stable:run-258:avalonia-linux-x64-installer",
-      "localeRef": "registry-locale:public_stable:run-258:avalonia-linux-x64-installer",
-      "retentionRef": "registry-retention:public_stable:run-258:avalonia-linux-x64-installer",
-      "retentionState": "current",
-      "publicationBindingId": "binding:public_stable:run-258:avalonia:linux:linux-x64",
-      "publicationState": "published",
-      "signedInShelfRef": "shelf:signed-in:public_stable:run-258:avalonia-linux-x64-installer",
-      "publicShelfRef": "shelf:public:public_stable:run-258:avalonia-linux-x64-installer",
-      "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer"
-    },
-    {
-      "registryId": "artifact-identity:public_stable:run-258:avalonia:windows:win-x64",
-      "artifactFamilyId": "artifact-family:avalonia:windows:win-x64",
-      "artifactId": "avalonia-win-x64-installer",
-      "channelId": "public_stable",
-      "releaseVersion": "run-258",
-      "tupleId": "avalonia:windows:win-x64",
-      "head": "avalonia",
-      "platform": "windows",
-      "rid": "win-x64",
-      "arch": "x64",
-      "kind": "installer",
-      "previewRef": "registry-preview:avalonia-win-x64-installer:avalonia:windows:win-x64",
-      "captionRef": "registry-caption:public_stable:run-258:avalonia:windows:win-x64",
-      "packetRef": "registry-packet:public_stable:run-258:avalonia-win-x64-installer",
-      "localeRef": "registry-locale:public_stable:run-258:avalonia-win-x64-installer",
-      "retentionRef": "registry-retention:public_stable:run-258:avalonia-win-x64-installer",
-      "retentionState": "current",
-      "publicationBindingId": "binding:public_stable:run-258:avalonia:windows:win-x64",
-      "publicationState": "published",
-      "signedInShelfRef": "shelf:signed-in:public_stable:run-258:avalonia-win-x64-installer",
-      "publicShelfRef": "shelf:public:public_stable:run-258:avalonia-win-x64-installer",
-      "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer"
-    }
-  ],
-  "artifactPublicationBindings": [
-    {
-      "bindingId": "binding:public_stable:run-258:avalonia:linux:linux-x64",
-      "artifactFamilyId": "artifact-family:avalonia:linux:linux-x64",
-      "artifactId": "avalonia-linux-x64-installer",
-      "channelId": "public_stable",
-      "releaseVersion": "run-258",
-      "tupleId": "avalonia:linux:linux-x64",
-      "head": "avalonia",
-      "platform": "linux",
-      "rid": "linux-x64",
-      "arch": "x64",
-      "kind": "installer",
-      "publicationScope": "signed-in-and-public",
-      "publicationState": "published",
-      "signedInShelfRef": "shelf:signed-in:public_stable:run-258:avalonia-linux-x64-installer",
-      "publicShelfRef": "shelf:public:public_stable:run-258:avalonia-linux-x64-installer",
-      "previewRef": "registry-preview:avalonia-linux-x64-installer:avalonia:linux:linux-x64",
-      "captionRef": "registry-caption:public_stable:run-258:avalonia:linux:linux-x64",
-      "packetRef": "registry-packet:public_stable:run-258:avalonia-linux-x64-installer",
-      "localeRef": "registry-locale:public_stable:run-258:avalonia-linux-x64-installer",
-      "retentionRef": "registry-retention:public_stable:run-258:avalonia-linux-x64-installer",
-      "retentionState": "current",
-      "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
-      "rationale": "public_stable keeps primary tuple avalonia:linux:linux-x64 published so signed-in and public shelves cite the same governed preview, caption, and install refs."
-    },
-    {
-      "bindingId": "binding:public_stable:run-258:avalonia:windows:win-x64",
-      "artifactFamilyId": "artifact-family:avalonia:windows:win-x64",
-      "artifactId": "avalonia-win-x64-installer",
-      "channelId": "public_stable",
-      "releaseVersion": "run-258",
-      "tupleId": "avalonia:windows:win-x64",
-      "head": "avalonia",
-      "platform": "windows",
-      "rid": "win-x64",
-      "arch": "x64",
-      "kind": "installer",
-      "publicationScope": "signed-in-and-public",
-      "publicationState": "published",
-      "signedInShelfRef": "shelf:signed-in:public_stable:run-258:avalonia-win-x64-installer",
-      "publicShelfRef": "shelf:public:public_stable:run-258:avalonia-win-x64-installer",
-      "previewRef": "registry-preview:avalonia-win-x64-installer:avalonia:windows:win-x64",
-      "captionRef": "registry-caption:public_stable:run-258:avalonia:windows:win-x64",
-      "packetRef": "registry-packet:public_stable:run-258:avalonia-win-x64-installer",
-      "localeRef": "registry-locale:public_stable:run-258:avalonia-win-x64-installer",
-      "retentionRef": "registry-retention:public_stable:run-258:avalonia-win-x64-installer",
-      "retentionState": "current",
-      "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
-      "rationale": "public_stable keeps primary tuple avalonia:windows:win-x64 published so signed-in and public shelves cite the same governed preview, caption, and install refs."
-    }
-  ],
+  "installAwareArtifactRegistry": [],
+  "desktopSurfaceRefs": [],
+  "artifactIdentityRegistry": [],
+  "artifactPublicationBindings": [],
   "publicTrustMetrics": {
     "releaseChannel": {
-      "channelId": "public_stable",
-      "posture": "live",
+      "channelId": "preview",
+      "posture": "preview",
       "publicationStatus": "published",
-      "rolloutState": "public_stable",
-      "supportabilityState": "gold_supported",
-      "recommendedRouteCount": 2,
-      "blockedRouteCount": 0,
+      "rolloutState": "coverage_incomplete",
+      "supportabilityState": "review_required",
+      "recommendedRouteCount": 0,
+      "blockedRouteCount": 2,
       "revokedRouteCount": 0,
-      "summary": "Channel public_stable is live with 2 recommended primary routes, 0 promoted fallback recovery routes, 0 blocked routes, and 0 active revocations."
+      "summary": "Channel preview is preview with 0 recommended primary routes, 0 promoted fallback recovery routes, 2 blocked routes, and 0 active revocations."
     },
     "adoptionHealth": {
-      "status": "healthy",
-      "primaryPromotedCount": 2,
-      "publicInstallCount": 2,
+      "status": "blocked",
+      "primaryPromotedCount": 0,
+      "publicInstallCount": 0,
       "accountLinkedInstallCount": 0,
       "fallbackRecoveryCount": 0,
-      "blockedRouteCount": 0,
+      "blockedRouteCount": 2,
       "revokedRouteCount": 0,
-      "summary": "2 primary routes are promoted; 2 are guest-readable, 0 require account-linked install handoff, 0 fallback recovery routes are promoted, and 0 routes are still blocked on proof."
+      "summary": "0 primary routes are promoted; 0 are guest-readable, 0 require account-linked install handoff, 0 fallback recovery routes are promoted, and 2 routes are still blocked on proof."
     },
     "proofFreshness": {
       "status": "fresh",
@@ -617,61 +435,61 @@
       "channelRevoked": false,
       "activeRevocationCount": 0,
       "activeRevocations": [],
-      "summary": "No channel or route revocations are active on channel public_stable."
+      "summary": "No channel or route revocations are active on channel preview."
     }
   },
   "registryBoundaryCoverage": {
     "status": "closed",
     "owner": "chummer6-hub-registry",
-    "channelId": "public_stable",
+    "channelId": "preview",
     "releaseVersion": "run-258",
     "persistence": {
       "contractName": "Chummer.Hub.Registry.Contracts",
-      "artifactCount": 2,
+      "artifactCount": 0,
       "runtimeBundleHeadCount": 0,
-      "registryProjectionCount": 8,
-      "summary": "Registry persistence owns 2 published artifacts, 0 runtime bundle heads, and 8 governed projection rows for public_stable/run-258."
+      "registryProjectionCount": 0,
+      "summary": "Registry persistence owns 0 published artifacts, 0 runtime bundle heads, and 0 governed projection rows for preview/run-258."
     },
     "releaseChannel": {
       "publicationStatus": "published",
-      "rolloutState": "public_stable",
-      "supportabilityState": "gold_supported",
-      "desktopTupleComplete": true,
-      "promotedInstallerTupleCount": 2,
+      "rolloutState": "coverage_incomplete",
+      "supportabilityState": "review_required",
+      "desktopTupleComplete": false,
+      "promotedInstallerTupleCount": 0,
       "desktopRouteTruthCount": 4,
-      "publicTrustPosture": "live",
-      "summary": "Release-channel truth for public_stable/run-258 keeps 2 promoted installer tuples and 4 explicit desktop route-truth rows under public_stable rollout posture."
+      "publicTrustPosture": "preview",
+      "summary": "Release-channel truth for preview/run-258 keeps 0 promoted installer tuples and 4 explicit desktop route-truth rows under coverage_incomplete rollout posture."
     },
     "artifactLineage": {
-      "artifactIdentityCount": 2,
-      "publicationBindingCount": 2,
+      "artifactIdentityCount": 0,
+      "publicationBindingCount": 0,
       "exchangeLineageCount": 0,
-      "publishedArtifactCount": 2,
+      "publishedArtifactCount": 0,
       "retainedArtifactCount": 0,
-      "summary": "Artifact-lineage truth covers 2 artifact identity rows, 2 publication bindings, and 0 exchange-lineage rows."
+      "summary": "Artifact-lineage truth covers 0 artifact identity rows, 0 publication bindings, and 0 exchange-lineage rows."
     },
     "publication": {
-      "publishedBindingCount": 2,
+      "publishedBindingCount": 0,
       "retainedBindingCount": 0,
-      "signedInAndPublicBindingCount": 2,
-      "currentRetentionCount": 2,
-      "summary": "Publication boundary keeps 2 published bindings, 0 retained bindings, and 2 signed-in/public shared shelf refs."
+      "signedInAndPublicBindingCount": 0,
+      "currentRetentionCount": 0,
+      "summary": "Publication boundary keeps 0 published bindings, 0 retained bindings, and 0 signed-in/public shared shelf refs."
     },
     "entitlement": {
-      "installAwareArtifactCount": 2,
-      "desktopSurfaceRefCount": 2,
-      "openPublicSurfaceCount": 2,
+      "installAwareArtifactCount": 0,
+      "desktopSurfaceRefCount": 0,
+      "openPublicSurfaceCount": 0,
       "accountRequiredSurfaceCount": 0,
-      "summary": "Entitlement and install-hand-off truth spans 2 install-aware registry rows, 2 desktop surface refs, 2 guest-readable surfaces, and 0 account-required surfaces."
+      "summary": "Entitlement and install-hand-off truth spans 0 install-aware registry rows, 0 desktop surface refs, 0 guest-readable surfaces, and 0 account-required surfaces."
     },
     "compatibility": {
-      "compatibleArtifactCount": 2,
+      "compatibleArtifactCount": 0,
       "compatibleRuntimeBundleHeadCount": 0,
       "compatibleExchangeArtifactCount": 0,
       "unknownArtifactCount": 0,
       "unknownRuntimeBundleHeadCount": 0,
-      "summary": "Compatibility boundary tracks 2 compatible artifacts, 0 compatible runtime bundle heads, and 0 compatible exchange-lineage rows while 0 artifact rows and 0 runtime bundle heads remain unknown."
+      "summary": "Compatibility boundary tracks 0 compatible artifacts, 0 compatible runtime bundle heads, and 0 compatible exchange-lineage rows while 0 artifact rows and 0 runtime bundle heads remain unknown."
     },
-    "summary": "Registry boundary coverage is closed for public_stable/run-258 across persistence, release-channel, artifact-lineage, publication, entitlement, and compatibility surfaces."
+    "summary": "Registry boundary coverage is closed for preview/run-258 across persistence, release-channel, artifact-lineage, publication, entitlement, and compatibility surfaces."
   }
 }

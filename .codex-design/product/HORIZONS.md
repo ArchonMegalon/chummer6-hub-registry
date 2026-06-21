@@ -11,7 +11,7 @@ For the writing, public-guide, and media standard, use `HORIZON_DESIGN_INSTRUCTI
 * Horizon docs are canon for lane posture, not promises of shipment.
 * Mature lanes may be grouped as `core_product` in public guide output; they should read like normal Chummer6 value, not distant future brands.
 * Infrastructure and polish lanes may be grouped as `folded_into_product`; they should support the workbench or campaign layer quietly instead of competing with the public story.
-* Horizon docs must stay consistent with `VISION.md`, `ARCHITECTURE.md`, `chummer-design/products/chummer/EXTERNAL_TOOLS_PLANE.md`, and `PROGRAM_MILESTONES.yaml`.
+* Horizon docs must stay consistent with `VISION.md`, `ARCHITECTURE.md`, `EXTERNAL_TOOLS_PLANE.md`, and `PROGRAM_MILESTONES.yaml`.
 * The public `Chummer6` guide may explain Horizons in human language, but it may not outrun this directory.
 * Public horizon output must satisfy `HORIZON_DESIGN_INSTRUCTIONS.md`: human value first, no repo-speak, no foundation-code checklists, no unsupported shipment claims, and no decorative AR that does not fit the scene.
 * When a horizon already has first-party preview artifacts or detail routes in the public registry, downstream public surfaces should point at that proof instead of presenting the horizon as an empty teaser.
