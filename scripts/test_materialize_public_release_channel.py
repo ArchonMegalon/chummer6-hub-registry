@@ -485,7 +485,7 @@ def test_load_startup_smoke_receipts_rejects_incompatible_host_skip() -> None:
                     "platform": "linux",
                     "rid": "linux-arm64",
                     "arch": "arm64",
-                    "hostClass": "github-actions-linux-arm64",
+                    "hostClass": "self-hosted-linux-arm64",
                     "channelId": "preview",
                     "artifactDigest": "sha256:abc123",
                     "artifactPath": "/tmp/chummer-avalonia-linux-arm64-installer.deb",
