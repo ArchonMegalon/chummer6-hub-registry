@@ -5237,13 +5237,18 @@ def verify_local_download_files(
     )
 
     expected_file_names = manifest_file_names(payload)
+    allowed_sidecar_file_names = {
+        f"{file_name[:-len('-installer.exe')]}-payload.zip"
+        for file_name in expected_file_names
+        if file_name.lower().endswith("-installer.exe") and "-win-" in file_name.lower()
+    }
     extra_artifacts = []
     for entry in sorted(files_dir.iterdir()):
         if not entry.is_file():
             continue
         if not PUBLIC_DESKTOP_ARTIFACT_RE.match(entry.name):
             continue
-        if entry.name not in expected_file_names:
+        if entry.name not in expected_file_names and entry.name not in allowed_sidecar_file_names:
             extra_artifacts.append(entry.name)
 
     if extra_artifacts:

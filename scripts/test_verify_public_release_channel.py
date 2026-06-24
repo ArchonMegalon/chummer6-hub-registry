@@ -1762,6 +1762,23 @@ def test_verify_local_download_files_accepts_stale_receipt_only_when_skip_enable
     )
 
 
+def test_verify_local_download_files_allows_windows_payload_sidecar_for_promoted_installer(tmp_path: Path) -> None:
+    payload, manifest_root, installer_name, installer_sha = _write_windows_release_fixture(tmp_path)
+    payload_zip = manifest_root / "files" / "chummer-avalonia-win-x64-payload.zip"
+    payload_zip.write_bytes(b"bootstrap-payload")
+    _write_skipped_windows_startup_smoke(
+        manifest_root,
+        installer_name=installer_name,
+        installer_sha=installer_sha,
+    )
+
+    MODULE.verify_local_download_files(
+        payload,
+        manifest_root,
+        str(manifest_root),
+    )
+
+
 def test_verify_local_download_files_accepts_stale_startup_smoke_receipt_when_release_version_matches() -> None:
     manifest_root = Path(tempfile.mkdtemp())
     files_dir = manifest_root / "files"
