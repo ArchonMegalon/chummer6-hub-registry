@@ -41,6 +41,11 @@ MODULE_SPEC = importlib.util.spec_from_file_location("verify_public_release_chan
 assert MODULE_SPEC and MODULE_SPEC.loader
 MODULE = importlib.util.module_from_spec(MODULE_SPEC)
 MODULE_SPEC.loader.exec_module(MODULE)
+MATERIALIZER_SCRIPT = Path(__file__).resolve().parent / "materialize_public_release_channel.py"
+MATERIALIZER_SPEC = importlib.util.spec_from_file_location("materialize_public_release_channel_module", MATERIALIZER_SCRIPT)
+assert MATERIALIZER_SPEC and MATERIALIZER_SPEC.loader
+MATERIALIZER = importlib.util.module_from_spec(MATERIALIZER_SPEC)
+MATERIALIZER_SPEC.loader.exec_module(MATERIALIZER)
 
 
 def load_tests(loader, tests, pattern):
@@ -1581,6 +1586,58 @@ def test_verify_local_download_files_rejects_skipped_startup_smoke_digest_mismat
             str(manifest_root),
             allow_skipped_startup_smoke=True,
         )
+
+
+def test_load_startup_smoke_receipts_accepts_exact_windows_incompatible_host_skip(tmp_path: Path) -> None:
+    payload, manifest_root, installer_name, installer_sha = _write_windows_release_fixture(tmp_path)
+    receipt_path = _write_skipped_windows_startup_smoke(
+        manifest_root,
+        installer_name=installer_name,
+        installer_sha=installer_sha,
+        hostClass="",
+        operatingSystem="",
+    )
+
+    receipts = MATERIALIZER.load_startup_smoke_receipts(
+        receipt_path.parent,
+        expected_channel=str(payload["channelId"]),
+        expected_release_version=str(payload["version"]),
+        now=datetime.now(timezone.utc),
+    )
+
+    assert receipts is not None
+    assert len(receipts) == 1
+    assert receipts[0]["artifactId"] == "avalonia-win-x64-installer"
+    assert receipts[0]["artifactFileName"] == installer_name
+    assert receipts[0]["platform"] == "windows"
+    assert receipts[0]["arch"] == "x64"
+    assert receipts[0]["status"] == "skipped"
+    assert receipts[0]["verificationDisposition"] == "incompatible_host"
+
+
+def test_filter_unproven_installers_keeps_windows_installer_with_incompatible_host_skip(tmp_path: Path) -> None:
+    payload, manifest_root, installer_name, installer_sha = _write_windows_release_fixture(tmp_path)
+    receipt_path = _write_skipped_windows_startup_smoke(
+        manifest_root,
+        installer_name=installer_name,
+        installer_sha=installer_sha,
+        hostClass="",
+        operatingSystem="",
+    )
+
+    receipts = MATERIALIZER.load_startup_smoke_receipts(
+        receipt_path.parent,
+        expected_channel=str(payload["channelId"]),
+        expected_release_version=str(payload["version"]),
+        now=datetime.now(timezone.utc),
+    )
+
+    filtered = MATERIALIZER.filter_unproven_installers(payload["artifacts"], receipts)
+
+    assert len(filtered) == 1
+    assert filtered[0]["artifactId"] == "avalonia-win-x64-installer"
+    assert filtered[0]["fileName"] == installer_name
+    assert filtered[0]["sha256"] == installer_sha
 
 
 def test_verify_local_download_files_accepts_stale_receipt_only_when_skip_enabled(tmp_path: Path) -> None:

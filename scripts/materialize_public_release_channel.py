@@ -835,6 +835,21 @@ def startup_smoke_release_version_matches_expected(loaded: dict[str, Any], expec
     return bool(actual and actual == expected)
 
 
+def startup_smoke_is_windows_incompatible_host_skip(loaded: dict[str, Any]) -> bool:
+    status = normalize_token(loaded.get("status"))
+    if status != "skipped":
+        return False
+    platform = normalize_platform_token(loaded.get("platform"))
+    rid = normalize_token(loaded.get("rid") or loaded.get("runtimeIdentifier"))
+    if platform and platform != "windows":
+        return False
+    if rid and not rid.startswith("win-"):
+        return False
+    verification_disposition = normalize_token(loaded.get("verificationDisposition"))
+    skip_class = normalize_token(loaded.get("skipClass"))
+    return verification_disposition == "incompatible_host" or skip_class == "incompatible_host"
+
+
 def load_startup_smoke_receipts(
     startup_smoke_dir: Path | None,
     *,
@@ -887,10 +902,11 @@ def load_startup_smoke_receipts(
         if not isinstance(loaded, dict):
             continue
         status = str(loaded.get("status") or "").strip().lower()
-        if status not in {"pass", "passed", "ready"}:
+        incompatible_host_skip = startup_smoke_is_windows_incompatible_host_skip(loaded)
+        if status not in {"pass", "passed", "ready"} and not incompatible_host_skip:
             continue
         ready_checkpoint = str(loaded.get("readyCheckpoint") or "").strip().lower()
-        if ready_checkpoint != STARTUP_SMOKE_REQUIRED_READY_CHECKPOINT:
+        if not incompatible_host_skip and ready_checkpoint != STARTUP_SMOKE_REQUIRED_READY_CHECKPOINT:
             continue
         recorded_at = _startup_smoke_recorded_at(loaded)
         if recorded_at is None:
@@ -911,9 +927,9 @@ def load_startup_smoke_receipts(
         receipt_entry = build_receipt_entry(loaded)
         if not receipt_entry["head"] or not receipt_entry["platform"] or not receipt_entry["arch"]:
             continue
-        if not startup_smoke_host_class_matches_platform(loaded, platform=receipt_entry["platform"]):
+        if not incompatible_host_skip and not startup_smoke_host_class_matches_platform(loaded, platform=receipt_entry["platform"]):
             continue
-        if not startup_smoke_operating_system_matches_platform(loaded, platform=receipt_entry["platform"]):
+        if not incompatible_host_skip and not startup_smoke_operating_system_matches_platform(loaded, platform=receipt_entry["platform"]):
             continue
         if not startup_smoke_channel_matches_expected(expected_channel, receipt_entry["channelId"]):
             continue
@@ -923,6 +939,9 @@ def load_startup_smoke_receipts(
             and not receipt_entry["artifactDigest"]
         ):
             continue
+        if incompatible_host_skip:
+            receipt_entry["status"] = "skipped"
+            receipt_entry["verificationDisposition"] = "incompatible_host"
         if proof_freshness != "fresh":
             receipt_entry["proofFreshness"] = proof_freshness
         receipts.append(receipt_entry)
