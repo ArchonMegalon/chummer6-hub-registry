@@ -195,3 +195,14 @@ public sealed record ExchangeInstallBrowserCallbackResponseDto(
     ClaimedInstallationDto Installation,
     InstallationGrantDto Grant,
     bool AlreadyClaimed);
+
+public sealed record DesktopAccountLaunchExchangeRequestDto(
+    string InstallationId,
+    string AccessToken,
+    string Ticket);
+
+public sealed record DesktopAccountLaunchExchangeResponseDto(
+    string Kind,
+    string ResourceId,
+    DateTimeOffset IssuedAtUtc,
+    DateTimeOffset ExpiresAtUtc);

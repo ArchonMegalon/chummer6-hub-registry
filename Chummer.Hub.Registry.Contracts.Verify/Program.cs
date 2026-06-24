@@ -37,6 +37,8 @@ VerifySealedRecord(typeof(IssueInstallBrowserCallbackRequestDto));
 VerifySealedRecord(typeof(IssueInstallBrowserCallbackResponseDto));
 VerifySealedRecord(typeof(ExchangeInstallBrowserCallbackRequestDto));
 VerifySealedRecord(typeof(ExchangeInstallBrowserCallbackResponseDto));
+VerifySealedRecord(typeof(DesktopAccountLaunchExchangeRequestDto));
+VerifySealedRecord(typeof(DesktopAccountLaunchExchangeResponseDto));
 
 Assert(HubPublicationOperations.SubmitProject == "submit-project", "Publication operation constants must match the existing workflow vocabulary.");
 Assert(HubModerationStates.PendingReview == "pending-review", "Moderation states must preserve pending-review.");

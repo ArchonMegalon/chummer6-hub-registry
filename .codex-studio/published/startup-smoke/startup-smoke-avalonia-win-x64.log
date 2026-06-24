@@ -1,0 +1,1 @@
+startup smoke skipped for avalonia win-x64: Windows startup smoke requires Wine, PowerShell, or a Windows-compatible shell bridge; current host cannot execute Windows installer smoke.

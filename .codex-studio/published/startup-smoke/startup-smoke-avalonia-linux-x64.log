@@ -1,0 +1,17 @@
+Selecting previously unselected package chummer6-avalonia.
+(Reading database ... 143580 files and directories currently installed.)
+Preparing to unpack .../chummer-avalonia-linux-x64-installer.deb ...
+Unpacking chummer6-avalonia (0~run-258) ...
+touch: cannot touch '/run/needrestart/unpacked': Permission denied
+Setting up chummer6-avalonia (0~run-258) ...
+Processing triggers for mailcap (3.70+nmu1ubuntu1) ...
+Error: could not write '/etc/mailcap.new' -- Permission denied
+dpkg: error processing package mailcap (--install):
+ installed mailcap package post-installation script subprocess returned error exit status 1
+touch: cannot touch '/run/needrestart/errored': Permission denied
+Errors were encountered while processing:
+ mailcap
+dpkg install returned 1, but Chummer payload files were installed under the isolated root; tolerating host trigger noise.
+startup smoke ready: head=avalonia platform=linux arch=x64 checkpoint=pre_ui_event_loop
+(Reading database ... 143593 files and directories currently installed.)
+Removing chummer6-avalonia (0~run-258) ...
