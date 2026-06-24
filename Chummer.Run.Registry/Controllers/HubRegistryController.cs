@@ -1,6 +1,7 @@
 using Chummer.Run.Contracts.Registry;
 using Chummer.Run.Contracts.Observability;
 using Chummer.Run.Registry.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RegistryReleaseChannelHeadProjection = Chummer.Hub.Registry.Contracts.ReleaseChannelHeadProjection;
 
@@ -8,6 +9,7 @@ namespace Chummer.Run.Registry.Controllers;
 
 [ApiController]
 [Route("api/v1/registry")]
+[Authorize(Policy = RegistryAuthorization.ControlPolicy)]
 public sealed class HubRegistryController : ControllerBase
 {
     private readonly IHubArtifactStore _artifactStore;
@@ -25,6 +27,7 @@ public sealed class HubRegistryController : ControllerBase
     }
 
     [HttpGet("search")]
+    [AllowAnonymous]
     [ProducesResponseType<RegistrySearchResponse>(StatusCodes.Status200OK)]
     public ActionResult<RegistrySearchResponse> SearchArtifacts(
         [FromQuery] string? query = null,
@@ -72,6 +75,7 @@ public sealed class HubRegistryController : ControllerBase
     }
 
     [HttpGet("artifacts")]
+    [AllowAnonymous]
     [ProducesResponseType<RegistrySearchResponse>(StatusCodes.Status200OK)]
     public ActionResult<RegistrySearchResponse> ListArtifacts(
         [FromQuery] string? query = null,
@@ -85,6 +89,7 @@ public sealed class HubRegistryController : ControllerBase
     }
 
     [HttpGet("release-channel/current")]
+    [AllowAnonymous]
     [ProducesResponseType<RegistryReleaseChannelHeadProjection>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<RegistryReleaseChannelHeadProjection> GetCurrentReleaseChannel()
@@ -167,6 +172,7 @@ public sealed class HubRegistryController : ControllerBase
     }
 
     [HttpGet("artifacts/{id}")]
+    [AllowAnonymous]
     [ProducesResponseType<HubArtifactMetadata>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<HubArtifactMetadata> GetArtifact([FromRoute] string id)
@@ -252,6 +258,7 @@ public sealed class HubRegistryController : ControllerBase
 
     [HttpGet("{id}/preview")]
     [HttpGet("artifacts/{id}/preview")]
+    [AllowAnonymous]
     [ProducesResponseType<RegistryPreviewResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<RegistryPreviewResponse> GetPreview([FromRoute] string id)
@@ -289,6 +296,7 @@ public sealed class HubRegistryController : ControllerBase
     }
 
     [HttpGet("projections")]
+    [AllowAnonymous]
     [ProducesResponseType<RegistryProjectionListResponse>(StatusCodes.Status200OK)]
     public ActionResult<RegistryProjectionListResponse> ListProjections(
         [FromQuery] string? query = null,
@@ -342,6 +350,7 @@ public sealed class HubRegistryController : ControllerBase
     }
 
     [HttpGet("artifacts/{id}/projection")]
+    [AllowAnonymous]
     [ProducesResponseType<RegistryProjectionResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<RegistryProjectionResponse> GetProjection([FromRoute] string id)
@@ -361,6 +370,7 @@ public sealed class HubRegistryController : ControllerBase
     }
 
     [HttpGet("artifacts/{id}/install-projection")]
+    [AllowAnonymous]
     [ProducesResponseType<HubArtifactInstallProjection>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<HubArtifactInstallProjection> GetInstallProjection([FromRoute] string id)
@@ -426,6 +436,7 @@ public sealed class HubRegistryController : ControllerBase
     }
 
     [HttpGet("artifacts/state/{state}")]
+    [AllowAnonymous]
     [ProducesResponseType<RegistrySearchResponse>(StatusCodes.Status200OK)]
     public ActionResult<RegistrySearchResponse> ListArtifactsByState([FromRoute] string state)
     {
@@ -516,6 +527,7 @@ public sealed class HubRegistryController : ControllerBase
     }
 
     [HttpGet("artifacts/{id}/reviews")]
+    [AllowAnonymous]
     [ProducesResponseType<HubReviewListResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status404NotFound)]
     public ActionResult<HubReviewListResponse> GetReviews([FromRoute] string id)

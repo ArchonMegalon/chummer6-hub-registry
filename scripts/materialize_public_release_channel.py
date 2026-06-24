@@ -784,6 +784,15 @@ def refresh_artifacts_from_downloads_dir(
             continue
         refreshed["updateFeedUrl"] = item.get("updateFeedUrl")
         refreshed["embeddedRuntimeBundleHeadId"] = item.get("embeddedRuntimeBundleHeadId")
+        for field_name in (
+            "installerMode",
+            "payloadFileName",
+            "payloadDownloadUrl",
+            "payloadSha256",
+            "payloadSizeBytes",
+        ):
+            if field_name in item:
+                refreshed[field_name] = item.get(field_name)
         for field_name in ARTIFACT_REVOKE_TRUTH_FIELDS:
             if field_name in item:
                 refreshed[field_name] = item.get(field_name)
@@ -1057,6 +1066,11 @@ def parse_download_row(item: dict[str, Any]) -> dict[str, Any]:
         "channel": normalize_optional_string(item.get("channel")),
         "version": normalize_optional_string(item.get("version")),
         "releaseVersion": normalize_optional_string(item.get("releaseVersion")),
+        "installerMode": normalize_optional_string(item.get("installerMode")),
+        "payloadFileName": normalize_optional_string(item.get("payloadFileName")),
+        "payloadDownloadUrl": normalize_optional_string(item.get("payloadDownloadUrl")),
+        "payloadSha256": normalize_optional_string(item.get("payloadSha256")),
+        "payloadSizeBytes": int(item.get("payloadSizeBytes") or 0) or None,
         "installAccessClass": effective_install_access_class(
             platform,
             kind,
@@ -4167,6 +4181,11 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
                 "releaseVersion": artifact.get("releaseVersion") or artifact.get("version") or canonical.get("version"),
                 "compatibilityState": artifact.get("compatibilityState"),
                 "compatibilityReason": artifact.get("compatibilityReason"),
+                "installerMode": artifact.get("installerMode"),
+                "payloadFileName": artifact.get("payloadFileName"),
+                "payloadDownloadUrl": artifact.get("payloadDownloadUrl"),
+                "payloadSha256": artifact.get("payloadSha256"),
+                "payloadSizeBytes": artifact.get("payloadSizeBytes"),
                 "installAccessClass": (
                     str(artifact.get("installAccessClass") or "").strip()
                     or default_install_access_class(platform, kind)

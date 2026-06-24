@@ -3,9 +3,11 @@ using Chummer.Run.Contracts.Observability;
 using Chummer.Run.Contracts.Publication;
 using Chummer.Run.Contracts.Registry;
 using Chummer.Run.Registry.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
+using System.Reflection;
 using System.Text.Json;
 using RegistryReleaseChannelHeadProjection = Chummer.Hub.Registry.Contracts.ReleaseChannelHeadProjection;
 using RegistryOwner = Chummer.Hub.Registry.Contracts;
@@ -328,6 +330,8 @@ HubPublicationDraftService draftWorkflow = new();
 HubRegistryController registryController = CreateController(new HubRegistryController(store, releaseChannelStore, workflow));
 PublicationsController publicationsController = CreateController(new PublicationsController(workflow));
 HubPublicationDraftsController draftController = CreateController(new HubPublicationDraftsController(draftWorkflow));
+
+VerifyRegistryAuthorizationSurface();
 
 RegistryReleaseChannelHeadProjection releaseChannel = RequireOk(registryController.GetCurrentReleaseChannel());
 Assert(string.Equals(releaseChannel.ChannelId, "docker", StringComparison.Ordinal), "Release-channel read model should load the current registry manifest.");
@@ -1004,3 +1008,113 @@ static TController CreateController<TController>(TController controller)
 static bool HasHeader(ControllerBase controller, string key, string expectedValue) =>
     controller.Response.Headers.TryGetValue(key, out var values)
     && values.Any(value => string.Equals(value, expectedValue, StringComparison.Ordinal));
+
+static void VerifyRegistryAuthorizationSurface()
+{
+    string programSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "Chummer.Run.Registry", "Program.cs"));
+    Assert(programSource.Contains(".AddAuthentication(RegistryAuthorization.Scheme)", StringComparison.Ordinal), "Registry startup must configure the control-plane authentication scheme.");
+    Assert(programSource.Contains("options.FallbackPolicy = controlPolicy;", StringComparison.Ordinal), "Registry startup must default-deny endpoints without an explicit AllowAnonymous marker.");
+    Assert(programSource.Contains("app.UseAuthentication();", StringComparison.Ordinal), "Registry startup must authenticate requests before authorization.");
+
+    AssertControllerUsesControlPolicy<HubRegistryController>();
+    AssertControllerUsesControlPolicy<PublicationsController>();
+    AssertControllerUsesControlPolicy<HubPublicationDraftsController>();
+
+    foreach (string actionName in new[]
+             {
+                 nameof(HubRegistryController.SearchArtifacts),
+                 nameof(HubRegistryController.ListArtifacts),
+                 nameof(HubRegistryController.GetCurrentReleaseChannel),
+                 nameof(HubRegistryController.GetArtifact),
+                 nameof(HubRegistryController.GetPreview),
+                 nameof(HubRegistryController.ListProjections),
+                 nameof(HubRegistryController.GetProjection),
+                 nameof(HubRegistryController.GetInstallProjection),
+                 nameof(HubRegistryController.ListArtifactsByState),
+                 nameof(HubRegistryController.GetReviews)
+             })
+    {
+        AssertActionAllowsAnonymous<HubRegistryController>(actionName);
+    }
+
+    foreach (string actionName in new[]
+             {
+                 nameof(HubRegistryController.CreateArtifact),
+                 nameof(HubRegistryController.IssueRuntimeBundle),
+                 nameof(HubRegistryController.GetRuntimeBundleArtifact),
+                 nameof(HubRegistryController.GetRuntimeBundleHeads),
+                 nameof(HubRegistryController.GetRuntimeBundleHead),
+                 nameof(HubRegistryController.GetPipelineProjection),
+                 nameof(HubRegistryController.ChangeState),
+                 nameof(HubRegistryController.DeleteArtifact),
+                 nameof(HubRegistryController.RegisterInstall),
+                 nameof(HubRegistryController.AddReview)
+             })
+    {
+        AssertActionUsesControlPolicy<HubRegistryController>(actionName);
+    }
+
+    AssertActionAllowsAnonymous<PublicationsController>(nameof(PublicationsController.List));
+    AssertActionAllowsAnonymous<PublicationsController>(nameof(PublicationsController.Get));
+    AssertActionUsesControlPolicy<PublicationsController>(nameof(PublicationsController.Submit));
+    AssertActionUsesControlPolicy<PublicationsController>(nameof(PublicationsController.Review));
+    AssertActionUsesControlPolicy<PublicationsController>(nameof(PublicationsController.Publish));
+    AssertActionUsesControlPolicy<PublicationsController>(nameof(PublicationsController.Moderate));
+
+    foreach (MethodInfo method in typeof(HubPublicationDraftsController).GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly))
+    {
+        Assert(!method.GetCustomAttributes<AllowAnonymousAttribute>(inherit: true).Any(), $"Draft control-plane action {method.Name} must not allow anonymous access.");
+    }
+}
+
+static string FindRepositoryRoot()
+{
+    var current = new DirectoryInfo(Directory.GetCurrentDirectory());
+    while (current is not null)
+    {
+        if (File.Exists(Path.Combine(current.FullName, "Chummer.Run.Registry", "Program.cs")))
+        {
+            return current.FullName;
+        }
+
+        current = current.Parent;
+    }
+
+    throw new InvalidOperationException("Could not locate the chummer-hub-registry repository root.");
+}
+
+static void AssertControllerUsesControlPolicy<TController>()
+{
+    Type controllerType = typeof(TController);
+    bool hasControlPolicy = controllerType
+        .GetCustomAttributes<AuthorizeAttribute>(inherit: true)
+        .Any(attribute => string.Equals(attribute.Policy, RegistryAuthorization.ControlPolicy, StringComparison.Ordinal));
+
+    Assert(hasControlPolicy, $"{controllerType.Name} must require the registry control policy by default.");
+}
+
+static void AssertActionAllowsAnonymous<TController>(string actionName)
+{
+    MethodInfo method = FindControllerAction<TController>(actionName);
+    Assert(method.GetCustomAttributes<AllowAnonymousAttribute>(inherit: true).Any(), $"{typeof(TController).Name}.{actionName} must explicitly allow anonymous read access.");
+}
+
+static void AssertActionUsesControlPolicy<TController>(string actionName)
+{
+    MethodInfo method = FindControllerAction<TController>(actionName);
+    Assert(!method.GetCustomAttributes<AllowAnonymousAttribute>(inherit: true).Any(), $"{typeof(TController).Name}.{actionName} must not allow anonymous access.");
+
+    bool methodHasControlPolicy = method
+        .GetCustomAttributes<AuthorizeAttribute>(inherit: true)
+        .Any(attribute => string.Equals(attribute.Policy, RegistryAuthorization.ControlPolicy, StringComparison.Ordinal));
+    bool controllerHasControlPolicy = typeof(TController)
+        .GetCustomAttributes<AuthorizeAttribute>(inherit: true)
+        .Any(attribute => string.Equals(attribute.Policy, RegistryAuthorization.ControlPolicy, StringComparison.Ordinal));
+
+    Assert(methodHasControlPolicy || controllerHasControlPolicy, $"{typeof(TController).Name}.{actionName} must inherit or declare the registry control policy.");
+}
+
+static MethodInfo FindControllerAction<TController>(string actionName)
+    => typeof(TController)
+        .GetMethods(BindingFlags.Instance | BindingFlags.Public | BindingFlags.DeclaredOnly)
+        .Single(method => string.Equals(method.Name, actionName, StringComparison.Ordinal));

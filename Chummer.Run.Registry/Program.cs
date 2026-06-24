@@ -1,3 +1,5 @@
+using Microsoft.AspNetCore.Authentication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Chummer.Run.Registry.Services;
 
@@ -26,6 +28,22 @@ builder.Services.AddSingleton<IPublicationWorkflowService, PublicationWorkflowSe
 builder.Services.AddSingleton<IHubPublicationDraftService, HubPublicationDraftService>();
 builder.Services.AddSingleton<IHubArtifactStore, HubArtifactStore>();
 builder.Services.AddSingleton<IReleaseChannelManifestStore, FileReleaseChannelManifestStore>();
+builder.Services
+    .AddAuthentication(RegistryAuthorization.Scheme)
+    .AddScheme<AuthenticationSchemeOptions, RegistryControlApiKeyAuthenticationHandler>(
+        RegistryAuthorization.Scheme,
+        _ => { });
+builder.Services.AddAuthorization(options =>
+{
+    var controlPolicy = new AuthorizationPolicyBuilder(RegistryAuthorization.Scheme)
+        .RequireAuthenticatedUser()
+        .RequireClaim("scope", RegistryAuthorization.ControlPolicy)
+        .Build();
+
+    options.DefaultPolicy = controlPolicy;
+    options.FallbackPolicy = controlPolicy;
+    options.AddPolicy(RegistryAuthorization.ControlPolicy, controlPolicy);
+});
 
 var app = builder.Build();
 
@@ -34,6 +52,7 @@ var app = builder.Build();
 app.UseExceptionHandler();
 app.UseHttpsRedirection();
 
+app.UseAuthentication();
 app.UseAuthorization();
 
 app.MapControllers();

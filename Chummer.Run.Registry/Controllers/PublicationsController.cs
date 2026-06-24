@@ -1,5 +1,6 @@
 using Chummer.Run.Registry.Services;
 using Chummer.Run.Contracts.Publication;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Net.Http.Headers;
 
@@ -7,6 +8,7 @@ namespace Chummer.Run.Registry.Controllers;
 
 [ApiController]
 [Route("api/v1/publications")]
+[Authorize(Policy = RegistryAuthorization.ControlPolicy)]
 public sealed class PublicationsController : ControllerBase
 {
     private readonly IPublicationWorkflowService _workflow;
@@ -27,6 +29,7 @@ public sealed class PublicationsController : ControllerBase
     }
 
     [HttpGet]
+    [AllowAnonymous]
     [ProducesResponseType<IReadOnlyList<PublicationRecordResponse>>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     public ActionResult<IReadOnlyList<PublicationRecordResponse>> List(
@@ -59,6 +62,7 @@ public sealed class PublicationsController : ControllerBase
     }
 
     [HttpGet("{publicationId}")]
+    [AllowAnonymous]
     [ProducesResponseType<PublicationRecordResponse>(StatusCodes.Status200OK)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status400BadRequest)]
     [ProducesResponseType<ProblemDetails>(StatusCodes.Status404NotFound)]

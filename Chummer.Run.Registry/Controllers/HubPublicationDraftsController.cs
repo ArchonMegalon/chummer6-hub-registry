@@ -1,11 +1,13 @@
 using Chummer.Hub.Registry.Contracts;
 using Chummer.Run.Registry.Services;
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 
 namespace Chummer.Run.Registry.Controllers;
 
 [ApiController]
 [Route("api/v1/publication-drafts")]
+[Authorize(Policy = RegistryAuthorization.ControlPolicy)]
 public sealed class HubPublicationDraftsController : ControllerBase
 {
     private readonly IHubPublicationDraftService _drafts;
