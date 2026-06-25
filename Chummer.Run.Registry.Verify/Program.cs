@@ -3,11 +3,19 @@ using Chummer.Run.Contracts.Observability;
 using Chummer.Run.Contracts.Publication;
 using Chummer.Run.Contracts.Registry;
 using Chummer.Run.Registry.Services;
+using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Authorization;
+using Microsoft.AspNetCore.Builder;
+using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.TestHost;
 using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Hosting;
 using System.Reflection;
+using System.Net;
+using System.Net.Http.Json;
 using System.Text.Json;
 using RegistryReleaseChannelHeadProjection = Chummer.Hub.Registry.Contracts.ReleaseChannelHeadProjection;
 using RegistryOwner = Chummer.Hub.Registry.Contracts;
@@ -359,6 +367,7 @@ Assert(restoredDurableArtifact is not null, "File-backed registry artifact store
 Assert(string.Equals(restoredDurableArtifact!.RuntimeFingerprint, "sha256:durable-registry-fixture", StringComparison.Ordinal), "Reloaded registry artifact should retain runtime fingerprint.");
 
 VerifyRegistryAuthorizationSurface();
+VerifyRegistryAuthorizationHttpPipeline().GetAwaiter().GetResult();
 
 RegistryReleaseChannelHeadProjection releaseChannel = RequireOk(registryController.GetCurrentReleaseChannel());
 Assert(string.Equals(releaseChannel.ChannelId, "docker", StringComparison.Ordinal), "Release-channel read model should load the current registry manifest.");
@@ -1101,6 +1110,103 @@ static void VerifyRegistryAuthorizationSurface()
     {
         Assert(!method.GetCustomAttributes<AllowAnonymousAttribute>(inherit: true).Any(), $"Draft control-plane action {method.Name} must not allow anonymous access.");
     }
+}
+
+static async Task VerifyRegistryAuthorizationHttpPipeline()
+{
+    string registryStatePath = Path.Combine(Path.GetTempPath(), "registry-auth-pipeline", $"{Guid.NewGuid():N}.json");
+    string controlKey = $"registry-control-{Guid.NewGuid():N}";
+    using IHost host = await new HostBuilder()
+        .ConfigureWebHost(webBuilder =>
+        {
+            webBuilder.UseTestServer();
+            webBuilder.ConfigureAppConfiguration(config =>
+            {
+                config.AddInMemoryCollection(new Dictionary<string, string?>
+                {
+                    [RegistryAuthorization.PrimaryApiKeyConfigKey] = controlKey,
+                    ["CHUMMER_REGISTRY_STORE_PATH"] = registryStatePath
+                });
+            });
+            webBuilder.ConfigureServices(services =>
+            {
+                services.AddProblemDetails();
+                services
+                    .AddControllers()
+                    .AddApplicationPart(typeof(HubRegistryController).Assembly);
+                services.AddSingleton<IPublicationWorkflowService, PublicationWorkflowService>();
+                services.AddSingleton<IHubPublicationDraftService, HubPublicationDraftService>();
+                services.AddSingleton<IHubArtifactStore, FileBackedHubArtifactStore>();
+                services.AddSingleton<IReleaseChannelManifestStore, FileReleaseChannelManifestStore>();
+                services
+                    .AddAuthentication(RegistryAuthorization.Scheme)
+                    .AddScheme<AuthenticationSchemeOptions, RegistryControlApiKeyAuthenticationHandler>(
+                        RegistryAuthorization.Scheme,
+                        _ => { });
+                services.AddAuthorization(options =>
+                {
+                    var controlPolicy = new AuthorizationPolicyBuilder(RegistryAuthorization.Scheme)
+                        .RequireAuthenticatedUser()
+                        .RequireClaim("scope", RegistryAuthorization.ControlPolicy)
+                        .Build();
+
+                    options.DefaultPolicy = controlPolicy;
+                    options.FallbackPolicy = controlPolicy;
+                    options.AddPolicy(RegistryAuthorization.ControlPolicy, controlPolicy);
+                });
+            });
+            webBuilder.Configure(app =>
+            {
+                app.UseRouting();
+                app.UseAuthentication();
+                app.UseAuthorization();
+                app.UseEndpoints(endpoints => endpoints.MapControllers());
+            });
+        })
+        .StartAsync();
+
+    using HttpClient client = host.GetTestClient();
+    HttpResponseMessage anonymousRead = await client.GetAsync("/api/v1/registry/search");
+    Assert(anonymousRead.StatusCode == HttpStatusCode.OK, "Registry public search must remain anonymously readable.");
+
+    var artifactPayload = new
+    {
+        name = "Runtime auth pipeline artifact",
+        kind = 0,
+        version = "auth-pipeline-1",
+        rulesetId = "sr5",
+        visibility = "shared",
+        trustTier = "verified",
+        ownerId = "ops.registry",
+        publisherId = "pub.registry",
+        summary = "Registry auth pipeline verification.",
+        description = "Created only when the control credential is present."
+    };
+
+    HttpResponseMessage anonymousMutation = await client.PostAsJsonAsync("/api/v1/registry/artifacts", artifactPayload);
+    Assert(
+        anonymousMutation.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden,
+        $"Registry mutation without control key must be rejected; got {(int)anonymousMutation.StatusCode}.");
+
+    using var wrongKeyRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/registry/artifacts")
+    {
+        Content = JsonContent.Create(artifactPayload)
+    };
+    wrongKeyRequest.Headers.TryAddWithoutValidation(RegistryAuthorization.HeaderName, "wrong-control-key");
+    HttpResponseMessage wrongKeyMutation = await client.SendAsync(wrongKeyRequest);
+    Assert(
+        wrongKeyMutation.StatusCode is HttpStatusCode.Unauthorized or HttpStatusCode.Forbidden,
+        $"Registry mutation with wrong control key must be rejected; got {(int)wrongKeyMutation.StatusCode}.");
+
+    using var authorizedRequest = new HttpRequestMessage(HttpMethod.Post, "/api/v1/registry/artifacts")
+    {
+        Content = JsonContent.Create(artifactPayload)
+    };
+    authorizedRequest.Headers.TryAddWithoutValidation(RegistryAuthorization.HeaderName, controlKey);
+    HttpResponseMessage authorizedMutation = await client.SendAsync(authorizedRequest);
+    Assert(
+        authorizedMutation.StatusCode == HttpStatusCode.Created,
+        $"Registry mutation with valid control key must be accepted; got {(int)authorizedMutation.StatusCode}.");
 }
 
 static string FindRepositoryRoot()
