@@ -1039,10 +1039,18 @@ static bool HasHeader(ControllerBase controller, string key, string expectedValu
 static void VerifyRegistryAuthorizationSurface()
 {
     string programSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "Chummer.Run.Registry", "Program.cs"));
+    string authorizationSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "Chummer.Run.Registry", "Services", "RegistryAuthorization.cs"));
     Assert(programSource.Contains(".AddAuthentication(RegistryAuthorization.Scheme)", StringComparison.Ordinal), "Registry startup must configure the control-plane authentication scheme.");
     Assert(programSource.Contains("options.FallbackPolicy = controlPolicy;", StringComparison.Ordinal), "Registry startup must default-deny endpoints without an explicit AllowAnonymous marker.");
     Assert(programSource.Contains("app.UseAuthentication();", StringComparison.Ordinal), "Registry startup must authenticate requests before authorization.");
     Assert(programSource.Contains("AddSingleton<IHubArtifactStore, FileBackedHubArtifactStore>()", StringComparison.Ordinal), "Registry startup must use the durable artifact store, not the raw in-memory store.");
+    Assert(authorizationSource.Contains("PrimaryApiKeyConfigKey = \"CHUMMER_REGISTRY_CONTROL_API_KEY\"", StringComparison.Ordinal), "Registry auth must prefer the Chummer-scoped control API key.");
+    Assert(authorizationSource.Contains("LegacyApiKeyConfigKey = \"REGISTRY_CONTROL_API_KEY\"", StringComparison.Ordinal), "Registry auth may keep the legacy control key only as compatibility fallback.");
+    Assert(authorizationSource.Contains("HeaderName = \"X-Chummer-Registry-Key\"", StringComparison.Ordinal), "Registry auth must support the explicit first-party control header.");
+    Assert(authorizationSource.Contains("AuthenticateResult.NoResult()", StringComparison.Ordinal), "Registry auth must fail closed when no configured or supplied control key exists.");
+    Assert(authorizationSource.Contains("AuthenticateResult.Fail(\"Invalid registry control credential.\")", StringComparison.Ordinal), "Registry auth must explicitly reject invalid control credentials.");
+    Assert(authorizationSource.Contains("CryptographicOperations.FixedTimeEquals(expectedBytes, suppliedBytes)", StringComparison.Ordinal), "Registry auth must compare control credentials in constant time.");
+    Assert(!authorizationSource.Contains("== suppliedKey", StringComparison.Ordinal), "Registry auth must not use ordinary string equality for supplied control credentials.");
 
     AssertControllerUsesControlPolicy<HubRegistryController>();
     AssertControllerUsesControlPolicy<PublicationsController>();
