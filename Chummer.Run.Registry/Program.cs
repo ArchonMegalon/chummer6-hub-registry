@@ -26,7 +26,7 @@ builder.Services
     });
 builder.Services.AddSingleton<IPublicationWorkflowService, PublicationWorkflowService>();
 builder.Services.AddSingleton<IHubPublicationDraftService, HubPublicationDraftService>();
-builder.Services.AddSingleton<IHubArtifactStore, HubArtifactStore>();
+builder.Services.AddSingleton<IHubArtifactStore, FileBackedHubArtifactStore>();
 builder.Services.AddSingleton<IReleaseChannelManifestStore, FileReleaseChannelManifestStore>();
 builder.Services
     .AddAuthentication(RegistryAuthorization.Scheme)

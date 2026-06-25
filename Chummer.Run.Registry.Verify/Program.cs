@@ -331,6 +331,33 @@ HubRegistryController registryController = CreateController(new HubRegistryContr
 PublicationsController publicationsController = CreateController(new PublicationsController(workflow));
 HubPublicationDraftsController draftController = CreateController(new HubPublicationDraftsController(draftWorkflow));
 
+var registryStateRoot = Path.Combine(Path.GetTempPath(), "registry-artifact-store", Guid.NewGuid().ToString("N"));
+var registryStatePath = Path.Combine(registryStateRoot, "artifacts.json");
+var durableStoreConfig = new ConfigurationBuilder()
+    .AddInMemoryCollection(new Dictionary<string, string?>
+    {
+        ["CHUMMER_REGISTRY_ARTIFACT_STORE_PATH"] = registryStatePath
+    })
+    .Build();
+IHubArtifactStore durableStore = new FileBackedHubArtifactStore(durableStoreConfig);
+HubArtifactMetadata durableArtifact = durableStore.UpsertArtifact(new HubArtifactCreateRequest(
+    Name: "Durable Registry Fixture",
+    Kind: HubArtifactKind.RulePack,
+    Version: "2026.06.25",
+    RulesetId: "sr5",
+    Visibility: ArtifactVisibilityModes.Shared,
+    TrustTier: ArtifactTrustTiers.Curated,
+    OwnerId: "ops.registry",
+    PublisherId: "pub.registry",
+    Summary: "Verifies registry authority state survives restart.",
+    Description: "Used by registry runtime verification.",
+    RuntimeFingerprint: "sha256:durable-registry-fixture"));
+Assert(File.Exists(registryStatePath), "File-backed registry artifact store should persist a backup after mutation.");
+IHubArtifactStore restartedDurableStore = new FileBackedHubArtifactStore(durableStoreConfig);
+HubArtifactMetadata? restoredDurableArtifact = restartedDurableStore.GetArtifact(durableArtifact.Id);
+Assert(restoredDurableArtifact is not null, "File-backed registry artifact store should reload artifacts after restart.");
+Assert(string.Equals(restoredDurableArtifact!.RuntimeFingerprint, "sha256:durable-registry-fixture", StringComparison.Ordinal), "Reloaded registry artifact should retain runtime fingerprint.");
+
 VerifyRegistryAuthorizationSurface();
 
 RegistryReleaseChannelHeadProjection releaseChannel = RequireOk(registryController.GetCurrentReleaseChannel());
@@ -1015,6 +1042,7 @@ static void VerifyRegistryAuthorizationSurface()
     Assert(programSource.Contains(".AddAuthentication(RegistryAuthorization.Scheme)", StringComparison.Ordinal), "Registry startup must configure the control-plane authentication scheme.");
     Assert(programSource.Contains("options.FallbackPolicy = controlPolicy;", StringComparison.Ordinal), "Registry startup must default-deny endpoints without an explicit AllowAnonymous marker.");
     Assert(programSource.Contains("app.UseAuthentication();", StringComparison.Ordinal), "Registry startup must authenticate requests before authorization.");
+    Assert(programSource.Contains("AddSingleton<IHubArtifactStore, FileBackedHubArtifactStore>()", StringComparison.Ordinal), "Registry startup must use the durable artifact store, not the raw in-memory store.");
 
     AssertControllerUsesControlPolicy<HubRegistryController>();
     AssertControllerUsesControlPolicy<PublicationsController>();
