@@ -161,6 +161,14 @@ public sealed record RefreshInstallationGrantResponseDto(
     InstallationGrantDto Grant,
     bool Rotated);
 
+public sealed record RevokeInstallationGrantRequestDto(
+    string InstallationId,
+    string AccessToken);
+
+public sealed record RevokeInstallationGrantResponseDto(
+    ClaimedInstallationDto Installation,
+    IReadOnlyList<InstallationGrantDto> RevokedGrants);
+
 public sealed record IssueInstallBrowserCallbackRequestDto(
     string InstallationId,
     string ArtifactId,
