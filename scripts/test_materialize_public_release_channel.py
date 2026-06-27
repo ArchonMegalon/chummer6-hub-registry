@@ -856,6 +856,27 @@ def test_compatibility_payload_projects_public_stable_channel() -> None:
     assert payload["channel"] == "public_stable"
 
 
+def test_compatibility_payload_preserves_release_aliases_and_public_version() -> None:
+    payload = MODULE.compatibility_payload(
+        {
+            "generatedAt": "2026-06-27T00:54:02Z",
+            "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+            "channelId": "public_stable",
+            "channel": "public_stable",
+            "version": "run-20260627-005402",
+            "releaseVersion": "run-20260627-005402",
+            "publicVersion": "0.0.0.1",
+            "publishedAt": "2026-06-27T00:54:02Z",
+            "status": "published",
+            "artifacts": [],
+        }
+    )
+
+    assert payload["version"] == "run-20260627-005402"
+    assert payload["releaseVersion"] == "run-20260627-005402"
+    assert payload["publicVersion"] == "0.0.0.1"
+
+
 def test_compatibility_payload_preserves_download_compatibility_state_for_boundary_coverage() -> None:
     canonical = {
         "generatedAt": "2026-06-02T09:40:12Z",
@@ -1785,6 +1806,137 @@ def test_canonical_payload_keeps_mac_only_preview_registry_truth_scoped_to_mac_a
     assert payload["publicTrustMetrics"]["releaseChannel"]["supportabilityState"] == "preview_supported"
     assert payload["registryBoundaryCoverage"]["releaseChannel"]["supportabilityState"] == "preview_supported"
     assert payload["supportabilitySummary"].startswith("Current preview release is supported")
+
+
+def test_canonical_payload_preserves_public_version_and_sets_release_alias() -> None:
+    localization_domains = (
+        "app_chrome",
+        "install_update_support",
+        "explain_receipts",
+        "data_rules_names",
+        "generated_artifacts",
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        downloads_dir = root / "dist"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        installer_name = "chummer-avalonia-linux-x64-installer.deb"
+        (downloads_dir / installer_name).write_bytes(b"linux-installer-bytes")
+
+        proof_path = root / "release-proof.json"
+        proof_path.write_text(
+            json.dumps(
+                {
+                    "status": "passed",
+                    "generatedAt": "2026-06-27T00:50:00Z",
+                    "baseUrl": "https://chummer.run",
+                    "journeysPassed": list(MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS),
+                    "proofRoutes": list(MODULE.REQUIRED_RELEASE_PROOF_ROUTES),
+                    "uiLocalizationReleaseGate": {
+                        "status": "passed",
+                        "generatedAt": "2026-06-27T00:49:00Z",
+                        "defaultKeyCount": 100,
+                        "explicitFallbackRuntime": "passed",
+                        "signoffSmokeRunnerStatus": "passed",
+                        "shippingLocales": list(MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES),
+                        "acceptanceGates": list(MODULE.REQUIRED_LOCALIZATION_ACCEPTANCE_GATES),
+                        "domainCoverage": {
+                            domain: "passed"
+                            for domain in localization_domains
+                        },
+                        "localeDomainCoverage": {
+                            locale: {
+                                domain: "passed"
+                                for domain in localization_domains
+                            }
+                            for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+                        },
+                        "blockingFindings": [],
+                        "blockingFindingsCount": 0,
+                        "translationBacklogFindings": [],
+                        "translationBacklogFindingsCount": 0,
+                        "localeSummary": [
+                            {
+                                "locale": locale,
+                                "untranslatedKeyCount": 0,
+                                "overrideCount": 1,
+                                "minimumOverrideCount": 1,
+                                "missingReleaseSeedKeys": [],
+                                "legacyXmlPresent": True,
+                                "legacyDataXmlPresent": True,
+                            }
+                            for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+                        ],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        source_manifest = root / "source-release-channel.json"
+        source_manifest.write_text(
+            json.dumps(
+                {
+                    "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+                    "channelId": "public_stable",
+                    "channel": "public_stable",
+                    "version": "run-20260626-082847",
+                    "releaseVersion": "run-20260626-082847",
+                    "publicVersion": "0.0.0.1",
+                    "publishedAt": "2026-06-26T08:32:58Z",
+                    "status": "published",
+                    "artifacts": [
+                        {
+                            "artifactId": "avalonia-linux-x64-installer",
+                            "head": "avalonia",
+                            "rid": "linux-x64",
+                            "platform": "linux",
+                            "arch": "x64",
+                            "kind": "installer",
+                            "fileName": installer_name,
+                            "downloadUrl": f"/downloads/files/{installer_name}",
+                            "sha256": "",
+                            "sizeBytes": 0,
+                            "channelId": "public_stable",
+                            "channel": "public_stable",
+                            "version": "run-20260626-082847",
+                            "releaseVersion": "run-20260626-082847",
+                        }
+                    ],
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        payload = MODULE.canonical_payload(
+            argparse.Namespace(
+                manifest=source_manifest,
+                downloads_dir=downloads_dir,
+                startup_smoke_dir=None,
+                startup_smoke_max_age_seconds=MODULE.STARTUP_SMOKE_MAX_AGE_SECONDS,
+                startup_smoke_max_future_skew_seconds=MODULE.STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
+                skip_startup_smoke_filter=True,
+                output=root / "RELEASE_CHANNEL.generated.json",
+                compat_output=None,
+                runtime_bundles=None,
+                proof=proof_path,
+                ui_localization_release_gate=None,
+                product="chummer6",
+                channel="public_stable",
+                version="run-20260627-005402",
+                contract_name="",
+                published_at="2026-06-27T00:54:02Z",
+                artifact_source="ui_desktop_bundle",
+                downloads_prefix="/downloads/files",
+                required_desktop_heads="avalonia",
+            )
+        )
+
+    assert payload["version"] == "run-20260627-005402"
+    assert payload["releaseVersion"] == "run-20260627-005402"
+    assert payload["publicVersion"] == "0.0.0.1"
+    assert payload["artifacts"][0]["version"] == "run-20260627-005402"
+    assert payload["artifacts"][0]["releaseVersion"] == "run-20260627-005402"
 
 
 def test_ensure_registry_truth_matches_artifacts_rejects_split_brain_registry_rows() -> None:

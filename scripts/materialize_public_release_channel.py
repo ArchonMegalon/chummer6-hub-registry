@@ -3778,6 +3778,11 @@ def normalize_effective_channel_id(channel: str, rollout_state: str) -> str:
 def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     loaded = load_input_payload(args)
     loaded_version = str(loaded.get("version") or "").strip()
+    loaded_public_version = str(
+        loaded.get("publicVersion")
+        or loaded.get("public_version")
+        or ""
+    ).strip()
     requested_version = str(args.version or "").strip()
     version = (
         requested_version
@@ -4105,6 +4110,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "channelId": channel,
         "channel": channel,
         "version": version,
+        "releaseVersion": version,
         "publishedAt": published_at,
         "status": status,
         "artifactSource": str(loaded.get("artifactSource") or args.artifact_source).strip() or "ui_desktop_bundle",
@@ -4124,6 +4130,8 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "artifactIdentityRegistry": artifact_identity_registry_rows,
         "artifactPublicationBindings": artifact_publication_binding_rows,
     }
+    if loaded_public_version:
+        payload["publicVersion"] = loaded_public_version
     payload["publicTrustMetrics"] = expected_public_trust_metrics(payload)
     payload["registryBoundaryCoverage"] = expected_registry_boundary_coverage(payload)
     ensure_registry_truth_matches_artifacts(
@@ -4198,6 +4206,8 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         "contract_name": contract_name,
         "contractName": contract_name,
         "version": canonical.get("version") or "unpublished",
+        "releaseVersion": canonical.get("releaseVersion") or canonical.get("version") or "unpublished",
+        "publicVersion": canonical.get("publicVersion"),
         "channel": compatibility_channel,
         "publishedAt": canonical.get("publishedAt"),
         "downloads": downloads,
