@@ -23,7 +23,7 @@
   "startedAtUtc": "2026-06-28T16:28:40.7113653+00:00",
   "completedAtUtc": "2026-06-28T16:28:40.7137073+00:00",
   "artifactInstallMode": "nsis_bootstrap_installer",
-  "artifactPath": "/docker/chummercomplete/chummer-presentation/.tmp/publish-guidance-deploy/files/chummer-avalonia-win-x64-installer.exe",
+  "artifactPath": "/docker/chummercomplete/chummer-presentation/Docker/Downloads/files/chummer-avalonia-win-x64-installer.exe",
   "bootstrapPayloadAcquisitionMode": "download",
   "bootstrapPayloadDownloadUrl": "http://87.106.22.139:39559/chummer-avalonia-win-x64-payload.zip",
   "bootstrapPayloadSha256": "0d35a21cea0434d74056bc4437e44479ccf9835fd2fec4d1e36568c44dd040a3",
