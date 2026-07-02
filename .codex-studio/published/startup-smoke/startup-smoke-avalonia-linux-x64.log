@@ -1,9 +1,9 @@
 Selecting previously unselected package chummer6-avalonia.
 (Reading database ... 154781 files and directories currently installed.)
 Preparing to unpack .../chummer-avalonia-linux-x64-installer.deb ...
-Unpacking chummer6-avalonia (0~run-20260627-005402) ...
+Unpacking chummer6-avalonia (0~run-20260701-124648) ...
 touch: cannot touch '/run/needrestart/unpacked': Permission denied
-Setting up chummer6-avalonia (0~run-20260627-005402) ...
+Setting up chummer6-avalonia (0~run-20260701-124648) ...
 Processing triggers for mailcap (3.70+nmu1ubuntu1) ...
 Error: could not write '/etc/mailcap.new' -- Permission denied
 dpkg: error processing package mailcap (--install):
@@ -13,36 +13,5 @@ Errors were encountered while processing:
  mailcap
 dpkg install returned 1, but Chummer payload files were installed under the isolated root; tolerating host trigger noise.
 startup smoke ready: head=avalonia platform=linux arch=x64 checkpoint=pre_ui_event_loop
-[mouse-first-journey] start mouse-first live binary journey (sr5-priority)
-[mouse-first-journey] wait success: desktop shell initialized
-[mouse-first-journey] open authentication portal (success)
-[mouse-first-journey] click file menu
-[mouse-first-journey] wait success: menu command new_character available
-[mouse-first-journey] click file menu command new_character
-[mouse-first-journey] wait success: dialog dialog.new_character visible
-[mouse-first-journey] wait success: dialog field newCharacterName available
-[mouse-first-journey] type dialog field newCharacterName = Mouse Journey Runner
-[mouse-first-journey] wait success: dialog field newCharacterAlias available
-[mouse-first-journey] type dialog field newCharacterAlias = MouseRoute
-[mouse-first-journey] wait success: dialog select field newCharacterRulesetId available
-[mouse-first-journey] confirm dialog field newCharacterRulesetId = sr5
-[mouse-first-journey] wait success: dialog select field newCharacterBuildMethod available
-[mouse-first-journey] confirm dialog field newCharacterBuildMethod = Priority
-[mouse-first-journey] wait success: dialog action create_character available
-[mouse-first-journey] click dialog action create_character
-[mouse-first-journey] retry dialog action create_character after attempt 1 did not trigger new character continuation dialog rendered
-[mouse-first-journey] wait success: dialog action create_character available
-[mouse-first-journey] click dialog action create_character
-[mouse-first-journey] wait success: new character continuation dialog rendered
-[mouse-first-journey] wait success: dialog action complete_new_character_workflow available
-[mouse-first-journey] click dialog action complete_new_character_workflow
-[mouse-first-journey] wait success: workspace creation dialog closed after mouse-first creation flow
-[mouse-first-journey] wait success: character workspace published after mouse-first creation flow
-[mouse-first-journey] workspace strip stayed stable while live shell content confirmed opened character Mouse Journey Runner (sr5)
-[mouse-first-journey] click file menu
-[mouse-first-journey] wait success: menu command save_character available
-[mouse-first-journey] click file menu command save_character
-[mouse-first-journey] wait success: workspace saved after pointer-first flow
-[mouse-first-journey] workspace strip stayed stable while visible shell state confirmed saved workspace (missing)
 (Reading database ... 154794 files and directories currently installed.)
-Removing chummer6-avalonia (0~run-20260627-005402) ...
+Removing chummer6-avalonia (0~run-20260701-124648) ...
