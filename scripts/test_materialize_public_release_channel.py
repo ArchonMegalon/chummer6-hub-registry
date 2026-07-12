@@ -38,6 +38,9 @@ MODULE_SPEC = importlib.util.spec_from_file_location("materialize_public_release
 assert MODULE_SPEC and MODULE_SPEC.loader
 MODULE = importlib.util.module_from_spec(MODULE_SPEC)
 MODULE_SPEC.loader.exec_module(MODULE)
+# Keep the unit suite hermetic even when a sibling run-services checkout has a
+# live readiness receipt. Tests that exercise readiness pass an explicit gate.
+MODULE.DEFAULT_FLAGSHIP_READINESS_GATE_CANDIDATES = ()
 
 VERIFY_SCRIPT = Path(__file__).resolve().parent / "verify_public_release_channel.py"
 VERIFY_MODULE_SPEC = importlib.util.spec_from_file_location("verify_public_release_channel_module", VERIFY_SCRIPT)
@@ -109,6 +112,256 @@ def passing_release_proof() -> dict:
             "signoffSmokeRunnerStatus": "passed",
         },
     }
+
+
+def complete_release_proof(*, generated_at: str = "2026-07-08T03:10:00Z") -> dict:
+    localization_domains = (
+        "app_chrome",
+        "install_update_support",
+        "explain_receipts",
+        "data_rules_names",
+        "generated_artifacts",
+    )
+    return {
+        "status": "passed",
+        "generatedAt": generated_at,
+        "baseUrl": "https://chummer.run",
+        "journeysPassed": list(MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS),
+        "proofRoutes": list(MODULE.REQUIRED_RELEASE_PROOF_ROUTES),
+        "uiLocalizationReleaseGate": {
+            "status": "passed",
+            "generatedAt": generated_at,
+            "defaultKeyCount": 100,
+            "explicitFallbackRuntime": "passed",
+            "signoffSmokeRunnerStatus": "passed",
+            "shippingLocales": list(MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES),
+            "acceptanceGates": list(MODULE.REQUIRED_LOCALIZATION_ACCEPTANCE_GATES),
+            "domainCoverage": {domain: "passed" for domain in localization_domains},
+            "localeDomainCoverage": {
+                locale: {domain: "passed" for domain in localization_domains}
+                for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+            },
+            "blockingFindings": [],
+            "blockingFindingsCount": 0,
+            "translationBacklogFindings": [],
+            "translationBacklogFindingsCount": 0,
+            "localeSummary": [
+                {
+                    "locale": locale,
+                    "untranslatedKeyCount": 0,
+                    "overrideCount": 100,
+                    "minimumOverrideCount": 1,
+                    "missingReleaseSeedKeys": [],
+                    "legacyXmlPresent": True,
+                    "legacyDataXmlPresent": True,
+                }
+                for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+            ],
+        },
+    }
+
+
+def write_flagship_readiness_gate(
+    root: Path,
+    *,
+    status: str,
+    blockers: list[str] | None = None,
+    coverage_gaps: list[str] | None = None,
+    reason: str,
+) -> Path:
+    path = root / "FLAGSHIP_PRODUCT_READINESS_GATE.generated.json"
+    path.write_text(
+        json.dumps(
+            {
+                "contract_name": "chummer.flagship_product_readiness_gate.v1",
+                "status": status,
+                "generated_at_utc": "2026-07-08T03:13:53Z",
+                "summary": {
+                    "reason": reason,
+                    "scoped_coverage_gap_keys": coverage_gaps or [],
+                    "launch_critical_nested_blockers": blockers or [],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    return path
+
+
+def materialize_flagship_readiness_fixture(
+    root: Path,
+    *,
+    flagship_readiness: Path | None,
+    manifest_payload: dict | None = None,
+) -> dict:
+    downloads_dir = root / "dist"
+    downloads_dir.mkdir(parents=True, exist_ok=True)
+    (downloads_dir / "chummer-avalonia-linux-x64-installer.deb").write_bytes(
+        b"linux-installer-bytes"
+    )
+    proof_path = root / "release-proof.json"
+    proof_path.write_text(json.dumps(complete_release_proof()), encoding="utf-8")
+    manifest_path = None
+    if manifest_payload is not None:
+        manifest_path = root / "release-channel-source.json"
+        manifest_path.write_text(json.dumps(manifest_payload), encoding="utf-8")
+    return MODULE.canonical_payload(
+        argparse.Namespace(
+            manifest=manifest_path,
+            downloads_dir=downloads_dir,
+            startup_smoke_dir=None,
+            startup_smoke_max_age_seconds=MODULE.STARTUP_SMOKE_MAX_AGE_SECONDS,
+            startup_smoke_max_future_skew_seconds=MODULE.STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
+            skip_startup_smoke_filter=True,
+            output=root / "RELEASE_CHANNEL.generated.json",
+            compat_output=None,
+            runtime_bundles=None,
+            proof=proof_path,
+            ui_localization_release_gate=None,
+            flagship_readiness=flagship_readiness,
+            product="chummer6",
+            channel="public_stable",
+            version="run-20260708-031500",
+            contract_name="",
+            published_at="2026-07-08T03:15:00Z",
+            artifact_source="ui_desktop_bundle",
+            downloads_prefix="/downloads/files",
+            required_desktop_heads="avalonia",
+            required_desktop_platforms="linux",
+        )
+    )
+
+
+def test_canonical_payload_fail_closes_for_real_not_gold_flagship_blocker() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        gate = write_flagship_readiness_gate(
+            root,
+            status="fail",
+            blockers=["final gold janitor verdict is 'NOT_GOLD'"],
+            reason="Launch-critical nested blockers remain; final gold janitor verdict is 'NOT_GOLD'.",
+        )
+        payload = materialize_flagship_readiness_fixture(root, flagship_readiness=gate)
+
+    assert payload["channel"] == "public_stable"
+    assert payload["rolloutState"] == "public_release_review_required"
+    assert payload["supportabilityState"] == "review_required"
+    assert "stale or incomplete proof receipts" in payload["rolloutReason"]
+    assert "NOT_GOLD" in payload["supportabilitySummary"]
+    proof_freshness = payload["publicTrustMetrics"]["proofFreshness"]
+    assert proof_freshness["status"] == "stale"
+    assert proof_freshness["flagshipReadinessStatus"] == "fail"
+    assert proof_freshness["flagshipDesktopClientReady"] is False
+    assert proof_freshness["summary"].endswith("final gold janitor verdict is 'NOT_GOLD'.")
+    assert "NOT_GOLD'.." not in proof_freshness["summary"]
+    assert payload["artifactIdentityRegistry"][0]["publicationState"] == "preview"
+    assert payload["artifactPublicationBindings"][0]["retentionState"] == "temporary"
+
+
+def test_canonical_payload_ignores_release_posture_self_echo_and_refreshes_stale_copy() -> None:
+    stale_copy = {
+        "channel": "public_stable",
+        "status": "published",
+        "rolloutState": "public_release_review_required",
+        "supportabilityState": "review_required",
+        "rolloutReason": "Stale or incomplete proof receipts still block launch-readiness claims.",
+        "supportabilitySummary": "Stale or incomplete proof receipts still block launch-readiness claims.",
+        "knownIssueSummary": "Stale or incomplete proof receipts still block launch-readiness claims.",
+        "fixAvailabilitySummary": "Stale or incomplete proof receipts still block launch-readiness claims.",
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        gate = write_flagship_readiness_gate(
+            root,
+            status="fail",
+            blockers=[
+                "release channel channel is preview, not a flagship stable lane",
+                "release channel supportability is not gold_supported",
+                "release channel rollout is public_release_review_required, not public_stable",
+            ],
+            reason="Only release-channel posture echoes remain.",
+        )
+        payload = materialize_flagship_readiness_fixture(
+            root,
+            flagship_readiness=gate,
+            manifest_payload=stale_copy,
+        )
+
+    assert payload["rolloutState"] == "public_stable"
+    assert payload["supportabilityState"] == "gold_supported"
+    assert payload["publicTrustMetrics"]["proofFreshness"]["status"] == "fresh"
+    assert payload["publicTrustMetrics"]["proofFreshness"]["flagshipDesktopClientReady"] is True
+    assert all(
+        "stale or incomplete proof receipts" not in payload[field].casefold()
+        for field in (
+            "rolloutReason",
+            "supportabilitySummary",
+            "knownIssueSummary",
+            "fixAvailabilitySummary",
+        )
+    )
+
+
+def test_canonical_payload_blocker_overwrites_loaded_optimistic_posture_copy() -> None:
+    optimistic_copy = {
+        "channel": "public_stable",
+        "status": "published",
+        "rolloutState": "public_stable",
+        "supportabilityState": "gold_supported",
+        "rolloutReason": "Optimistic rollout copy.",
+        "supportabilitySummary": "Optimistic supportability copy.",
+        "knownIssueSummary": "Optimistic known-issue copy.",
+        "fixAvailabilitySummary": "Optimistic fix copy.",
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        gate = write_flagship_readiness_gate(
+            root,
+            status="fail",
+            blockers=["final gold janitor verdict is 'NOT_GOLD'"],
+            reason="The final gold janitor verdict is NOT_GOLD.",
+        )
+        payload = materialize_flagship_readiness_fixture(
+            root,
+            flagship_readiness=gate,
+            manifest_payload=optimistic_copy,
+        )
+
+    assert payload["rolloutState"] == "public_release_review_required"
+    assert payload["supportabilityState"] == "review_required"
+    for field in (
+        "rolloutReason",
+        "supportabilitySummary",
+        "knownIssueSummary",
+        "fixAvailabilitySummary",
+    ):
+        assert payload[field] != optimistic_copy[field]
+    assert "NOT_GOLD" in payload["knownIssueSummary"]
+
+
+def test_canonical_payload_preserves_existing_posture_for_passing_or_missing_flagship_gate() -> None:
+    for gate_status in ("passing", "missing"):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            gate = (
+                write_flagship_readiness_gate(
+                    root,
+                    status="passed",
+                    reason="All launch-critical flagship readiness checks passed.",
+                )
+                if gate_status == "passing"
+                else None
+            )
+            payload = materialize_flagship_readiness_fixture(root, flagship_readiness=gate)
+
+        assert payload["rolloutState"] == "public_stable"
+        assert payload["supportabilityState"] == "gold_supported"
+        assert payload["publicTrustMetrics"]["proofFreshness"]["status"] == "fresh"
+        assert payload["artifactIdentityRegistry"][0]["publicationState"] == "published"
+        if gate_status == "passing":
+            assert payload["publicTrustMetrics"]["proofFreshness"]["flagshipDesktopClientReady"] is True
+        else:
+            assert "flagshipDesktopClientReady" not in payload["publicTrustMetrics"]["proofFreshness"]
 
 
 def test_normalize_release_proof_payload_accepts_review_required_for_preview_publication() -> None:

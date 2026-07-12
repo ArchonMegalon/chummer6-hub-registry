@@ -4710,7 +4710,8 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
                     else ""
                 )
                 + (
-                    f" and desktop readiness is blocked: {flagship_readiness.get('reason')}."
+                    " and desktop readiness is blocked: "
+                    f"{str(flagship_readiness.get('reason')).strip().rstrip('.')}."
                     if proof_freshness_status != 'fresh' and readiness_required and flagship_readiness.get("reason")
                     else "."
                 )
