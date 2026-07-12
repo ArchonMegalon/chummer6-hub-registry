@@ -1295,6 +1295,25 @@ def test_dedupe_release_proof_routes_preserves_first_route_order() -> None:
     ]
 
 
+def test_canonicalize_release_proof_routes_sorts_existing_and_new_install_routes() -> None:
+    routes = MODULE.canonicalize_release_proof_routes(
+        [
+            *MODULE.REQUIRED_RELEASE_PROOF_ROUTES,
+            "/downloads/install/avalonia-win-x64-installer",
+            "/downloads/install/avalonia-osx-arm64-installer",
+            "/downloads/install/blazor-desktop-osx-arm64-installer",
+            "/downloads/install/avalonia-win-x64-installer",
+        ]
+    )
+
+    assert routes == [
+        *MODULE.REQUIRED_RELEASE_PROOF_ROUTES,
+        "/downloads/install/avalonia-osx-arm64-installer",
+        "/downloads/install/avalonia-win-x64-installer",
+        "/downloads/install/blazor-desktop-osx-arm64-installer",
+    ]
+
+
 def test_desktop_route_truth_does_not_offer_revoked_fallback_for_primary_rollback() -> None:
     rows = MODULE.desktop_route_truth(
         [

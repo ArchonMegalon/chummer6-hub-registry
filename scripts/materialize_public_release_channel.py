@@ -540,6 +540,21 @@ def dedupe_release_proof_routes(routes: list[str]) -> list[str]:
     return deduped
 
 
+def canonicalize_release_proof_routes(routes: list[str]) -> list[str]:
+    deduped = dedupe_release_proof_routes(routes)
+    required_routes = [
+        route
+        for route in REQUIRED_RELEASE_PROOF_ROUTES
+        if route in deduped
+    ]
+    additional_routes = sorted(
+        route
+        for route in deduped
+        if route not in REQUIRED_RELEASE_PROOF_ROUTES
+    )
+    return required_routes + additional_routes
+
+
 def normalize_release_proof_base_url(raw_base_url: Any, *, field_name: str, source: str) -> str:
     if not isinstance(raw_base_url, str):
         raise ValueError(f"{field_name} must be a string in {source}")
@@ -4120,7 +4135,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         proof=release_proof,
     )
     release_proof["proofRoutes"] = validate_release_proof_route_set(
-        dedupe_release_proof_routes(
+        canonicalize_release_proof_routes(
             [
                 *list(release_proof.get("proofRoutes") or []),
                 *derived_release_proof_artifact_routes(artifacts),
