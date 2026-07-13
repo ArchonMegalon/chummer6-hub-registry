@@ -3177,6 +3177,55 @@ def output_readiness_freshness_status(
     return normalized_status
 
 
+def enforce_public_trust_supportability_projection(payload: dict[str, Any]) -> None:
+    if normalize_token(payload.get("status")) != "published":
+        return
+    public_trust_metrics = payload.get("publicTrustMetrics")
+    if not isinstance(public_trust_metrics, dict):
+        return
+    release_channel = public_trust_metrics.get("releaseChannel")
+    proof_freshness = public_trust_metrics.get("proofFreshness")
+    nested_supportability_state = normalize_token(
+        release_channel.get("supportabilityState")
+        if isinstance(release_channel, dict)
+        else None
+    )
+    freshness_status = normalize_token(
+        proof_freshness.get("status")
+        if isinstance(proof_freshness, dict)
+        else None
+    )
+    if nested_supportability_state == "review_required":
+        payload["supportabilityState"] = "review_required"
+    if freshness_status not in {"stale", "missing"}:
+        return
+
+    payload["supportabilityState"] = "review_required"
+    stale_proof_explanation = "stale or incomplete proof receipts"
+    fallback_copy = {
+        "rolloutReason": (
+            "Current shelf is published, but release posture stays review-required because "
+            "stale or incomplete proof receipts must be refreshed before widening launch-readiness claims."
+        ),
+        "supportabilitySummary": (
+            "Treat the current release as review-required because stale or incomplete proof receipts "
+            "must be refreshed before widening supportability claims."
+        ),
+        "knownIssueSummary": (
+            "Known issue: stale or incomplete proof receipts require review before this channel can "
+            "carry current support claims."
+        ),
+        "fixAvailabilitySummary": (
+            "Refresh stale or incomplete proof receipts, regenerate the release channel, and re-run "
+            "validation before promotion."
+        ),
+    }
+    for field_name, replacement in fallback_copy.items():
+        current_value = str(payload.get(field_name) or "").strip()
+        if stale_proof_explanation not in current_value.casefold():
+            payload[field_name] = replacement
+
+
 def artifact_publication_state(
     route_row: dict[str, Any],
     *,
@@ -4411,6 +4460,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             )
             proof_freshness["flagshipReadinessReason"] = flagship_readiness.get("reason")
         payload["publicTrustMetrics"] = expected_public_trust_metrics(payload)
+    enforce_public_trust_supportability_projection(payload)
     payload["registryBoundaryCoverage"] = expected_registry_boundary_coverage(payload)
     ensure_registry_truth_matches_artifacts(
         artifacts,

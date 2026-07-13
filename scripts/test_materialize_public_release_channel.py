@@ -193,6 +193,9 @@ def materialize_flagship_readiness_fixture(
     *,
     flagship_readiness: Path | None,
     manifest_payload: dict | None = None,
+    channel: str = "public_stable",
+    proof_generated_at: str = "2026-07-08T03:10:00Z",
+    published_at: str = "2026-07-08T03:15:00Z",
 ) -> dict:
     downloads_dir = root / "dist"
     downloads_dir.mkdir(parents=True, exist_ok=True)
@@ -200,7 +203,10 @@ def materialize_flagship_readiness_fixture(
         b"linux-installer-bytes"
     )
     proof_path = root / "release-proof.json"
-    proof_path.write_text(json.dumps(complete_release_proof()), encoding="utf-8")
+    proof_path.write_text(
+        json.dumps(complete_release_proof(generated_at=proof_generated_at)),
+        encoding="utf-8",
+    )
     manifest_path = None
     if manifest_payload is not None:
         manifest_path = root / "release-channel-source.json"
@@ -220,10 +226,10 @@ def materialize_flagship_readiness_fixture(
             ui_localization_release_gate=None,
             flagship_readiness=flagship_readiness,
             product="chummer6",
-            channel="public_stable",
+            channel=channel,
             version="run-20260708-031500",
             contract_name="",
-            published_at="2026-07-08T03:15:00Z",
+            published_at=published_at,
             artifact_source="ui_desktop_bundle",
             downloads_prefix="/downloads/files",
             required_desktop_heads="avalonia",
@@ -362,6 +368,57 @@ def test_canonical_payload_preserves_existing_posture_for_passing_or_missing_fla
             assert payload["publicTrustMetrics"]["proofFreshness"]["flagshipDesktopClientReady"] is True
         else:
             assert "flagshipDesktopClientReady" not in payload["publicTrustMetrics"]["proofFreshness"]
+
+
+def test_canonical_payload_projects_stale_preview_proof_into_review_required_top_level_truth() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        payload = materialize_flagship_readiness_fixture(
+            root,
+            flagship_readiness=None,
+            channel="preview",
+            proof_generated_at="2026-06-01T03:10:00Z",
+            published_at="2026-07-13T02:20:15Z",
+        )
+
+    trust_metrics = payload["publicTrustMetrics"]
+    assert payload["rolloutState"] == "promoted_preview"
+    assert trust_metrics["proofFreshness"]["status"] == "stale"
+    assert payload["supportabilityState"] == "review_required"
+    assert trust_metrics["releaseChannel"]["supportabilityState"] == "review_required"
+    verified_coverage = VERIFY_MODULE.verify_desktop_tuple_coverage(
+        payload,
+        "stale-preview-fixture.json",
+    )
+    VERIFY_MODULE.verify_output_readiness_honesty(
+        payload,
+        "stale-preview-fixture.json",
+        verified_coverage,
+    )
+    for field in (
+        "rolloutReason",
+        "supportabilitySummary",
+        "knownIssueSummary",
+        "fixAvailabilitySummary",
+    ):
+        assert "stale or incomplete proof receipts" in payload[field].casefold()
+
+
+def test_public_trust_review_required_projection_cannot_leave_optimistic_top_level_state() -> None:
+    payload = {
+        "status": "published",
+        "supportabilityState": "preview_supported",
+        "supportabilitySummary": "Existing review rationale.",
+        "publicTrustMetrics": {
+            "releaseChannel": {"supportabilityState": "review_required"},
+            "proofFreshness": {"status": "fresh"},
+        },
+    }
+
+    MODULE.enforce_public_trust_supportability_projection(payload)
+
+    assert payload["supportabilityState"] == "review_required"
+    assert payload["supportabilitySummary"] == "Existing review rationale."
 
 
 def test_normalize_release_proof_payload_accepts_review_required_for_preview_publication() -> None:
