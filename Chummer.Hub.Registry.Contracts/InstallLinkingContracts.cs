@@ -70,7 +70,9 @@ public sealed record InstallClaimTicketDto(
     string? UserId = null,
     string? SubjectId = null,
     string? ReceiptId = null,
-    string? InstallationId = null);
+    string? InstallationId = null,
+    string? GenerationId = null,
+    string? ArtifactSha256 = null);
 
 public sealed record ClaimedInstallationDto(
     string InstallationId,
@@ -119,7 +121,8 @@ public sealed record InstallBrowserCallbackDto(
     string? Platform = null,
     string? Arch = null,
     string? HostLabel = null,
-    string? CallbackUri = null);
+    string? CallbackUri = null,
+    string? GrantId = null);
 
 public sealed record InstallLinkingSummaryDto(
     IReadOnlyList<DownloadReceiptDto> RecentReceipts,

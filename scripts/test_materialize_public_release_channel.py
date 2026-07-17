@@ -38,9 +38,6 @@ MODULE_SPEC = importlib.util.spec_from_file_location("materialize_public_release
 assert MODULE_SPEC and MODULE_SPEC.loader
 MODULE = importlib.util.module_from_spec(MODULE_SPEC)
 MODULE_SPEC.loader.exec_module(MODULE)
-# Keep the unit suite hermetic even when a sibling run-services checkout has a
-# live readiness receipt. Tests that exercise readiness pass an explicit gate.
-MODULE.DEFAULT_FLAGSHIP_READINESS_GATE_CANDIDATES = ()
 
 VERIFY_SCRIPT = Path(__file__).resolve().parent / "verify_public_release_channel.py"
 VERIFY_MODULE_SPEC = importlib.util.spec_from_file_location("verify_public_release_channel_module", VERIFY_SCRIPT)
@@ -114,7 +111,11 @@ def passing_release_proof() -> dict:
     }
 
 
-def complete_release_proof(*, generated_at: str = "2026-07-08T03:10:00Z") -> dict:
+def complete_release_proof(
+    generated_at: str,
+    *,
+    ui_localization_generated_at: str | None = None,
+) -> dict:
     localization_domains = (
         "app_chrome",
         "install_update_support",
@@ -130,15 +131,21 @@ def complete_release_proof(*, generated_at: str = "2026-07-08T03:10:00Z") -> dic
         "proofRoutes": list(MODULE.REQUIRED_RELEASE_PROOF_ROUTES),
         "uiLocalizationReleaseGate": {
             "status": "passed",
-            "generatedAt": generated_at,
+            "generatedAt": ui_localization_generated_at or generated_at,
             "defaultKeyCount": 100,
             "explicitFallbackRuntime": "passed",
             "signoffSmokeRunnerStatus": "passed",
             "shippingLocales": list(MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES),
             "acceptanceGates": list(MODULE.REQUIRED_LOCALIZATION_ACCEPTANCE_GATES),
-            "domainCoverage": {domain: "passed" for domain in localization_domains},
+            "domainCoverage": {
+                domain: "passed"
+                for domain in localization_domains
+            },
             "localeDomainCoverage": {
-                locale: {domain: "passed" for domain in localization_domains}
+                locale: {
+                    domain: "passed"
+                    for domain in localization_domains
+                }
                 for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
             },
             "blockingFindings": [],
@@ -149,7 +156,7 @@ def complete_release_proof(*, generated_at: str = "2026-07-08T03:10:00Z") -> dic
                 {
                     "locale": locale,
                     "untranslatedKeyCount": 0,
-                    "overrideCount": 100,
+                    "overrideCount": 1,
                     "minimumOverrideCount": 1,
                     "missingReleaseSeedKeys": [],
                     "legacyXmlPresent": True,
@@ -161,31 +168,40 @@ def complete_release_proof(*, generated_at: str = "2026-07-08T03:10:00Z") -> dic
     }
 
 
-def write_flagship_readiness_gate(
-    root: Path,
-    *,
-    status: str,
-    blockers: list[str] | None = None,
-    coverage_gaps: list[str] | None = None,
-    reason: str,
-) -> Path:
-    path = root / "FLAGSHIP_PRODUCT_READINESS_GATE.generated.json"
-    path.write_text(
-        json.dumps(
-            {
-                "contract_name": "chummer.flagship_product_readiness_gate.v1",
-                "status": status,
-                "generated_at_utc": "2026-07-08T03:13:53Z",
-                "summary": {
-                    "reason": reason,
-                    "scoped_coverage_gap_keys": coverage_gaps or [],
-                    "launch_critical_nested_blockers": blockers or [],
-                },
-            }
-        ),
-        encoding="utf-8",
-    )
-    return path
+def test_load_flagship_readiness_snapshot_is_digest_bound_and_redacts_private_material() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "FLAGSHIP_PRODUCT_READINESS_GATE.generated.json"
+        source_payload = {
+            "contract_name": MODULE.FLAGSHIP_READINESS_CONTRACT_NAME,
+            "status": "fail",
+            "generated_at_utc": "2026-07-15T08:00:00Z",
+            "reason": (
+                "Desktop proof is missing at /docker/chummercomplete/private/proof.json; "
+                "contact operator@example.test."
+            ),
+            "summary": {
+                "scoped_coverage_gap_keys": ["desktop_client", "desktop_client"],
+                "launch_critical_nested_blockers": [
+                    "Proof is missing at /Users/operator/private/proof.json.",
+                ],
+            },
+        }
+        raw_source = json.dumps(source_payload).encode("utf-8")
+        path.write_bytes(raw_source)
+
+        snapshot = MODULE.load_flagship_readiness_snapshot(path)
+
+    assert set(snapshot) == set(VERIFY_MODULE.ALLOWED_FLAGSHIP_READINESS_SNAPSHOT_KEYS)
+    assert snapshot["contractName"] == MODULE.FLAGSHIP_READINESS_CONTRACT_NAME
+    assert snapshot["coverageGapKeys"] == ["desktop_client"]
+    assert snapshot["desktopClientReady"] is False
+    assert snapshot["sourceSha256"] == "sha256:" + hashlib.sha256(raw_source).hexdigest()
+    assert snapshot["snapshotSha256"] == VERIFY_MODULE.flagship_readiness_snapshot_sha256(snapshot)
+    serialized = json.dumps(snapshot)
+    assert "/docker/" not in serialized
+    assert "/Users/" not in serialized
+    assert "operator@example.test" not in serialized
+    VERIFY_MODULE.validate_flagship_readiness_snapshot(snapshot, source="materialized fixture")
 
 
 def materialize_flagship_readiness_fixture(
@@ -238,136 +254,153 @@ def materialize_flagship_readiness_fixture(
     )
 
 
-def test_canonical_payload_fail_closes_for_real_not_gold_flagship_blocker() -> None:
+def test_flagship_readiness_absent_or_malformed_fails_closed_to_missing() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
-        gate = write_flagship_readiness_gate(
-            root,
-            status="fail",
-            blockers=["final gold janitor verdict is 'NOT_GOLD'"],
-            reason="Launch-critical nested blockers remain; final gold janitor verdict is 'NOT_GOLD'.",
-        )
-        payload = materialize_flagship_readiness_fixture(root, flagship_readiness=gate)
+        absent_path = root / "absent.json"
+        malformed_path = root / "malformed.json"
+        malformed_path.write_text("{not-json", encoding="utf-8")
 
-    assert payload["channel"] == "public_stable"
+        absent = MODULE.load_flagship_readiness_snapshot(absent_path)
+        malformed = MODULE.load_flagship_readiness_snapshot(malformed_path)
+
+    projection_generated_at = MODULE.dt.datetime(2026, 7, 15, 8, 1, tzinfo=MODULE.UTC)
+    assert absent == {}
+    assert malformed == {}
+    assert MODULE.output_readiness_freshness_status(
+        "fresh",
+        flagship_readiness=absent,
+        projection_generated_at=projection_generated_at,
+    ) == "missing"
+    assert MODULE.output_readiness_freshness_status(
+        "fresh",
+        flagship_readiness=malformed,
+        projection_generated_at=projection_generated_at,
+    ) == "missing"
+
+
+@pytest.mark.parametrize("gate_mode", ["absent", "malformed"])
+def test_canonical_payload_fails_closed_when_flagship_gate_is_absent_or_malformed(
+    gate_mode: str,
+) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        downloads_dir = root / "dist"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        for file_name in (
+            "chummer-avalonia-linux-x64-installer.deb",
+            "chummer-avalonia-win-x64-installer.exe",
+            "chummer-avalonia-osx-arm64-installer.dmg",
+        ):
+            (downloads_dir / file_name).write_bytes(file_name.encode("utf-8"))
+        proof_path = root / "release-proof.json"
+        proof_path.write_text(
+            json.dumps(
+                complete_release_proof(
+                    "2026-07-15T08:00:00Z",
+                    ui_localization_generated_at="2026-07-15T08:00:00Z",
+                )
+            ),
+            encoding="utf-8",
+        )
+        gate_path = root / "FLAGSHIP_PRODUCT_READINESS_GATE.generated.json"
+        if gate_mode == "malformed":
+            gate_path.write_text("{not-json", encoding="utf-8")
+
+        payload = MODULE.canonical_payload(
+            argparse.Namespace(
+                manifest=None,
+                downloads_dir=downloads_dir,
+                startup_smoke_dir=None,
+                startup_smoke_max_age_seconds=MODULE.STARTUP_SMOKE_MAX_AGE_SECONDS,
+                startup_smoke_max_future_skew_seconds=MODULE.STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
+                skip_startup_smoke_filter=True,
+                output=root / "RELEASE_CHANNEL.generated.json",
+                compat_output=None,
+                runtime_bundles=None,
+                proof=proof_path,
+                ui_localization_release_gate=None,
+                flagship_readiness=gate_path,
+                product="chummer6",
+                channel="preview",
+                version="run-20260715-080100",
+                contract_name="",
+                published_at="2026-07-15T08:01:00Z",
+                artifact_source="ui_desktop_bundle",
+                downloads_prefix="/downloads/files",
+                required_desktop_heads="avalonia",
+                required_desktop_platforms="linux,windows,macos",
+            )
+        )
+
+    assert "flagshipReadiness" not in payload["releaseProof"]
+    assert payload["publicTrustMetrics"]["proofFreshness"]["status"] == "missing"
     assert payload["rolloutState"] == "public_release_review_required"
     assert payload["supportabilityState"] == "review_required"
-    assert "stale or incomplete proof receipts" in payload["rolloutReason"]
-    assert "NOT_GOLD" in payload["supportabilitySummary"]
-    proof_freshness = payload["publicTrustMetrics"]["proofFreshness"]
-    assert proof_freshness["status"] == "stale"
-    assert proof_freshness["flagshipReadinessStatus"] == "fail"
-    assert proof_freshness["flagshipDesktopClientReady"] is False
-    assert proof_freshness["summary"].endswith("final gold janitor verdict is 'NOT_GOLD'.")
-    assert "NOT_GOLD'.." not in proof_freshness["summary"]
-    assert payload["artifactIdentityRegistry"][0]["publicationState"] == "preview"
-    assert payload["artifactPublicationBindings"][0]["retentionState"] == "temporary"
+    assert payload["publicTrustMetrics"]["releaseChannel"]["supportabilityState"] == "review_required"
+    assert payload["registryBoundaryCoverage"]["releaseChannel"]["publicTrustPosture"] == "blocked"
 
 
-def test_canonical_payload_ignores_release_posture_self_echo_and_refreshes_stale_copy() -> None:
-    stale_copy = {
-        "channel": "public_stable",
-        "status": "published",
-        "rolloutState": "public_release_review_required",
-        "supportabilityState": "review_required",
-        "rolloutReason": "Stale or incomplete proof receipts still block launch-readiness claims.",
-        "supportabilitySummary": "Stale or incomplete proof receipts still block launch-readiness claims.",
-        "knownIssueSummary": "Stale or incomplete proof receipts still block launch-readiness claims.",
-        "fixAvailabilitySummary": "Stale or incomplete proof receipts still block launch-readiness claims.",
-    }
+def test_compatibility_payload_preserves_flagship_readiness_snapshot() -> None:
     with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        gate = write_flagship_readiness_gate(
-            root,
-            status="fail",
-            blockers=[
-                "release channel channel is preview, not a flagship stable lane",
-                "release channel supportability is not gold_supported",
-                "release channel rollout is public_release_review_required, not public_stable",
-            ],
-            reason="Only release-channel posture echoes remain.",
+        gate_path = Path(tmp) / "flagship-readiness.json"
+        gate_path.write_text(
+            json.dumps(
+                {
+                    "contract_name": MODULE.FLAGSHIP_READINESS_CONTRACT_NAME,
+                    "status": "pass",
+                    "generated_at_utc": "2026-07-15T08:00:00Z",
+                    "reason": "All launch-critical flagship readiness checks pass.",
+                    "summary": {
+                        "scoped_coverage_gap_keys": [],
+                        "launch_critical_nested_blockers": [],
+                    },
+                }
+            ),
+            encoding="utf-8",
         )
-        payload = materialize_flagship_readiness_fixture(
-            root,
-            flagship_readiness=gate,
-            manifest_payload=stale_copy,
-        )
+        snapshot = MODULE.load_flagship_readiness_snapshot(gate_path)
 
-    assert payload["rolloutState"] == "public_stable"
-    assert payload["supportabilityState"] == "gold_supported"
-    assert payload["publicTrustMetrics"]["proofFreshness"]["status"] == "fresh"
-    assert payload["publicTrustMetrics"]["proofFreshness"]["flagshipDesktopClientReady"] is True
-    assert all(
-        "stale or incomplete proof receipts" not in payload[field].casefold()
-        for field in (
-            "rolloutReason",
-            "supportabilitySummary",
-            "knownIssueSummary",
-            "fixAvailabilitySummary",
-        )
+    canonical = {
+        "contractName": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+        "releaseProof": {"flagshipReadiness": snapshot},
+    }
+    compatibility = MODULE.compatibility_payload(canonical)
+
+    assert compatibility["releaseProof"]["flagshipReadiness"] == snapshot
+
+
+def test_derive_known_issue_summary_uses_preview_caveat_copy_for_preview_channel() -> None:
+    summary = MODULE.derive_known_issue_summary(
+        "preview",
+        "published",
+        {
+            "status": "passed",
+            "uiLocalizationReleaseGate": {
+                "status": "passed",
+                "explicitFallbackRuntime": "passed",
+                "signoffSmokeRunnerStatus": "passed",
+            },
+            "journeysPassed": [
+                "build_explain_publish",
+                "campaign_session_recover_recap",
+                "install_claim_restore_continue",
+                "report_cluster_release_notify",
+                "organize_community_and_close_loop",
+            ],
+        },
+        desktop_coverage_complete=True,
+        coverage={"requiredDesktopPlatforms": ["linux", "windows"]},
     )
 
-
-def test_canonical_payload_blocker_overwrites_loaded_optimistic_posture_copy() -> None:
-    optimistic_copy = {
-        "channel": "public_stable",
-        "status": "published",
-        "rolloutState": "public_stable",
-        "supportabilityState": "gold_supported",
-        "rolloutReason": "Optimistic rollout copy.",
-        "supportabilitySummary": "Optimistic supportability copy.",
-        "knownIssueSummary": "Optimistic known-issue copy.",
-        "fixAvailabilitySummary": "Optimistic fix copy.",
-    }
-    with tempfile.TemporaryDirectory() as tmp:
-        root = Path(tmp)
-        gate = write_flagship_readiness_gate(
-            root,
-            status="fail",
-            blockers=["final gold janitor verdict is 'NOT_GOLD'"],
-            reason="The final gold janitor verdict is NOT_GOLD.",
-        )
-        payload = materialize_flagship_readiness_fixture(
-            root,
-            flagship_readiness=gate,
-            manifest_payload=optimistic_copy,
-        )
-
-    assert payload["rolloutState"] == "public_release_review_required"
-    assert payload["supportabilityState"] == "review_required"
-    for field in (
-        "rolloutReason",
-        "supportabilitySummary",
-        "knownIssueSummary",
-        "fixAvailabilitySummary",
-    ):
-        assert payload[field] != optimistic_copy[field]
-    assert "NOT_GOLD" in payload["knownIssueSummary"]
-
-
-def test_canonical_payload_preserves_existing_posture_for_passing_or_missing_flagship_gate() -> None:
-    for gate_status in ("passing", "missing"):
-        with tempfile.TemporaryDirectory() as tmp:
-            root = Path(tmp)
-            gate = (
-                write_flagship_readiness_gate(
-                    root,
-                    status="passed",
-                    reason="All launch-critical flagship readiness checks passed.",
-                )
-                if gate_status == "passing"
-                else None
-            )
-            payload = materialize_flagship_readiness_fixture(root, flagship_readiness=gate)
-
-        assert payload["rolloutState"] == "public_stable"
-        assert payload["supportabilityState"] == "gold_supported"
-        assert payload["publicTrustMetrics"]["proofFreshness"]["status"] == "fresh"
-        assert payload["artifactIdentityRegistry"][0]["publicationState"] == "published"
-        if gate_status == "passing":
-            assert payload["publicTrustMetrics"]["proofFreshness"]["flagshipDesktopClientReady"] is True
-        else:
-            assert "flagshipDesktopClientReady" not in payload["publicTrustMetrics"]["proofFreshness"]
+    assert summary.startswith("Preview caveats still apply, but the current release has recent ")
+    assert "install guidance" in summary
+    assert "session recovery" in summary
+    assert "account return" in summary
+    assert "release updates" in summary
+    assert "community wrap-up" in summary
+    assert "bounded offline prefetch" in summary
+    assert "current support follow-up coverage" in summary
 
 
 def test_canonical_payload_projects_stale_preview_proof_into_review_required_top_level_truth() -> None:
@@ -538,6 +571,21 @@ def test_normalize_release_channel_posture_upgrades_stale_local_docker_states() 
         proof=passing_release_proof(),
         desktop_coverage_complete=True,
     ) == ("public_stable", "gold_supported")
+
+
+@pytest.mark.parametrize("freshness_status", ["stale", "missing"])
+def test_normalize_release_channel_posture_demotes_supported_state_when_proof_is_not_fresh(
+    freshness_status: str,
+) -> None:
+    assert MODULE.normalize_release_channel_posture(
+        "promoted_preview",
+        "preview_supported",
+        channel="preview",
+        status="published",
+        proof=passing_release_proof(),
+        desktop_coverage_complete=True,
+        proof_freshness_status_value=freshness_status,
+    ) == ("public_release_review_required", "review_required")
 
 
 def test_normalize_effective_channel_id_projects_public_stable_for_promoted_preview_release() -> None:
@@ -1015,6 +1063,61 @@ def test_load_startup_smoke_receipts_accepts_preview_channel_when_expected_chann
     ]
 
 
+def test_load_startup_smoke_receipts_preserves_windows_bootstrap_metadata() -> None:
+    now = MODULE.dt.datetime(2026, 7, 4, 18, 0, tzinfo=timezone.utc)
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        receipt_path = root / "startup-smoke-avalonia-win-x64.receipt.json"
+        receipt_path.write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": "2026-07-04T17:59:45Z",
+                    "headId": "avalonia",
+                    "platform": "windows",
+                    "arch": "x64",
+                    "rid": "win-x64",
+                    "hostClass": "windows-host",
+                    "operatingSystem": "Windows 11",
+                    "channelId": "preview",
+                    "artifactDigest": "sha256:80655fd79a096cd7714910d7b38f7741eea01f82ada96dc6a2a097951997d91a",
+                    "artifactId": "avalonia-win-x64-installer",
+                    "artifactPath": "/tmp/chummer-avalonia-win-x64-installer.exe",
+                    "artifactInstallMode": "nsis_bootstrap_installer",
+                    "bootstrapPayloadAcquisitionMode": "download",
+                    "bootstrapPayloadFileName": "chummer-avalonia-win-x64-payload.zip",
+                    "bootstrapPayloadSha256": "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2",
+                    "bootstrapPayloadSizeBytes": 51124044,
+                }
+            ),
+            encoding="utf-8",
+        )
+        receipts = MODULE.load_startup_smoke_receipts(
+            root,
+            max_age_seconds=86400,
+            max_future_skew_seconds=60,
+            expected_channel="preview",
+            now=now,
+        )
+    assert receipts == [
+        {
+            "head": "avalonia",
+            "platform": "windows",
+            "arch": "x64",
+            "artifactDigest": "sha256:80655fd79a096cd7714910d7b38f7741eea01f82ada96dc6a2a097951997d91a",
+            "channelId": "preview",
+            "artifactId": "avalonia-win-x64-installer",
+            "artifactFileName": "chummer-avalonia-win-x64-installer.exe",
+            "installerMode": "bootstrap",
+            "payloadAcquisitionMode": "download",
+            "payloadFileName": "chummer-avalonia-win-x64-payload.zip",
+            "payloadSha256": "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2",
+            "payloadSizeBytes": 51124044,
+        }
+    ]
+
+
 def test_load_startup_smoke_receipts_accepts_public_stable_channel_when_expected_channel_is_docker() -> None:
     now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
     with tempfile.TemporaryDirectory() as tmp:
@@ -1187,6 +1290,51 @@ def test_compatibility_payload_preserves_release_aliases_and_public_version() ->
     assert payload["publicVersion"] == "0.0.0.1"
 
 
+def test_compatibility_payload_emits_canonical_artifact_identity_aliases() -> None:
+    payload = MODULE.compatibility_payload(
+        {
+            "generatedAt": "2026-07-17T00:00:00Z",
+            "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+            "channel": "preview",
+            "version": "run-20260717-000000",
+            "releaseVersion": "run-20260717-000000",
+            "publishedAt": "2026-07-17T00:00:00Z",
+            "status": "published",
+            "artifacts": [
+                {
+                    "artifactId": "avalonia-win-x64-installer",
+                    "head": "avalonia",
+                    "platform": "windows",
+                    "platformLabel": "Avalonia Desktop Windows x64 Installer",
+                    "arch": "x64",
+                    "rid": "win-x64",
+                    "kind": "installer",
+                    "fileName": "chummer-avalonia-win-x64-installer.exe",
+                    "downloadUrl": (
+                        "/downloads/files/chummer-avalonia-win-x64-installer.exe"
+                    ),
+                    "sha256": "a" * 64,
+                    "sizeBytes": 42,
+                    "installAccessClass": "open_public",
+                    "compatibilityState": "compatible",
+                    "compatibilityReason": None,
+                }
+            ],
+        }
+    )
+
+    row = payload["downloads"][0]
+    assert row["id"] == row["artifactId"] == "avalonia-win-x64-installer"
+    assert row["url"] == row["downloadUrl"]
+    assert row["platform"] == "windows"
+    assert row["platformLabel"] == "Avalonia Desktop Windows x64 Installer"
+    assert row["rid"] == "win-x64"
+    assert row["head"] == "avalonia"
+    assert row["arch"] == "x64"
+    assert row["kind"] == "installer"
+    assert row["channel"] == row["channelId"] == "preview"
+
+
 def test_compatibility_payload_preserves_download_compatibility_state_for_boundary_coverage() -> None:
     canonical = {
         "generatedAt": "2026-06-02T09:40:12Z",
@@ -1258,6 +1406,33 @@ def test_compatibility_payload_preserves_download_compatibility_state_for_bounda
     assert payload["registryBoundaryCoverage"]["persistence"]["artifactCount"] == 2
     assert payload["registryBoundaryCoverage"]["compatibility"]["compatibleArtifactCount"] == 2
     assert payload["registryBoundaryCoverage"]["compatibility"]["unknownArtifactCount"] == 0
+
+
+def test_public_trust_metrics_expose_fallback_recovery_route_count() -> None:
+    artifacts, coverage = install_aware_payload()
+    coverage["desktopRouteTruth"][1].update(
+        {
+            "routeRole": "fallback",
+            "promotionState": "promoted",
+            "revokeState": "not_revoked",
+        }
+    )
+    payload = {
+        "version": "run-20260717-000000",
+        "channel": "preview",
+        "status": "published",
+        "rolloutState": "public_release_review_required",
+        "supportabilityState": "review_required",
+        "generatedAt": "2026-07-17T00:00:00Z",
+        "artifacts": artifacts,
+        "desktopTupleCoverage": coverage,
+        "releaseProof": complete_release_proof("2026-07-17T00:00:00Z"),
+    }
+
+    metrics = MODULE.expected_public_trust_metrics(payload)
+
+    assert metrics["releaseChannel"]["fallbackRecoveryRouteCount"] == 0
+    assert metrics["releaseChannel"]["blockedRouteCount"] == 2
 
 
 def test_normalize_release_proof_payload_ignores_extra_metadata_keys() -> None:
@@ -1700,6 +1875,47 @@ def test_filter_unproven_installers_accepts_digest_matched_installer_when_receip
     assert filtered == artifacts
 
 
+def test_filter_unproven_installers_enriches_windows_installer_with_bootstrap_payload_metadata() -> None:
+    artifacts = [
+        {
+            "artifactId": "avalonia-win-x64-installer",
+            "head": "avalonia",
+            "platform": "windows",
+            "arch": "x64",
+            "kind": "installer",
+            "fileName": "chummer-avalonia-win-x64-installer.exe",
+            "downloadUrl": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
+            "sha256": "80655fd79a096cd7714910d7b38f7741eea01f82ada96dc6a2a097951997d91a",
+        }
+    ]
+    startup_smoke_receipts = [
+        {
+            "head": "avalonia",
+            "platform": "windows",
+            "arch": "x64",
+            "artifactDigest": "sha256:80655fd79a096cd7714910d7b38f7741eea01f82ada96dc6a2a097951997d91a",
+            "channelId": "preview",
+            "artifactId": "avalonia-win-x64-installer",
+            "artifactFileName": "chummer-avalonia-win-x64-installer.exe",
+            "installerMode": "bootstrap",
+            "payloadAcquisitionMode": "download",
+            "payloadFileName": "chummer-avalonia-win-x64-payload.zip",
+            "payloadSha256": "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2",
+            "payloadSizeBytes": 51124044,
+        }
+    ]
+
+    filtered = MODULE.filter_unproven_installers(artifacts, startup_smoke_receipts)
+
+    assert len(filtered) == 1
+    assert filtered[0]["artifactId"] == "avalonia-win-x64-installer"
+    assert filtered[0]["installerMode"] == "bootstrap"
+    assert filtered[0]["payloadFileName"] == "chummer-avalonia-win-x64-payload.zip"
+    assert filtered[0]["payloadDownloadUrl"] == "https://chummer.run/downloads/files/chummer-avalonia-win-x64-payload.zip"
+    assert filtered[0]["payloadSha256"] == "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2"
+    assert filtered[0]["payloadSizeBytes"] == 51124044
+
+
 def test_desktop_tuple_coverage_emits_explicit_complete_flag() -> None:
     coverage = MODULE.desktop_tuple_coverage(
         [],
@@ -1711,7 +1927,7 @@ def test_desktop_tuple_coverage_emits_explicit_complete_flag() -> None:
     assert "missingRequiredPlatformHeadRidTuples" in coverage
 
 
-def test_materialization_required_platforms_prefers_configured_proof_floor_over_partial_artifacts() -> None:
+def test_materialization_required_platforms_enforces_canonical_floor_over_partial_artifacts_or_config() -> None:
     artifacts = [
         {
             "artifactId": "avalonia-linux-x64-installer",
@@ -1730,6 +1946,18 @@ def test_materialization_required_platforms_prefers_configured_proof_floor_over_
     assert MODULE.materialization_required_platforms(
         artifacts,
         "linux,windows,macos",
+    ) == ["linux", "windows", "macos"]
+    assert MODULE.materialization_required_platforms(
+        artifacts,
+        None,
+    ) == ["linux", "windows", "macos"]
+    assert MODULE.materialization_required_platforms(
+        artifacts,
+        "linux",
+    ) == ["linux", "windows", "macos"]
+    assert MODULE.materialization_required_platforms(
+        artifacts,
+        ["macos"],
     ) == ["linux", "windows", "macos"]
 
 
@@ -2024,7 +2252,7 @@ def test_desktop_tuple_coverage_dedupes_multiple_macos_install_media_per_tuple()
     ]
 
 
-def test_canonical_payload_keeps_mac_only_preview_registry_truth_scoped_to_mac_artifacts() -> None:
+def test_canonical_payload_keeps_mac_only_preview_review_gated_against_canonical_platform_floor() -> None:
     localization_domains = (
         "app_chrome",
         "install_update_support",
@@ -2119,22 +2347,152 @@ def test_canonical_payload_keeps_mac_only_preview_registry_truth_scoped_to_mac_a
         )
 
     assert {artifact["platform"] for artifact in payload["artifacts"]} == {"macos"}
-    assert payload["desktopTupleCoverage"]["requiredDesktopPlatforms"] == ["macos"]
-    assert {row["platform"] for row in payload["desktopTupleCoverage"]["desktopRouteTruth"]} == {"macos"}
+    assert payload["desktopTupleCoverage"]["requiredDesktopPlatforms"] == ["linux", "windows", "macos"]
+    assert {row["platform"] for row in payload["desktopTupleCoverage"]["desktopRouteTruth"]} == {
+        "linux",
+        "windows",
+        "macos",
+    }
     assert {row["platform"] for row in payload["artifactIdentityRegistry"]} == {"macos"}
     assert {row["platform"] for row in payload["desktopSurfaceRefs"]} == {"macos"}
     assert {row["artifactId"] for row in payload["artifactIdentityRegistry"]} == {
         "avalonia-osx-arm64-installer",
         "blazor-desktop-osx-arm64-installer",
     }
-    assert payload["desktopTupleCoverage"]["missingRequiredPlatforms"] == []
-    assert payload["desktopTupleCoverage"]["missingRequiredPlatformHeadRidTuples"] == []
+    assert payload["desktopTupleCoverage"]["missingRequiredPlatforms"] == ["linux", "windows"]
+    assert payload["desktopTupleCoverage"]["missingRequiredPlatformHeadRidTuples"] == [
+        "avalonia:linux-x64:linux",
+        "avalonia:win-x64:windows",
+    ]
+    assert payload["desktopTupleCoverage"]["complete"] is False
     assert payload["channel"] == "preview"
-    assert payload["rolloutState"] == "promoted_preview"
-    assert payload["supportabilityState"] == "preview_supported"
-    assert payload["publicTrustMetrics"]["releaseChannel"]["supportabilityState"] == "preview_supported"
-    assert payload["registryBoundaryCoverage"]["releaseChannel"]["supportabilityState"] == "preview_supported"
-    assert payload["supportabilitySummary"].startswith("Current preview release is supported")
+    assert payload["rolloutState"] == "coverage_incomplete"
+    assert payload["supportabilityState"] == "review_required"
+    assert payload["publicTrustMetrics"]["releaseChannel"]["supportabilityState"] == "review_required"
+    assert payload["registryBoundaryCoverage"]["releaseChannel"]["supportabilityState"] == "review_required"
+    assert "required desktop tuple coverage is incomplete" in payload["supportabilitySummary"]
+
+
+def test_canonical_payload_rewrites_stale_mac_tuple_gap_to_canonical_platform_gaps() -> None:
+    localization_domains = (
+        "app_chrome",
+        "install_update_support",
+        "explain_receipts",
+        "data_rules_names",
+        "generated_artifacts",
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        downloads_dir = root / "dist"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        for file_name, payload in (
+            ("chummer-avalonia-osx-arm64-installer.dmg", b"avalonia-installer"),
+            ("chummer-blazor-desktop-osx-arm64-installer.dmg", b"blazor-installer"),
+            ("chummer-avalonia-osx-arm64.zip", b"avalonia-archive"),
+            ("chummer-blazor-desktop-osx-arm64.zip", b"blazor-archive"),
+        ):
+            (downloads_dir / file_name).write_bytes(payload)
+
+        manifest_path = root / "release-channel-stale.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "channel": "preview",
+                    "status": "published",
+                    "rolloutState": "promoted_preview",
+                    "supportabilityState": "preview_supported",
+                    "knownIssueSummary": "Known issue: required desktop tuple coverage is incomplete (platforms: macos; pairs: avalonia:macos; tuples: avalonia:osx-arm64:macos).",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        proof_path = root / "release-proof.json"
+        proof_path.write_text(
+            json.dumps(
+                {
+                    "status": "passed",
+                    "generatedAt": "2026-07-02T21:10:00Z",
+                    "baseUrl": "https://chummer.run",
+                    "journeysPassed": list(MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS),
+                    "proofRoutes": list(MODULE.REQUIRED_RELEASE_PROOF_ROUTES),
+                    "uiLocalizationReleaseGate": {
+                        "status": "passed",
+                        "generatedAt": "2026-07-02T21:09:00Z",
+                        "defaultKeyCount": 100,
+                        "explicitFallbackRuntime": "passed",
+                        "signoffSmokeRunnerStatus": "passed",
+                        "shippingLocales": list(MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES),
+                        "acceptanceGates": list(MODULE.REQUIRED_LOCALIZATION_ACCEPTANCE_GATES),
+                        "domainCoverage": {
+                            domain: "passed"
+                            for domain in localization_domains
+                        },
+                        "localeDomainCoverage": {
+                            locale: {
+                                domain: "passed"
+                                for domain in localization_domains
+                            }
+                            for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+                        },
+                        "blockingFindings": [],
+                        "blockingFindingsCount": 0,
+                        "translationBacklogFindings": [],
+                        "translationBacklogFindingsCount": 0,
+                        "localeSummary": [
+                            {
+                                "locale": locale,
+                                "untranslatedKeyCount": 0,
+                                "overrideCount": 1,
+                                "minimumOverrideCount": 1,
+                                "missingReleaseSeedKeys": [],
+                                "legacyXmlPresent": True,
+                                "legacyDataXmlPresent": True,
+                            }
+                            for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+                        ],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        payload = MODULE.canonical_payload(
+            argparse.Namespace(
+                manifest=manifest_path,
+                downloads_dir=downloads_dir,
+                startup_smoke_dir=None,
+                startup_smoke_max_age_seconds=MODULE.STARTUP_SMOKE_MAX_AGE_SECONDS,
+                startup_smoke_max_future_skew_seconds=MODULE.STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
+                skip_startup_smoke_filter=True,
+                output=root / "RELEASE_CHANNEL.generated.json",
+                compat_output=None,
+                runtime_bundles=None,
+                proof=proof_path,
+                ui_localization_release_gate=None,
+                product="chummer6",
+                channel="preview",
+                version="run-20260702-211200",
+                contract_name="",
+                published_at="2026-07-02T21:12:00Z",
+                artifact_source="ui_desktop_bundle",
+                downloads_prefix="/downloads/files",
+                required_desktop_heads="avalonia",
+            )
+        )
+
+    assert payload["desktopTupleCoverage"]["requiredDesktopPlatforms"] == ["linux", "windows", "macos"]
+    assert payload["desktopTupleCoverage"]["missingRequiredPlatforms"] == ["linux", "windows"]
+    assert payload["desktopTupleCoverage"]["missingRequiredPlatformHeadRidTuples"] == [
+        "avalonia:linux-x64:linux",
+        "avalonia:win-x64:windows",
+    ]
+    assert payload["desktopTupleCoverage"]["complete"] is False
+    assert payload["rolloutState"] == "coverage_incomplete"
+    assert payload["supportabilityState"] == "review_required"
+    assert "required desktop tuple coverage is incomplete" in payload["knownIssueSummary"]
+    assert "platforms: linux, windows" in payload["knownIssueSummary"]
+    assert "avalonia:osx-arm64:macos" not in payload["knownIssueSummary"]
 
 
 def test_canonical_payload_preserves_public_version_and_sets_release_alias() -> None:
@@ -2251,7 +2609,7 @@ def test_canonical_payload_preserves_public_version_and_sets_release_alias() -> 
                 proof=proof_path,
                 ui_localization_release_gate=None,
                 product="chummer6",
-                channel="public_stable",
+                channel="preview",
                 version="run-20260627-005402",
                 contract_name="",
                 published_at="2026-06-27T00:54:02Z",
@@ -2266,6 +2624,511 @@ def test_canonical_payload_preserves_public_version_and_sets_release_alias() -> 
     assert payload["publicVersion"] == "0.0.0.1"
     assert payload["artifacts"][0]["version"] == "run-20260627-005402"
     assert payload["artifacts"][0]["releaseVersion"] == "run-20260627-005402"
+
+
+def test_canonical_payload_demotes_public_stable_posture_when_flagship_readiness_gate_blocks_launch_claim() -> None:
+    localization_domains = (
+        "app_chrome",
+        "install_update_support",
+        "explain_receipts",
+        "data_rules_names",
+        "generated_artifacts",
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        downloads_dir = root / "dist"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        (downloads_dir / "chummer-avalonia-linux-x64-installer.deb").write_bytes(b"linux-installer-bytes")
+        (downloads_dir / "chummer-avalonia-win-x64-installer.exe").write_bytes(b"windows-installer-bytes")
+        (downloads_dir / "chummer-avalonia-osx-arm64-installer.dmg").write_bytes(b"macos-installer-bytes")
+
+        proof_path = root / "release-proof.json"
+        proof_path.write_text(
+            json.dumps(
+                {
+                    "status": "passed",
+                    "generatedAt": "2026-07-08T03:10:00Z",
+                    "baseUrl": "https://chummer.run",
+                    "journeysPassed": list(MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS),
+                    "proofRoutes": list(MODULE.REQUIRED_RELEASE_PROOF_ROUTES),
+                    "uiLocalizationReleaseGate": {
+                        "status": "passed",
+                        "generatedAt": "2026-07-08T03:09:00Z",
+                        "defaultKeyCount": 100,
+                        "explicitFallbackRuntime": "passed",
+                        "signoffSmokeRunnerStatus": "passed",
+                        "shippingLocales": list(MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES),
+                        "acceptanceGates": list(MODULE.REQUIRED_LOCALIZATION_ACCEPTANCE_GATES),
+                        "domainCoverage": {
+                            domain: "passed"
+                            for domain in localization_domains
+                        },
+                        "localeDomainCoverage": {
+                            locale: {
+                                domain: "passed"
+                                for domain in localization_domains
+                            }
+                            for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+                        },
+                        "blockingFindings": [],
+                        "blockingFindingsCount": 0,
+                        "translationBacklogFindings": [],
+                        "translationBacklogFindingsCount": 0,
+                        "localeSummary": [
+                            {
+                                "locale": locale,
+                                "untranslatedKeyCount": 0,
+                                "overrideCount": 1,
+                                "minimumOverrideCount": 1,
+                                "missingReleaseSeedKeys": [],
+                                "legacyXmlPresent": True,
+                                "legacyDataXmlPresent": True,
+                            }
+                            for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+                        ],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        flagship_readiness_path = root / "FLAGSHIP_PRODUCT_READINESS_GATE.generated.json"
+        flagship_readiness_path.write_text(
+            json.dumps(
+                {
+                    "contract_name": "chummer.flagship_product_readiness_gate.v1",
+                    "status": "fail",
+                    "generated_at_utc": "2026-07-08T03:13:53Z",
+                    "summary": {
+                        "reason": "Launch-critical nested blockers remain; final gold janitor verdict is 'NOT_GOLD'; Hosted Build recovery and erasure policy is review-required.",
+                        "coverage_gap_keys": [],
+                        "scoped_coverage_gap_keys": [],
+                        "launch_critical_nested_blockers": [
+                            "final gold janitor verdict is 'NOT_GOLD'",
+                            "Hosted Build recovery and erasure policy is review-required.",
+                        ],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        payload = MODULE.canonical_payload(
+            argparse.Namespace(
+                manifest=None,
+                downloads_dir=downloads_dir,
+                startup_smoke_dir=None,
+                startup_smoke_max_age_seconds=MODULE.STARTUP_SMOKE_MAX_AGE_SECONDS,
+                startup_smoke_max_future_skew_seconds=MODULE.STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
+                skip_startup_smoke_filter=True,
+                output=root / "RELEASE_CHANNEL.generated.json",
+                compat_output=None,
+                runtime_bundles=None,
+                proof=proof_path,
+                ui_localization_release_gate=None,
+                flagship_readiness=flagship_readiness_path,
+                product="chummer6",
+                channel="public_stable",
+                version="run-20260708-031500",
+                contract_name="",
+                published_at="2026-07-08T03:15:00Z",
+                artifact_source="ui_desktop_bundle",
+                downloads_prefix="/downloads/files",
+                required_desktop_heads="avalonia",
+                required_desktop_platforms="linux",
+            )
+        )
+
+    assert payload["channel"] == "public_stable"
+    assert payload["rolloutState"] == "public_release_review_required"
+    assert payload["supportabilityState"] == "review_required"
+    assert "stale or incomplete proof receipts" in payload["supportabilitySummary"]
+    assert "NOT_GOLD" in payload["supportabilitySummary"]
+    assert "Hosted Build" in payload["supportabilitySummary"]
+    assert payload["publicTrustMetrics"]["proofFreshness"]["status"] == "stale"
+    assert payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessStatus"] == "fail"
+    assert payload["publicTrustMetrics"]["proofFreshness"]["flagshipDesktopClientReady"] is False
+    assert payload["publicTrustMetrics"]["releaseChannel"]["supportabilityState"] == "review_required"
+    assert payload["publicTrustMetrics"]["releaseChannel"]["posture"] == "blocked"
+    assert payload["registryBoundaryCoverage"]["releaseChannel"]["supportabilityState"] == "review_required"
+    assert payload["registryBoundaryCoverage"]["releaseChannel"]["publicTrustPosture"] == "blocked"
+    assert payload["artifactIdentityRegistry"][0]["publicationState"] == "preview"
+    assert payload["artifactIdentityRegistry"][0]["retentionState"] == "temporary"
+    assert payload["artifactPublicationBindings"][0]["publicationState"] == "preview"
+    assert payload["artifactPublicationBindings"][0]["retentionState"] == "temporary"
+
+
+def test_canonical_payload_demotes_supported_posture_when_green_flagship_receipt_is_stale() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        downloads_dir = root / "dist"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        (downloads_dir / "chummer-avalonia-linux-x64-installer.deb").write_bytes(
+            b"linux-installer-bytes"
+        )
+        (downloads_dir / "chummer-avalonia-win-x64-installer.exe").write_bytes(
+            b"windows-installer-bytes"
+        )
+        (downloads_dir / "chummer-avalonia-osx-arm64-installer.dmg").write_bytes(
+            b"macos-installer-bytes"
+        )
+
+        proof_path = root / "release-proof.json"
+        proof_path.write_text(
+            json.dumps(
+                complete_release_proof(
+                    "2026-07-13T11:10:00Z",
+                    ui_localization_generated_at="2026-07-13T11:09:00Z",
+                )
+            ),
+            encoding="utf-8",
+        )
+
+        flagship_readiness_path = root / "FLAGSHIP_PRODUCT_READINESS_GATE.generated.json"
+        flagship_readiness_path.write_text(
+            json.dumps(
+                {
+                    "contract_name": "chummer.flagship_product_readiness_gate.v1",
+                    "status": "pass",
+                    "generated_at_utc": "2026-07-05T11:11:35Z",
+                    "summary": {
+                        "reason": "All launch-critical flagship readiness checks pass.",
+                        "coverage_gap_keys": [],
+                        "scoped_coverage_gap_keys": [],
+                        "launch_critical_nested_blockers": [],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        payload = MODULE.canonical_payload(
+            argparse.Namespace(
+                manifest=None,
+                downloads_dir=downloads_dir,
+                startup_smoke_dir=None,
+                startup_smoke_max_age_seconds=MODULE.STARTUP_SMOKE_MAX_AGE_SECONDS,
+                startup_smoke_max_future_skew_seconds=MODULE.STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
+                skip_startup_smoke_filter=True,
+                output=root / "RELEASE_CHANNEL.generated.json",
+                compat_output=None,
+                runtime_bundles=None,
+                proof=proof_path,
+                ui_localization_release_gate=None,
+                flagship_readiness=flagship_readiness_path,
+                product="chummer6",
+                channel="preview",
+                version="run-20260713-111136",
+                contract_name="",
+                published_at="2026-07-13T11:11:36Z",
+                artifact_source="ui_desktop_bundle",
+                downloads_prefix="/downloads/files",
+                required_desktop_heads="avalonia",
+                required_desktop_platforms="linux",
+            )
+        )
+
+    assert payload["publicTrustMetrics"]["proofFreshness"]["status"] == "stale"
+    assert payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessStatus"] == "pass"
+    assert payload["publicTrustMetrics"]["proofFreshness"]["flagshipDesktopClientReady"] is True
+    assert payload["rolloutState"] == "public_release_review_required"
+    assert payload["supportabilityState"] == "review_required"
+    for field_name in (
+        "rolloutReason",
+        "supportabilitySummary",
+        "knownIssueSummary",
+        "fixAvailabilitySummary",
+    ):
+        assert "stale or incomplete proof receipts" in payload[field_name]
+    assert payload["publicTrustMetrics"]["releaseChannel"]["rolloutState"] == "public_release_review_required"
+    assert payload["publicTrustMetrics"]["releaseChannel"]["supportabilityState"] == "review_required"
+    assert payload["registryBoundaryCoverage"]["releaseChannel"]["rolloutState"] == "public_release_review_required"
+    assert payload["registryBoundaryCoverage"]["releaseChannel"]["supportabilityState"] == "review_required"
+    assert payload["artifactIdentityRegistry"][0]["publicationState"] == "preview"
+    assert payload["artifactIdentityRegistry"][0]["retentionState"] == "temporary"
+    assert payload["artifactPublicationBindings"][0]["publicationState"] == "preview"
+    assert payload["artifactPublicationBindings"][0]["retentionState"] == "temporary"
+    VERIFY_MODULE.verify_output_readiness_honesty(
+        payload,
+        "staged-run-20260713-111136.json",
+        {},
+    )
+
+
+def test_canonical_payload_fails_closed_when_flagship_gate_only_echoes_release_posture() -> None:
+    localization_domains = (
+        "app_chrome",
+        "install_update_support",
+        "explain_receipts",
+        "data_rules_names",
+        "generated_artifacts",
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        downloads_dir = root / "dist"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        (downloads_dir / "chummer-avalonia-linux-x64-installer.deb").write_bytes(b"linux-installer-bytes")
+        (downloads_dir / "chummer-avalonia-win-x64-installer.exe").write_bytes(b"windows-installer-bytes")
+        (downloads_dir / "chummer-avalonia-osx-arm64-installer.dmg").write_bytes(b"macos-installer-bytes")
+
+        proof_path = root / "release-proof.json"
+        proof_path.write_text(
+            json.dumps(
+                {
+                    "status": "passed",
+                    "generatedAt": "2026-07-08T03:10:00Z",
+                    "baseUrl": "https://chummer.run",
+                    "journeysPassed": list(MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS),
+                    "proofRoutes": list(MODULE.REQUIRED_RELEASE_PROOF_ROUTES),
+                    "uiLocalizationReleaseGate": {
+                        "status": "passed",
+                        "generatedAt": "2026-07-08T03:09:00Z",
+                        "defaultKeyCount": 100,
+                        "explicitFallbackRuntime": "passed",
+                        "signoffSmokeRunnerStatus": "passed",
+                        "shippingLocales": list(MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES),
+                        "acceptanceGates": list(MODULE.REQUIRED_LOCALIZATION_ACCEPTANCE_GATES),
+                        "domainCoverage": {
+                            domain: "passed"
+                            for domain in localization_domains
+                        },
+                        "localeDomainCoverage": {
+                            locale: {
+                                domain: "passed"
+                                for domain in localization_domains
+                            }
+                            for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+                        },
+                        "blockingFindings": [],
+                        "blockingFindingsCount": 0,
+                        "translationBacklogFindings": [],
+                        "translationBacklogFindingsCount": 0,
+                        "localeSummary": [
+                            {
+                                "locale": locale,
+                                "untranslatedKeyCount": 0,
+                                "overrideCount": 1,
+                                "minimumOverrideCount": 1,
+                                "missingReleaseSeedKeys": [],
+                                "legacyXmlPresent": True,
+                                "legacyDataXmlPresent": True,
+                            }
+                            for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+                        ],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        flagship_readiness_path = root / "FLAGSHIP_PRODUCT_READINESS_GATE.generated.json"
+        flagship_readiness_path.write_text(
+            json.dumps(
+                {
+                    "contract_name": "chummer.flagship_product_readiness_gate.v1",
+                    "status": "fail",
+                    "generated_at_utc": "2026-07-08T03:13:53Z",
+                    "summary": {
+                        "reason": "Launch-critical nested blockers remain; release channel supportability is not gold_supported.",
+                        "coverage_gap_keys": [],
+                        "scoped_coverage_gap_keys": [],
+                        "launch_critical_nested_blockers": [
+                            "release channel supportability is not gold_supported",
+                            "release channel rollout is public_release_review_required, not public_stable",
+                        ],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        payload = MODULE.canonical_payload(
+            argparse.Namespace(
+                manifest=None,
+                downloads_dir=downloads_dir,
+                startup_smoke_dir=None,
+                startup_smoke_max_age_seconds=MODULE.STARTUP_SMOKE_MAX_AGE_SECONDS,
+                startup_smoke_max_future_skew_seconds=MODULE.STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
+                skip_startup_smoke_filter=True,
+                output=root / "RELEASE_CHANNEL.generated.json",
+                compat_output=None,
+                runtime_bundles=None,
+                proof=proof_path,
+                ui_localization_release_gate=None,
+                flagship_readiness=flagship_readiness_path,
+                product="chummer6",
+                channel="public_stable",
+                version="run-20260708-031500",
+                contract_name="",
+                published_at="2026-07-08T03:15:00Z",
+                artifact_source="ui_desktop_bundle",
+                downloads_prefix="/downloads/files",
+                required_desktop_heads="avalonia",
+                required_desktop_platforms="linux",
+            )
+        )
+
+    assert payload["channel"] == "public_stable"
+    assert payload["rolloutState"] == "public_release_review_required"
+    assert payload["supportabilityState"] == "review_required"
+    assert payload["publicTrustMetrics"]["proofFreshness"]["status"] == "stale"
+    assert payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessStatus"] == "fail"
+    assert payload["publicTrustMetrics"]["proofFreshness"]["flagshipDesktopClientReady"] is False
+    assert payload["publicTrustMetrics"]["releaseChannel"]["supportabilityState"] == "review_required"
+    assert payload["artifactIdentityRegistry"][0]["publicationState"] == "preview"
+    assert payload["artifactIdentityRegistry"][0]["retentionState"] == "temporary"
+    assert payload["artifactPublicationBindings"][0]["publicationState"] == "preview"
+    assert payload["artifactPublicationBindings"][0]["retentionState"] == "temporary"
+
+
+def test_canonical_payload_preserves_review_gate_when_flagship_gate_only_echoes_release_posture() -> None:
+    localization_domains = (
+        "app_chrome",
+        "install_update_support",
+        "explain_receipts",
+        "data_rules_names",
+        "generated_artifacts",
+    )
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        downloads_dir = root / "dist"
+        downloads_dir.mkdir(parents=True, exist_ok=True)
+        (downloads_dir / "chummer-avalonia-linux-x64-installer.deb").write_bytes(b"linux-installer-bytes")
+        (downloads_dir / "chummer-avalonia-win-x64-installer.exe").write_bytes(b"windows-installer-bytes")
+        (downloads_dir / "chummer-avalonia-osx-arm64-installer.dmg").write_bytes(b"macos-installer-bytes")
+
+        manifest_path = root / "release-channel-stale.json"
+        manifest_path.write_text(
+            json.dumps(
+                {
+                    "channel": "public_stable",
+                    "channelId": "public_stable",
+                    "status": "published",
+                    "rolloutState": "public_release_review_required",
+                    "supportabilityState": "review_required",
+                    "rolloutReason": "Current shelf is published, but release posture stays review-required because stale or incomplete proof receipts still block launch-readiness claims.",
+                    "supportabilitySummary": "Treat the current release as review-required because stale or incomplete proof receipts still block launch-readiness claims.",
+                    "knownIssueSummary": "Known issue: stale or incomplete proof receipts still block launch-readiness claims.",
+                    "fixAvailabilitySummary": "Only send fixed notices after stale or incomplete proof receipts are cleared.",
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        proof_path = root / "release-proof.json"
+        proof_path.write_text(
+            json.dumps(
+                {
+                    "status": "passed",
+                    "generatedAt": "2026-07-08T03:10:00Z",
+                    "baseUrl": "https://chummer.run",
+                    "journeysPassed": list(MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS),
+                    "proofRoutes": list(MODULE.REQUIRED_RELEASE_PROOF_ROUTES),
+                    "uiLocalizationReleaseGate": {
+                        "status": "passed",
+                        "generatedAt": "2026-07-08T03:09:00Z",
+                        "defaultKeyCount": 100,
+                        "explicitFallbackRuntime": "passed",
+                        "signoffSmokeRunnerStatus": "passed",
+                        "shippingLocales": list(MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES),
+                        "acceptanceGates": list(MODULE.REQUIRED_LOCALIZATION_ACCEPTANCE_GATES),
+                        "domainCoverage": {
+                            domain: "passed"
+                            for domain in localization_domains
+                        },
+                        "localeDomainCoverage": {
+                            locale: {
+                                domain: "passed"
+                                for domain in localization_domains
+                            }
+                            for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+                        },
+                        "blockingFindings": [],
+                        "blockingFindingsCount": 0,
+                        "translationBacklogFindings": [],
+                        "translationBacklogFindingsCount": 0,
+                        "localeSummary": [
+                            {
+                                "locale": locale,
+                                "untranslatedKeyCount": 0,
+                                "overrideCount": 1,
+                                "minimumOverrideCount": 1,
+                                "missingReleaseSeedKeys": [],
+                                "legacyXmlPresent": True,
+                                "legacyDataXmlPresent": True,
+                            }
+                            for locale in MODULE.REQUIRED_LOCALIZATION_SHIPPING_LOCALES
+                        ],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        flagship_readiness_path = root / "FLAGSHIP_PRODUCT_READINESS_GATE.generated.json"
+        flagship_readiness_path.write_text(
+            json.dumps(
+                {
+                    "contract_name": "chummer.flagship_product_readiness_gate.v1",
+                    "status": "fail",
+                    "generated_at_utc": "2026-07-08T03:13:53Z",
+                    "summary": {
+                        "reason": "Launch-critical nested blockers remain; release channel supportability is not gold_supported.",
+                        "coverage_gap_keys": [],
+                        "scoped_coverage_gap_keys": [],
+                        "launch_critical_nested_blockers": [
+                            "release channel channel is preview, not a flagship stable lane",
+                            "release channel supportability is not gold_supported",
+                            "release channel rollout is blocking: public_release_review_required",
+                        ],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+
+        payload = MODULE.canonical_payload(
+            argparse.Namespace(
+                manifest=manifest_path,
+                downloads_dir=downloads_dir,
+                startup_smoke_dir=None,
+                startup_smoke_max_age_seconds=MODULE.STARTUP_SMOKE_MAX_AGE_SECONDS,
+                startup_smoke_max_future_skew_seconds=MODULE.STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
+                skip_startup_smoke_filter=True,
+                output=root / "RELEASE_CHANNEL.generated.json",
+                compat_output=None,
+                runtime_bundles=None,
+                proof=proof_path,
+                ui_localization_release_gate=None,
+                flagship_readiness=flagship_readiness_path,
+                product="chummer6",
+                channel="public_stable",
+                version="run-20260708-031500",
+                contract_name="",
+                published_at="2026-07-08T03:15:00Z",
+                artifact_source="ui_desktop_bundle",
+                downloads_prefix="/downloads/files",
+                required_desktop_heads="avalonia",
+                required_desktop_platforms="linux",
+            )
+        )
+
+    assert payload["channel"] == "public_stable"
+    assert payload["rolloutState"] == "public_release_review_required"
+    assert payload["supportabilityState"] == "review_required"
+    assert all(
+        "stale or incomplete proof receipts" in payload[field_name]
+        for field_name in (
+            "rolloutReason",
+            "supportabilitySummary",
+            "knownIssueSummary",
+            "fixAvailabilitySummary",
+        )
+    )
+    assert payload["publicTrustMetrics"]["releaseChannel"]["rolloutState"] == "public_release_review_required"
+    assert payload["publicTrustMetrics"]["releaseChannel"]["supportabilityState"] == "review_required"
+    assert payload["artifactIdentityRegistry"][0]["publicationState"] == "preview"
+    assert payload["artifactPublicationBindings"][0]["publicationState"] == "preview"
 
 
 def test_ensure_registry_truth_matches_artifacts_rejects_split_brain_registry_rows() -> None:

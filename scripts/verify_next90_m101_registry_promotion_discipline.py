@@ -51,9 +51,9 @@ EXPECTED_ROUTE_TRUTH = {
         "parityPosture": "flagship_primary",
         "updateEligibility": "eligible",
         "updateEligibilityReason": "Primary-route Avalonia Desktop tuple avalonia:linux:linux-x64 is promoted for linux/linux-x64.",
-        "rollbackState": "primary_reinstall_available",
-        "rollbackReasonCode": "primary_installer_reinstall_available",
-        "rollbackReason": "Fallback route blazor-desktop:linux:linux-x64 remains an unpromoted compatibility lane for linux/linux-x64; recover avalonia:linux:linux-x64 from the promoted primary installer avalonia-linux-x64-installer until a separately proved fallback is published.",
+        "rollbackState": "manual_recovery_required",
+        "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
+        "rollbackReason": "Fallback route blazor-desktop:linux:linux-x64 is not promoted for linux/linux-x64 because matching artifact bytes and fresh startup verification are still required; primary route avalonia:linux:linux-x64 therefore requires manual recovery.",
         "revokeState": "not_revoked",
         "revokeSource": "none",
         "revokeReasonCode": "no_registry_revoke_marker",
@@ -93,9 +93,9 @@ EXPECTED_ROUTE_TRUTH = {
         "parityPosture": "flagship_primary",
         "updateEligibility": "eligible",
         "updateEligibilityReason": "Primary-route Avalonia Desktop tuple avalonia:windows:win-x64 is promoted for windows/win-x64.",
-        "rollbackState": "primary_reinstall_available",
-        "rollbackReasonCode": "primary_installer_reinstall_available",
-        "rollbackReason": "Fallback route blazor-desktop:windows:win-x64 remains an unpromoted compatibility lane for windows/win-x64; recover avalonia:windows:win-x64 from the promoted primary installer avalonia-win-x64-installer until a separately proved fallback is published.",
+        "rollbackState": "manual_recovery_required",
+        "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
+        "rollbackReason": "Fallback route blazor-desktop:windows:win-x64 is not promoted for windows/win-x64 because matching artifact bytes and fresh startup verification are still required; primary route avalonia:windows:win-x64 therefore requires manual recovery.",
         "revokeState": "not_revoked",
         "revokeSource": "none",
         "revokeReasonCode": "no_registry_revoke_marker",
@@ -124,6 +124,48 @@ EXPECTED_ROUTE_TRUTH = {
         "installPosture": "proof_capture_required",
         "installPostureReason": "Do not present blazor-desktop:windows:win-x64 as installable until the missing tuple proof is captured.",
         "publicInstallRoute": "/downloads/install/blazor-desktop-win-x64-installer"
+    },
+    "avalonia:macos:osx-arm64": {
+        "routeRole": "primary",
+        "routeRoleReasonCode": "primary_flagship_head",
+        "routeRoleReason": "Avalonia Desktop route avalonia:macos:osx-arm64 is the flagship desktop route for macos/osx-arm64 and must carry independent startup verification before promotion.",
+        "promotionState": "promoted",
+        "promotionReasonCode": "installer_smoke_and_release_proof_passed",
+        "promotionReason": "Primary-route Avalonia Desktop tuple avalonia:macos:osx-arm64 for macos/osx-arm64 is promoted because the flagship head is present on the registry shelf and passed independent startup verification and release verification gates for this channel.",
+        "parityPosture": "flagship_primary",
+        "updateEligibility": "eligible",
+        "updateEligibilityReason": "Primary-route Avalonia Desktop tuple avalonia:macos:osx-arm64 is promoted for macos/osx-arm64.",
+        "rollbackState": "manual_recovery_required",
+        "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
+        "rollbackReason": "Fallback route blazor-desktop:macos:osx-arm64 is not promoted for macos/osx-arm64 because matching artifact bytes and fresh startup verification are still required; primary route avalonia:macos:osx-arm64 therefore requires manual recovery.",
+        "revokeState": "not_revoked",
+        "revokeSource": "none",
+        "revokeReasonCode": "no_registry_revoke_marker",
+        "revokeReason": "No registry revoke marker is active for avalonia:macos:osx-arm64.",
+        "installPosture": "installer_first",
+        "installPostureReason": "Promoted installer media avalonia-osx-arm64-installer is present for Avalonia Desktop tuple avalonia:macos:osx-arm64 on macos/osx-arm64.",
+        "publicInstallRoute": "/downloads/install/avalonia-osx-arm64-installer"
+    },
+    "blazor-desktop:macos:osx-arm64": {
+        "routeRole": "fallback",
+        "routeRoleReasonCode": "fallback_recovery_head",
+        "routeRoleReason": "Blazor Desktop route blazor-desktop:macos:osx-arm64 is retained as an explicit fallback route for macos/osx-arm64; it cannot satisfy the primary-route promise.",
+        "promotionState": "proof_required",
+        "promotionReasonCode": "missing_artifact_or_startup_smoke_proof",
+        "promotionReason": "Fallback Blazor Desktop tuple blazor-desktop:macos:osx-arm64 for macos/osx-arm64 is retained for recovery/manual routing on macos/osx-arm64 but is not promoted until matching artifact bytes and fresh startup verification are present.",
+        "parityPosture": "explicit_fallback",
+        "updateEligibility": "blocked_missing_proof",
+        "updateEligibilityReason": "Fallback route blazor-desktop:macos:osx-arm64 is not update-eligible until promoted.",
+        "rollbackState": "fallback_not_promoted",
+        "rollbackReasonCode": "fallback_missing_artifact_or_startup_smoke_proof",
+        "rollbackReason": "Fallback route blazor-desktop:macos:osx-arm64 needs artifact and startup verification before rollback use.",
+        "revokeState": "not_revoked",
+        "revokeSource": "none",
+        "revokeReasonCode": "no_registry_revoke_marker",
+        "revokeReason": "No registry revoke marker is active for blazor-desktop:macos:osx-arm64.",
+        "installPosture": "proof_capture_required",
+        "installPostureReason": "Do not present blazor-desktop:macos:osx-arm64 as installable until the missing tuple proof is captured.",
+        "publicInstallRoute": "/downloads/install/blazor-desktop-osx-arm64-installer"
     }
 }
 
@@ -154,6 +196,20 @@ EXPECTED_ROUTE_TRUTH_METADATA = {
         "platform": "windows",
         "rid": "win-x64",
         "arch": "x64",
+        "artifactId": ""
+    },
+    "avalonia:macos:osx-arm64": {
+        "head": "avalonia",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "arch": "arm64",
+        "artifactId": "avalonia-osx-arm64-installer"
+    },
+    "blazor-desktop:macos:osx-arm64": {
+        "head": "blazor-desktop",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "arch": "arm64",
         "artifactId": ""
     }
 }
@@ -431,7 +487,7 @@ PROOF_RECEIPT_SNIPPETS = (
     "Chummer.Hub.Registry.Contracts",
     "Chummer.Run.Registry",
     "desktopTupleCoverage.desktopRouteTruth",
-    "required_tuple_count: 4",
+    "required_tuple_count: 6",
     "avalonia:linux:linux-x64",
     "blazor-desktop:linux:linux-x64",
     "avalonia:windows:win-x64",
@@ -506,10 +562,12 @@ EXPECTED_PROOF_RECEIPT_LISTS = {
     ],
     "release_truth.required_tuple_ids": list(EXPECTED_ROUTE_TRUTH),
     "route_truth_state_floor": [
-        "avalonia:linux:linux-x64 primary promoted eligible primary_reinstall_available not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed primary_installer_reinstall_available no_registry_revoke_marker",
+        "avalonia:linux:linux-x64 primary promoted eligible manual_recovery_required not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker",
         "blazor-desktop:linux:linux-x64 fallback proof_required blocked_missing_proof fallback_not_promoted not_revoked none fallback_recovery_head missing_artifact_or_startup_smoke_proof fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker",
-        "avalonia:windows:win-x64 primary promoted eligible primary_reinstall_available not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed primary_installer_reinstall_available no_registry_revoke_marker",
+        "avalonia:windows:win-x64 primary promoted eligible manual_recovery_required not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker",
         "blazor-desktop:windows:win-x64 fallback proof_required blocked_missing_proof fallback_not_promoted not_revoked none fallback_recovery_head missing_artifact_or_startup_smoke_proof fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker",
+        "avalonia:macos:osx-arm64 primary promoted eligible manual_recovery_required not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker",
+        "blazor-desktop:macos:osx-arm64 fallback proof_required blocked_missing_proof fallback_not_promoted not_revoked none fallback_recovery_head missing_artifact_or_startup_smoke_proof fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker",
     ],
     "guardrails": [
         "scripts/verify_public_release_channel.py",
@@ -564,7 +622,7 @@ EXPECTED_PROOF_RECEIPT_MAPS = {
         "release_channel": ".codex-studio/published/RELEASE_CHANNEL.generated.json",
         "compatibility_shelf": ".codex-studio/published/releases.json",
         "route_truth_path": "desktopTupleCoverage.desktopRouteTruth",
-        "required_tuple_count": "4",
+        "required_tuple_count": "6",
     },
 }
 
@@ -622,8 +680,11 @@ MATERIALIZER_SOURCE_SNIPPETS = (
     '"rolloutReason"',
     '"revokeReason"',
     '"compatibilityReason"',
-    "for field_name in ARTIFACT_REVOKE_TRUTH_FIELDS:",
-    "refreshed[field_name] = item.get(field_name)",
+    (
+        "for field_name in ARTIFACT_REVOKE_TRUTH_FIELDS:\n"
+        "            if field_name in item:\n"
+        "                refreshed[field_name] = item.get(field_name)"
+    ),
     "row[field_name] = item.get(field_name)",
     "Registry revoke marker is active for {route_tuple_label}: ",
     "Registry revoke truth blocks {route_role_label} promotion for {route_tuple_label}: ",
@@ -2265,10 +2326,18 @@ def run_self_test(proof_receipt: Path) -> None:
         )
         materializer_path = Path(temp_dir) / "materialize_public_release_channel.py"
         materializer_source = DEFAULT_MATERIALIZER.read_text(encoding="utf-8")
+        materializer_revoke_preservation_block = (
+            "for field_name in ARTIFACT_REVOKE_TRUTH_FIELDS:\n"
+            "            if field_name in item:\n"
+            "                refreshed[field_name] = item.get(field_name)"
+        )
         materializer_path.write_text(
             materializer_source.replace(
-                "refreshed[field_name] = item.get(field_name)",
-                "refreshed[field_name] = None",
+                materializer_revoke_preservation_block,
+                materializer_revoke_preservation_block.replace(
+                    "refreshed[field_name] = item.get(field_name)",
+                    "refreshed[field_name] = None",
+                ),
                 1,
             ),
             encoding="utf-8",
@@ -2280,7 +2349,7 @@ def run_self_test(proof_receipt: Path) -> None:
                 label="temporary release-channel materializer",
                 snippets=MATERIALIZER_SOURCE_SNIPPETS,
             ),
-            "refreshed[field_name] = item.get(field_name)",
+            materializer_revoke_preservation_block,
         )
         public_verifier_path = Path(temp_dir) / "verify_public_release_channel.py"
         public_verifier_source = DEFAULT_PUBLIC_VERIFIER.read_text(encoding="utf-8")
