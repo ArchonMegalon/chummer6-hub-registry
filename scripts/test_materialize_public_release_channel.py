@@ -406,7 +406,7 @@ def test_derive_known_issue_summary_uses_preview_caveat_copy_for_preview_channel
     assert "current support follow-up coverage" in summary
 
 
-def test_canonical_payload_projects_stale_preview_proof_into_review_required_top_level_truth() -> None:
+def test_canonical_payload_projects_missing_flagship_receipt_into_review_required_top_level_truth() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         payload = materialize_flagship_readiness_fixture(
@@ -419,7 +419,7 @@ def test_canonical_payload_projects_stale_preview_proof_into_review_required_top
 
     trust_metrics = payload["publicTrustMetrics"]
     assert payload["rolloutState"] == "public_release_review_required"
-    assert trust_metrics["proofFreshness"]["status"] == "stale"
+    assert trust_metrics["proofFreshness"]["status"] == "missing"
     assert payload["supportabilityState"] == "review_required"
     assert trust_metrics["releaseChannel"]["supportabilityState"] == "review_required"
     verified_coverage = VERIFY_MODULE.verify_desktop_tuple_coverage(
@@ -2374,6 +2374,18 @@ def test_canonical_payload_keeps_mac_only_preview_review_gated_against_canonical
     assert payload["publicTrustMetrics"]["releaseChannel"]["supportabilityState"] == "review_required"
     assert payload["registryBoundaryCoverage"]["releaseChannel"]["supportabilityState"] == "review_required"
     assert "required desktop tuple coverage is incomplete" in payload["supportabilitySummary"]
+    with pytest.raises(
+        SystemExit,
+        match=(
+            "mac-only-canonical.json is missing required desktop tuple coverage for public release "
+            "\\(missing platforms: linux, windows"
+        ),
+    ):
+        VERIFY_MODULE.verify_artifacts(
+            payload,
+            "mac-only-canonical.json",
+            require_complete_desktop_coverage=True,
+        )
 
 
 def test_canonical_payload_rewrites_stale_mac_tuple_gap_to_canonical_platform_gaps() -> None:
