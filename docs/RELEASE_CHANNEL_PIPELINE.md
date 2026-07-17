@@ -270,6 +270,7 @@ Repo-local verification for this proof lane must route through `scripts/ai/verif
 Use `CHUMMER_VERIFY_STARTUP_SMOKE_MAX_AGE_SECONDS` (or shared `CHUMMER_DESKTOP_STARTUP_SMOKE_MAX_AGE_SECONDS`) to override the default `86400`-second freshness window during local verification, and `CHUMMER_VERIFY_STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS` (or `CHUMMER_DESKTOP_STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS`) to bound allowed future timestamp skew (default `300` seconds).
 Each promoted artifact row must carry explicit `channel` metadata that matches top-level `channelId` so channel/head/platform/arch truth stays aligned in one object graph.
 `desktopTupleCoverage` is required and must be internally consistent with published artifacts, so missing required heads/platforms are explicitly visible in release truth instead of implied by silent omissions.
+For Chummer6, `desktopTupleCoverage.requiredDesktopPlatforms` is a fixed policy floor in canonical order: `linux`, `windows`, `macos`. Materialization and strict verification do not derive or shrink that floor from the artifacts that happened to arrive in a scoped bundle. The canonical minimum RID tuples are `avalonia:linux-x64:linux`, `avalonia:win-x64:windows`, and `avalonia:osx-arm64:macos`; valid source-declared RID requirements may widen that set but cannot remove the minimum. A macOS-only payload therefore reports Linux and Windows gaps, `complete=false`, `rolloutState=coverage_incomplete`, and `supportabilityState=review_required`.
 `desktopTupleCoverage.requiredDesktopHeads` is intentionally Avalonia-only canonical coverage. It names the flagship heads that must be promoted across the required desktop platform tuples before the shelf is complete, while fallback rows stay explicit in `desktopTupleCoverage.desktopRouteTruth` rather than widening required-head completion truth.
 `promotedInstallerTuples` rows are also verifier-bound object truth (`tupleId`, `head`, `platform`, `rid`, `arch`, `kind`, `artifactId`) and must match canonical artifact metadata exactly. Revoked artifacts remain visible in `desktopRouteTruth` so their rollback and install block is explainable, but they do not satisfy promoted installer tuple coverage, promoted platform/head coverage, or the `complete` flag.
 `desktopTupleCoverage.desktopRouteTruth` is verifier-bound channel-truth metadata for desktop route decisions. It must include one row for each canonical desktop head (`avalonia` primary, `blazor-desktop` fallback) on every required platform tuple, whether or not that tuple is currently promoted. Each row answers the route role, route-role reason, promotion state and reason, parity posture, update eligibility and reason, rollback state and reason, revoke state, revoke source and reason, installer posture and reason, and public install route. Every rationale field must name the exact route tuple id, such as `blazor-desktop:windows:win-x64`; platform-only prose like `windows/win-x64` is not enough. This lets consumers explain the exact primary, fallback, promoted, proof-required, rollback, revoked, or install posture without joining against another row or guessing which head a tuple-level sentence describes. `routeRoleReason` is canonical, not free copy: primary rows must use the generated flagship-head rationale for that exact platform/rid tuple, and fallback rows must use the generated recovery-head rationale for that exact platform/rid tuple. Promotion rationale is canonical too: promoted primary rows must say they are promoted as the primary-route flagship head, promoted fallback rows must say they are promoted for recovery/manual routing, and proof-required fallback rows must say they are retained for recovery/manual routing but still blocked on tuple proof. A promoted row must name its exact installer `artifactId`, and its install-posture rationale must repeat that `artifactId`; a proof-required row must keep `artifactId` blank, so promotion rationale cannot be detached from shelf bytes or missing-proof truth. `parityPosture` is also canonical route-role truth: primary rows must stay `flagship_primary`, and fallback rows must stay `explicit_fallback`, so a fallback head cannot be relabeled as flagship-grade by copy drift. Primary rollback truth is cross-row checked against the sibling fallback row for the same platform/rid: primary rows may say `fallback_available` only when that fallback row is promoted and not revoked, and must say `manual_recovery_required` when the fallback row is proof-required or revoked. Primary rollback rationale must name the exact sibling fallback route id, such as `blazor-desktop:windows:win-x64`, and it must explicitly distinguish between `fallback_missing_artifact_or_startup_smoke_proof` and `fallback_revoked_for_tuple` so support and updater consumers can explain whether rollback is blocked by missing proof or by an active sibling revoke receipt. When the sibling fallback row is revoked, the primary rollback rationale must embed that sibling row's canonical `revokeReason` string, not only the raw revoke note, so rollback consumers can surface one self-contained explanation directly from registry truth. The row also carries stable reason-code fields (`routeRoleReasonCode`, `promotionReasonCode`, `rollbackReasonCode`, and `revokeReasonCode`) beside the rationale prose plus `revokeSource` (`none`, `channel`, or `artifact`) so downstream install, update, support, and rollback consumers branch on explicit registry truth instead of parsing copy. Consumers should treat those fields as one combined decision surface: `routeRoleReasonCode` explains why the tuple is primary or fallback, `promotionReasonCode` explains why it is promoted, proof-required, or revoked, `rollbackReasonCode` explains whether fallback recovery is available or blocked, `revokeReasonCode` says whether a registry revoke marker is active, and `revokeSource` says whether the revoke marker came from the whole channel or the tuple artifact. Missing fallback proof is represented as `promotionState=proof_required`, not by omitting the fallback row; active revocation must be represented by explicit revoke state, source, and reason rather than public-copy inference.
@@ -301,9 +302,9 @@ Typed registry consumers must receive the same tuple-level rationale that the JS
 `scripts/materialize_public_release_channel.py` now fail-closes missing release-proof payloads at projection time: `releaseProof` and `releaseProof.uiLocalizationReleaseGate` must be present (via `--proof` / `--ui-localization-release-gate` or embedded source payload values), so promoted channel artifacts cannot be materialized with placeholder-missing proof state.
 `scripts/materialize_public_release_channel.py` also fail-closes malformed source payloads instead of silently normalizing them away before verification: `releaseProof` rejects unexpected top-level keys and conflicting alias pairs (for example `baseUrl` vs `base_url`, `journeysPassed` vs `journeys_passed`, `proofRoutes` vs `proof_routes`, and `uiLocalizationReleaseGate` vs `ui_localization_release_gate`), `uiLocalizationReleaseGate` rejects unexpected top-level keys and conflicting nested alias pairs (for example `generatedAt` vs `generated_at`, `shippingLocales` vs `shipping_locales`, `acceptanceGates` vs `acceptance_gates`, `domainCoverage` vs `domain_coverage`, `localeDomainCoverage` vs `locale_domain_coverage`, `explicitFallbackRuntime` vs `explicit_fallback_runtime`, `signoffSmokeRunner` vs `signoff_smoke_runner`, `signoffSmokeRunnerStatus` vs `signoff_smoke_runner_status`, `blockingFindings` vs `blocking_findings`, `blockingFindingsCount` vs `blocking_findings_count`, `translationBacklogFindings` vs `translation_backlog_findings`, and `translationBacklogFindingsCount` vs `translation_backlog_findings_count`), and it fail-closes contradictory status between nested `signoff_smoke_runner.status` and top-level `signoff_smoke_runner_status`. `shipping_locales` / `acceptance_gates` reject blank/non-string/duplicate ids, `domain_coverage` / `locale_domain_coverage` reject duplicate ids that would collide after normalization (for example whitespace-padded aliases of the same token), and `locale_summary` rows reject unexpected keys plus conflicting per-row alias pairs (for example `untranslated_key_count` vs `untranslatedKeyCount`, `override_count` vs `overrideCount`, `minimum_override_count` vs `minimumOverrideCount`, `missing_release_seed_keys` vs `missingReleaseSeedKeys`, `legacy_xml_present` vs `legacyXmlPresent`, and `legacy_data_xml_present` vs `legacyDataXmlPresent`) so non-canonical row payload growth or alias drift cannot be silently dropped.
 
-## Recent proven preview lane
+## Historical macOS preview lane
 
-Preview release `run-20260525-213014` is the current end-to-end proof receipt for the macOS ARM64 preview lane.
+Preview release `run-20260525-213014` is a historical end-to-end proof receipt for the macOS ARM64 build and upload lane.
 It is the second consecutive clean preview publish after `run-20260525-210241`, confirming that the live preview manifest path is now stable rather than only repaired for one run.
 
 That run completed:
@@ -316,7 +317,7 @@ That run completed:
 * final live canonical manifest verification
 * final live release projection verification
 
-The resulting live preview shelf was internally consistent:
+Under the contract used at that time, the resulting live preview shelf reported:
 
 * `channelId=preview`
 * `rolloutState=promoted_preview`
@@ -324,15 +325,18 @@ The resulting live preview shelf was internally consistent:
 * exactly four published macOS artifacts
 * no stale Linux or Windows rows retained in the live preview manifest
 
-This proof matters because it confirms, across two consecutive successful runs, that the specific preview regressions previously seen in this lane stay closed:
+Those supportability fields are not valid current Chummer6 launch posture for a macOS-only shelf. The fixed cross-platform floor now classifies the same artifact shape as `coverage_incomplete` / `review_required`, with Linux and Windows named as missing. The receipt remains useful only as evidence that the macOS build, package, smoke, and transport lane worked.
 
-* preview uploads no longer drift to `gold_supported`
-* live promotion no longer merges stale Linux/Windows artifact rows into a mac-only preview shelf
+The historical proof confirmed, across two consecutive successful runs, that these narrower transport regressions stayed closed:
+
+* preview uploads did not drift to `gold_supported`
+* live promotion did not relabel retained old bytes as part of a new macOS-only version
 * registry-boundary counts stay aligned with the final published artifact set
 
 This receipt is intentionally narrow:
 
 * it proves the preview macOS ARM64 lane
+* it does not prove a complete authoritative desktop shelf
 * it does not certify `public_stable`
 * it does not certify signed/notarized stable closure
 * it does not justify any `all architectures` claim
@@ -341,8 +345,25 @@ This receipt is intentionally narrow:
 
 Hub, guide generators, and any public download UX must consume the registry-owned release-channel artifact or its explicit compatibility projection.
 
+The hosted promotion API treats an uploaded bundle as an authoritative full-shelf replacement, not a platform patch. It rejects implicit loss of an existing desktop install tuple. Until an explicit scoped-update/removal contract exists, operators must upload a complete, coherent candidate; a platform-scoped bootstrap bundle is local lane evidence, not permission to delete or silently inherit other platform rows.
+
 They must not mint their own release truth by scanning files and inventing a new manifest shape locally.
 
 Install claim tickets, claimed-installation records, installation grants, and download receipts are the same kind of registry truth.
 
 Hub may render or personalize around that truth, but it must not invent a second install-linking schema in hosted UX code.
+
+## Stable promotion lane
+
+Use `scripts/release/promote_public_stable_release_channel.sh` for an explicit stable-lane promotion from the workspace proof stack.
+
+That wrapper is intentionally narrower than the generic refresh helper:
+
+* it refuses to run unless `WINDOWS_INSTALLER_VISUAL_AUDIT.generated.json` is passing
+* it refuses to run unless `WINDOWS_SIGNING_RECEIPT_PATH` (default `.codex-studio/published/signing/signing-avalonia-win-x64.receipt.json`) proves `signingStatus=pass` for the exact target release version, installer filename, and visual-audit SHA-256; `unsigned_public_release`, stale receipts, and digest drift are stable blockers
+* it refuses to run unless `PUBLIC_EDGE_POSTDEPLOY_GATE.generated.json` is passing
+* it refuses to run unless the Hub local release proof and UI localization release gate are passing
+* it materializes into a temporary published root with `FORCE_RELEASE_PROOF_MATERIALIZATION=1`, so it does not silently inherit a preview source manifest and preserve preview posture by accident
+* it only replaces `.codex-studio/published/RELEASE_CHANNEL.generated.json` and `releases.json` after the temp output verifies as `channelId=public_stable`, `rolloutState=public_stable`, and `supportabilityState=gold_supported`
+
+Use `scripts/release/refresh_public_desktop_truth.sh` to refresh or mirror current shelf truth. Do not treat that generic helper by itself as a stable-promotion command when the current source manifest is still preview.

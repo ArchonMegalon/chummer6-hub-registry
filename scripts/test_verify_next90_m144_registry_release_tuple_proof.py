@@ -47,8 +47,8 @@ class VerifyNext90M144RegistryReleaseTupleProofTests(unittest.TestCase):
     def test_verify_sh_rejects_published_bundle_skip_flag_drift(self) -> None:
         source = (REPO_ROOT / "scripts/ai/verify.sh").read_text(encoding="utf-8")
         mutated = source.replace(
-            'python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py "$published_release_channel_path" >/dev/null',
-            'python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py "$published_release_channel_path" >/dev/null --skip-startup-smoke-filter',
+            'python3 ${repo_root}/scripts/verify_public_release_channel.py "$published_release_channel_path" >/dev/null',
+            'python3 ${repo_root}/scripts/verify_public_release_channel.py "$published_release_channel_path" >/dev/null --skip-startup-smoke-filter',
             1,
         )
 
@@ -64,10 +64,10 @@ class VerifyNext90M144RegistryReleaseTupleProofTests(unittest.TestCase):
     def test_verify_sh_rejects_m144_hook_after_build_work(self) -> None:
         source = (REPO_ROOT / "scripts/ai/verify.sh").read_text(encoding="utf-8")
         package_hook = (
-            "python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py >/dev/null\n"
+            "python3 ${repo_root}/scripts/verify_next90_m144_registry_release_tuple_proof.py >/dev/null\n"
         )
         self_test_hook = (
-            "python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py --self-test >/dev/null\n"
+            "python3 ${repo_root}/scripts/verify_next90_m144_registry_release_tuple_proof.py --self-test >/dev/null\n"
         )
         self.assertIn(package_hook, source)
         self.assertIn(self_test_hook, source)

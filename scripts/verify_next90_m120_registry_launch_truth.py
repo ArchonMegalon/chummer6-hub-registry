@@ -91,7 +91,7 @@ REQUIRED_MATERIALIZER_SNIPPETS = (
 )
 REQUIRED_RELEASE_VERIFIER_SNIPPETS = (
     "def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:",
-    'proof_freshness_status = "fresh"',
+    "proof_freshness_status_value = proof_freshness_status(payload)",
     "active_revocations.sort(key=lambda row: (row[\"platform\"], row[\"head\"], row[\"rid\"], row[\"tupleId\"]))",
     "def verify_public_trust_metrics(payload: dict[str, Any], source: str) -> None:",
     "publicTrustMetrics does not match canonical launch-truth metrics",
@@ -266,8 +266,8 @@ def verify_mirror_matches_canonical(*, mirror_path: Path, canonical_path: Path, 
 def verify_verify_sh(path: Path) -> None:
     text = read_text(path)
     required = (
-        "python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m120_registry_launch_truth.py >/dev/null",
-        "python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m120_registry_launch_truth.py --self-test >/dev/null",
+        "python3 ${repo_root}/scripts/verify_next90_m120_registry_launch_truth.py >/dev/null",
+        "python3 ${repo_root}/scripts/verify_next90_m120_registry_launch_truth.py --self-test >/dev/null",
     )
     for snippet in required:
         if snippet not in text:

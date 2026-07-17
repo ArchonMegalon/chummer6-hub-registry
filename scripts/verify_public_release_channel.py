@@ -177,7 +177,38 @@ ALLOWED_RELEASE_PROOF_KEYS = (
     "proof_routes",
     "uiLocalizationReleaseGate",
     "ui_localization_release_gate",
+    "flagshipReadiness",
 )
+FLAGSHIP_READINESS_CONTRACT_NAME = "chummer.flagship_product_readiness_gate.v1"
+FLAGSHIP_READINESS_PASSING_STATUS = "pass"
+FLAGSHIP_READINESS_STATUS_VALUES = ("pass", "fail")
+FLAGSHIP_READINESS_SNAPSHOT_BODY_KEYS = (
+    "contractName",
+    "coverageGapKeys",
+    "desktopClientReady",
+    "generatedAt",
+    "launchBlockers",
+    "reason",
+    "sourceSha256",
+    "status",
+)
+ALLOWED_FLAGSHIP_READINESS_SNAPSHOT_KEYS = (
+    *FLAGSHIP_READINESS_SNAPSHOT_BODY_KEYS,
+    "snapshotSha256",
+)
+FLAGSHIP_READINESS_SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
+FLAGSHIP_READINESS_COVERAGE_GAP_KEY_RE = re.compile(r"^[a-z0-9][a-z0-9_.:-]*$")
+FLAGSHIP_READINESS_EMAIL_RE = re.compile(
+    r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9_%+-])"
+)
+FLAGSHIP_READINESS_SENSITIVE_PATH_RE = re.compile(
+    r"(?<![A-Za-z0-9:])(?:/(?:docker|users|home|root|tmp|var|etc|opt|workspace)(?:/[^\s,;)]*)?|[A-Za-z]:[\\/][^\s,;)]*)",
+    re.IGNORECASE,
+)
+FLAGSHIP_READINESS_REASON_MAX_LENGTH = 4096
+FLAGSHIP_READINESS_BLOCKER_MAX_LENGTH = 1024
+FLAGSHIP_READINESS_MAX_BLOCKERS = 128
+FLAGSHIP_READINESS_MAX_COVERAGE_GAPS = 128
 ALLOWED_LOCALIZATION_GATE_KEYS = (
     "status",
     "generatedAt",
@@ -455,6 +486,7 @@ ALLOWED_PUBLIC_TRUST_RELEASE_CHANNEL_KEYS = (
     "rolloutState",
     "supportabilityState",
     "recommendedRouteCount",
+    "fallbackRecoveryRouteCount",
     "blockedRouteCount",
     "revokedRouteCount",
     "summary",
@@ -1171,6 +1203,19 @@ def normalized_token(value: object) -> str:
 def normalized_platform_token(value: object) -> str:
     token = normalized_token(value)
     return PLATFORM_ALIASES.get(token, token)
+
+
+def requires_chummer6_desktop_platform_floor(payload: dict[str, Any]) -> bool:
+    """Keep the Chummer6 floor strict without imposing it on named shared products.
+
+    Legacy release-channel payloads predate the product field and are Chummer
+    manifests, so an omitted product must not become a way to bypass the floor.
+    A verifier consumer for another product must identify that product
+    explicitly before using a narrower platform contract.
+    """
+
+    product = normalized_token(payload.get("product"))
+    return product in {"", "chummer", "chummer6"}
 
 
 def startup_smoke_channel_matches_expected(expected_channel: str, actual_channel: str) -> bool:
@@ -2419,6 +2464,14 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         raise SystemExit(
             f"{source} desktopTupleCoverage.requiredDesktopPlatforms contains unsupported platform ids "
             f"{unexpected_required_platforms}; allowed platforms are {list(REQUIRED_DESKTOP_PLATFORMS)}"
+        )
+    if (
+        requires_chummer6_desktop_platform_floor(payload)
+        and tuple(normalized_required_platforms) != REQUIRED_DESKTOP_PLATFORMS
+    ):
+        raise SystemExit(
+            f"{source} Chummer6 desktopTupleCoverage.requiredDesktopPlatforms must be exactly "
+            f"the canonical platform floor {list(REQUIRED_DESKTOP_PLATFORMS)}"
         )
     verify_required_desktop_heads(normalized_required_heads, source)
     normalized_channel_id = expected_channel_id(payload)
@@ -3698,23 +3751,239 @@ def projection_age_seconds(
     return max(int((projection_generated_at - evidence_timestamp).total_seconds()), 0)
 
 
+def canonical_flagship_readiness_timestamp(value: Any) -> str | None:
+    parsed = parse_iso_timestamp(value)
+    if parsed is None:
+        return None
+    return parsed.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def canonical_flagship_readiness_snapshot_body(snapshot: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: snapshot.get(key)
+        for key in FLAGSHIP_READINESS_SNAPSHOT_BODY_KEYS
+    }
+
+
+def flagship_readiness_snapshot_sha256(snapshot: dict[str, Any]) -> str:
+    canonical_bytes = json.dumps(
+        canonical_flagship_readiness_snapshot_body(snapshot),
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(canonical_bytes).hexdigest()
+
+
+def flagship_readiness_text_contains_private_material(value: str) -> bool:
+    return bool(
+        FLAGSHIP_READINESS_EMAIL_RE.search(value)
+        or FLAGSHIP_READINESS_SENSITIVE_PATH_RE.search(value)
+    )
+
+
+def validate_flagship_readiness_snapshot(
+    raw_snapshot: Any,
+    *,
+    source: str,
+) -> dict[str, Any]:
+    if raw_snapshot is None:
+        return {}
+    if not isinstance(raw_snapshot, dict):
+        raise SystemExit(f"releaseProof.flagshipReadiness must be an object in {source}")
+
+    unexpected_keys = sorted(
+        str(key)
+        for key in raw_snapshot
+        if str(key) not in ALLOWED_FLAGSHIP_READINESS_SNAPSHOT_KEYS
+    )
+    if unexpected_keys:
+        raise SystemExit(
+            "releaseProof.flagshipReadiness has unexpected keys "
+            f"({', '.join(unexpected_keys)}) in {source}"
+        )
+    missing_keys = [
+        key for key in ALLOWED_FLAGSHIP_READINESS_SNAPSHOT_KEYS
+        if key not in raw_snapshot
+    ]
+    if missing_keys:
+        raise SystemExit(
+            "releaseProof.flagshipReadiness is missing required keys "
+            f"({', '.join(missing_keys)}) in {source}"
+        )
+
+    contract_name = raw_snapshot.get("contractName")
+    if contract_name != FLAGSHIP_READINESS_CONTRACT_NAME:
+        raise SystemExit(
+            "releaseProof.flagshipReadiness.contractName must be "
+            f"{FLAGSHIP_READINESS_CONTRACT_NAME} in {source}"
+        )
+
+    generated_at = raw_snapshot.get("generatedAt")
+    if not isinstance(generated_at, str) or generated_at != generated_at.strip():
+        raise SystemExit(
+            f"releaseProof.flagshipReadiness.generatedAt must be a canonical timestamp string in {source}"
+        )
+    canonical_generated_at = canonical_flagship_readiness_timestamp(generated_at)
+    if canonical_generated_at is None or canonical_generated_at != generated_at:
+        raise SystemExit(
+            f"releaseProof.flagshipReadiness.generatedAt must be canonical UTC ISO-8601 seconds in {source}"
+        )
+
+    status = raw_snapshot.get("status")
+    if not isinstance(status, str) or status != normalized_token(status):
+        raise SystemExit(
+            f"releaseProof.flagshipReadiness.status must be a canonical lowercase token in {source}"
+        )
+    if status not in FLAGSHIP_READINESS_STATUS_VALUES:
+        raise SystemExit(
+            "releaseProof.flagshipReadiness.status must be one of "
+            f"{list(FLAGSHIP_READINESS_STATUS_VALUES)} in {source}"
+        )
+
+    raw_coverage_gap_keys = raw_snapshot.get("coverageGapKeys")
+    if not isinstance(raw_coverage_gap_keys, list):
+        raise SystemExit(
+            f"releaseProof.flagshipReadiness.coverageGapKeys must be a list in {source}"
+        )
+    if len(raw_coverage_gap_keys) > FLAGSHIP_READINESS_MAX_COVERAGE_GAPS:
+        raise SystemExit(
+            f"releaseProof.flagshipReadiness.coverageGapKeys exceeds its bounded size in {source}"
+        )
+    coverage_gap_keys: list[str] = []
+    for index, item in enumerate(raw_coverage_gap_keys):
+        if not isinstance(item, str) or item != item.strip():
+            raise SystemExit(
+                "releaseProof.flagshipReadiness.coverageGapKeys"
+                f"[{index}] must be a trimmed string in {source}"
+            )
+        if item != normalized_token(item) or not FLAGSHIP_READINESS_COVERAGE_GAP_KEY_RE.fullmatch(item):
+            raise SystemExit(
+                "releaseProof.flagshipReadiness.coverageGapKeys"
+                f"[{index}] must be a canonical lowercase key in {source}"
+            )
+        coverage_gap_keys.append(item)
+    if coverage_gap_keys != sorted(set(coverage_gap_keys)):
+        raise SystemExit(
+            "releaseProof.flagshipReadiness.coverageGapKeys must be unique and canonically sorted "
+            f"in {source}"
+        )
+
+    raw_launch_blockers = raw_snapshot.get("launchBlockers")
+    if not isinstance(raw_launch_blockers, list):
+        raise SystemExit(
+            f"releaseProof.flagshipReadiness.launchBlockers must be a list in {source}"
+        )
+    if len(raw_launch_blockers) > FLAGSHIP_READINESS_MAX_BLOCKERS:
+        raise SystemExit(
+            f"releaseProof.flagshipReadiness.launchBlockers exceeds its bounded size in {source}"
+        )
+    launch_blockers: list[str] = []
+    for index, item in enumerate(raw_launch_blockers):
+        if not isinstance(item, str) or not item or item != item.strip():
+            raise SystemExit(
+                "releaseProof.flagshipReadiness.launchBlockers"
+                f"[{index}] must be a non-empty trimmed string in {source}"
+            )
+        if len(item) > FLAGSHIP_READINESS_BLOCKER_MAX_LENGTH:
+            raise SystemExit(
+                "releaseProof.flagshipReadiness.launchBlockers"
+                f"[{index}] exceeds its bounded length in {source}"
+            )
+        if flagship_readiness_text_contains_private_material(item):
+            raise SystemExit(
+                "releaseProof.flagshipReadiness.launchBlockers must not expose absolute paths or "
+                f"personal contact data in {source}"
+            )
+        launch_blockers.append(item)
+    if launch_blockers != sorted(set(launch_blockers)):
+        raise SystemExit(
+            "releaseProof.flagshipReadiness.launchBlockers must be unique and canonically sorted "
+            f"in {source}"
+        )
+
+    desktop_client_ready = raw_snapshot.get("desktopClientReady")
+    if type(desktop_client_ready) is not bool:
+        raise SystemExit(
+            f"releaseProof.flagshipReadiness.desktopClientReady must be a boolean in {source}"
+        )
+    expected_desktop_client_ready = (
+        status == FLAGSHIP_READINESS_PASSING_STATUS
+        and not coverage_gap_keys
+        and not launch_blockers
+    )
+    if desktop_client_ready is not expected_desktop_client_ready:
+        raise SystemExit(
+            "releaseProof.flagshipReadiness.desktopClientReady does not match the bound "
+            f"status/coverage/blocker posture in {source}"
+        )
+
+    reason = raw_snapshot.get("reason")
+    if not isinstance(reason, str) or not reason or reason != reason.strip():
+        raise SystemExit(
+            f"releaseProof.flagshipReadiness.reason must be a non-empty trimmed string in {source}"
+        )
+    if len(reason) > FLAGSHIP_READINESS_REASON_MAX_LENGTH:
+        raise SystemExit(
+            f"releaseProof.flagshipReadiness.reason exceeds its bounded length in {source}"
+        )
+    if flagship_readiness_text_contains_private_material(reason):
+        raise SystemExit(
+            "releaseProof.flagshipReadiness.reason must not expose absolute paths or personal "
+            f"contact data in {source}"
+        )
+
+    source_sha256 = raw_snapshot.get("sourceSha256")
+    if not isinstance(source_sha256, str) or not FLAGSHIP_READINESS_SHA256_RE.fullmatch(source_sha256):
+        raise SystemExit(
+            "releaseProof.flagshipReadiness.sourceSha256 must use lowercase "
+            f"sha256:<64 hex> form in {source}"
+        )
+    snapshot_sha256 = raw_snapshot.get("snapshotSha256")
+    if not isinstance(snapshot_sha256, str) or not FLAGSHIP_READINESS_SHA256_RE.fullmatch(snapshot_sha256):
+        raise SystemExit(
+            "releaseProof.flagshipReadiness.snapshotSha256 must use lowercase "
+            f"sha256:<64 hex> form in {source}"
+        )
+
+    normalized_snapshot = {
+        "contractName": contract_name,
+        "generatedAt": canonical_generated_at,
+        "status": status,
+        "coverageGapKeys": coverage_gap_keys,
+        "launchBlockers": launch_blockers,
+        "desktopClientReady": desktop_client_ready,
+        "reason": reason,
+        "sourceSha256": source_sha256,
+        "snapshotSha256": snapshot_sha256,
+    }
+    expected_snapshot_sha256 = flagship_readiness_snapshot_sha256(normalized_snapshot)
+    if snapshot_sha256 != expected_snapshot_sha256:
+        raise SystemExit(
+            "releaseProof.flagshipReadiness.snapshotSha256 does not match the canonical "
+            f"snapshot body in {source}"
+        )
+    return normalized_snapshot
+
+
+def embedded_flagship_readiness_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
+    release_proof = payload.get("releaseProof")
+    raw_snapshot = release_proof.get("flagshipReadiness") if isinstance(release_proof, dict) else None
+    return validate_flagship_readiness_snapshot(
+        raw_snapshot,
+        source="embedded releaseProof.flagshipReadiness",
+    )
+
+
 def proof_freshness_status(payload: dict[str, Any]) -> str:
-    metrics = payload.get("publicTrustMetrics")
-    if isinstance(metrics, dict):
-        proof_freshness = metrics.get("proofFreshness")
-        if isinstance(proof_freshness, dict):
-            explicit_status = normalized_token(proof_freshness.get("status"))
-            if explicit_status in {"fresh", "stale", "missing"}:
-                return explicit_status
     projection_generated_at = parse_iso_timestamp(payload.get("generatedAt") or payload.get("generated_at"))
     release_proof = payload.get("releaseProof") if isinstance(payload.get("releaseProof"), dict) else {}
-    if projection_generated_at is None and not release_proof:
-        return "fresh"
     ui_localization = (
         release_proof.get("uiLocalizationReleaseGate")
         if isinstance(release_proof.get("uiLocalizationReleaseGate"), dict)
         else {}
     )
+    flagship_readiness = embedded_flagship_readiness_snapshot(payload)
     release_proof_age_seconds = projection_age_seconds(
         projection_generated_at=projection_generated_at,
         evidence_generated_at=release_proof.get("generatedAt") or release_proof.get("generated_at"),
@@ -3723,61 +3992,25 @@ def proof_freshness_status(payload: dict[str, Any]) -> str:
         projection_generated_at=projection_generated_at,
         evidence_generated_at=ui_localization.get("generatedAt") or ui_localization.get("generated_at"),
     )
-    if release_proof_age_seconds is None or ui_localization_age_seconds is None:
+    flagship_readiness_age_seconds = projection_age_seconds(
+        projection_generated_at=projection_generated_at,
+        evidence_generated_at=flagship_readiness.get("generatedAt"),
+    )
+    if (
+        release_proof_age_seconds is None
+        or ui_localization_age_seconds is None
+        or not flagship_readiness
+        or flagship_readiness_age_seconds is None
+    ):
         return "missing"
     if (
         release_proof_age_seconds > DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS
         or ui_localization_age_seconds > DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS
+        or flagship_readiness_age_seconds > DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS
+        or not flagship_readiness.get("desktopClientReady")
     ):
         return "stale"
     return "fresh"
-
-
-def embedded_flagship_readiness_snapshot(payload: dict[str, Any]) -> dict[str, Any]:
-    metrics = payload.get("publicTrustMetrics")
-    proof_freshness = metrics.get("proofFreshness") if isinstance(metrics, dict) else None
-    if not isinstance(proof_freshness, dict):
-        return {}
-    has_flagship_fields = any(
-        key in proof_freshness
-        for key in (
-            "flagshipReadinessGeneratedAt",
-            "flagshipReadinessAgeSeconds",
-            "flagshipReadinessMaxAgeSeconds",
-            "flagshipReadinessStatus",
-            "flagshipReadinessCoverageGapKeys",
-            "flagshipDesktopClientReady",
-            "flagshipReadinessReason",
-        )
-    )
-    if not has_flagship_fields:
-        return {}
-    generated_at = str(proof_freshness.get("flagshipReadinessGeneratedAt") or "").strip()
-    coverage_gap_keys = proof_freshness.get("flagshipReadinessCoverageGapKeys")
-    if not isinstance(coverage_gap_keys, list):
-        coverage_gap_keys = []
-    age_seconds = proof_freshness.get("flagshipReadinessAgeSeconds")
-    if not isinstance(age_seconds, int):
-        age_seconds = None
-    max_age_seconds = proof_freshness.get("flagshipReadinessMaxAgeSeconds")
-    if not isinstance(max_age_seconds, int):
-        max_age_seconds = None
-    return {
-        "present": True,
-        "generatedAt": generated_at,
-        "ageSeconds": age_seconds,
-        "maxAgeSeconds": max_age_seconds,
-        "status": normalized_token(proof_freshness.get("flagshipReadinessStatus")) or "missing",
-        "coverageGapKeys": sorted(
-            {
-                normalized_token(item)
-                for item in coverage_gap_keys
-                if str(item or "").strip()
-            }
-        ),
-        "desktopClientReady": bool(proof_freshness.get("flagshipDesktopClientReady")),
-        "reason": str(proof_freshness.get("flagshipReadinessReason") or "").strip() or None,
-    }
 
 
 def release_channel_public_posture(
@@ -4559,40 +4792,24 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
             or normalized_token(row.get("promotionState")) == "revoked"
         )
     ]
-    proof_freshness_status = "fresh"
     flagship_readiness = embedded_flagship_readiness_snapshot(payload)
-    readiness_required = bool(flagship_readiness.get("present"))
+    readiness_present = bool(flagship_readiness)
     flagship_readiness_generated_at = str(flagship_readiness.get("generatedAt") or "").strip() or None
     flagship_readiness_age_seconds = projection_age_seconds(
         projection_generated_at=projection_generated_at,
         evidence_generated_at=flagship_readiness_generated_at,
     )
-    if readiness_required and flagship_readiness_age_seconds is None:
-        embedded_age_seconds = flagship_readiness.get("ageSeconds")
-        flagship_readiness_age_seconds = embedded_age_seconds if isinstance(embedded_age_seconds, int) else None
-    flagship_readiness_max_age_seconds = flagship_readiness.get("maxAgeSeconds")
-    if not isinstance(flagship_readiness_max_age_seconds, int):
-        flagship_readiness_max_age_seconds = DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS
-    if release_proof_age_seconds is None or ui_localization_age_seconds is None or (
-        readiness_required and flagship_readiness_age_seconds is None
-    ):
-        proof_freshness_status = "missing"
-    elif (
-        release_proof_age_seconds > DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS
-        or ui_localization_age_seconds > DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS
-        or (readiness_required and flagship_readiness_age_seconds > flagship_readiness_max_age_seconds)
-        or (readiness_required and not bool(flagship_readiness.get("desktopClientReady")))
-    ):
-        proof_freshness_status = "stale"
+    flagship_readiness_max_age_seconds = DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS
+    proof_freshness_status_value = proof_freshness_status(payload)
     readiness_recommended_primary_routes = [
         row
         for row in recommended_primary_routes
-        if artifact_publication_state(row, proof_freshness_status=proof_freshness_status) == "published"
+        if artifact_publication_state(row, proof_freshness_status=proof_freshness_status_value) == "published"
     ]
     readiness_fallback_recovery_routes = [
         row
         for row in fallback_recovery_routes
-        if artifact_publication_state(row, proof_freshness_status=proof_freshness_status) == "retained"
+        if artifact_publication_state(row, proof_freshness_status=proof_freshness_status_value) == "retained"
     ]
     readiness_blocked_routes = list(blocked_routes)
     for row in [*recommended_primary_routes, *fallback_recovery_routes]:
@@ -4610,13 +4827,13 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
     adoption_status = "healthy"
     if not readiness_recommended_primary_routes:
         adoption_status = "blocked"
-    elif readiness_blocked_routes or revoked_routes or proof_freshness_blocks_output_readiness(proof_freshness_status):
+    elif readiness_blocked_routes or revoked_routes or proof_freshness_blocks_output_readiness(proof_freshness_status_value):
         adoption_status = "limited"
     channel_id = expected_channel_id(payload)
     status = normalized_token(payload.get("status"))
     rollout_state = normalized_token(payload.get("rolloutState"))
     supportability_state = normalized_token(payload.get("supportabilityState"))
-    if status == "published" and proof_freshness_blocks_output_readiness(proof_freshness_status):
+    if status == "published" and proof_freshness_blocks_output_readiness(proof_freshness_status_value):
         supportability_state = "review_required"
     active_revocations = [
         {
@@ -4638,7 +4855,7 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
         channel_id=channel_id,
         status=status,
         rollout_state=rollout_state,
-        proof_freshness_status=proof_freshness_status,
+        proof_freshness_status=proof_freshness_status_value,
     )
     return {
         "releaseChannel": {
@@ -4648,6 +4865,7 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
             "rolloutState": rollout_state,
             "supportabilityState": supportability_state,
             "recommendedRouteCount": len(readiness_recommended_primary_routes),
+            "fallbackRecoveryRouteCount": len(readiness_fallback_recovery_routes),
             "blockedRouteCount": len(readiness_blocked_routes),
             "revokedRouteCount": len(active_revocations),
             "summary": (
@@ -4661,7 +4879,7 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
                 "blocked"
                 if not readiness_recommended_primary_routes
                 else "limited"
-                if readiness_blocked_routes or revoked_routes or proof_freshness_blocks_output_readiness(proof_freshness_status)
+                if readiness_blocked_routes or revoked_routes or proof_freshness_blocks_output_readiness(proof_freshness_status_value)
                 else adoption_status
             ),
             "primaryPromotedCount": len(readiness_recommended_primary_routes),
@@ -4677,7 +4895,7 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
             ),
         },
         "proofFreshness": {
-            "status": proof_freshness_status,
+            "status": proof_freshness_status_value,
             "releaseProofGeneratedAt": release_proof_generated_at,
             "releaseProofAgeSeconds": release_proof_age_seconds,
             "releaseProofMaxAgeSeconds": DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS,
@@ -4694,7 +4912,7 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
                     "flagshipDesktopClientReady": bool(flagship_readiness.get("desktopClientReady")),
                     "flagshipReadinessReason": flagship_readiness.get("reason"),
                 }
-                if readiness_required
+                if readiness_present
                 else {}
             ),
             "summary": (
@@ -4706,13 +4924,14 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
                     f"; flagship desktop readiness age is "
                     f"{flagship_readiness_age_seconds if flagship_readiness_age_seconds is not None else 'missing'}s "
                     f"(max {flagship_readiness_max_age_seconds}s)"
-                    if readiness_required
+                    if readiness_present
                     else ""
                 )
                 + (
-                    " and desktop readiness is blocked: "
-                    f"{str(flagship_readiness.get('reason')).strip().rstrip('.')}."
-                    if proof_freshness_status != 'fresh' and readiness_required and flagship_readiness.get("reason")
+                    f" and desktop readiness is blocked: {flagship_readiness.get('reason')}."
+                    if proof_freshness_status_value != 'fresh' and readiness_present and flagship_readiness.get("reason")
+                    else "; flagship readiness snapshot is missing."
+                    if not readiness_present
                     else "."
                 )
             ),
@@ -5178,6 +5397,11 @@ def verify_output_readiness_honesty(payload: dict, source: str, coverage: dict[s
         raise SystemExit(
             f"{source} must set supportabilityState='review_required' when proof receipts are {freshness_status}"
         )
+    rollout_state = normalized_token(payload.get("rolloutState"))
+    if rollout_state != "public_release_review_required":
+        raise SystemExit(
+            f"{source} must set rolloutState='public_release_review_required' when proof receipts are {freshness_status}"
+        )
     for field_name in ("rolloutReason", "supportabilitySummary", "knownIssueSummary", "fixAvailabilitySummary"):
         value = str(payload.get(field_name) or "").strip().lower()
         if "stale or incomplete proof receipts" not in value:
@@ -5219,7 +5443,7 @@ def verify_local_download_files(
     source: str,
     *,
     skip_startup_smoke_filter: bool = False,
-    allow_skipped_startup_smoke: bool = True,
+    allow_skipped_startup_smoke: bool = False,
 ) -> None:
     if root is None:
         return
@@ -5814,6 +6038,10 @@ def verify_release_truth(payload: dict, source: str) -> None:
             "releaseProof has unexpected keys "
             f"({', '.join(unexpected_release_proof_keys)}) in {source}"
         )
+    validate_flagship_readiness_snapshot(
+        proof.get("flagshipReadiness"),
+        source=source,
+    )
     normalized_rollout_state = normalized_token(payload.get("rolloutState"))
     normalized_supportability_state = normalized_token(payload.get("supportabilityState"))
     status = proof.get("status")
@@ -6615,7 +6843,10 @@ def main() -> int:
         raise SystemExit("Provide a manifest path or URL.")
     require_complete_desktop_coverage = args.require_complete_desktop_coverage
     skip_startup_smoke_filter = args.skip_startup_smoke_filter
-    allow_skipped_startup_smoke = True
+    # Public release verification must fail closed unless a caller explicitly
+    # opts into the incompatible-host diagnostic path. Promotion wrappers do
+    # not get to treat a skipped native startup check as launch evidence.
+    allow_skipped_startup_smoke = False
     allow_skipped_startup_smoke_override = str(
         os.environ.get("CHUMMER_VERIFY_ALLOW_SKIPPED_STARTUP_SMOKE")
         or os.environ.get("CHUMMER_ALLOW_SKIPPED_STARTUP_SMOKE")

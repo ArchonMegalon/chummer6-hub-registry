@@ -155,6 +155,7 @@ def complete_primary_desktop_tuple_payload() -> dict:
 
 def windows_only_primary_desktop_tuple_payload() -> dict:
     payload = complete_primary_desktop_tuple_payload()
+    payload["product"] = "shared-verifier-test-product"
     payload["desktopTupleCoverage"]["requiredDesktopPlatforms"] = ["windows"]
     payload["desktopTupleCoverage"]["promotedInstallerTuples"] = [
         item for item in payload["desktopTupleCoverage"]["promotedInstallerTuples"] if item["platform"] == "windows"
@@ -206,6 +207,36 @@ def add_desktop_surface_refs(payload: dict) -> None:
     payload["desktopSurfaceRefs"] = MODULE.expected_desktop_surface_ref_rows(payload)
 
 
+def flagship_readiness_snapshot(
+    *,
+    generated_at: str = "2026-04-14T18:13:04Z",
+    status: str = "pass",
+    coverage_gap_keys: list[str] | None = None,
+    launch_blockers: list[str] | None = None,
+    reason: str | None = None,
+) -> dict:
+    coverage_gap_keys = sorted(set(coverage_gap_keys or []))
+    launch_blockers = sorted(set(launch_blockers or []))
+    snapshot = {
+        "contractName": MODULE.FLAGSHIP_READINESS_CONTRACT_NAME,
+        "generatedAt": generated_at,
+        "status": status,
+        "coverageGapKeys": coverage_gap_keys,
+        "launchBlockers": launch_blockers,
+        "desktopClientReady": status == "pass" and not coverage_gap_keys and not launch_blockers,
+        "reason": reason
+        or (
+            "All launch-critical flagship readiness checks pass."
+            if status == "pass" and not coverage_gap_keys and not launch_blockers
+            else "Flagship readiness remains review-required."
+        ),
+        "sourceSha256": "sha256:"
+        + hashlib.sha256(b"flagship-readiness-test-receipt-v1").hexdigest(),
+    }
+    snapshot["snapshotSha256"] = MODULE.flagship_readiness_snapshot_sha256(snapshot)
+    return snapshot
+
+
 def add_public_trust_metrics(payload: dict) -> None:
     payload["generatedAt"] = "2026-04-14T18:22:04Z"
     payload["generated_at"] = "2026-04-14T18:22:04Z"
@@ -218,6 +249,7 @@ def add_public_trust_metrics(payload: dict) -> None:
         "baseUrl": "https://chummer.run",
         "journeysPassed": list(MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS),
         "proofRoutes": list(MODULE.REQUIRED_RELEASE_PROOF_ROUTES),
+        "flagshipReadiness": flagship_readiness_snapshot(),
         "uiLocalizationReleaseGate": {
             "status": "pass",
             "generatedAt": "2026-04-14T18:12:04Z",
@@ -595,6 +627,7 @@ def test_verify_install_aware_artifact_registry_accepts_canonical_rows() -> None
 def test_verify_artifact_identity_registry_accepts_canonical_rows() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
     payload["artifactIdentityRegistry"] = MODULE.expected_artifact_identity_registry_rows(payload)
     row = payload["artifactIdentityRegistry"][0]
 
@@ -616,6 +649,7 @@ def test_verify_artifact_identity_registry_rejects_missing_registry() -> None:
 def test_verify_artifact_publication_bindings_accepts_canonical_rows() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
     payload["artifactPublicationBindings"] = MODULE.expected_artifact_publication_binding_rows(payload)
     row = payload["artifactPublicationBindings"][0]
 
@@ -640,6 +674,7 @@ def test_verify_artifact_publication_bindings_rejects_missing_registry() -> None
 def test_verify_artifact_publication_bindings_rejects_preview_drift_for_retained_fallback() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
     payload["artifacts"].append(
         {
             "artifactId": "blazor-desktop-win-x64-installer",
@@ -702,6 +737,7 @@ def test_verify_exchange_lineage_registry_rejects_missing_registry() -> None:
 
 def test_verify_exchange_lineage_registry_accepts_registry_only_rows() -> None:
     payload = complete_primary_desktop_tuple_payload()
+    add_public_trust_metrics(payload)
     payload["exchangeLineageRegistry"] = [
         {
             "registryId": "exchange-lineage:docker:run-20260414-1836:campaign:campaign-emerald-grid",
@@ -1040,6 +1076,65 @@ def test_verify_output_readiness_honesty_rejects_stale_supported_copy() -> None:
         MODULE.verify_output_readiness_honesty(payload, "release-channel.json", {})
 
 
+@pytest.mark.parametrize("freshness_status", ["stale", "missing"])
+def test_verify_output_readiness_honesty_rejects_optimistic_rollout_when_proof_is_not_fresh(
+    freshness_status: str,
+) -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["status"] = "published"
+    if freshness_status == "missing":
+        payload["releaseProof"].pop("flagshipReadiness")
+    else:
+        payload["releaseProof"]["flagshipReadiness"] = flagship_readiness_snapshot(
+            status="fail",
+            launch_blockers=["Flagship readiness regressed."],
+        )
+    payload["supportabilityState"] = "review_required"
+    payload["rolloutState"] = "promoted_preview"
+    stale_copy = "Stale or incomplete proof receipts still block launch-readiness claims."
+    payload["rolloutReason"] = stale_copy
+    payload["supportabilitySummary"] = stale_copy
+    payload["knownIssueSummary"] = stale_copy
+    payload["fixAvailabilitySummary"] = stale_copy
+
+    with pytest.raises(
+        SystemExit,
+        match=(
+            "rolloutState='public_release_review_required' when proof receipts are "
+            f"{freshness_status}"
+        ),
+    ):
+        MODULE.verify_output_readiness_honesty(payload, "release-channel.json", {})
+
+
+@pytest.mark.parametrize("freshness_status", ["stale", "missing"])
+def test_verify_output_readiness_honesty_accepts_review_gated_posture_when_proof_is_not_fresh(
+    freshness_status: str,
+) -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["status"] = "published"
+    if freshness_status == "missing":
+        payload["releaseProof"].pop("flagshipReadiness")
+    else:
+        payload["releaseProof"]["flagshipReadiness"] = flagship_readiness_snapshot(
+            status="fail",
+            launch_blockers=["Flagship readiness regressed."],
+        )
+    payload["supportabilityState"] = "review_required"
+    payload["rolloutState"] = "public_release_review_required"
+    stale_copy = "Stale or incomplete proof receipts still block launch-readiness claims."
+    payload["rolloutReason"] = stale_copy
+    payload["supportabilitySummary"] = stale_copy
+    payload["knownIssueSummary"] = stale_copy
+    payload["fixAvailabilitySummary"] = stale_copy
+
+    MODULE.verify_output_readiness_honesty(payload, "release-channel.json", {})
+
+
 def test_verify_public_trust_metrics_accepts_canonical_rows() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)
@@ -1062,34 +1157,42 @@ def test_verify_public_trust_metrics_rejects_fresh_status_when_flagship_desktop_
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)
     add_public_trust_metrics(payload)
-    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessGeneratedAt"] = "2026-05-20T18:20:30Z"
-    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessAgeSeconds"] = 94
-    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessMaxAgeSeconds"] = 604800
-    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessStatus"] = "fail"
-    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessCoverageGapKeys"] = ["desktop_client"]
-    payload["publicTrustMetrics"]["proofFreshness"]["flagshipDesktopClientReady"] = False
-    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessReason"] = (
-        "flagship product readiness proof is not green: fail; missing coverage: desktop_client"
+    payload["releaseProof"]["flagshipReadiness"] = flagship_readiness_snapshot(
+        status="fail",
+        coverage_gap_keys=["desktop_client"],
+        reason="Flagship product readiness proof is not green: missing desktop_client coverage.",
     )
 
     with pytest.raises(SystemExit, match="publicTrustMetrics does not match canonical launch-truth metrics"):
         MODULE.verify_public_trust_metrics(payload, "release-channel.json")
 
 
+def test_expected_public_trust_metrics_demotes_supported_posture_when_flagship_launch_blocker_is_embedded() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["releaseProof"]["flagshipReadiness"] = flagship_readiness_snapshot(
+        status="fail",
+        launch_blockers=["Final gold janitor verdict is NOT_GOLD."],
+        reason="Launch-critical nested blockers remain; final gold janitor verdict is NOT_GOLD.",
+    )
+
+    expected = MODULE.expected_public_trust_metrics(payload)
+
+    assert expected["proofFreshness"]["status"] == "stale"
+    assert expected["releaseChannel"]["supportabilityState"] == "review_required"
+    assert "NOT_GOLD" in expected["proofFreshness"]["summary"]
+
+
 def test_verify_public_trust_metrics_accepts_reordered_semantic_lists() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)
     add_public_trust_metrics(payload)
-    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessGeneratedAt"] = "2026-05-20T18:20:30Z"
-    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessAgeSeconds"] = 94
-    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessMaxAgeSeconds"] = 604800
-    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessStatus"] = "pass"
-    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessCoverageGapKeys"] = [
-        "desktop_client",
-        "ux_bundle",
-    ]
-    payload["publicTrustMetrics"]["proofFreshness"]["flagshipDesktopClientReady"] = True
-    payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessReason"] = "Desktop readiness is green."
+    payload["releaseProof"]["flagshipReadiness"] = flagship_readiness_snapshot(
+        status="fail",
+        coverage_gap_keys=["desktop_client", "ux_bundle"],
+        reason="Desktop readiness remains blocked on coverage.",
+    )
     payload["desktopTupleCoverage"]["desktopRouteTruth"].append(
         {
             "tupleId": "avalonia:macos:osx-arm64",
@@ -1121,29 +1224,77 @@ def test_verify_public_trust_metrics_accepts_reordered_semantic_lists() -> None:
     MODULE.verify_public_trust_metrics(payload, "release-channel.json")
 
 
-def test_verify_public_trust_metrics_preserves_embedded_flagship_block_without_timestamp() -> None:
+def test_validate_flagship_readiness_snapshot_rejects_missing_timestamp() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)
     add_public_trust_metrics(payload)
 
-    proof_freshness = payload["publicTrustMetrics"]["proofFreshness"]
-    proof_freshness["flagshipReadinessGeneratedAt"] = None
-    proof_freshness["flagshipReadinessAgeSeconds"] = 94
-    proof_freshness["flagshipReadinessMaxAgeSeconds"] = 604800
-    proof_freshness["flagshipReadinessStatus"] = "pass"
-    proof_freshness["flagshipReadinessCoverageGapKeys"] = ["desktop_client"]
-    proof_freshness["flagshipDesktopClientReady"] = True
-    proof_freshness["flagshipReadinessReason"] = "Desktop readiness is green."
+    snapshot = payload["releaseProof"]["flagshipReadiness"]
+    snapshot["generatedAt"] = ""
+    snapshot["snapshotSha256"] = MODULE.flagship_readiness_snapshot_sha256(snapshot)
+
+    with pytest.raises(SystemExit, match="generatedAt must be canonical"):
+        MODULE.validate_flagship_readiness_snapshot(snapshot, source="release-channel.json")
+
+
+def test_validate_flagship_readiness_snapshot_accepts_digest_bound_canonical_snapshot() -> None:
+    snapshot = flagship_readiness_snapshot()
+
+    validated = MODULE.validate_flagship_readiness_snapshot(
+        snapshot,
+        source="release-channel.json",
+    )
+
+    assert validated == snapshot
+    assert validated["sourceSha256"].startswith("sha256:")
+    assert validated["snapshotSha256"] == MODULE.flagship_readiness_snapshot_sha256(validated)
+
+
+def test_expected_public_trust_metrics_fails_closed_when_flagship_snapshot_is_absent() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["releaseProof"].pop("flagshipReadiness")
 
     expected = MODULE.expected_public_trust_metrics(payload)
 
-    assert "flagshipReadinessStatus" in expected["proofFreshness"]
-    assert expected["proofFreshness"]["flagshipReadinessGeneratedAt"] is None
-    assert expected["proofFreshness"]["flagshipReadinessAgeSeconds"] == 94
-    assert expected["proofFreshness"]["flagshipReadinessMaxAgeSeconds"] == 604800
+    assert expected["proofFreshness"]["status"] == "missing"
+    assert expected["releaseChannel"]["supportabilityState"] == "review_required"
+    assert "flagship readiness snapshot is missing" in expected["proofFreshness"]["summary"]
+    with pytest.raises(SystemExit, match="publicTrustMetrics does not match canonical launch-truth metrics"):
+        MODULE.verify_public_trust_metrics(payload, "release-channel.json")
 
-    payload["publicTrustMetrics"] = expected
-    MODULE.verify_public_trust_metrics(payload, "release-channel.json")
+
+def test_validate_flagship_readiness_snapshot_rejects_digest_mutation() -> None:
+    snapshot = flagship_readiness_snapshot()
+    snapshot["reason"] = "Mutated after the snapshot digest was issued."
+
+    with pytest.raises(SystemExit, match="snapshotSha256 does not match"):
+        MODULE.validate_flagship_readiness_snapshot(snapshot, source="release-channel.json")
+
+
+@pytest.mark.parametrize("drift", ["timestamp", "status", "coverage"])
+def test_verify_public_trust_metrics_rejects_flagship_snapshot_projection_drift(
+    drift: str,
+) -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    snapshot = payload["releaseProof"]["flagshipReadiness"]
+    if drift == "timestamp":
+        snapshot["generatedAt"] = "2026-04-14T18:14:04Z"
+    elif drift == "status":
+        snapshot["status"] = "fail"
+        snapshot["desktopClientReady"] = False
+        snapshot["reason"] = "Flagship readiness status regressed."
+    else:
+        snapshot["coverageGapKeys"] = ["desktop_client"]
+        snapshot["desktopClientReady"] = False
+        snapshot["reason"] = "Desktop coverage regressed."
+    snapshot["snapshotSha256"] = MODULE.flagship_readiness_snapshot_sha256(snapshot)
+
+    with pytest.raises(SystemExit, match="publicTrustMetrics does not match canonical launch-truth metrics"):
+        MODULE.verify_public_trust_metrics(payload, "release-channel.json")
 
 
 def test_verify_public_trust_metrics_includes_diff_when_mismatch_remains() -> None:
@@ -1213,13 +1364,29 @@ def test_verify_required_desktop_heads_rejects_order_drift() -> None:
         MODULE.verify_required_desktop_heads(["blazor-desktop", "avalonia"], "release-channel.json")
 
 
-def test_verify_desktop_tuple_coverage_accepts_windows_only_published_primary_route() -> None:
+def test_verify_desktop_tuple_coverage_accepts_explicit_non_chummer_windows_only_primary_route() -> None:
     payload = windows_only_primary_desktop_tuple_payload()
 
     coverage = MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
     assert coverage["missing_platforms"] == []
     assert coverage["missing_platform_head_rid_tuples"] == []
+
+
+def test_verify_desktop_tuple_coverage_rejects_chummer_product_aliases_with_mac_only_floor() -> None:
+    for product in ("chummer", "chummer6"):
+        payload = complete_primary_desktop_tuple_payload()
+        payload["product"] = product
+        payload["desktopTupleCoverage"]["requiredDesktopPlatforms"] = ["macos"]
+
+        with pytest.raises(
+            SystemExit,
+            match=(
+                "Chummer6 desktopTupleCoverage.requiredDesktopPlatforms must be exactly "
+                "the canonical platform floor"
+            ),
+        ):
+            MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
 def test_verify_desktop_tuple_coverage_complete_flag_rejects_mismatch() -> None:
@@ -1519,7 +1686,7 @@ def test_verify_local_download_files_accepts_exact_windows_incompatible_host_ski
     )
 
 
-def test_verify_local_download_files_accepts_exact_windows_incompatible_host_skip_by_default(tmp_path: Path) -> None:
+def test_verify_local_download_files_rejects_exact_windows_incompatible_host_skip_by_default(tmp_path: Path) -> None:
     payload, manifest_root, installer_name, installer_sha = _write_windows_release_fixture(tmp_path)
     _write_skipped_windows_startup_smoke(
         manifest_root,
@@ -1527,11 +1694,12 @@ def test_verify_local_download_files_accepts_exact_windows_incompatible_host_ski
         installer_sha=installer_sha,
     )
 
-    MODULE.verify_local_download_files(
-        payload,
-        manifest_root,
-        str(manifest_root),
-    )
+    with pytest.raises(SystemExit, match="startup-smoke receipt status is not passing"):
+        MODULE.verify_local_download_files(
+            payload,
+            manifest_root,
+            str(manifest_root),
+        )
 
 
 def test_verify_local_download_files_can_force_reject_skipped_startup_smoke(tmp_path: Path) -> None:
@@ -1776,6 +1944,7 @@ def test_verify_local_download_files_allows_windows_payload_sidecar_for_promoted
         payload,
         manifest_root,
         str(manifest_root),
+        allow_skipped_startup_smoke=True,
     )
 
 
@@ -3693,6 +3862,7 @@ def test_expected_desktop_route_truth_rows_prefers_non_revoked_tuple_artifact() 
 
 def test_verify_desktop_tuple_coverage_dedupes_multiple_macos_install_media_per_tuple() -> None:
     payload = {
+        "product": "shared-verifier-test-product",
         "channelId": "preview",
         "version": "run-20260517-213340",
         "desktopTupleCoverage": {
