@@ -91,7 +91,7 @@ REQUIRED_MATERIALIZER_SNIPPETS = (
 )
 REQUIRED_RELEASE_VERIFIER_SNIPPETS = (
     "def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:",
-    'proof_freshness_status = "fresh"',
+    "proof_freshness_status_value = proof_freshness_status(payload)",
     "active_revocations.sort(key=lambda row: (row[\"platform\"], row[\"head\"], row[\"rid\"], row[\"tupleId\"]))",
     "def verify_public_trust_metrics(payload: dict[str, Any], source: str) -> None:",
     "publicTrustMetrics does not match canonical launch-truth metrics",

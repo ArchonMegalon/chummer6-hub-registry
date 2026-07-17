@@ -758,7 +758,9 @@ InstallClaimTicketDto claim = new(
     UserId: "user-1",
     SubjectId: "subject-1",
     ReceiptId: receipt.ReceiptId,
-    InstallationId: "inst-1");
+    InstallationId: "inst-1",
+    GenerationId: "generation-a",
+    ArtifactSha256: new string('a', 64));
 ClaimedInstallationDto installation = new(
     InstallationId: "inst-1",
     ArtifactId: receipt.ArtifactId,
@@ -799,6 +801,10 @@ InstallBrowserCallbackDto callback = new(
     SubjectId: "subject-1");
 InstallLinkingSummaryDto installLinking = new([receipt], [claim], [installation], [grant], [callback]);
 Assert(installLinking.RecentReceipts.Count == 1, "Install-linking summaries must retain receipts.");
+Assert(string.Equals(installLinking.PendingClaimTickets[0].GenerationId, "generation-a", StringComparison.Ordinal),
+    "Install-linking claim tickets must retain immutable release generation binding.");
+Assert(string.Equals(installLinking.PendingClaimTickets[0].ArtifactSha256, new string('a', 64), StringComparison.Ordinal),
+    "Install-linking claim tickets must retain artifact digest binding.");
 Assert(string.Equals(installLinking.ActiveGrants![0].InstallationId, installation.InstallationId, StringComparison.Ordinal),
     "Install-linking summaries must retain active grant linkage.");
 Assert(string.Equals(installLinking.PendingBrowserCallbacks![0].CallbackId, callback.CallbackId, StringComparison.Ordinal),
@@ -957,6 +963,7 @@ static void VerifyRegistryContractsAreNotSourceOwnedInConsumers()
     VerifyDeclarationRegexIncludesCompatibilityContracts(declarationRegex);
     VerifySeededCompatibilitySourceOwnershipViolationsAreDetected(declarationRegex);
     VerifyCompatibilityRootPathViolationsAreDetected(declarationRegex);
+    VerifyConsumerScratchDirectoriesAreSkipped(declarationRegex);
     bool strictOwnershipGateEnabled = IsStrictOwnershipGateEnabled();
     List<string> ownershipViolations = [];
     foreach (var target in targets)
@@ -1001,10 +1008,7 @@ static void VerifyRegistryContractsAreNotSourceOwnedInConsumers()
 static IReadOnlyCollection<string> FindRegistrySourceOwnershipViolations(string consumerRoot, Regex declarationRegex)
 {
     HashSet<string> linkedTopLevelDirectories = FindLinkedTopLevelDirectories(consumerRoot);
-    string[] sourceFiles = Directory.GetFiles(consumerRoot, "*.cs", SearchOption.AllDirectories)
-        .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}bin{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-        .Where(path => !path.Contains($"{Path.DirectorySeparatorChar}obj{Path.DirectorySeparatorChar}", StringComparison.Ordinal))
-        .ToArray();
+    string[] sourceFiles = EnumerateConsumerSourceFiles(consumerRoot).ToArray();
 
     List<string> violations = [];
     foreach (string sourceFile in sourceFiles)
@@ -1020,6 +1024,73 @@ static IReadOnlyCollection<string> FindRegistrySourceOwnershipViolations(string 
     }
 
     return violations;
+}
+
+static IEnumerable<string> EnumerateConsumerSourceFiles(string consumerRoot)
+{
+    Stack<string> pendingDirectories = new();
+    pendingDirectories.Push(consumerRoot);
+
+    while (pendingDirectories.Count > 0)
+    {
+        string currentDirectory = pendingDirectories.Pop();
+        string[] sourceFiles;
+        try
+        {
+            sourceFiles = Directory.GetFiles(currentDirectory, "*.cs", SearchOption.TopDirectoryOnly);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException || ex is IOException)
+        {
+            continue;
+        }
+
+        foreach (string sourceFile in sourceFiles)
+        {
+            yield return sourceFile;
+        }
+
+        string[] childDirectories;
+        try
+        {
+            childDirectories = Directory.GetDirectories(currentDirectory);
+        }
+        catch (Exception ex) when (ex is UnauthorizedAccessException || ex is IOException)
+        {
+            continue;
+        }
+
+        foreach (string childDirectory in childDirectories)
+        {
+            if (ShouldSkipConsumerSourceDirectory(childDirectory))
+            {
+                continue;
+            }
+
+            pendingDirectories.Push(childDirectory);
+        }
+    }
+}
+
+static bool ShouldSkipConsumerSourceDirectory(string directory)
+{
+    string name = Path.GetFileName(directory);
+    if (string.Equals(name, "bin", StringComparison.Ordinal)
+        || string.Equals(name, "obj", StringComparison.Ordinal)
+        || string.Equals(name, ".git", StringComparison.Ordinal)
+        || string.Equals(name, ".tmp", StringComparison.Ordinal)
+        || string.Equals(name, ".state", StringComparison.Ordinal))
+    {
+        return true;
+    }
+
+    try
+    {
+        return (File.GetAttributes(directory) & FileAttributes.ReparsePoint) != 0;
+    }
+    catch (Exception ex) when (ex is UnauthorizedAccessException || ex is IOException)
+    {
+        return true;
+    }
 }
 
 static HashSet<string> FindLinkedTopLevelDirectories(string root)
@@ -1134,6 +1205,38 @@ static void VerifyCompatibilityRootPathViolationsAreDetected(Regex declarationRe
             violations.Any(entry => entry.Contains("PublicationRecordResponse", StringComparison.Ordinal))
             && violations.Any(entry => entry.Contains("PipelineProjectionEnvelope", StringComparison.Ordinal)),
             "Registry ownership gate must report compatibility-root DTO source-ownership violations.");
+    }
+    finally
+    {
+        if (Directory.Exists(tempRoot))
+        {
+            Directory.Delete(tempRoot, recursive: true);
+        }
+    }
+}
+
+static void VerifyConsumerScratchDirectoriesAreSkipped(Regex declarationRegex)
+{
+    string tempRoot = Path.Combine(Path.GetTempPath(), $"hub-registry-contracts-scratch-verify-{Guid.NewGuid():N}");
+    string[] scratchRoots =
+    [
+        Path.Combine(tempRoot, ".tmp", "bootstrap-e2e", "wineprefix"),
+        Path.Combine(tempRoot, ".state", "public-edge-portal-overlay-build", "workspace")
+    ];
+    foreach (string scratchRoot in scratchRoots)
+    {
+        Directory.CreateDirectory(scratchRoot);
+        File.WriteAllText(
+            Path.Combine(scratchRoot, "PublicationContracts.cs"),
+            "public sealed record PublicationRecordResponse(string PublicationId);");
+    }
+
+    try
+    {
+        IReadOnlyCollection<string> violations = FindRegistrySourceOwnershipViolations(tempRoot, declarationRegex);
+        Assert(
+            violations.Count == 0,
+            "Registry ownership gate must skip consumer scratch directories while scanning package ownership.");
     }
     finally
     {

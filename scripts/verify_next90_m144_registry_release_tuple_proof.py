@@ -424,8 +424,8 @@ def verify_startup_smoke_dir(
 def verify_verify_sh(path: Path) -> None:
     text = read_text(path)
     published_bundle_hook = (
-        'python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py '
-        '"$published_release_channel_path" >/dev/null'
+        'python3 "$repo_root/scripts/verify_public_release_channel.py" '
+        '"$published_release_channel_path" >/dev/null 2>&1'
     )
     package_hook = (
         "python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py "

@@ -38,21 +38,46 @@ if [ -z "${CHUMMER_PRESENTATION_ROOT:-}" ] || [ ! -d "$CHUMMER_PRESENTATION_ROOT
   exit 1
 fi
 
-# Fail closed if the checked-in published release-channel bundle drifts from verifier truth.
-published_release_channel_path="/docker/chummercomplete/chummer-hub-registry/.codex-studio/published"
-if [ ! -d "$published_release_channel_path" ]; then
-  echo "verify gate failed: expected published release-channel bundle is missing at $published_release_channel_path." >&2
-  exit 1
+# Source verification is hermetic by default. Release operators must opt into
+# validating the mutable publication shelf and its guide projection explicitly.
+repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+registry_verify_mode="${CHUMMER_REGISTRY_VERIFY_MODE:-ci}"
+published_release_channel_path="${CHUMMER_REGISTRY_VERIFY_RELEASE_CHANNEL_DIR:-$repo_root/.codex-studio/published}"
+case "$registry_verify_mode" in
+  ci)
+    # The fixture lane below materializes and validates canonical three-platform
+    # release truth without binding source CI to whichever preview is live.
+    ;;
+  release)
+    if [ ! -d "$published_release_channel_path" ]; then
+      echo "verify gate failed: expected published release-channel bundle is missing at $published_release_channel_path." >&2
+      exit 1
+    fi
+    if ! python3 "$repo_root/scripts/verify_public_release_channel.py" "$published_release_channel_path" >/dev/null 2>&1; then
+      echo "verify gate failed: published release-channel bundle must pass verify_public_release_channel.py." >&2
+      exit 1
+    fi
+    if [ ! -d /docker/chummercomplete/Chummer6 ]; then
+      echo "verify gate failed: expected Chummer6 guide repo is missing at /docker/chummercomplete/Chummer6." >&2
+      exit 1
+    fi
+    CHUMMER_REGISTRY_RELEASE_CHANNEL="$published_release_channel_path/RELEASE_CHANNEL.generated.json" \
+      python3 /docker/chummercomplete/Chummer6/scripts/verify_public_downloads_match_registry.py >/dev/null
+    ;;
+  *)
+    echo "verify gate failed: CHUMMER_REGISTRY_VERIFY_MODE must be 'ci' or 'release'." >&2
+    exit 1
+    ;;
+esac
+if [ "$registry_verify_mode" = "release" ]; then
+  python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m101_registry_promotion_discipline.py >/dev/null
 fi
-if ! python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py "$published_release_channel_path" >/dev/null 2>&1; then
-  echo "verify gate failed: published release-channel bundle must pass verify_public_release_channel.py." >&2
-  exit 1
-fi
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m101_registry_promotion_discipline.py >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m101_registry_promotion_discipline.py --self-test >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m107_registry_artifact_family_bindings.py >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m107_registry_artifact_family_bindings.py --self-test >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m111_registry_install_aware_concierge.py >/dev/null
+if [ "$registry_verify_mode" = "release" ]; then
+  python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m111_registry_install_aware_concierge.py >/dev/null
+fi
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m111_registry_install_aware_concierge.py --self-test >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m116_registry_creator_trust.py >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m116_registry_creator_trust.py --self-test >/dev/null
@@ -67,7 +92,7 @@ python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m135_
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py --self-test >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/test_materialize_public_release_channel.py >/dev/null
-python3 -m unittest /docker/chummercomplete/chummer-hub-registry/scripts/test_verify_public_release_channel.py >/dev/null
+python3 -m pytest -q /docker/chummercomplete/chummer-hub-registry/scripts/test_verify_public_release_channel.py >/dev/null
 python3 -m unittest /docker/chummercomplete/chummer-hub-registry/scripts/test_refresh_public_desktop_truth_release_helpers.py >/dev/null
 
 # Default verify must fail when consumer repos still source-own registry contracts.
@@ -5498,24 +5523,33 @@ assert canonical["supportabilitySummary"].startswith(
 )
 assert "required desktop tuple coverage is incomplete" in canonical["knownIssueSummary"]
 coverage = canonical.get("desktopTupleCoverage") or {}
-assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows"]
+assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows", "macos"]
 assert coverage.get("requiredDesktopHeads") == ["avalonia"]
 assert sorted(coverage.get("requiredDesktopPlatformHeadRidTuples") or []) == sorted([
     "avalonia:linux-x64:linux",
+    "avalonia:osx-arm64:macos",
     "avalonia:win-x64:windows",
 ])
 assert sorted(coverage.get("promotedPlatformHeadRidTuples") or []) == sorted([
     "avalonia:win-x64:windows",
     "blazor-desktop:win-x64:windows",
 ])
-assert coverage.get("missingRequiredPlatforms") == ["linux"]
+assert coverage.get("missingRequiredPlatforms") == ["linux", "macos"]
 assert coverage.get("missingRequiredHeads") == []
-assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == ["avalonia:linux"]
-assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == ["avalonia:linux-x64:linux"]
+assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == ["avalonia:linux", "avalonia:macos"]
+assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == [
+    "avalonia:linux-x64:linux",
+    "avalonia:osx-arm64:macos",
+]
 external_requests = coverage.get("externalProofRequests") or []
-assert len(external_requests) == 1
-assert external_requests[0].get("tupleId") == "avalonia:linux-x64:linux"
-assert external_requests[0].get("expectedArtifactId") == "avalonia-linux-x64-installer"
+assert [item.get("tupleId") for item in external_requests] == [
+    "avalonia:linux-x64:linux",
+    "avalonia:osx-arm64:macos",
+]
+assert [item.get("expectedArtifactId") for item in external_requests] == [
+    "avalonia-linux-x64-installer",
+    "avalonia-osx-arm64-installer",
+]
 assert all(str(item.get("channelId") or "").strip() == str(canonical.get("channelId") or "").strip() for item in external_requests)
 assert all(item.get("requiredHost") == item.get("platform") for item in external_requests)
 assert all(sorted(item.get("requiredProofs") or []) == ["promoted_installer_artifact", "startup_smoke_receipt"] for item in external_requests)

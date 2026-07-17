@@ -46,6 +46,7 @@ STARTUP_SMOKE_GATED_PLATFORMS = {"linux", "windows", "macos"}
 STARTUP_SMOKE_MAX_AGE_SECONDS = 7 * 24 * 3600
 DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS = 7 * 24 * 3600
 DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS = 7 * 24 * 3600
+DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS = 7 * 24 * 3600
 STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS = 300
 STARTUP_SMOKE_REQUIRED_READY_CHECKPOINT = "pre_ui_event_loop"
 DEFAULT_REQUIRED_DESKTOP_HEADS = ("avalonia",)
@@ -159,6 +160,37 @@ ALLOWED_LOCALIZATION_LOCALE_SUMMARY_ROW_KEYS = (
 )
 DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS = ("https://chummer.run",)
 DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME = "Chummer.Hub.Registry.Contracts"
+FLAGSHIP_READINESS_CONTRACT_NAME = "chummer.flagship_product_readiness_gate.v1"
+FLAGSHIP_READINESS_PASSING_STATUS = "pass"
+FLAGSHIP_READINESS_SNAPSHOT_BODY_KEYS = (
+    "contractName",
+    "coverageGapKeys",
+    "desktopClientReady",
+    "generatedAt",
+    "launchBlockers",
+    "reason",
+    "sourceSha256",
+    "status",
+)
+FLAGSHIP_READINESS_EMAIL_RE = re.compile(
+    r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9_%+-])"
+)
+FLAGSHIP_READINESS_SENSITIVE_PATH_RE = re.compile(
+    r"(?<![A-Za-z0-9:])(?:/(?:docker|users|home|root|tmp|var|etc|opt|workspace)(?:/[^\s,;)]*)?|[A-Za-z]:[\\/][^\s,;)]*)",
+    re.IGNORECASE,
+)
+FLAGSHIP_READINESS_REASON_MAX_LENGTH = 4096
+FLAGSHIP_READINESS_BLOCKER_MAX_LENGTH = 1024
+FLAGSHIP_READINESS_MAX_BLOCKERS = 128
+FLAGSHIP_READINESS_MAX_COVERAGE_GAPS = 128
+DEFAULT_FLAGSHIP_READINESS_GATE_CANDIDATES = (
+    Path(__file__).resolve().parents[2]
+    / "chummer.run-services"
+    / ".codex-studio"
+    / "published"
+    / "FLAGSHIP_PRODUCT_READINESS_GATE.generated.json",
+    Path("/docker/chummercomplete/chummer.run-services/.codex-studio/published/FLAGSHIP_PRODUCT_READINESS_GATE.generated.json"),
+)
 UTC = dt.timezone.utc
 ARTIFACT_REVOKE_TRUTH_FIELDS = (
     "status",
@@ -425,6 +457,95 @@ def startup_smoke_receipt_artifact_file_name(loaded: dict[str, Any]) -> str:
     )
 
 
+def startup_smoke_manifest_installer_mode(loaded: dict[str, Any]) -> str:
+    install_mode = normalize_token(
+        loaded.get("installerMode")
+        or loaded.get("artifactInstallMode")
+        or loaded.get("artifact_install_mode")
+    )
+    if install_mode == "nsis_bootstrap_installer":
+        return "bootstrap"
+    if install_mode in {"bundled", "bundled_installer", "appended_payload_installer"}:
+        return "bundled"
+    return ""
+
+
+def positive_int_or_none(value: Any) -> int | None:
+    try:
+        parsed = int(value)
+    except (TypeError, ValueError):
+        return None
+    return parsed if parsed > 0 else None
+
+
+def derive_public_payload_download_url(artifact_download_url: Any, payload_file_name: str) -> str:
+    normalized_payload_file_name = Path(str(payload_file_name or "").strip()).name
+    if not normalized_payload_file_name:
+        return ""
+
+    public_origin = DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS[0].rstrip("/")
+    normalized_installer_url = str(artifact_download_url or "").strip()
+    if normalized_installer_url:
+        parsed = urllib.parse.urlparse(normalized_installer_url)
+        if not parsed.scheme or not parsed.netloc:
+            normalized_installer_url = urllib.parse.urljoin(
+                f"{public_origin}/",
+                normalized_installer_url.lstrip("/"),
+            )
+            parsed = urllib.parse.urlparse(normalized_installer_url)
+        if parsed.scheme.lower() == "https" and parsed.netloc:
+            installer_dir = parsed.path.rsplit("/", 1)[0] if "/" in parsed.path else ""
+            payload_path = (
+                f"{installer_dir}/{normalized_payload_file_name}"
+                if installer_dir
+                else f"/{normalized_payload_file_name}"
+            )
+            return urllib.parse.urlunparse(
+                ("https", parsed.netloc.lower(), payload_path, "", "", "")
+            )
+
+    return urllib.parse.urljoin(
+        f"{public_origin}/",
+        f"downloads/files/{normalized_payload_file_name}",
+    )
+
+
+def enrich_artifact_from_startup_smoke(
+    artifact: dict[str, Any],
+    matching_receipts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    enriched = dict(artifact)
+
+    bootstrap_receipt = next(
+        (
+            receipt
+            for receipt in matching_receipts
+            if normalize_token(receipt.get("installerMode")) == "bootstrap"
+            and normalize_token(receipt.get("payloadAcquisitionMode")) in {"", "download"}
+        ),
+        None,
+    )
+    if bootstrap_receipt is None:
+        return enriched
+
+    payload_file_name = Path(str(bootstrap_receipt.get("payloadFileName") or "").strip()).name
+    payload_sha256 = normalize_token(bootstrap_receipt.get("payloadSha256"))
+    payload_size_bytes = positive_int_or_none(bootstrap_receipt.get("payloadSizeBytes"))
+    payload_download_url = derive_public_payload_download_url(
+        enriched.get("downloadUrl"),
+        payload_file_name,
+    )
+    if not payload_file_name or not payload_sha256 or payload_size_bytes is None or not payload_download_url:
+        return enriched
+
+    enriched["installerMode"] = "bootstrap"
+    enriched["payloadFileName"] = payload_file_name
+    enriched["payloadDownloadUrl"] = payload_download_url
+    enriched["payloadSha256"] = payload_sha256
+    enriched["payloadSizeBytes"] = payload_size_bytes
+    return enriched
+
+
 def normalize_release_proof_route(raw_route: Any, *, field_name: str, source: str) -> str:
     if not isinstance(raw_route, str):
         raise ValueError(f"{field_name} must be a string in {source}")
@@ -531,6 +652,14 @@ def dedupe_release_proof_routes(routes: list[str]) -> list[str]:
     return deduped
 
 
+def canonicalize_materialized_release_proof_route_order(routes: list[str]) -> list[str]:
+    required_route_order = list(REQUIRED_RELEASE_PROOF_ROUTES)
+    required_count = len(required_route_order)
+    if routes[:required_count] != required_route_order:
+        return routes
+    return required_route_order + sorted(routes[required_count:])
+
+
 def normalize_release_proof_base_url(raw_base_url: Any, *, field_name: str, source: str) -> str:
     if not isinstance(raw_base_url, str):
         raise ValueError(f"{field_name} must be a string in {source}")
@@ -619,6 +748,14 @@ def parse_args() -> argparse.Namespace:
         type=Path,
         help="Optional UI localization release-gate payload bound into releaseProof for desktop shelf trust.",
     )
+    parser.add_argument(
+        "--flagship-readiness",
+        type=Path,
+        help=(
+            "Optional flagship readiness gate payload used to fail-close launch posture when the "
+            "downstream hub is not launch-ready."
+        ),
+    )
     parser.add_argument("--product", default="chummer6")
     parser.add_argument("--channel", default="")
     parser.add_argument("--version", default="")
@@ -645,6 +782,215 @@ def parse_args() -> argparse.Namespace:
 
 def sha256_for(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def normalized_string_list(value: Any) -> list[str]:
+    if not isinstance(value, list):
+        return []
+    seen: set[str] = set()
+    result: list[str] = []
+    for item in value:
+        candidate = str(item or "").strip()
+        normalized = normalize_token(candidate)
+        if not candidate or normalized in seen:
+            continue
+        seen.add(normalized)
+        result.append(candidate)
+    return result
+
+
+def resolve_flagship_readiness_path(path: Path | None) -> Path | None:
+    candidates = [path] if path is not None else list(DEFAULT_FLAGSHIP_READINESS_GATE_CANDIDATES)
+    seen: set[str] = set()
+    for candidate in candidates:
+        if candidate is None:
+            continue
+        resolved = candidate.expanduser().resolve()
+        key = str(resolved).lower()
+        if key in seen:
+            continue
+        seen.add(key)
+        if resolved.is_file():
+            return resolved
+    return None
+
+
+def sanitize_flagship_readiness_public_text(value: Any, *, max_length: int) -> str:
+    sanitized = " ".join(str(value or "").strip().split())
+    sanitized = FLAGSHIP_READINESS_EMAIL_RE.sub("[redacted-contact]", sanitized)
+    sanitized = FLAGSHIP_READINESS_SENSITIVE_PATH_RE.sub("[redacted-path]", sanitized)
+    if len(sanitized) > max_length:
+        sanitized = sanitized[: max_length - 1].rstrip() + "…"
+    return sanitized
+
+
+def normalize_flagship_readiness_coverage_gap_keys(value: Any) -> list[str] | None:
+    if not isinstance(value, list) or len(value) > FLAGSHIP_READINESS_MAX_COVERAGE_GAPS:
+        return None
+    normalized: set[str] = set()
+    for item in value:
+        if not isinstance(item, str):
+            return None
+        token = normalize_token(item)
+        if not token or re.fullmatch(r"[a-z0-9][a-z0-9_.:-]*", token) is None:
+            return None
+        normalized.add(token)
+    return sorted(normalized)
+
+
+def normalize_flagship_readiness_launch_blockers(value: Any) -> list[str] | None:
+    if not isinstance(value, list) or len(value) > FLAGSHIP_READINESS_MAX_BLOCKERS:
+        return None
+    normalized: set[str] = set()
+    for item in value:
+        if not isinstance(item, str):
+            return None
+        blocker = sanitize_flagship_readiness_public_text(
+            item,
+            max_length=FLAGSHIP_READINESS_BLOCKER_MAX_LENGTH,
+        )
+        if not blocker:
+            return None
+        normalized.add(blocker)
+    return sorted(normalized)
+
+
+def canonical_flagship_readiness_timestamp(value: Any) -> str | None:
+    parsed = parse_iso(value)
+    if parsed is None:
+        return None
+    return parsed.astimezone(UTC).replace(microsecond=0).isoformat().replace("+00:00", "Z")
+
+
+def flagship_readiness_snapshot_sha256(snapshot: dict[str, Any]) -> str:
+    body = {
+        key: snapshot.get(key)
+        for key in FLAGSHIP_READINESS_SNAPSHOT_BODY_KEYS
+    }
+    canonical_bytes = json.dumps(
+        body,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return "sha256:" + hashlib.sha256(canonical_bytes).hexdigest()
+
+
+def load_flagship_readiness_snapshot(path: Path | None) -> dict[str, Any]:
+    resolved_path = resolve_flagship_readiness_path(path)
+    if resolved_path is None:
+        return {}
+    try:
+        source_bytes = resolved_path.read_bytes()
+        payload = json.loads(source_bytes.decode("utf-8"))
+    except (OSError, UnicodeDecodeError, json.JSONDecodeError):
+        return {}
+    if not isinstance(payload, dict):
+        return {}
+    contract_name = str(payload.get("contract_name") or payload.get("contractName") or "").strip()
+    if contract_name != FLAGSHIP_READINESS_CONTRACT_NAME:
+        return {}
+    summary = payload.get("summary") if isinstance(payload.get("summary"), dict) else {}
+    raw_coverage_gap_keys = (
+        summary.get("scoped_coverage_gap_keys")
+        if "scoped_coverage_gap_keys" in summary
+        else summary.get("coverage_gap_keys")
+        if "coverage_gap_keys" in summary
+        else payload.get("scoped_coverage_gap_keys")
+        if "scoped_coverage_gap_keys" in payload
+        else payload.get("coverage_gap_keys")
+    )
+    coverage_gap_keys = normalize_flagship_readiness_coverage_gap_keys(raw_coverage_gap_keys)
+    raw_launch_blockers = (
+        summary.get("launch_critical_nested_blockers")
+        if "launch_critical_nested_blockers" in summary
+        else payload.get("launch_critical_nested_blockers")
+    )
+    launch_blockers = normalize_flagship_readiness_launch_blockers(raw_launch_blockers)
+    if coverage_gap_keys is None or launch_blockers is None:
+        return {}
+    reason = sanitize_flagship_readiness_public_text(
+        payload.get("reason") or summary.get("reason"),
+        max_length=FLAGSHIP_READINESS_REASON_MAX_LENGTH,
+    )
+    status = normalize_token(payload.get("status"))
+    if status not in {"pass", "fail"}:
+        return {}
+    generated_at = canonical_flagship_readiness_timestamp(
+        payload.get("generated_at_utc")
+        or payload.get("generatedAtUtc")
+        or payload.get("generated_at")
+        or payload.get("generatedAt")
+    )
+    if generated_at is None:
+        return {}
+    if not reason:
+        reason = (
+            "All launch-critical flagship readiness checks pass."
+            if status == FLAGSHIP_READINESS_PASSING_STATUS and not coverage_gap_keys and not launch_blockers
+            else "Flagship readiness gate is not currently passing."
+        )
+    snapshot = {
+        "contractName": FLAGSHIP_READINESS_CONTRACT_NAME,
+        "generatedAt": generated_at,
+        "status": status,
+        "coverageGapKeys": coverage_gap_keys,
+        "launchBlockers": launch_blockers,
+        "desktopClientReady": (
+            status == FLAGSHIP_READINESS_PASSING_STATUS
+            and not coverage_gap_keys
+            and not launch_blockers
+        ),
+        "reason": reason,
+        "sourceSha256": "sha256:" + hashlib.sha256(source_bytes).hexdigest(),
+    }
+    snapshot["snapshotSha256"] = flagship_readiness_snapshot_sha256(snapshot)
+    return snapshot
+
+
+def flagship_readiness_blocks_public_stable(flagship_readiness: dict[str, Any] | None) -> bool:
+    return bool(flagship_readiness) and not bool(flagship_readiness.get("desktopClientReady"))
+
+
+def flagship_readiness_reason(flagship_readiness: dict[str, Any] | None) -> str:
+    if not isinstance(flagship_readiness, dict) or not flagship_readiness:
+        return "the flagship readiness gate snapshot is missing or malformed"
+    reason = str(flagship_readiness.get("reason") or "").strip()
+    if reason:
+        return reason
+    launch_blockers = normalized_string_list(flagship_readiness.get("launchBlockers"))
+    if launch_blockers:
+        return "Launch blockers remain: " + ", ".join(launch_blockers) + "."
+    coverage_gap_keys = normalized_string_list(flagship_readiness.get("coverageGapKeys"))
+    if coverage_gap_keys:
+        return "Coverage gaps remain: " + ", ".join(coverage_gap_keys) + "."
+    return "flagship readiness is not green yet"
+
+
+def loaded_flagship_readiness_copy_requires_refresh(
+    loaded: dict[str, Any],
+    flagship_readiness: dict[str, Any] | None,
+) -> bool:
+    if (
+        not flagship_readiness
+        or flagship_readiness_blocks_public_stable(flagship_readiness)
+    ):
+        return False
+
+    posture_fields = (
+        "rolloutReason",
+        "rollout_reason",
+        "supportabilitySummary",
+        "supportability_summary",
+        "knownIssueSummary",
+        "known_issue_summary",
+        "fixAvailabilitySummary",
+        "fix_availability_summary",
+    )
+    return any(
+        "stale or incomplete proof receipts" in str(loaded.get(field_name) or "").casefold()
+        for field_name in posture_fields
+    )
 
 
 def artifact_kind(ext: str, installer_suffix: bool) -> str:
@@ -867,15 +1213,15 @@ def load_startup_smoke_receipts(
     expected_channel: str = "",
     expected_release_version: str = "",
     now: dt.datetime | None = None,
-) -> list[dict[str, str]] | None:
+) -> list[dict[str, Any]] | None:
     if startup_smoke_dir is None or not startup_smoke_dir.exists():
         return None
     if now is None:
         now = utc_now()
 
-    receipts: list[dict[str, str]] = []
+    receipts: list[dict[str, Any]] = []
 
-    def build_receipt_entry(loaded: dict[str, str]) -> dict[str, str]:
+    def build_receipt_entry(loaded: dict[str, Any]) -> dict[str, Any]:
         head = str(loaded.get("headId") or "").strip()
         rid = normalize_token(loaded.get("rid") or loaded.get("runtimeIdentifier"))
         platform = normalize_platform_token(loaded.get("platform"))
@@ -893,7 +1239,7 @@ def load_startup_smoke_receipts(
         channel_id = normalize_token(loaded.get("channelId") or loaded.get("channel"))
         artifact_id = startup_smoke_receipt_artifact_id(loaded)
         artifact_file_name = startup_smoke_receipt_artifact_file_name(loaded)
-        return {
+        receipt_entry: dict[str, Any] = {
             "head": head,
             "platform": platform,
             "arch": arch,
@@ -902,6 +1248,37 @@ def load_startup_smoke_receipts(
             "artifactId": artifact_id,
             "artifactFileName": artifact_file_name,
         }
+        installer_mode = startup_smoke_manifest_installer_mode(loaded)
+        if installer_mode:
+            receipt_entry["installerMode"] = installer_mode
+        payload_acquisition_mode = normalize_token(
+            loaded.get("bootstrapPayloadAcquisitionMode")
+            or loaded.get("bootstrap_payload_acquisition_mode")
+        )
+        if payload_acquisition_mode:
+            receipt_entry["payloadAcquisitionMode"] = payload_acquisition_mode
+        payload_file_name = Path(
+            str(
+                loaded.get("bootstrapPayloadFileName")
+                or loaded.get("bootstrap_payload_file_name")
+                or ""
+            ).strip()
+        ).name
+        if payload_file_name:
+            receipt_entry["payloadFileName"] = payload_file_name
+        payload_sha256 = normalize_token(
+            loaded.get("bootstrapPayloadSha256")
+            or loaded.get("bootstrap_payload_sha256")
+        )
+        if payload_sha256:
+            receipt_entry["payloadSha256"] = payload_sha256
+        payload_size_bytes = positive_int_or_none(
+            loaded.get("bootstrapPayloadSizeBytes")
+            or loaded.get("bootstrap_payload_size_bytes")
+        )
+        if payload_size_bytes is not None:
+            receipt_entry["payloadSizeBytes"] = payload_size_bytes
+        return receipt_entry
 
     for entry in sorted(startup_smoke_dir.rglob("startup-smoke-*.receipt.json")):
         try:
@@ -960,7 +1337,7 @@ def load_startup_smoke_receipts(
 
 def filter_unproven_installers(
     artifacts: list[dict[str, Any]],
-    startup_smoke_receipts: list[dict[str, str]] | None,
+    startup_smoke_receipts: list[dict[str, Any]] | None,
 ) -> list[dict[str, Any]]:
     if startup_smoke_receipts is None:
         return artifacts
@@ -1011,13 +1388,14 @@ def filter_unproven_installers(
         ]
         if matching_stale_receipts:
             continue
+        enriched_artifact = enrich_artifact_from_startup_smoke(artifact, matching_receipts)
 
         if expected_digest:
             if any(
                 receipt["artifactDigest"] == expected_digest
                 for receipt in matching_receipts
             ):
-                filtered.append(artifact)
+                filtered.append(enriched_artifact)
             continue
 
         if any(
@@ -1025,11 +1403,11 @@ def filter_unproven_installers(
             or (expected_file_name and receipt.get("artifactFileName") == expected_file_name)
             for receipt in matching_receipts
         ):
-            filtered.append(artifact)
+            filtered.append(enriched_artifact)
             continue
 
         if not expected_digest:
-            filtered.append(artifact)
+            filtered.append(enriched_artifact)
 
     return filtered
 
@@ -1781,21 +2159,19 @@ def materialization_required_platforms(
     artifacts: list[dict[str, Any]],
     configured_required_platforms: Any,
 ) -> list[str]:
+    # Chummer6's public desktop support floor is a policy boundary, not a
+    # projection of whichever artifacts happened to reach a staging bundle.
+    # In particular, a macOS-only publish must remain visibly incomplete for
+    # Linux and Windows instead of silently redefining the required platform
+    # set to macOS.  A configured value is retained only when it represents
+    # the complete canonical floor; required_desktop_platforms() also restores
+    # canonical ordering for that validated set.
+    del artifacts
+    canonical_floor = list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS)
     configured_platforms = required_desktop_platforms(configured_required_platforms)
-    if configured_platforms:
+    if set(canonical_floor).issubset(configured_platforms):
         return configured_platforms
-    discovered_platforms = [
-        platform
-        for platform in CANONICAL_DESKTOP_PLATFORM_ORDER
-        if any(
-            normalize_platform_token(artifact.get("platform")) == platform
-            for artifact in artifacts
-            if isinstance(artifact, dict)
-        )
-    ]
-    if discovered_platforms:
-        return discovered_platforms
-    return list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS)
+    return canonical_floor
 
 
 def verify_required_desktop_heads(required_heads: list[str], *, source: str) -> None:
@@ -2686,6 +3062,13 @@ def desktop_tuple_coverage_gap_summary(coverage: dict[str, Any] | None) -> str:
     return "required desktop tuple coverage is incomplete (" + "; ".join(details) + ")"
 
 
+def is_desktop_tuple_coverage_known_issue(summary: str) -> bool:
+    normalized = str(summary).strip()
+    if not normalized:
+        return False
+    return normalized.startswith("Known issue: required desktop tuple coverage ")
+
+
 def expected_installer_artifact_id_for_route(route_row: dict[str, Any]) -> str:
     head = normalize_token(route_row.get("head"))
     rid = normalize_token(route_row.get("rid"))
@@ -2985,6 +3368,36 @@ def proof_freshness_status(payload: dict[str, Any]) -> str:
     ):
         return "stale"
     return "fresh"
+
+
+def output_readiness_freshness_status(
+    proof_freshness_status_value: str,
+    *,
+    flagship_readiness: dict[str, Any] | None = None,
+    projection_generated_at: dt.datetime | None = None,
+) -> str:
+    normalized_status = normalize_token(proof_freshness_status_value) or "fresh"
+    if normalized_status == "missing":
+        return "missing"
+    if normalized_status == "stale":
+        return "stale"
+    if not isinstance(flagship_readiness, dict) or not flagship_readiness:
+        return "missing"
+    flagship_readiness_age_seconds = projection_age_seconds(
+        projection_generated_at=projection_generated_at,
+        evidence_generated_at=flagship_readiness.get("generatedAt"),
+    )
+    if flagship_readiness_age_seconds is None:
+        return "missing"
+    if flagship_readiness_age_seconds > DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS:
+        return "stale"
+    if flagship_readiness_blocks_public_stable(flagship_readiness):
+        return "stale"
+    return normalized_status
+
+
+def proof_freshness_blocks_output_readiness(proof_freshness_status_value: str) -> bool:
+    return normalize_token(proof_freshness_status_value) in {"stale", "missing"}
 
 
 def artifact_publication_state(
@@ -3553,11 +3966,17 @@ def derive_rollout_state(
     proof: dict[str, Any] | None,
     *,
     desktop_coverage_complete: bool,
+    flagship_readiness: dict[str, Any] | None = None,
+    proof_freshness_status_value: str = "fresh",
 ) -> str:
     if status != "published":
         return "unpublished"
     if not desktop_coverage_complete:
         return "coverage_incomplete"
+    if flagship_readiness_blocks_public_stable(flagship_readiness):
+        return "public_release_review_required"
+    if proof_freshness_blocks_output_readiness(proof_freshness_status_value):
+        return "public_release_review_required"
     if not localization_gate_allows_public_stable(proof):
         return "public_release_review_required"
     if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
@@ -3572,6 +3991,8 @@ def derive_rollout_reason(
     *,
     desktop_coverage_complete: bool,
     coverage: dict[str, Any] | None,
+    flagship_readiness: dict[str, Any] | None = None,
+    proof_freshness_status_value: str = "fresh",
 ) -> str:
     if status != "published":
         return "No published artifact shelf exists yet."
@@ -3580,6 +4001,18 @@ def derive_rollout_reason(
             "Current shelf is published, but promotion stays blocked because "
             + desktop_tuple_coverage_gap_summary(coverage)
             + "."
+        )
+    if flagship_readiness_blocks_public_stable(flagship_readiness):
+        return (
+            "Current shelf is published, but release posture stays review-required because "
+            "stale or incomplete proof receipts still block launch-readiness claims: "
+            + flagship_readiness_reason(flagship_readiness).strip().rstrip(".")
+            + "."
+        )
+    if proof_freshness_blocks_output_readiness(proof_freshness_status_value):
+        return (
+            "Current shelf is published, but release posture stays review-required because "
+            "stale or incomplete proof receipts still block launch-readiness claims."
         )
     if not localization_gate_allows_public_stable(proof):
         return (
@@ -3601,10 +4034,16 @@ def derive_supportability_state(
     proof: dict[str, Any] | None,
     *,
     desktop_coverage_complete: bool,
+    flagship_readiness: dict[str, Any] | None = None,
+    proof_freshness_status_value: str = "fresh",
 ) -> str:
     if status != "published":
         return "unpublished"
     if not desktop_coverage_complete:
+        return "review_required"
+    if flagship_readiness_blocks_public_stable(flagship_readiness):
+        return "review_required"
+    if proof_freshness_blocks_output_readiness(proof_freshness_status_value):
         return "review_required"
     if not localization_gate_allows_public_stable(proof):
         return "review_required"
@@ -3622,6 +4061,8 @@ def derive_supportability_summary(
     *,
     desktop_coverage_complete: bool,
     coverage: dict[str, Any] | None,
+    flagship_readiness: dict[str, Any] | None = None,
+    proof_freshness_status_value: str = "fresh",
 ) -> str:
     if status != "published":
         return "No published channel support posture exists because no release shelf is live."
@@ -3630,6 +4071,18 @@ def derive_supportability_summary(
             "Treat the current release as review-required because "
             + desktop_tuple_coverage_gap_summary(coverage)
             + "."
+        )
+    if flagship_readiness_blocks_public_stable(flagship_readiness):
+        return (
+            "Treat the current release as review-required because stale or incomplete proof receipts "
+            "still block launch-readiness claims: "
+            + flagship_readiness_reason(flagship_readiness).strip().rstrip(".")
+            + "."
+        )
+    if proof_freshness_blocks_output_readiness(proof_freshness_status_value):
+        return (
+            "Treat the current release as review-required because stale or incomplete proof receipts "
+            "still block launch-readiness claims."
         )
     if not localization_gate_allows_public_stable(proof):
         return (
@@ -3671,18 +4124,33 @@ def derive_known_issue_summary(
     *,
     desktop_coverage_complete: bool,
     coverage: dict[str, Any] | None,
+    flagship_readiness: dict[str, Any] | None = None,
+    proof_freshness_status_value: str = "fresh",
 ) -> str:
     if status != "published":
         return "No active channel issues are published because the shelf is still empty."
     if not desktop_coverage_complete:
         return "Known issue: " + desktop_tuple_coverage_gap_summary(coverage) + "."
+    if flagship_readiness_blocks_public_stable(flagship_readiness):
+        return (
+            "Known issue: stale or incomplete proof receipts still block launch-readiness claims: "
+            + flagship_readiness_reason(flagship_readiness).strip().rstrip(".")
+            + "."
+        )
+    if proof_freshness_blocks_output_readiness(proof_freshness_status_value):
+        return "Known issue: stale or incomplete proof receipts still block launch-readiness claims."
     if not localization_gate_allows_public_stable(proof):
         return (
             "Known issue: the current public shelf is installable, but UI localization proof is still review-required."
         )
     if proof and normalize_optional_string(proof.get("status")) in {"pass", "passed", "ready"}:
+        normalized_channel = normalize_token(channel)
         journeys = proof.get("journeysPassed") or []
         proof_notes: list[str] = []
+        if any(str(item).strip() == "build_explain_publish" for item in journeys):
+            proof_notes.append("install guidance")
+        if any(str(item).strip() == "campaign_session_recover_recap" for item in journeys):
+            proof_notes.append("session recovery")
         if any(str(item).strip() == "install_claim_restore_continue" for item in journeys):
             proof_notes.append("account return")
         if any(str(item).strip() == "report_cluster_release_notify" for item in journeys):
@@ -3690,6 +4158,13 @@ def derive_known_issue_summary(
         if any(str(item).strip() == "organize_community_and_close_loop" for item in journeys):
             proof_notes.append("community wrap-up")
         proof_note_text = ", ".join(proof_notes)
+        if normalized_channel == "preview":
+            proof_note_clause = (
+                f"recent {proof_note_text}, bounded offline prefetch, and current support follow-up coverage."
+                if proof_note_text
+                else "recent install guidance, bounded offline prefetch, and current support follow-up coverage."
+            )
+            return f"Preview caveats still apply, but the current release has {proof_note_clause}"
         proof_note_clause = f", {proof_note_text}" if proof_note_text else ""
         return (
             "Current release checks are clear, and the downloads page has recent install"
@@ -3703,11 +4178,23 @@ def derive_fix_availability_summary(
     proof: dict[str, Any] | None,
     *,
     desktop_coverage_complete: bool,
+    flagship_readiness: dict[str, Any] | None = None,
+    proof_freshness_status_value: str = "fresh",
 ) -> str:
     if status != "published":
         return "Fix notices should stay pending until a published shelf exists."
     if not desktop_coverage_complete:
         return "Do not send fixed notices until required desktop tuple coverage is complete for the promoted shelf."
+    if flagship_readiness_blocks_public_stable(flagship_readiness):
+        return (
+            "Only send fixed notices after stale or incomplete proof receipts are cleared and the affected "
+            "install can receive the published channel artifact now on the shelf."
+        )
+    if proof_freshness_blocks_output_readiness(proof_freshness_status_value):
+        return (
+            "Only send fixed notices after stale or incomplete proof receipts are cleared and the affected "
+            "install can receive the published channel artifact now on the shelf."
+        )
     if not localization_gate_allows_public_stable(proof):
         return (
             "Only send fixed notices after the affected install is on the public shelf and the UI localization release gate is fully green."
@@ -3725,18 +4212,24 @@ def normalize_release_channel_posture(
     status: str,
     proof: dict[str, Any] | None,
     desktop_coverage_complete: bool,
+    flagship_readiness: dict[str, Any] | None = None,
+    proof_freshness_status_value: str = "fresh",
 ) -> tuple[str, str]:
     derived_rollout_state = derive_rollout_state(
         channel,
         status,
         proof,
         desktop_coverage_complete=desktop_coverage_complete,
+        flagship_readiness=flagship_readiness,
+        proof_freshness_status_value=proof_freshness_status_value,
     )
     derived_supportability_state = derive_supportability_state(
         channel,
         status,
         proof,
         desktop_coverage_complete=desktop_coverage_complete,
+        flagship_readiness=flagship_readiness,
+        proof_freshness_status_value=proof_freshness_status_value,
     )
 
     # Older source payloads may still carry pre-normalized local docker posture
@@ -3777,6 +4270,11 @@ def normalize_effective_channel_id(channel: str, rollout_state: str) -> str:
 
 def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     loaded = load_input_payload(args)
+    flagship_readiness = load_flagship_readiness_snapshot(getattr(args, "flagship_readiness", None))
+    refresh_flagship_readiness_copy = loaded_flagship_readiness_copy_requires_refresh(
+        loaded,
+        flagship_readiness,
+    )
     loaded_version = str(loaded.get("version") or "").strip()
     loaded_public_version = str(
         loaded.get("publicVersion")
@@ -3810,7 +4308,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         for artifact in artifacts
         if normalize_platform_token(artifact.get("platform")) in CANONICAL_DESKTOP_PLATFORM_ORDER
     ]
-    startup_smoke_receipts: list[dict[str, str]] | None
+    startup_smoke_receipts: list[dict[str, Any]] | None
     if args.startup_smoke_dir is not None and not args.skip_startup_smoke_filter:
         startup_smoke_receipts = load_startup_smoke_receipts(
             args.startup_smoke_dir,
@@ -3888,6 +4386,23 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             "(set --ui-localization-release-gate or embed releaseProof.uiLocalizationReleaseGate in source proof)"
         )
     release_proof["uiLocalizationReleaseGate"] = ui_localization_release_gate
+    # Only a newly read, versioned gate receipt may establish this snapshot.
+    # A prior manifest's embedded copy is never a fallback for a missing or
+    # malformed source receipt during re-materialization.
+    release_proof.pop("flagshipReadiness", None)
+    if flagship_readiness:
+        release_proof["flagshipReadiness"] = dict(flagship_readiness)
+    freshness_status = proof_freshness_status(
+        {
+            "generatedAt": generated_at,
+            "releaseProof": release_proof,
+        }
+    )
+    freshness_status = output_readiness_freshness_status(
+        freshness_status,
+        flagship_readiness=flagship_readiness,
+        projection_generated_at=generated_at_dt,
+    )
     runtime_bundle_heads = apply_runtime_bundle_compatibility(
         load_runtime_bundle_heads(args.runtime_bundles),
         status=status,
@@ -3899,13 +4414,14 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         status=status,
         proof=release_proof,
     )
+    merged_release_proof_routes = dedupe_release_proof_routes(
+        [
+            *list(release_proof.get("proofRoutes") or []),
+            *derived_release_proof_artifact_routes(artifacts),
+        ]
+    )
     release_proof["proofRoutes"] = validate_release_proof_route_set(
-        dedupe_release_proof_routes(
-            [
-                *list(release_proof.get("proofRoutes") or []),
-                *derived_release_proof_artifact_routes(artifacts),
-            ]
-        ),
+        canonicalize_materialized_release_proof_route_order(merged_release_proof_routes),
         source="materialized releaseProof",
     )
     required_heads = required_desktop_heads(args.required_desktop_heads)
@@ -3946,13 +4462,26 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
+        flagship_readiness=flagship_readiness,
+        proof_freshness_status_value=freshness_status,
     )
-    rollout_reason = loaded_rollout_reason or derive_rollout_reason(
+    derived_rollout_reason = derive_rollout_reason(
         raw_channel,
         status,
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
         coverage=tuple_coverage,
+        flagship_readiness=flagship_readiness,
+        proof_freshness_status_value=freshness_status,
+    )
+    rollout_reason = (
+        derived_rollout_reason
+        if (
+            flagship_readiness_blocks_public_stable(flagship_readiness)
+            or proof_freshness_blocks_output_readiness(freshness_status)
+            or refresh_flagship_readiness_copy
+        )
+        else (loaded_rollout_reason or derived_rollout_reason)
     )
     supportability_state = (
         str(loaded.get("supportabilityState") or loaded.get("supportability_state") or "").strip()
@@ -3961,6 +4490,8 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             status,
             release_proof,
             desktop_coverage_complete=desktop_coverage_complete,
+            flagship_readiness=flagship_readiness,
+            proof_freshness_status_value=freshness_status,
         )
     )
     rollout_state, supportability_state = normalize_release_channel_posture(
@@ -3970,6 +4501,8 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         status=status,
         proof=release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
+        flagship_readiness=flagship_readiness,
+        proof_freshness_status_value=freshness_status,
     )
     channel = normalize_effective_channel_id(raw_channel, rollout_state)
     if channel != raw_channel or rollout_state != loaded_rollout_state:
@@ -3997,11 +4530,19 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
         coverage=tuple_coverage,
+        flagship_readiness=flagship_readiness,
+        proof_freshness_status_value=freshness_status,
     )
     loaded_supportability_summary = str(
         loaded.get("supportabilitySummary") or loaded.get("supportability_summary") or ""
     ).strip()
     if (
+        flagship_readiness_blocks_public_stable(flagship_readiness)
+        or proof_freshness_blocks_output_readiness(freshness_status)
+        or refresh_flagship_readiness_copy
+    ):
+        supportability_summary = derived_supportability_summary
+    elif (
         supportability_state == "gold_supported"
         and (
             loaded_supportability_summary.startswith("Local release proof passed",)
@@ -4028,8 +4569,21 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         release_proof,
         desktop_coverage_complete=desktop_coverage_complete,
         coverage=tuple_coverage,
+        flagship_readiness=flagship_readiness,
+        proof_freshness_status_value=freshness_status,
     )
     if (
+        flagship_readiness_blocks_public_stable(flagship_readiness)
+        or proof_freshness_blocks_output_readiness(freshness_status)
+        or refresh_flagship_readiness_copy
+    ):
+        known_issue_summary = derived_known_issue_summary
+    elif (
+        is_desktop_tuple_coverage_known_issue(loaded_known_issue_summary)
+        and loaded_known_issue_summary != derived_known_issue_summary
+    ):
+        known_issue_summary = derived_known_issue_summary
+    elif (
         supportability_state == "gold_supported"
         and loaded_known_issue_summary.startswith("Preview caveats still apply",)
     ):
@@ -4038,25 +4592,30 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         known_issue_summary = derived_known_issue_summary
     else:
         known_issue_summary = loaded_known_issue_summary or derived_known_issue_summary
+    derived_fix_availability_summary = derive_fix_availability_summary(
+        status,
+        release_proof,
+        desktop_coverage_complete=desktop_coverage_complete,
+        flagship_readiness=flagship_readiness,
+        proof_freshness_status_value=freshness_status,
+    )
+    loaded_fix_availability_summary = str(
+        loaded.get("fixAvailabilitySummary") or loaded.get("fix_availability_summary") or ""
+    ).strip()
     fix_availability_summary = (
-        str(loaded.get("fixAvailabilitySummary") or loaded.get("fix_availability_summary") or "").strip()
-        or derive_fix_availability_summary(
-            status,
-            release_proof,
-            desktop_coverage_complete=desktop_coverage_complete,
+        derived_fix_availability_summary
+        if (
+            flagship_readiness_blocks_public_stable(flagship_readiness)
+            or proof_freshness_blocks_output_readiness(freshness_status)
+            or refresh_flagship_readiness_copy
         )
+        else (loaded_fix_availability_summary or derived_fix_availability_summary)
     )
     install_aware_registry = install_aware_artifact_registry(
         artifacts,
         tuple_coverage,
         channel_id=channel,
         release_version=version,
-    )
-    freshness_status = proof_freshness_status(
-        {
-            "generatedAt": generated_at,
-            "releaseProof": release_proof,
-        }
     )
     artifact_identity_registry_rows = artifact_identity_registry(
         tuple_coverage,
@@ -4154,7 +4713,7 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         )
     contract_name = DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
     rollout_state = str(canonical.get("rolloutState") or "").strip()
-    channel_id = str(canonical.get("channelId") or "").strip()
+    channel_id = str(canonical.get("channelId") or canonical.get("channel") or "").strip()
     compatibility_channel = (
         rollout_state
         if rollout_state in {"public_stable", "stable", "preview", "local", "docker"}
@@ -4164,16 +4723,23 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
     for artifact in canonical.get("artifacts") or []:
         if not isinstance(artifact, dict):
             continue
+        artifact_id = str(artifact.get("artifactId") or artifact.get("id") or "").strip()
         file_name = str(artifact.get("fileName") or "")
         file_format = "tar.gz" if file_name.endswith(".tar.gz") else Path(file_name).suffix.lower().lstrip(".")
         platform = str(artifact.get("platform") or "").strip()
+        platform_label = str(artifact.get("platformLabel") or platform).strip()
         arch = str(artifact.get("arch") or "").strip()
+        rid = str(artifact.get("rid") or "").strip()
         kind = str(artifact.get("kind") or "").strip()
+        download_url = artifact.get("downloadUrl") or artifact.get("url")
         downloads.append(
             {
-                "id": artifact.get("artifactId"),
-                "platform": artifact.get("platformLabel") or artifact.get("platform"),
-                "url": artifact.get("downloadUrl"),
+                "id": artifact_id,
+                "artifactId": artifact_id,
+                "platform": platform,
+                "platformLabel": platform_label,
+                "url": download_url,
+                "downloadUrl": download_url,
                 "sha256": artifact.get("sha256"),
                 "sizeBytes": artifact.get("sizeBytes"),
                 "format": file_format,
@@ -4181,6 +4747,7 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
                 "kind": kind,
                 "head": artifact.get("head"),
                 "platformId": f"{platform}-{arch}" if platform and arch else platform or None,
+                "rid": rid,
                 "arch": arch or None,
                 "fileName": artifact.get("fileName"),
                 "channelId": artifact.get("channelId") or artifact.get("channel") or channel_id or None,

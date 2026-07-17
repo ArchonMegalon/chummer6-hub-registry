@@ -1,6 +1,9 @@
 bin/
 obj/
 
+# Local context index state.
+/.vexp/
+
 # Binary payloads are published out-of-band; never commit generated binaries.
 *.bin
 *.exe
