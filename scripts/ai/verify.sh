@@ -41,6 +41,7 @@ fi
 # Source verification is hermetic by default. Release operators must opt into
 # validating the mutable publication shelf and its guide projection explicitly.
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
+export CHUMMER_REGISTRY_VERIFY_REPO_ROOT="$repo_root"
 registry_verify_mode="${CHUMMER_REGISTRY_VERIFY_MODE:-ci}"
 published_release_channel_path="${CHUMMER_REGISTRY_VERIFY_RELEASE_CHANNEL_DIR:-$repo_root/.codex-studio/published}"
 case "$registry_verify_mode" in
@@ -70,59 +71,59 @@ case "$registry_verify_mode" in
     ;;
 esac
 if [ "$registry_verify_mode" = "release" ]; then
-  python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m101_registry_promotion_discipline.py >/dev/null
+  python3 ${repo_root}/scripts/verify_next90_m101_registry_promotion_discipline.py >/dev/null
 fi
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m101_registry_promotion_discipline.py --self-test >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m107_registry_artifact_family_bindings.py >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m107_registry_artifact_family_bindings.py --self-test >/dev/null
+python3 ${repo_root}/scripts/verify_next90_m101_registry_promotion_discipline.py --self-test >/dev/null
+python3 ${repo_root}/scripts/verify_next90_m107_registry_artifact_family_bindings.py >/dev/null
+python3 ${repo_root}/scripts/verify_next90_m107_registry_artifact_family_bindings.py --self-test >/dev/null
 if [ "$registry_verify_mode" = "release" ]; then
-  python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m111_registry_install_aware_concierge.py >/dev/null
+  python3 ${repo_root}/scripts/verify_next90_m111_registry_install_aware_concierge.py >/dev/null
 fi
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m111_registry_install_aware_concierge.py --self-test >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m116_registry_creator_trust.py >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m116_registry_creator_trust.py --self-test >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m117_registry_artifact_shelf.py >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m117_registry_artifact_shelf.py --self-test >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m120_registry_launch_truth.py >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m120_registry_launch_truth.py --self-test >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m143_registry_output_readiness.py >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m143_registry_output_readiness.py --self-test >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m135_registry_boundary_coverage.py >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m135_registry_boundary_coverage.py --self-test >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py --self-test >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/test_materialize_public_release_channel.py >/dev/null
-python3 -m pytest -q /docker/chummercomplete/chummer-hub-registry/scripts/test_verify_public_release_channel.py >/dev/null
-python3 -m unittest /docker/chummercomplete/chummer-hub-registry/scripts/test_refresh_public_desktop_truth_release_helpers.py >/dev/null
+python3 ${repo_root}/scripts/verify_next90_m111_registry_install_aware_concierge.py --self-test >/dev/null
+python3 ${repo_root}/scripts/verify_next90_m116_registry_creator_trust.py >/dev/null
+python3 ${repo_root}/scripts/verify_next90_m116_registry_creator_trust.py --self-test >/dev/null
+python3 ${repo_root}/scripts/verify_next90_m117_registry_artifact_shelf.py >/dev/null
+python3 ${repo_root}/scripts/verify_next90_m117_registry_artifact_shelf.py --self-test >/dev/null
+python3 ${repo_root}/scripts/verify_next90_m120_registry_launch_truth.py >/dev/null
+python3 ${repo_root}/scripts/verify_next90_m120_registry_launch_truth.py --self-test >/dev/null
+python3 ${repo_root}/scripts/verify_next90_m143_registry_output_readiness.py >/dev/null
+python3 ${repo_root}/scripts/verify_next90_m143_registry_output_readiness.py --self-test >/dev/null
+python3 ${repo_root}/scripts/verify_next90_m135_registry_boundary_coverage.py >/dev/null
+python3 ${repo_root}/scripts/verify_next90_m135_registry_boundary_coverage.py --self-test >/dev/null
+python3 ${repo_root}/scripts/verify_next90_m144_registry_release_tuple_proof.py >/dev/null
+python3 ${repo_root}/scripts/verify_next90_m144_registry_release_tuple_proof.py --self-test >/dev/null
+python3 ${repo_root}/scripts/test_materialize_public_release_channel.py >/dev/null
+python3 -m pytest -q ${repo_root}/scripts/test_verify_public_release_channel.py >/dev/null
+python3 "${repo_root}/scripts/test_refresh_public_desktop_truth_release_helpers.py" >/dev/null
 
 # Default verify must fail when consumer repos still source-own registry contracts.
 export CHUMMER_ENFORCE_CONSUMER_OWNERSHIP="${CHUMMER_ENFORCE_CONSUMER_OWNERSHIP:-1}"
 
-if rg -n '<HintPath>.*Chummer\.Hub\.Registry\.Contracts.*bin' /docker/chummercomplete/chummer-hub-registry/Chummer.Run.Registry/Chummer.Run.Registry.csproj >/dev/null 2>&1; then
+if rg -n '<HintPath>.*Chummer\.Hub\.Registry\.Contracts.*bin' ${repo_root}/Chummer.Run.Registry/Chummer.Run.Registry.csproj >/dev/null 2>&1; then
   echo "verify gate failed: runtime project must not reference contracts via bin HintPath."
   exit 1
 fi
 
-dotnet build /docker/chummercomplete/chummer-hub-registry/Chummer.Hub.Registry.Contracts/Chummer.Hub.Registry.Contracts.csproj
-dotnet pack /docker/chummercomplete/chummer-hub-registry/Chummer.Hub.Registry.Contracts/Chummer.Hub.Registry.Contracts.csproj --no-build -c Debug -o /tmp/chummer-hub-registry-pack
-dotnet build /docker/chummercomplete/chummer-hub-registry/Chummer.Hub.Registry.Contracts.Verify/Chummer.Hub.Registry.Contracts.Verify.csproj
-dotnet build /docker/chummercomplete/chummer-hub-registry/Chummer.Run.Registry/Chummer.Run.Registry.csproj
-test -f /docker/chummercomplete/chummer-hub-registry/docs/REGISTRY_RESTORE_RUNBOOK.md
-test -f /docker/chummercomplete/chummer-hub-registry/docs/REGISTRY_PRODUCT_READMODELS.md
-test -f /docker/chummercomplete/chummer-hub-registry/docs/RELEASE_CHANNEL_PIPELINE.md
-test -f /docker/chummercomplete/chummer-hub-registry/docs/flagship-front-door-registry-closeout.md
-test -f /docker/chummercomplete/chummer-hub-registry/.codex-studio/published/FLAGSHIP_FRONT_DOOR_REGISTRY_CLOSEOUT.generated.json
-rg -n 'hub_state_backup_v1|Chummer\.Run\.Registry\.Verify|runtime-bundle head' /docker/chummercomplete/chummer-hub-registry/docs/REGISTRY_RESTORE_RUNBOOK.md >/dev/null
-rg -n 'PublicationsController|PublicationWorkflowService|HubRegistryController|SearchArtifacts|GetPreview|GetCurrentReleaseChannel|ListProjections|GetInstallProjection|GetRuntimeBundleHeads|GetPipelineProjection|AddReview|GetReviews|ModerationTimeline|ApprovalAuditTrail|docs/help views|operator boards' /docker/chummercomplete/chummer-hub-registry/docs/REGISTRY_PRODUCT_READMODELS.md >/dev/null
-rg -n 'RELEASE_CHANNEL\.generated\.json|releases\.json|portable|claim tickets|claimed-installation|installation grants|download receipts|chummer6-ui|fleet|chummer6-hub' /docker/chummercomplete/chummer-hub-registry/docs/RELEASE_CHANNEL_PIPELINE.md >/dev/null
-rg -n 'ui_kit_and_flagship_polish|media_artifacts|guided Chummer product installer|build_explain_publish|StructuredRecipeVideo|StructuredRecipePacketBundle' /docker/chummercomplete/chummer-hub-registry/docs/flagship-front-door-registry-closeout.md >/dev/null
-rg -n 'account-aware install-linking DTOs|chummer6-ui' /docker/chummercomplete/chummer-hub-registry/README.md /docker/chummercomplete/chummer-hub-registry/Chummer.Hub.Registry.Contracts/PACKAGE_README.md >/dev/null
+dotnet build ${repo_root}/Chummer.Hub.Registry.Contracts/Chummer.Hub.Registry.Contracts.csproj
+dotnet pack ${repo_root}/Chummer.Hub.Registry.Contracts/Chummer.Hub.Registry.Contracts.csproj --no-build -c Debug -o /tmp/chummer-hub-registry-pack
+dotnet build ${repo_root}/Chummer.Hub.Registry.Contracts.Verify/Chummer.Hub.Registry.Contracts.Verify.csproj
+dotnet build ${repo_root}/Chummer.Run.Registry/Chummer.Run.Registry.csproj
+test -f ${repo_root}/docs/REGISTRY_RESTORE_RUNBOOK.md
+test -f ${repo_root}/docs/REGISTRY_PRODUCT_READMODELS.md
+test -f ${repo_root}/docs/RELEASE_CHANNEL_PIPELINE.md
+test -f ${repo_root}/docs/flagship-front-door-registry-closeout.md
+test -f ${repo_root}/.codex-studio/published/FLAGSHIP_FRONT_DOOR_REGISTRY_CLOSEOUT.generated.json
+rg -n 'hub_state_backup_v1|Chummer\.Run\.Registry\.Verify|runtime-bundle head' ${repo_root}/docs/REGISTRY_RESTORE_RUNBOOK.md >/dev/null
+rg -n 'PublicationsController|PublicationWorkflowService|HubRegistryController|SearchArtifacts|GetPreview|GetCurrentReleaseChannel|ListProjections|GetInstallProjection|GetRuntimeBundleHeads|GetPipelineProjection|AddReview|GetReviews|ModerationTimeline|ApprovalAuditTrail|docs/help views|operator boards' ${repo_root}/docs/REGISTRY_PRODUCT_READMODELS.md >/dev/null
+rg -n 'RELEASE_CHANNEL\.generated\.json|releases\.json|portable|claim tickets|claimed-installation|installation grants|download receipts|chummer6-ui|fleet|chummer6-hub' ${repo_root}/docs/RELEASE_CHANNEL_PIPELINE.md >/dev/null
+rg -n 'ui_kit_and_flagship_polish|media_artifacts|guided Chummer product installer|build_explain_publish|StructuredRecipeVideo|StructuredRecipePacketBundle' ${repo_root}/docs/flagship-front-door-registry-closeout.md >/dev/null
+rg -n 'account-aware install-linking DTOs|chummer6-ui' ${repo_root}/README.md ${repo_root}/Chummer.Hub.Registry.Contracts/PACKAGE_README.md >/dev/null
 python3 - <<'PY'
 import json
 import sys
 from pathlib import Path
 
-root = Path("/docker/chummercomplete/chummer-hub-registry")
+root = Path(__import__("os").environ["CHUMMER_REGISTRY_VERIFY_REPO_ROOT"])
 proof_path = root / ".codex-studio/published/FLAGSHIP_FRONT_DOOR_REGISTRY_CLOSEOUT.generated.json"
 release_path = root / ".codex-studio/published/RELEASE_CHANNEL.generated.json"
 media_path = Path("/docker/fleet/repos/chummer-media-factory/.codex-studio/published/MEDIA_LOCAL_RELEASE_PROOF.generated.json")
@@ -179,8 +180,8 @@ for owner in ["chummer6-hub", "chummer6-hub-registry", "chummer6-ui", "chummer6-
 
 print("verified flagship front-door registry closeout proof")
 PY
-dotnet run --project /docker/chummercomplete/chummer-hub-registry/Chummer.Hub.Registry.Contracts.Verify/Chummer.Hub.Registry.Contracts.Verify.csproj
-dotnet run --project /docker/chummercomplete/chummer-hub-registry/Chummer.Run.Registry.Verify/Chummer.Run.Registry.Verify.csproj
+dotnet run --project ${repo_root}/Chummer.Hub.Registry.Contracts.Verify/Chummer.Hub.Registry.Contracts.Verify.csproj
+dotnet run --project ${repo_root}/Chummer.Run.Registry.Verify/Chummer.Run.Registry.Verify.csproj
 rm -rf /tmp/chummer-hub-registry-release-fixture
 mkdir -p /tmp/chummer-hub-registry-release-fixture/files
 mkdir -p /tmp/chummer-hub-registry-release-fixture/startup-smoke
@@ -318,7 +319,7 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/ui-localization-rele
 }
 JSON
 sed -i "s/UI_LOCALIZATION_FRESH_GENERATED_AT/${ui_localization_fresh_generated_at}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/ui-localization-release-gate.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
   --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
   --startup-smoke-max-age-seconds 86400 \
@@ -377,7 +378,7 @@ assert all(str(item.get("expectedStartupSmokeReceiptPath") or "").strip().starts
 PY
 cp /tmp/chummer-hub-registry-startup-smoke-filter-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.json
 cp /tmp/chummer-hub-registry-startup-smoke-filter-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -398,7 +399,7 @@ payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["promotionReason"] = (
 )
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject hand-edited desktop route truth rationale drift." >&2
   exit 1
 fi
@@ -414,7 +415,7 @@ import importlib.util
 import json
 from pathlib import Path
 
-script = Path("/docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py")
+script = Path(__import__("os").environ["CHUMMER_REGISTRY_VERIFY_REPO_ROOT"]) / "scripts/verify_public_release_channel.py"
 spec = importlib.util.spec_from_file_location("verify_public_release_channel_module", script)
 module = importlib.util.module_from_spec(spec)
 assert spec and spec.loader
@@ -431,7 +432,7 @@ payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["promotionReason"] = (
 )
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject revoked promotion rationale that omits the embedded revoke reason." >&2
   exit 1
 fi
@@ -447,7 +448,7 @@ import importlib.util
 import json
 from pathlib import Path
 
-script = Path("/docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py")
+script = Path(__import__("os").environ["CHUMMER_REGISTRY_VERIFY_REPO_ROOT"]) / "scripts/verify_public_release_channel.py"
 spec = importlib.util.spec_from_file_location("verify_public_release_channel_module", script)
 module = importlib.util.module_from_spec(spec)
 assert spec and spec.loader
@@ -464,7 +465,7 @@ payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["updateEligibilityReason
 )
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject revoked update rationale that omits the embedded revoke reason." >&2
   exit 1
 fi
@@ -480,7 +481,7 @@ import importlib.util
 import json
 from pathlib import Path
 
-script = Path("/docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py")
+script = Path(__import__("os").environ["CHUMMER_REGISTRY_VERIFY_REPO_ROOT"]) / "scripts/verify_public_release_channel.py"
 spec = importlib.util.spec_from_file_location("verify_public_release_channel_module", script)
 module = importlib.util.module_from_spec(spec)
 assert spec and spec.loader
@@ -497,7 +498,7 @@ payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["rollbackReason"] = (
 )
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject revoked rollback rationale that omits the embedded revoke reason." >&2
   exit 1
 fi
@@ -513,7 +514,7 @@ import importlib.util
 import json
 from pathlib import Path
 
-script = Path("/docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py")
+script = Path(__import__("os").environ["CHUMMER_REGISTRY_VERIFY_REPO_ROOT"]) / "scripts/verify_public_release_channel.py"
 spec = importlib.util.spec_from_file_location("verify_public_release_channel_module", script)
 module = importlib.util.module_from_spec(spec)
 assert spec and spec.loader
@@ -530,7 +531,7 @@ payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["installPostureReason"] 
 )
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject revoked install-posture rationale that omits the embedded revoke reason." >&2
   exit 1
 fi
@@ -550,7 +551,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["bonusNonCanonicalRouteTruthField"] = "unexpected"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject unexpected desktop route truth row fields." >&2
   exit 1
 fi
@@ -571,7 +572,7 @@ rows = payload["desktopTupleCoverage"]["desktopRouteTruth"]
 rows.append(dict(rows[0]))
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject duplicate desktop route truth tuple ids." >&2
   exit 1
 fi
@@ -591,7 +592,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"] = "invalid"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-object releaseProof payloads." >&2
   exit 1
 fi
@@ -611,7 +612,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["journeysPassed"] = "install_claim_restore_continue"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-list releaseProof.journeysPassed." >&2
   exit 1
 fi
@@ -631,7 +632,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["journeysPassed"] = []
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject empty releaseProof.journeysPassed." >&2
   exit 1
 fi
@@ -651,7 +652,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["proofRoutes"] = "not-a-list"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-list releaseProof.proofRoutes." >&2
   exit 1
 fi
@@ -671,7 +672,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["proofRoutes"] = []
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject empty releaseProof.proofRoutes." >&2
   exit 1
 fi
@@ -693,7 +694,7 @@ gate["generatedAt"] = "not-a-timestamp"
 gate.pop("generated_at", None)
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$release_proof_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-ISO releaseProof.uiLocalizationReleaseGate.generatedAt." >&2
   exit 1
 fi
@@ -707,7 +708,7 @@ startup_smoke_shape_log="/tmp/chummer-hub-registry-startup-smoke-shape.log"
 startup_smoke_receipt_path="/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json"
 cp "$startup_smoke_receipt_path" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.backup.json
 printf '{"status":"pass",' >"$startup_smoke_receipt_path"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject malformed startup-smoke receipt JSON." >&2
   exit 1
 fi
@@ -730,7 +731,7 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startu
 }
 JSON
 sed -i "s/STARTUP_FILTER_LINUX_DIGEST/${startup_filter_linux_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
   --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
   --startup-smoke-max-age-seconds 86400 \
@@ -760,7 +761,7 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startu
 }
 JSON
 sed -i "s/STARTUP_FILTER_LINUX_DIGEST/${startup_filter_linux_digest}/g; s/STARTUP_SMOKE_STALE_RECORDED_AT/${startup_smoke_stale_recorded_at}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
   --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
   --startup-smoke-max-age-seconds 86400 \
@@ -909,7 +910,7 @@ payload["journeys_passed"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -938,7 +939,7 @@ payload["journeys_passed"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -966,7 +967,7 @@ payload["journeys_passed"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -994,7 +995,7 @@ payload["journeys_passed"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1016,7 +1017,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["status"] = "failed"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1038,7 +1039,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["proof_routes"] = ["downloads/install/avalonia-win-x64-installer"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1060,7 +1061,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["proof_routes"] = ["/Home/access"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1092,7 +1093,7 @@ payload["proof_routes"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1124,7 +1125,7 @@ payload["proof_routes"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1170,7 +1171,7 @@ payload["proof_routes"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1192,7 +1193,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["proof_routes"] = ["/downloads/install/avalonia-win-x64-installer?tab=proof"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1214,7 +1215,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["proof_routes"] = ["/home/../access"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1236,7 +1237,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["proof_routes"] = ["/home/access", "/home/access/"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1265,7 +1266,7 @@ payload["proof_routes"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1287,7 +1288,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["base_url"] = "https://Chummer.run/"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1309,7 +1310,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["base_url"] = "https://example.com"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1333,7 +1334,7 @@ payload["base_url"] = "http://127.0.0.1:8091"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log=/tmp/chummer-hub-registry-release-fixture/materializer-alias-drift.log
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1372,7 +1373,7 @@ payload["journeys_passed"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1415,7 +1416,7 @@ payload["proof_routes"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1445,7 +1446,7 @@ payload["ui_localization_release_gate"] = dict(payload["uiLocalizationReleaseGat
 payload["ui_localization_release_gate"]["status"] = "failed"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1472,7 +1473,7 @@ payload["shipping_locales"] = ["en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-
 payload["shippingLocales"] = ["en-us", "de-de", "fr-fr", "ja-jp", "pt-br"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1518,7 +1519,7 @@ payload["acceptanceGates"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1557,7 +1558,7 @@ payload["domainCoverage"] = {
 }
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1597,7 +1598,7 @@ payload["localeDomainCoverage"] = {
 }
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1624,7 +1625,7 @@ payload["translation_backlog_findings"] = []
 payload["translationBacklogFindings"] = [{"id": "unexpected"}]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1640,7 +1641,7 @@ if ! rg -F "translation_backlog_findings alias values drift between translation_
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.translation-backlog-alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
   --channel preview \
@@ -1650,7 +1651,7 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
   echo "verify gate failed: materializer should reject release channel projection when releaseProof is missing." >&2
   exit 1
 fi
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --channel preview \
@@ -1660,7 +1661,7 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
   echo "verify gate failed: materializer should reject release channel projection when uiLocalizationReleaseGate is missing." >&2
   exit 1
 fi
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1668,8 +1669,8 @@ python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_
   --version 0.0.0-smoke \
   --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
   --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture/releases.json
+python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture
+python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture/releases.json
 cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json
 python3 - <<'PY'
 import json
@@ -1681,7 +1682,7 @@ payload["generatedAt"] = "2026-04-03T22:59:41Z"
 payload["generated_at"] = "2026-04-02T22:59:41Z"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between top-level generatedAt and generated_at." >&2
   exit 1
 fi
@@ -1699,7 +1700,7 @@ if not rows:
 rows[0]["artifactId"] = "tampered-artifact-id"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject desktopTupleCoverage promoted tuple rows when artifact metadata drifts." >&2
   exit 1
 fi
@@ -1719,7 +1720,7 @@ coverage["missingRequiredPlatforms"] = list(values) + ["tampered-platform"]
 payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject desktopTupleCoverage.missingRequiredPlatforms inventory drift." >&2
   exit 1
 fi
@@ -1739,7 +1740,7 @@ coverage["missingRequiredHeads"] = list(values) + ["tampered-head"]
 payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject desktopTupleCoverage.missingRequiredHeads inventory drift." >&2
   exit 1
 fi
@@ -1759,7 +1760,7 @@ coverage["missingRequiredPlatformHeadPairs"] = list(values) + ["tampered-head:ta
 payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject desktopTupleCoverage.missingRequiredPlatformHeadPairs inventory drift." >&2
   exit 1
 fi
@@ -1779,7 +1780,7 @@ coverage["missingRequiredPlatformHeadRidTuples"] = list(values) + ["tampered-hea
 payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject desktopTupleCoverage.missingRequiredPlatformHeadRidTuples inventory drift." >&2
   exit 1
 fi
@@ -1799,7 +1800,7 @@ coverage["promotedPlatformHeadRidTuples"] = values + ["tampered-head:tampered-ri
 payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject desktopTupleCoverage.promotedPlatformHeadRidTuples inventory drift." >&2
   exit 1
 fi
@@ -1819,7 +1820,7 @@ coverage["requiredDesktopPlatformHeadRidTuples"] = values[1:]
 payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject desktopTupleCoverage.requiredDesktopPlatformHeadRidTuples inventory drift." >&2
   exit 1
 fi
@@ -1835,7 +1836,7 @@ payload.pop("desktopTupleCoverage", None)
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject release channel payloads missing desktopTupleCoverage." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -1861,7 +1862,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject desktopTupleCoverage payloads with unexpected keys." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -1891,7 +1892,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject promotedInstallerTuples rows with unexpected keys." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -1917,7 +1918,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject desktopTupleCoverage.requiredDesktopPlatforms drift." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -1943,7 +1944,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-list desktopTupleCoverage.requiredDesktopPlatforms." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -1969,7 +1970,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-list desktopTupleCoverage.requiredDesktopHeads." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -1995,7 +1996,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject desktopTupleCoverage payloads missing required tuple-coverage keys." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2021,7 +2022,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-list desktopTupleCoverage.requiredDesktopPlatformHeadRidTuples." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2047,7 +2048,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-list desktopTupleCoverage.promotedPlatformHeadRidTuples." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2073,7 +2074,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-list desktopTupleCoverage.missingRequiredPlatformHeadPairs." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2099,7 +2100,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-list desktopTupleCoverage.missingRequiredPlatformHeadRidTuples." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2128,7 +2129,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-object desktopTupleCoverage.promotedInstallerTuples entries." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2158,7 +2159,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject promotedInstallerTuples tupleId values when they drift from head/platform/rid metadata." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2186,7 +2187,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject desktopTupleCoverage.promotedPlatformHeads.<platform> values when they are not string lists." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2212,7 +2213,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-list desktopTupleCoverage.missingRequiredPlatforms." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2238,7 +2239,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-list desktopTupleCoverage.promotedInstallerTuples." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2268,7 +2269,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject promotedInstallerTuples rows missing tupleId." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2299,7 +2300,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject duplicate promotedInstallerTuples tupleId values." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2325,7 +2326,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject empty desktopTupleCoverage.requiredDesktopHeads." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2351,7 +2352,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-canonical extra desktopTupleCoverage.requiredDesktopHeads entries." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2377,7 +2378,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject desktopTupleCoverage.requiredDesktopHeads order drift." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2403,7 +2404,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-object desktopTupleCoverage.promotedPlatformHeads." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2431,7 +2432,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject desktopTupleCoverage.promotedPlatformHeads.<platform> when projected heads drift from promoted tuples." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2457,7 +2458,7 @@ payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 desktop_tuple_coverage_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$desktop_tuple_coverage_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-list desktopTupleCoverage.missingRequiredHeads." >&2
   rm -f "$desktop_tuple_coverage_log"
@@ -2471,7 +2472,7 @@ fi
 rm -f "$desktop_tuple_coverage_log"
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
 rm -f /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject promoted desktop installers when startup-smoke tuple receipts are missing." >&2
   exit 1
 fi
@@ -2509,7 +2510,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 }
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipts whose channelId does not match the release channel." >&2
   exit 1
 fi
@@ -2530,7 +2531,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 }
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipts that are not at pre_ui_event_loop." >&2
   exit 1
 fi
@@ -2551,7 +2552,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 }
 JSON
 sed -i "s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipts whose artifactDigest does not match release artifact bytes." >&2
   exit 1
 fi
@@ -2572,7 +2573,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipts missing head metadata." >&2
   rm -f "$startup_smoke_shape_log"
@@ -2602,7 +2603,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipt head mismatch." >&2
   rm -f "$startup_smoke_shape_log"
@@ -2633,7 +2634,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipt headId/head alias drift." >&2
   rm -f "$startup_smoke_shape_log"
@@ -2661,7 +2662,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipt platform mismatch." >&2
   rm -f "$startup_smoke_shape_log"
@@ -2688,7 +2689,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipts missing platform metadata." >&2
   rm -f "$startup_smoke_shape_log"
@@ -2717,7 +2718,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipts missing rid/arch metadata." >&2
   rm -f "$startup_smoke_shape_log"
@@ -2746,7 +2747,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipts missing channelId metadata." >&2
   rm -f "$startup_smoke_shape_log"
@@ -2777,7 +2778,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipt channelId/channel alias drift." >&2
   rm -f "$startup_smoke_shape_log"
@@ -2807,7 +2808,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipt channelId mismatch." >&2
   rm -f "$startup_smoke_shape_log"
@@ -2836,7 +2837,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipts missing timestamp metadata." >&2
   rm -f "$startup_smoke_shape_log"
@@ -2866,7 +2867,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_STALE_RECORDED_AT/${startup_smoke_stale_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject stale startup-smoke receipts." >&2
   rm -f "$startup_smoke_shape_log"
@@ -2896,7 +2897,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FUTURE_RECORDED_AT/${startup_smoke_future_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipts with timestamps too far in the future." >&2
   rm -f "$startup_smoke_shape_log"
@@ -2926,7 +2927,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject non-passing startup-smoke receipt status." >&2
   rm -f "$startup_smoke_shape_log"
@@ -2956,7 +2957,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipt rid mismatch." >&2
   rm -f "$startup_smoke_shape_log"
@@ -2987,7 +2988,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipt arch mismatch when rid is present." >&2
   rm -f "$startup_smoke_shape_log"
@@ -3017,7 +3018,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipt arch mismatch when rid is absent." >&2
   rm -f "$startup_smoke_shape_log"
@@ -3046,7 +3047,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 JSON
 sed -i "s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipts missing artifactDigest metadata." >&2
   rm -f "$startup_smoke_shape_log"
@@ -3060,7 +3061,7 @@ fi
 rm -f "$startup_smoke_shape_log"
 printf '[]\n' >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
 startup_smoke_shape_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py \
+if python3 ${repo_root}/scripts/verify_public_release_channel.py \
   /tmp/chummer-hub-registry-release-fixture >"$startup_smoke_shape_log" 2>&1; then
   echo "verify gate failed: verifier should reject startup-smoke receipts that are not JSON objects." >&2
   rm -f "$startup_smoke_shape_log"
@@ -3099,7 +3100,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["status"] = "failed"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject non-passing releaseProof.status values." >&2
   exit 1
 fi
@@ -3120,7 +3121,7 @@ payload["releaseProof"]["journeysPassed"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject non-canonical journey ordering in releaseProof.journeysPassed." >&2
   exit 1
 fi
@@ -3135,7 +3136,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["baseUrl"] = "https://example.com"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject releaseProof.baseUrl when it is outside allowed canonical release origins." >&2
   exit 1
 fi
@@ -3158,7 +3159,7 @@ payload["releaseProof"]["proofRoutes"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject non-canonical route ordering in releaseProof.proofRoutes." >&2
   exit 1
 fi
@@ -3174,7 +3175,7 @@ payload["releaseProof"]["baseUrl"] = "https://chummer.run"
 payload["releaseProof"]["base_url"] = "https://chummer.test"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.baseUrl and releaseProof.base_url." >&2
   exit 1
 fi
@@ -3190,7 +3191,7 @@ payload["releaseProof"]["generatedAt"] = "2026-03-28T16:00:00Z"
 payload["releaseProof"]["generated_at"] = "2026-03-27T16:00:00Z"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.generatedAt and releaseProof.generated_at." >&2
   exit 1
 fi
@@ -3217,7 +3218,7 @@ payload["releaseProof"]["journeys_passed"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.journeysPassed and releaseProof.journeys_passed." >&2
   exit 1
 fi
@@ -3248,7 +3249,7 @@ payload["releaseProof"]["proof_routes"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.proofRoutes and releaseProof.proof_routes." >&2
   exit 1
 fi
@@ -3265,7 +3266,7 @@ payload["releaseProof"]["ui_localization_release_gate"] = dict(gate)
 payload["releaseProof"]["ui_localization_release_gate"]["status"] = "failed"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate and releaseProof.ui_localization_release_gate." >&2
   exit 1
 fi
@@ -3282,7 +3283,7 @@ gate["generatedAt"] = "2026-04-03T22:59:41Z"
 gate["generated_at"] = "2026-04-02T22:59:41Z"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.generatedAt and releaseProof.uiLocalizationReleaseGate.generated_at." >&2
   exit 1
 fi
@@ -3299,7 +3300,7 @@ gate["defaultKeyCount"] = 383
 gate["default_key_count"] = 382
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.defaultKeyCount and releaseProof.uiLocalizationReleaseGate.default_key_count." >&2
   exit 1
 fi
@@ -3316,7 +3317,7 @@ gate["explicitFallbackRuntime"] = "pass"
 gate["explicit_fallback_runtime"] = "failed"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.explicitFallbackRuntime and releaseProof.uiLocalizationReleaseGate.explicit_fallback_runtime." >&2
   exit 1
 fi
@@ -3333,7 +3334,7 @@ gate["signoffSmokeRunnerStatus"] = "pass"
 gate["signoff_smoke_runner_status"] = "failed"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.signoffSmokeRunnerStatus and releaseProof.uiLocalizationReleaseGate.signoff_smoke_runner_status." >&2
   exit 1
 fi
@@ -3350,7 +3351,7 @@ gate["blockingFindingsCount"] = 0
 gate["blocking_findings_count"] = 1
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.blockingFindingsCount and releaseProof.uiLocalizationReleaseGate.blocking_findings_count." >&2
   exit 1
 fi
@@ -3367,7 +3368,7 @@ gate["translationBacklogFindingsCount"] = 0
 gate["translation_backlog_findings_count"] = 1
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.translationBacklogFindingsCount and releaseProof.uiLocalizationReleaseGate.translation_backlog_findings_count." >&2
   exit 1
 fi
@@ -3388,7 +3389,7 @@ target["missing_release_seed_keys"] = ["unexpected-seed-key"]
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.localeSummary[*].missingReleaseSeedKeys and releaseProof.uiLocalizationReleaseGate.localeSummary[*].missing_release_seed_keys." >&2
   exit 1
 fi
@@ -3409,7 +3410,7 @@ target["legacy_xml_present"] = False
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.localeSummary[*].legacyXmlPresent and releaseProof.uiLocalizationReleaseGate.localeSummary[*].legacy_xml_present." >&2
   exit 1
 fi
@@ -3430,7 +3431,7 @@ target["untranslated_key_count"] = 1
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.localeSummary[*].untranslatedKeyCount and releaseProof.uiLocalizationReleaseGate.localeSummary[*].untranslated_key_count." >&2
   exit 1
 fi
@@ -3451,7 +3452,7 @@ target["override_count"] = 382
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.localeSummary[*].overrideCount and releaseProof.uiLocalizationReleaseGate.localeSummary[*].override_count." >&2
   exit 1
 fi
@@ -3472,7 +3473,7 @@ target["minimum_override_count"] = 39
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.localeSummary[*].minimumOverrideCount and releaseProof.uiLocalizationReleaseGate.localeSummary[*].minimum_override_count." >&2
   exit 1
 fi
@@ -3493,7 +3494,7 @@ target["legacy_data_xml_present"] = False
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.localeSummary[*].legacyDataXmlPresent and releaseProof.uiLocalizationReleaseGate.localeSummary[*].legacy_data_xml_present." >&2
   exit 1
 fi
@@ -3510,7 +3511,7 @@ gate["localeSummary"] = gate.get("localeSummary", [])
 gate["locale_summary"] = []
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.localeSummary and releaseProof.uiLocalizationReleaseGate.locale_summary." >&2
   exit 1
 fi
@@ -3527,7 +3528,7 @@ gate["shippingLocales"] = ["en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-cn"]
 gate["shipping_locales"] = ["en-us", "de-de", "fr-fr", "ja-jp", "pt-br"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.shippingLocales and releaseProof.uiLocalizationReleaseGate.shipping_locales." >&2
   exit 1
 fi
@@ -3563,7 +3564,7 @@ gate["acceptance_gates"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.acceptanceGates and releaseProof.uiLocalizationReleaseGate.acceptance_gates." >&2
   exit 1
 fi
@@ -3592,7 +3593,7 @@ gate["domain_coverage"] = {
 }
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.domainCoverage and releaseProof.uiLocalizationReleaseGate.domain_coverage." >&2
   exit 1
 fi
@@ -3622,7 +3623,7 @@ gate["locale_domain_coverage"] = {
 }
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.localeDomainCoverage and releaseProof.uiLocalizationReleaseGate.locale_domain_coverage." >&2
   exit 1
 fi
@@ -3639,7 +3640,7 @@ gate["translationBacklogFindings"] = []
 gate["translation_backlog_findings"] = [{"id": "unexpected"}]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.translationBacklogFindings and releaseProof.uiLocalizationReleaseGate.translation_backlog_findings." >&2
   exit 1
 fi
@@ -3656,7 +3657,7 @@ gate["blockingFindings"] = []
 gate["blocking_findings"] = [{"id": "unexpected"}]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject conflicting alias values between releaseProof.uiLocalizationReleaseGate.blockingFindings and releaseProof.uiLocalizationReleaseGate.blocking_findings." >&2
   exit 1
 fi
@@ -3671,7 +3672,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["bonus_noncanonical_release_proof_key"] = "unexpected"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject unexpected releaseProof keys." >&2
   exit 1
 fi
@@ -3686,7 +3687,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["uiLocalizationReleaseGate"]["bonus_noncanonical_gate_key"] = "unexpected"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject unexpected releaseProof.uiLocalizationReleaseGate keys." >&2
   exit 1
 fi
@@ -3701,7 +3702,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["baseUrl"] = "https://Chummer.run/"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject non-canonical releaseProof.baseUrl origin casing/trailing slash." >&2
   exit 1
 fi
@@ -3716,7 +3717,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"].pop("baseUrl", None)
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject missing releaseProof.baseUrl origin." >&2
   exit 1
 fi
@@ -3737,7 +3738,7 @@ payload["releaseProof"]["journeysPassed"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject non-canonical journey casing in releaseProof.journeysPassed." >&2
   exit 1
 fi
@@ -3759,7 +3760,7 @@ payload["releaseProof"]["journeysPassed"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject releaseProof.journeysPassed when unexpected baseline journey ids are present." >&2
   exit 1
 fi
@@ -3774,7 +3775,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["proofRoutes"] = ["/Home/access"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject non-canonical route casing in releaseProof.proofRoutes." >&2
   exit 1
 fi
@@ -3796,7 +3797,7 @@ payload["releaseProof"]["proofRoutes"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject releaseProof.proofRoutes when required flagship route coverage is incomplete." >&2
   exit 1
 fi
@@ -3821,7 +3822,7 @@ payload["releaseProof"]["proofRoutes"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject releaseProof.proofRoutes when unexpected flagship routes are present." >&2
   exit 1
 fi
@@ -3847,7 +3848,7 @@ payload["releaseProof"]["proofRoutes"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null
+python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
 cp /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.localization.backup.json
 python3 - <<'PY'
@@ -3859,7 +3860,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload.pop("releaseProof", None)
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject release channel payloads when releaseProof is missing." >&2
   exit 1
 fi
@@ -3879,7 +3880,7 @@ payload["releaseProof"]["journeysPassed"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject releaseProof.journeysPassed when baseline golden journey coverage is incomplete." >&2
   exit 1
 fi
@@ -3894,7 +3895,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["generatedAt"] = "2000-01-01T00:00:00Z"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject stale releaseProof.generatedAt timestamps." >&2
   exit 1
 fi
@@ -3909,7 +3910,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["generatedAt"] = "2099-01-01T00:00:00Z"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject releaseProof.generatedAt timestamps with excessive future skew." >&2
   exit 1
 fi
@@ -3924,7 +3925,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["journeysPassed"] = []
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject empty releaseProof.journeysPassed coverage." >&2
   exit 1
 fi
@@ -3939,7 +3940,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["journeysPassed"] = ["journey one"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject non-canonical journey ids in releaseProof.journeysPassed." >&2
   exit 1
 fi
@@ -3954,7 +3955,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["proofRoutes"] = ["  ", "/downloads/install/avalonia-win-x64-installer"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject blank route entries in releaseProof.proofRoutes." >&2
   exit 1
 fi
@@ -3969,7 +3970,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["proofRoutes"] = ["downloads/install/avalonia-win-x64-installer"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject non-route proof entries in releaseProof.proofRoutes." >&2
   exit 1
 fi
@@ -3984,7 +3985,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["proofRoutes"] = ["/home/access#recap"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject query/fragment route entries in releaseProof.proofRoutes." >&2
   exit 1
 fi
@@ -3999,7 +4000,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["proofRoutes"] = ["/home/%2e%2e/access"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject percent-encoded route entries in releaseProof.proofRoutes." >&2
   exit 1
 fi
@@ -4014,7 +4015,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["proofRoutes"] = ["/home\\access"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject escaped backslash route entries in releaseProof.proofRoutes." >&2
   exit 1
 fi
@@ -4029,7 +4030,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["proofRoutes"] = ["/home/./access"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject dot-segment traversal entries in releaseProof.proofRoutes." >&2
   exit 1
 fi
@@ -4044,7 +4045,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["proofRoutes"] = ["/home/access", "/home/access/"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject duplicate releaseProof.proofRoutes entries after normalization." >&2
   exit 1
 fi
@@ -4061,7 +4062,7 @@ payload["supportabilityState"] = "live"
 payload["releaseProof"]["uiLocalizationReleaseGate"]["status"] = "missing"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject release channel payloads missing passing UI localization gate proof." >&2
   exit 1
 fi
@@ -4076,7 +4077,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["uiLocalizationReleaseGate"]["generatedAt"] = "2000-01-01T00:00:00Z"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject stale localization gate generatedAt timestamps." >&2
   exit 1
 fi
@@ -4091,7 +4092,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["uiLocalizationReleaseGate"]["generatedAt"] = "2099-01-01T00:00:00Z"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization gate generatedAt timestamps with excessive future skew." >&2
   exit 1
 fi
@@ -4106,7 +4107,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["uiLocalizationReleaseGate"]["explicitFallbackRuntime"] = "missing"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject release channel payloads missing passing explicit fallback runtime proof." >&2
   exit 1
 fi
@@ -4121,7 +4122,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["releaseProof"]["uiLocalizationReleaseGate"]["signoffSmokeRunnerStatus"] = "missing"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject release channel payloads missing passing localization signoff smoke runner status." >&2
   exit 1
 fi
@@ -4139,7 +4140,7 @@ payload["releaseProof"]["uiLocalizationReleaseGate"]["blockingFindings"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof when blockingFindings length drifts from blockingFindingsCount." >&2
   exit 1
 fi
@@ -4157,7 +4158,7 @@ payload["releaseProof"]["uiLocalizationReleaseGate"]["translationBacklogFindings
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof when translationBacklogFindings length drifts from translationBacklogFindingsCount." >&2
   exit 1
 fi
@@ -4173,7 +4174,7 @@ payload["blocking_findings"] = []
 payload["blocking_findings_count"] = 2
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4181,7 +4182,7 @@ python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_
   --version 0.0.0-smoke \
   --output /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json \
   --compat-output /tmp/chummer-hub-registry-release-fixture/releases.json >/dev/null
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject materialized localization proof with non-zero explicit blocking_findings_count." >&2
   exit 1
 fi
@@ -4197,7 +4198,7 @@ if not gates:
 payload["acceptance_gates"] = gates + [gates[0]]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4229,7 +4230,7 @@ payload["acceptance_gates"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4258,7 +4259,7 @@ payload["shipping_locales"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4283,7 +4284,7 @@ if len(rows) < 2:
 payload["locale_summary"] = [rows[1], rows[0], *rows[2:]]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4295,7 +4296,7 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.locale-summary-ordering.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4314,7 +4315,7 @@ payload["default_key_count"] = 383
 payload["defaultKeyCount"] = 382
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4326,7 +4327,7 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4346,7 +4347,7 @@ payload["generatedAt"] = "1999-01-01T00:00:00Z"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4365,7 +4366,7 @@ if ! rg -F "generated_at alias values drift between generatedAt and generated_at
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4385,7 +4386,7 @@ payload["explicitFallbackRuntime"] = "failed"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4421,7 +4422,7 @@ payload["locale_summary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4457,7 +4458,7 @@ payload["locale_summary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4493,7 +4494,7 @@ payload["locale_summary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4529,7 +4530,7 @@ payload["locale_summary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4548,7 +4549,7 @@ if ! rg -F "locale_summary[de-de].legacy_xml_present alias values drift between 
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4570,7 +4571,7 @@ payload["signoffSmokeRunnerStatus"] = "failed"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4589,7 +4590,7 @@ if ! rg -F "signoff_smoke_runner_status alias values drift between signoff_smoke
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4614,7 +4615,7 @@ payload["locale_summary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4633,7 +4634,7 @@ if ! rg -F "locale_summary[de-de].minimum_override_count alias values drift betw
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4658,7 +4659,7 @@ payload["locale_summary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4677,7 +4678,7 @@ if ! rg -F "locale_summary[de-de].legacy_data_xml_present alias values drift bet
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4697,7 +4698,7 @@ payload["signoffSmokeRunner"] = {"status": "failed"}
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4716,7 +4717,7 @@ if ! rg -F "signoff_smoke_runner alias values drift between signoff_smoke_runner
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4737,7 +4738,7 @@ payload["signoff_smoke_runner_status"] = "failed"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4756,7 +4757,7 @@ if ! rg -F "signoff_smoke_runner status values drift between signoff_smoke_runne
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4776,7 +4777,7 @@ payload["blockingFindings"] = [{"id": "unexpected"}]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4795,7 +4796,7 @@ if ! rg -F "blocking_findings alias values drift between blocking_findings and b
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4815,7 +4816,7 @@ payload["blockingFindingsCount"] = 1
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4834,7 +4835,7 @@ if ! rg -F "blocking_findings_count alias values drift between blocking_findings
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4854,7 +4855,7 @@ payload["translationBacklogFindingsCount"] = 1
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4873,7 +4874,7 @@ if ! rg -F "translation_backlog_findings_count alias values drift between transl
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4894,7 +4895,7 @@ payload["releaseProof"]["uiLocalizationReleaseGate"]["acceptanceGates"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof missing non_english_generated_artifact_smoke acceptance coverage." >&2
   exit 1
 fi
@@ -4912,7 +4913,7 @@ if len(rows) < 2:
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = [rows[1], rows[0], *rows[2:]]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof with non-canonical localeSummary ordering." >&2
   exit 1
 fi
@@ -4931,7 +4932,7 @@ gates.append(gates[0])
 payload["releaseProof"]["uiLocalizationReleaseGate"]["acceptanceGates"] = gates
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof with duplicate acceptance gate ids." >&2
   exit 1
 fi
@@ -4956,7 +4957,7 @@ payload["releaseProof"]["uiLocalizationReleaseGate"]["acceptanceGates"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof with non-canonical acceptance gate ordering." >&2
   exit 1
 fi
@@ -4978,7 +4979,7 @@ payload["releaseProof"]["uiLocalizationReleaseGate"]["shippingLocales"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof with non-canonical shipping locale ordering." >&2
   exit 1
 fi
@@ -4995,7 +4996,7 @@ gates.append("   ")
 payload["releaseProof"]["uiLocalizationReleaseGate"]["acceptanceGates"] = gates
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof with blank acceptance gate ids." >&2
   exit 1
 fi
@@ -5012,7 +5013,7 @@ locales.append("   ")
 payload["releaseProof"]["uiLocalizationReleaseGate"]["shippingLocales"] = locales
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof with blank shipping locale ids." >&2
   exit 1
 fi
@@ -5029,7 +5030,7 @@ gates.append("unsupported_gate")
 payload["releaseProof"]["uiLocalizationReleaseGate"]["acceptanceGates"] = gates
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof with unexpected acceptance gate ids." >&2
   exit 1
 fi
@@ -5046,7 +5047,7 @@ domains.pop("generated_artifacts", None)
 payload["releaseProof"]["uiLocalizationReleaseGate"]["domainCoverage"] = domains
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof missing required domainCoverage domains." >&2
   exit 1
 fi
@@ -5063,7 +5064,7 @@ domains["install_update_support"] = "missing"
 payload["releaseProof"]["uiLocalizationReleaseGate"]["domainCoverage"] = domains
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof when required domainCoverage status is not passing." >&2
   exit 1
 fi
@@ -5080,7 +5081,7 @@ domains["extra_domain"] = "pass"
 payload["releaseProof"]["uiLocalizationReleaseGate"]["domainCoverage"] = domains
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof with unexpected domainCoverage domains." >&2
   exit 1
 fi
@@ -5097,7 +5098,7 @@ locale_domains.pop("de-de", None)
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeDomainCoverage"] = locale_domains
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof missing localeDomainCoverage rows for shipping locales." >&2
   exit 1
 fi
@@ -5114,7 +5115,7 @@ locale_domains["de-de"]["install_update_support"] = "missing"
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeDomainCoverage"] = locale_domains
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject non-passing localeDomainCoverage status rows." >&2
   exit 1
 fi
@@ -5137,7 +5138,7 @@ locale_domains["es-es"] = {
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeDomainCoverage"] = locale_domains
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof with unexpected localeDomainCoverage locale keys." >&2
   exit 1
 fi
@@ -5155,7 +5156,7 @@ payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof missing localeSummary coverage for shipping locale en-us." >&2
   exit 1
 fi
@@ -5175,7 +5176,7 @@ rows.append(dict(duplicate))
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject duplicate localeSummary locale rows." >&2
   exit 1
 fi
@@ -5195,7 +5196,7 @@ target["bonus_noncanonical_locale_summary_key"] = "unexpected"
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject unexpected releaseProof.uiLocalizationReleaseGate.localeSummary row keys." >&2
   exit 1
 fi
@@ -5220,7 +5221,7 @@ rows.append({
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeSummary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localeSummary rows that are not shipping locales." >&2
   exit 1
 fi
@@ -5237,7 +5238,7 @@ domains[" app_chrome "] = domains["app_chrome"]
 payload["releaseProof"]["uiLocalizationReleaseGate"]["domainCoverage"] = domains
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof with duplicate normalized domainCoverage ids." >&2
   exit 1
 fi
@@ -5254,7 +5255,7 @@ locale_domains["de-de"][" install_update_support "] = locale_domains["de-de"]["i
 payload["releaseProof"]["uiLocalizationReleaseGate"]["localeDomainCoverage"] = locale_domains
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject localization proof with duplicate normalized localeDomainCoverage domain ids." >&2
   exit 1
 fi
@@ -5270,7 +5271,7 @@ locale_domains[" de-de "] = dict(locale_domains["de-de"])
 payload["locale_domain_coverage"] = locale_domains
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -5282,7 +5283,7 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.duplicate-locale.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -5303,7 +5304,7 @@ payload["domain_coverage"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -5329,7 +5330,7 @@ payload["locale_domain_coverage"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -5341,7 +5342,7 @@ if python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_publ
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.list-duplicates.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -5381,13 +5382,13 @@ coverage["externalProofRequests"] = [
 payload["desktopTupleCoverage"] = coverage
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py --require-complete-desktop-coverage /tmp/chummer-hub-registry-release-fixture; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py --require-complete-desktop-coverage /tmp/chummer-hub-registry-release-fixture; then
   echo "verify gate failed: strict verifier should reject incomplete required desktop tuple coverage." >&2
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.strict-coverage.backup.json /tmp/chummer-hub-registry-release-fixture/RELEASE_CHANNEL.generated.json
 rm -f /tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64-installer.exe
-if python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
+if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hub-registry-release-fixture >/dev/null 2>&1; then
   echo "verify gate failed: verifier should reject manifest entries whose local desktop bytes are missing." >&2
   exit 1
 fi
@@ -5402,7 +5403,10 @@ import subprocess
 import threading
 
 root = "/tmp/chummer-hub-registry-release-fixture"
-verifier = "/docker/chummercomplete/chummer-hub-registry/scripts/verify_public_release_channel.py"
+verifier = __import__("os").path.join(
+    __import__("os").environ["CHUMMER_REGISTRY_VERIFY_REPO_ROOT"],
+    "scripts/verify_public_release_channel.py",
+)
 
 handler = functools.partial(http.server.SimpleHTTPRequestHandler, directory=root)
 with socketserver.TCPServer(("127.0.0.1", 0), handler) as httpd:
@@ -5422,7 +5426,7 @@ with socketserver.TCPServer(("127.0.0.1", 0), handler) as httpd:
         httpd.shutdown()
         thread.join()
 PY
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/materialize_public_release_channel.py \
+python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \

@@ -232,8 +232,8 @@ def verify_manifest(path: Path, *, label: str) -> None:
 def verify_verify_sh(path: Path) -> None:
     text = read_text(path)
     required = (
-        "python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m135_registry_boundary_coverage.py >/dev/null",
-        "python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m135_registry_boundary_coverage.py --self-test >/dev/null",
+        "python3 ${repo_root}/scripts/verify_next90_m135_registry_boundary_coverage.py >/dev/null",
+        "python3 ${repo_root}/scripts/verify_next90_m135_registry_boundary_coverage.py --self-test >/dev/null",
     )
     for snippet in required:
         if snippet not in text:

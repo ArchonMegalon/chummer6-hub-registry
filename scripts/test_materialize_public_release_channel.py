@@ -215,9 +215,12 @@ def materialize_flagship_readiness_fixture(
 ) -> dict:
     downloads_dir = root / "dist"
     downloads_dir.mkdir(parents=True, exist_ok=True)
-    (downloads_dir / "chummer-avalonia-linux-x64-installer.deb").write_bytes(
-        b"linux-installer-bytes"
-    )
+    for file_name, contents in (
+        ("chummer-avalonia-linux-x64-installer.deb", b"linux-installer-bytes"),
+        ("chummer-avalonia-win-x64-installer.exe", b"windows-installer-bytes"),
+        ("chummer-avalonia-osx-arm64-installer.dmg", b"macos-installer-bytes"),
+    ):
+        (downloads_dir / file_name).write_bytes(contents)
     proof_path = root / "release-proof.json"
     proof_path.write_text(
         json.dumps(complete_release_proof(generated_at=proof_generated_at)),
@@ -415,7 +418,7 @@ def test_canonical_payload_projects_stale_preview_proof_into_review_required_top
         )
 
     trust_metrics = payload["publicTrustMetrics"]
-    assert payload["rolloutState"] == "promoted_preview"
+    assert payload["rolloutState"] == "public_release_review_required"
     assert trust_metrics["proofFreshness"]["status"] == "stale"
     assert payload["supportabilityState"] == "review_required"
     assert trust_metrics["releaseChannel"]["supportabilityState"] == "review_required"

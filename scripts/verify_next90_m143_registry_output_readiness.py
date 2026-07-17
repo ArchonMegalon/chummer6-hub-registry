@@ -95,8 +95,8 @@ REQUIRED_PACKAGE_TEST_SNIPPETS = (
     "test_stale_manifest_rejects_published_exchange_output_readiness",
 )
 REQUIRED_VERIFY_SH_SNIPPETS = (
-    "python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m143_registry_output_readiness.py >/dev/null",
-    "python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m143_registry_output_readiness.py --self-test >/dev/null",
+    "python3 ${repo_root}/scripts/verify_next90_m143_registry_output_readiness.py >/dev/null",
+    "python3 ${repo_root}/scripts/verify_next90_m143_registry_output_readiness.py --self-test >/dev/null",
 )
 
 

@@ -428,11 +428,11 @@ def verify_verify_sh(path: Path) -> None:
         '"$published_release_channel_path" >/dev/null 2>&1'
     )
     package_hook = (
-        "python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py "
+        "python3 ${repo_root}/scripts/verify_next90_m144_registry_release_tuple_proof.py "
         ">/dev/null"
     )
     self_test_hook = (
-        "python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py "
+        "python3 ${repo_root}/scripts/verify_next90_m144_registry_release_tuple_proof.py "
         "--self-test >/dev/null"
     )
     required = (

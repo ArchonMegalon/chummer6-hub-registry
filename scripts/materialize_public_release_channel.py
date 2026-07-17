@@ -3410,6 +3410,7 @@ def proof_freshness_blocks_output_readiness(proof_freshness_status_value: str) -
 def enforce_public_trust_supportability_projection(payload: dict[str, Any]) -> None:
     if normalize_token(payload.get("status")) != "published":
         return
+    existing_supportability_state = normalize_token(payload.get("supportabilityState"))
     public_trust_metrics = payload.get("publicTrustMetrics")
     if not isinstance(public_trust_metrics, dict):
         return
@@ -3431,6 +3432,12 @@ def enforce_public_trust_supportability_projection(payload: dict[str, Any]) -> N
         return
 
     payload["supportabilityState"] = "review_required"
+    # Earlier derivation may already have selected a more specific honest
+    # review gate (for example incomplete desktop coverage). Preserve that
+    # rationale; this final projection is only responsible for correcting an
+    # optimistic top-level posture that contradicts public trust truth.
+    if existing_supportability_state == "review_required":
+        return
     stale_proof_explanation = "stale or incomplete proof receipts"
     fallback_copy = {
         "rolloutReason": (

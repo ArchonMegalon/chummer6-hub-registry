@@ -242,8 +242,8 @@ def verify_queue_staging(path: Path) -> None:
 def verify_verify_sh(path: Path) -> None:
     text = read_text(path)
     required = (
-        "python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m116_registry_creator_trust.py >/dev/null",
-        "python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m116_registry_creator_trust.py --self-test >/dev/null",
+        "python3 ${repo_root}/scripts/verify_next90_m116_registry_creator_trust.py >/dev/null",
+        "python3 ${repo_root}/scripts/verify_next90_m116_registry_creator_trust.py --self-test >/dev/null",
     )
     for snippet in required:
         if snippet not in text:
