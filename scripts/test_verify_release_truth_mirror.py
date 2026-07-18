@@ -9,6 +9,7 @@ import pytest
 
 
 SCRIPT = Path(__file__).with_name("verify_release_truth_mirror.py")
+PRODUCER_SCRIPT = Path(__file__).with_name("materialize_public_release_channel.py")
 
 
 def load_module():
@@ -17,6 +18,28 @@ def load_module():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def load_producer():
+    spec = importlib.util.spec_from_file_location(
+        "materialize_public_release_channel_for_release_truth_test",
+        PRODUCER_SCRIPT,
+    )
+    assert spec and spec.loader
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def materialized_compatibility(producer, canonical: dict) -> dict:
+    compatibility = producer.compatibility_payload(deepcopy(canonical))
+    compatibility["publicTrustMetrics"] = producer.expected_public_trust_metrics(
+        compatibility
+    )
+    compatibility["registryBoundaryCoverage"] = (
+        producer.expected_registry_boundary_coverage(compatibility)
+    )
+    return compatibility
 
 
 def payload(*, compatibility: bool = False) -> dict:
@@ -106,7 +129,7 @@ def test_linux_compatibility_platform_and_arch_derive_canonical_rid(tmp_path: Pa
     assert module.verify_pair(*paths)["status"] == "pass"
 
 
-def test_empty_guest_compatibility_projection_is_valid_for_account_only_canonical_shelf(
+def test_empty_compatibility_projection_is_a_conservative_withheld_shelf(
     tmp_path: Path,
 ) -> None:
     module = load_module()
@@ -126,10 +149,11 @@ def test_empty_guest_compatibility_projection_is_valid_for_account_only_canonica
     assert result["compatibilityArtifactCount"] == 0
 
 
-def test_mixed_shelf_compatibility_projection_contains_exactly_open_public_artifacts(
+def test_mixed_shelf_compatibility_projection_contains_every_canonical_artifact(
     tmp_path: Path,
 ) -> None:
     module = load_module()
+    producer = load_producer()
     paths = pair(tmp_path)
     canonical = payload()
     restricted = deepcopy(canonical["artifacts"][0])
@@ -147,7 +171,8 @@ def test_mixed_shelf_compatibility_projection_contains_exactly_open_public_artif
         }
     )
     canonical["artifacts"].append(restricted)
-    compatibility = payload(compatibility=True)
+    canonical["contract_name"] = producer.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
+    compatibility = materialized_compatibility(producer, canonical)
     for path in (paths[0], paths[2]):
         write(path, canonical)
     for path in (paths[1], paths[3]):
@@ -156,10 +181,94 @@ def test_mixed_shelf_compatibility_projection_contains_exactly_open_public_artif
     result = module.verify_pair(*paths)
 
     assert result["artifactCount"] == 2
-    assert result["compatibilityArtifactCount"] == 1
+    assert result["compatibilityArtifactCount"] == 2
 
 
-def test_public_archives_do_not_enter_installer_compatibility_projection(tmp_path: Path) -> None:
+def test_real_compatibility_producer_projects_linux_platform_family_and_archives(
+    tmp_path: Path,
+) -> None:
+    module = load_module()
+    producer = load_producer()
+    paths = pair(tmp_path)
+    canonical = payload()
+    canonical["contract_name"] = producer.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
+    canonical["artifacts"][0].update(
+        {
+            "artifactId": "avalonia-linux-x64-installer",
+            "id": "avalonia-linux-x64-installer",
+            "fileName": "chummer.deb",
+            "downloadUrl": "/downloads/g/generation/files/chummer.deb",
+            "sha256": "c" * 64,
+            "platform": "linux",
+            "rid": "linux-x64",
+            "arch": "x64",
+        }
+    )
+    archive = deepcopy(canonical["artifacts"][0])
+    archive.update(
+        {
+            "artifactId": "avalonia-linux-x64-archive",
+            "id": "avalonia-linux-x64-archive",
+            "fileName": "chummer.tar.gz",
+            "downloadUrl": "/downloads/g/generation/files/chummer.tar.gz",
+            "sha256": "d" * 64,
+            "kind": "archive",
+            "installAccessClass": "open_public",
+        }
+    )
+    canonical["artifacts"].append(archive)
+    compatibility = materialized_compatibility(producer, canonical)
+    assert {row["platformId"] for row in compatibility["downloads"]} == {"linux-x64"}
+    assert {row["kind"] for row in compatibility["downloads"]} == {"installer", "archive"}
+    for path in (paths[0], paths[2]):
+        write(path, canonical)
+    for path in (paths[1], paths[3]):
+        write(path, compatibility)
+
+    assert module.verify_pair(*paths)["compatibilityArtifactCount"] == 2
+
+
+def test_compatibility_posture_may_be_conservatively_stricter(tmp_path: Path) -> None:
+    module = load_module()
+    producer = load_producer()
+    paths = pair(tmp_path)
+    canonical = payload()
+    canonical["contract_name"] = producer.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
+    canonical["rolloutState"] = "promoted_preview"
+    canonical["supportabilityState"] = "preview_supported"
+    canonical["publicTrustMetrics"]["proofFreshness"]["status"] = "fresh"
+    canonical["publicTrustMetrics"]["releaseChannel"].update(
+        {
+            "rolloutState": "promoted_preview",
+            "supportabilityState": "preview_supported",
+            "posture": "preview",
+        }
+    )
+    canonical["registryBoundaryCoverage"]["releaseChannel"].update(
+        {
+            "rolloutState": "promoted_preview",
+            "supportabilityState": "preview_supported",
+            "publicTrustPosture": "preview",
+        }
+    )
+    compatibility = producer.compatibility_payload(deepcopy(canonical))
+    compatibility["rolloutState"] = "public_release_review_required"
+    compatibility["supportabilityState"] = "review_required"
+    compatibility["publicTrustMetrics"] = producer.expected_public_trust_metrics(
+        compatibility
+    )
+    compatibility["registryBoundaryCoverage"] = (
+        producer.expected_registry_boundary_coverage(compatibility)
+    )
+    for path in (paths[0], paths[2]):
+        write(path, canonical)
+    for path in (paths[1], paths[3]):
+        write(path, compatibility)
+
+    assert module.verify_pair(*paths)["status"] == "pass"
+
+
+def test_exact_open_public_projection_includes_archives(tmp_path: Path) -> None:
     module = load_module()
     paths = pair(tmp_path)
     canonical = payload()
@@ -167,27 +276,85 @@ def test_public_archives_do_not_enter_installer_compatibility_projection(tmp_pat
     archive = deepcopy(canonical["artifacts"][0])
     archive.update(
         {
-            "artifactId": "avalonia-osx-arm64-archive",
-            "id": "avalonia-osx-arm64-archive",
-            "fileName": "chummer.tar.gz",
-            "downloadUrl": "/downloads/g/generation/files/chummer.tar.gz",
-            "sha256": "d" * 64,
-            "platform": "macos",
-            "rid": "osx-arm64",
-            "arch": "arm64",
+            "artifactId": "avalonia-win-x64-archive",
+            "id": "avalonia-win-x64-archive",
+            "fileName": "chummer.zip",
+            "downloadUrl": "/downloads/g/generation/files/chummer.zip",
+            "sha256": "e" * 64,
             "kind": "archive",
             "installAccessClass": "open_public",
         }
     )
     canonical["artifacts"].append(archive)
     compatibility = payload(compatibility=True)
-    compatibility["downloads"] = []
+    compatibility["downloads"] = [
+        {
+            **deepcopy(archive),
+            "id": archive["artifactId"],
+            "url": archive["downloadUrl"],
+        }
+    ]
     for path in (paths[0], paths[2]):
         write(path, canonical)
     for path in (paths[1], paths[3]):
         write(path, compatibility)
 
-    assert module.verify_pair(*paths)["compatibilityArtifactCount"] == 0
+    assert module.verify_pair(*paths)["compatibilityArtifactCount"] == 1
+
+
+def test_partial_restricted_projection_is_rejected(tmp_path: Path) -> None:
+    module = load_module()
+    paths = pair(tmp_path)
+    canonical = payload()
+    canonical["artifacts"][0]["installAccessClass"] = "account_required"
+    public_archive = deepcopy(canonical["artifacts"][0])
+    public_archive.update(
+        {
+            "artifactId": "avalonia-win-x64-archive",
+            "id": "avalonia-win-x64-archive",
+            "fileName": "chummer.zip",
+            "downloadUrl": "/downloads/g/generation/files/chummer.zip",
+            "sha256": "f" * 64,
+            "kind": "archive",
+            "installAccessClass": "open_public",
+        }
+    )
+    canonical["artifacts"].append(public_archive)
+    compatibility = payload(compatibility=True)
+    compatibility["downloads"][0]["installAccessClass"] = "account_required"
+    for path in (paths[0], paths[2]):
+        write(path, canonical)
+    for path in (paths[1], paths[3]):
+        write(path, compatibility)
+
+    with pytest.raises(module.ReleaseTruthError, match="artifacts"):
+        module.verify_pair(*paths)
+
+
+def test_partial_open_public_projection_is_rejected(tmp_path: Path) -> None:
+    module = load_module()
+    paths = pair(tmp_path)
+    canonical = payload()
+    second = deepcopy(canonical["artifacts"][0])
+    second.update(
+        {
+            "artifactId": "avalonia-win-x64-archive",
+            "id": "avalonia-win-x64-archive",
+            "fileName": "chummer.zip",
+            "downloadUrl": "/downloads/g/generation/files/chummer.zip",
+            "sha256": "9" * 64,
+            "kind": "archive",
+        }
+    )
+    canonical["artifacts"].append(second)
+    compatibility = payload(compatibility=True)
+    for path in (paths[0], paths[2]):
+        write(path, canonical)
+    for path in (paths[1], paths[3]):
+        write(path, compatibility)
+
+    with pytest.raises(module.ReleaseTruthError, match="artifacts"):
+        module.verify_pair(*paths)
 
 
 def test_authority_pair_normalizes_equivalent_utc_timestamp_spellings(tmp_path: Path) -> None:
@@ -199,6 +366,31 @@ def test_authority_pair_normalizes_equivalent_utc_timestamp_spellings(tmp_path: 
     write(paths[3], compatibility)
 
     assert module.verify_pair(*paths)["status"] == "pass"
+
+
+@pytest.mark.parametrize(
+    "remove_field",
+    [
+        lambda value: value["publicTrustMetrics"].pop("proofFreshness"),
+        lambda value: value.pop("supportabilityState"),
+        lambda value: value["registryBoundaryCoverage"]["releaseChannel"].pop(
+            "publicTrustPosture"
+        ),
+    ],
+)
+def test_canonical_truth_requires_all_explicit_producer_posture_fields(
+    tmp_path: Path,
+    remove_field,
+) -> None:
+    module = load_module()
+    paths = pair(tmp_path)
+    canonical = payload()
+    remove_field(canonical)
+    write(paths[0], canonical)
+    write(paths[2], canonical)
+
+    with pytest.raises(module.ReleaseTruthError, match="missing explicit posture fields"):
+        module.verify_pair(*paths)
 
 
 @pytest.mark.parametrize(
@@ -254,6 +446,34 @@ def test_invalid_artifact_digest_fails_closed_even_when_mirror_matches(tmp_path:
         (
             lambda value: value["publicTrustMetrics"]["releaseChannel"].__setitem__(
                 "supportabilityState", "preview_supported"
+            ),
+            "posture",
+        ),
+        (lambda value: value.__setitem__("rolloutState", "promoted_preview"), "posture"),
+        (lambda value: value.__setitem__("supportabilityState", "preview_supported"), "posture"),
+        (lambda value: value.__setitem__("status", "passed"), "posture"),
+        (lambda value: value.__setitem__("rolloutState", "review_required"), "posture"),
+        (
+            lambda value: value["registryBoundaryCoverage"]["releaseChannel"].__setitem__(
+                "publicTrustPosture", "preview"
+            ),
+            "posture",
+        ),
+        (
+            lambda value: value["publicTrustMetrics"]["proofFreshness"].__setitem__(
+                "status", "expired"
+            ),
+            "posture",
+        ),
+        (
+            lambda value: value["publicTrustMetrics"]["releaseChannel"].__setitem__(
+                "posture", "failed"
+            ),
+            "posture",
+        ),
+        (
+            lambda value: value["publicTrustMetrics"]["proofFreshness"].__setitem__(
+                "status", "fresh"
             ),
             "posture",
         ),

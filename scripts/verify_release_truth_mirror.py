@@ -87,6 +87,23 @@ def _object(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _platform_family(*values: Any) -> str:
+    """Normalize producer labels, platformIds, and RIDs to one OS family."""
+    normalized_values = [
+        _text(value).casefold().replace("_", "-")
+        for value in values
+        if _text(value)
+    ]
+    for token in normalized_values:
+        if re.search(r"(?:^|[^a-z0-9])(?:windows|win)(?:[^a-z0-9]|$)", token):
+            return "windows"
+        if re.search(r"(?:^|[^a-z0-9])(?:macos|osx|darwin|mac)(?:[^a-z0-9]|$)", token):
+            return "macos"
+        if re.search(r"(?:^|[^a-z0-9])linux(?:[^a-z0-9]|$)", token):
+            return "linux"
+    return normalized_values[0] if normalized_values else ""
+
+
 def _artifact_projection(
     payload: dict[str, Any],
     *,
@@ -160,11 +177,11 @@ def _authority_pair_artifact_projection(
     for raw in raw_rows:
         if not isinstance(raw, dict):
             raise ReleaseTruthError("release truth artifact row is invalid")
-        platform_id = _text(raw.get("platformId") or raw.get("platform")).casefold()
+        platform = _platform_family(raw.get("platform"), raw.get("rid"), raw.get("platformId"))
         arch = _text(raw.get("arch")).casefold()
         rid = _text(raw.get("rid")).casefold()
-        if not rid and platform_id and arch:
-            rid_prefix = {"windows": "win", "macos": "osx", "linux": "linux"}.get(platform_id)
+        if not rid and platform and arch:
+            rid_prefix = {"windows": "win", "macos": "osx", "linux": "linux"}.get(platform)
             if rid_prefix:
                 rid = f"{rid_prefix}-{arch}"
         rows.append(
@@ -174,7 +191,7 @@ def _authority_pair_artifact_projection(
                 _text(raw.get("sha256")).lower().removeprefix("sha256:"),
                 raw.get("sizeBytes"),
                 _text(raw.get("head")).casefold(),
-                platform_id,
+                platform,
                 rid,
                 arch,
                 _text(raw.get("kind")).casefold(),
@@ -201,34 +218,147 @@ def _published_at(value: Any) -> str:
     return parsed.astimezone(UTC).isoformat(timespec="microseconds")
 
 
-def release_truth_projection(
-    payload: dict[str, Any],
-    *,
-    allow_empty_artifacts: bool = False,
-) -> dict[str, Any]:
+_PUBLICATION_RANKS = {
+    "": -1,
+    "missing": -1,
+    "unknown": -1,
+    "failed": 0,
+    "blocked": 0,
+    "revoked": 0,
+    "unpublished": 0,
+    "withheld": 0,
+    "review_required": 1,
+    "preview": 2,
+    "passed": 3,
+    "published": 3,
+    "ready": 3,
+}
+_ROLLOUT_RANKS = {
+    "": -1,
+    "missing": -1,
+    "unknown": -1,
+    "failed": 0,
+    "blocked": 0,
+    "revoked": 0,
+    "unpublished": 0,
+    "withheld": 0,
+    "review_required": 1,
+    "public_release_review_required": 1,
+    "local": 1,
+    "docker": 1,
+    "preview": 2,
+    "promoted_preview": 2,
+    "stable": 3,
+    "public_stable": 3,
+}
+_SUPPORTABILITY_RANKS = {
+    "": -1,
+    "missing": -1,
+    "unknown": -1,
+    "failed": 0,
+    "blocked": 0,
+    "revoked": 0,
+    "unpublished": 0,
+    "unsupported": 0,
+    "review_required": 1,
+    "preview_supported": 2,
+    "supported": 3,
+}
+_PUBLIC_TRUST_RANKS = {
+    "": -1,
+    "missing": -1,
+    "unknown": -1,
+    "failed": 0,
+    "blocked": 0,
+    "revoked": 0,
+    "review_required": 1,
+    "preview": 2,
+    "supported": 3,
+    "ready": 3,
+}
+_FRESHNESS_RANKS = {
+    "": -1,
+    "missing": -1,
+    "unknown": -1,
+    "failed": 0,
+    "blocked": 0,
+    "invalid": 0,
+    "expired": 1,
+    "stale": 1,
+    "current": 2,
+    "fresh": 2,
+    "passed": 2,
+}
+_POSTURE_RANKS = {
+    "status": _PUBLICATION_RANKS,
+    "rolloutState": _ROLLOUT_RANKS,
+    "supportabilityState": _SUPPORTABILITY_RANKS,
+    "publicPublicationStatus": _PUBLICATION_RANKS,
+    "publicRolloutState": _ROLLOUT_RANKS,
+    "publicSupportabilityState": _SUPPORTABILITY_RANKS,
+    "publicPosture": _PUBLIC_TRUST_RANKS,
+    "registryPublicationStatus": _PUBLICATION_RANKS,
+    "registryRolloutState": _ROLLOUT_RANKS,
+    "registrySupportabilityState": _SUPPORTABILITY_RANKS,
+    "registryPublicTrustPosture": _PUBLIC_TRUST_RANKS,
+    "proofFreshnessStatus": _FRESHNESS_RANKS,
+}
+
+
+def _posture_projection(payload: dict[str, Any]) -> dict[str, str]:
     public_metrics = _object(payload.get("publicTrustMetrics"))
     public_channel = _object(public_metrics.get("releaseChannel"))
     registry = _object(payload.get("registryBoundaryCoverage"))
     registry_channel = _object(registry.get("releaseChannel"))
     freshness = _object(public_metrics.get("proofFreshness"))
+    posture = {
+        "status": _text(payload.get("status")).casefold(),
+        "rolloutState": _text(payload.get("rolloutState")).casefold(),
+        "supportabilityState": _text(payload.get("supportabilityState")).casefold(),
+        "publicPublicationStatus": _text(public_channel.get("publicationStatus")).casefold(),
+        "publicRolloutState": _text(public_channel.get("rolloutState")).casefold(),
+        "publicSupportabilityState": _text(public_channel.get("supportabilityState")).casefold(),
+        "publicPosture": _text(public_channel.get("posture")).casefold(),
+        "registryPublicationStatus": _text(registry_channel.get("publicationStatus")).casefold(),
+        "registryRolloutState": _text(registry_channel.get("rolloutState")).casefold(),
+        "registrySupportabilityState": _text(registry_channel.get("supportabilityState")).casefold(),
+        "registryPublicTrustPosture": _text(registry_channel.get("publicTrustPosture")).casefold(),
+        "proofFreshnessStatus": _text(freshness.get("status")).casefold(),
+    }
+    for field, value in posture.items():
+        if value not in _POSTURE_RANKS[field]:
+            raise ReleaseTruthError(f"release truth {field} posture is unknown: {value}")
+    return posture
+
+
+def _posture_upgrade_fields(
+    canonical: dict[str, str],
+    compatibility: dict[str, str],
+) -> list[str]:
+    upgraded: list[str] = []
+    for field, ranks in _POSTURE_RANKS.items():
+        canonical_value = canonical[field]
+        compatibility_value = compatibility[field]
+        canonical_rank = ranks[canonical_value]
+        compatibility_rank = ranks[compatibility_value]
+        if compatibility_rank > canonical_rank or (
+            compatibility_rank == canonical_rank
+            and compatibility_value != canonical_value
+        ):
+            upgraded.append(field)
+    return upgraded
+
+
+def release_truth_projection(
+    payload: dict[str, Any],
+    *,
+    allow_empty_artifacts: bool = False,
+) -> dict[str, Any]:
     return {
         "version": _alias(payload, "version", "releaseVersion", "release version"),
         "channel": _alias(payload, "channel", "channelId", "release channel"),
         "publishedAt": _published_at(payload.get("publishedAt")),
-        "posture": (
-            _text(payload.get("status")).casefold(),
-            _text(payload.get("rolloutState")).casefold(),
-            _text(payload.get("supportabilityState")).casefold(),
-            _text(public_channel.get("publicationStatus")).casefold(),
-            _text(public_channel.get("rolloutState")).casefold(),
-            _text(public_channel.get("supportabilityState")).casefold(),
-            _text(public_channel.get("posture")).casefold(),
-            _text(registry_channel.get("publicationStatus")).casefold(),
-            _text(registry_channel.get("rolloutState")).casefold(),
-            _text(registry_channel.get("supportabilityState")).casefold(),
-            _text(registry_channel.get("publicTrustPosture")).casefold(),
-            _text(freshness.get("status")).casefold(),
-        ),
+        "posture": _posture_projection(payload),
         "artifacts": _artifact_projection(payload, allow_empty=allow_empty_artifacts),
     }
 
@@ -291,20 +421,51 @@ def verify_pair(
         "compatibility manifest",
         allow_empty_artifacts=True,
     )
+    canonical_posture = canonical["projection"]["posture"]
+    missing_canonical_posture = [
+        field
+        for field, ranks in _POSTURE_RANKS.items()
+        if ranks[canonical_posture[field]] < 0
+    ]
+    if missing_canonical_posture:
+        raise ReleaseTruthError(
+            "canonical release truth is missing explicit posture fields: "
+            + ", ".join(missing_canonical_posture)
+        )
     pair_mismatches: list[str] = []
-    for field in ("version", "channel", "publishedAt", "posture"):
+    for field in ("version", "publishedAt"):
         if canonical["projection"][field] != compatibility["projection"][field]:
             pair_mismatches.append(field)
+    canonical_rollout = canonical["projection"]["posture"]["rolloutState"]
+    expected_compatibility_channel = (
+        canonical_rollout
+        if canonical_rollout in {"public_stable", "stable", "preview", "local", "docker"}
+        else canonical["projection"]["channel"]
+    )
+    if compatibility["projection"]["channel"] != expected_compatibility_channel:
+        pair_mismatches.append("channel")
+    posture_upgrades = _posture_upgrade_fields(
+        canonical_posture,
+        compatibility["projection"]["posture"],
+    )
+    if posture_upgrades:
+        pair_mismatches.append("posture(" + ",".join(posture_upgrades) + ")")
     canonical_artifacts = canonical["pairArtifacts"]
     compatibility_artifacts = compatibility["pairArtifacts"]
-    compatibility_includes_restricted = any(row[9] == "account_required" for row in compatibility_artifacts)
-    canonical_installers = tuple(row for row in canonical_artifacts if row[8] == "installer")
-    expected_compatibility_artifacts = (
-        canonical_installers
-        if compatibility_includes_restricted
-        else tuple(row for row in canonical_installers if row[9] == "open_public")
-    )
-    if expected_compatibility_artifacts != compatibility_artifacts:
+    # The compatibility producer has three governed shapes: an empty withheld
+    # shelf; the exact open_public projection; or the complete canonical set
+    # when any restricted artifact is exposed.  Archives participate exactly
+    # like installers.  This rejects incoherent partial subsets while retaining
+    # the current withheld live shelf and the real full compatibility_payload.
+    if not compatibility_artifacts:
+        expected_compatibility_artifacts = ()
+    elif any(row[9] != "open_public" for row in compatibility_artifacts):
+        expected_compatibility_artifacts = canonical_artifacts
+    else:
+        expected_compatibility_artifacts = tuple(
+            row for row in canonical_artifacts if row[9] == "open_public"
+        )
+    if compatibility_artifacts != expected_compatibility_artifacts:
         pair_mismatches.append("artifacts")
     if pair_mismatches:
         raise ReleaseTruthError(
