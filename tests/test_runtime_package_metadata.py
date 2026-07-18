@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import hashlib
+import re
 import subprocess
 import xml.etree.ElementTree as ElementTree
 from pathlib import Path
@@ -17,6 +18,18 @@ CONTRACTS_PROJECT = (
 LICENSE_PATH = ROOT / "LICENSE"
 PACKAGE_VERSION = "0.0.0-packageplane.20260718.1"
 REPOSITORY_URL = "https://github.com/ArchonMegalon/chummer6-hub-registry.git"
+RUNTIME_EXACT_PACKAGE_FILES = {
+    "_rels/.rels",
+    "Chummer.Run.Registry.nuspec",
+    "lib/net10.0/Chummer.Run.Registry.dll",
+    "lib/net10.0/Chummer.Run.Registry.xml",
+    "PACKAGE_README.md",
+    "LICENSE",
+    "[Content_Types].xml",
+}
+CORE_PROPERTIES_PATTERN = re.compile(
+    r"^package/services/metadata/core-properties/[0-9a-f]{32}\.psmdcp$"
+)
 
 
 def _local_name(element: ElementTree.Element) -> str:
@@ -52,6 +65,21 @@ def validate_runtime_project(project_xml: str) -> None:
     }
     assert packed["../LICENSE"].get("PackagePath") == ""
     assert packed["PACKAGE_README.md"].get("PackagePath") == "\\"
+
+
+def validate_runtime_package_inventory(names: list[str]) -> None:
+    observed = set(names)
+    assert "lib/net10.0/Chummer.Run.Registry.dll" in observed
+    assert "Chummer.Run.Registry.nuspec" in observed
+    assert "PACKAGE_README.md" in observed
+    assert "LICENSE" in observed
+    unexpected = {
+        name
+        for name in observed
+        if name not in RUNTIME_EXACT_PACKAGE_FILES
+        and CORE_PROPERTIES_PATTERN.fullmatch(name) is None
+    }
+    assert not unexpected, f"unexpected Registry runtime package files: {sorted(unexpected)}"
 
 
 def test_runtime_project_is_explicitly_versioned_and_licensed() -> None:
@@ -113,6 +141,7 @@ def test_runtime_package_contains_license_readme_dependency_and_provenance(
 
     with ZipFile(package_path) as package:
         names = package.namelist()
+        validate_runtime_package_inventory(names)
         assert "LICENSE" in names
         assert "PACKAGE_README.md" in names
         assert package.read("LICENSE") == LICENSE_PATH.read_bytes()
@@ -137,3 +166,28 @@ def test_runtime_package_contains_license_readme_dependency_and_provenance(
             and PACKAGE_VERSION in (dependency.get("version") or "")
             for dependency in dependencies
         )
+
+
+@pytest.mark.parametrize(
+    "forbidden_name",
+    [
+        "content/appsettings.json",
+        "contentFiles/any/net10.0/appsettings.Development.json",
+        "lib/net10.0/Chummer.Run.Registry.runtimeconfig.json",
+        "lib/net10.0/metadata-valid-malicious.dll",
+    ],
+)
+def test_runtime_package_inventory_rejects_host_or_unlisted_content(
+    forbidden_name: str,
+) -> None:
+    baseline = [
+        "_rels/.rels",
+        "Chummer.Run.Registry.nuspec",
+        "lib/net10.0/Chummer.Run.Registry.dll",
+        "PACKAGE_README.md",
+        "LICENSE",
+        "[Content_Types].xml",
+        "package/services/metadata/core-properties/0123456789abcdef0123456789abcdef.psmdcp",
+    ]
+    with pytest.raises(AssertionError, match="unexpected Registry runtime package files"):
+        validate_runtime_package_inventory([*baseline, forbidden_name])
