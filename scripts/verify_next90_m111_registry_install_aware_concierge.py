@@ -235,11 +235,14 @@ def verify_queue_staging(path: Path) -> None:
     verify_no_active_run_helper_evidence_text(block, label=f"queue staging package {PACKAGE_ID}")
 
 
-def run_public_release_channel_verifier(path: Path) -> None:
+def run_public_release_channel_verifier(
+    path: Path,
+    verifier: Path = DEFAULT_PUBLIC_VERIFIER,
+) -> None:
     env = dict(os.environ)
     env.setdefault("CHUMMER_VERIFY_STARTUP_SMOKE_MAX_AGE_SECONDS", str(14 * 24 * 60 * 60))
     result = subprocess.run(
-        [sys.executable, str(DEFAULT_PUBLIC_VERIFIER), str(path)],
+        [sys.executable, str(verifier), str(path)],
         cwd=str(REPO_ROOT),
         env=env,
         text=True,
@@ -267,9 +270,12 @@ def verify_release_payload_identity(path: Path) -> None:
             fail(f"{path.name} installAwareArtifactRegistry[{index}] releaseVersion drifted from payload version")
 
 
-def verify_projection_identity_matches() -> None:
-    release_payload = json.loads(DEFAULT_RELEASE_CHANNEL.read_text(encoding="utf-8"))
-    manifest_payload = json.loads(DEFAULT_RELEASES_MANIFEST.read_text(encoding="utf-8"))
+def verify_projection_identity_matches(
+    release_channel: Path = DEFAULT_RELEASE_CHANNEL,
+    releases_manifest: Path = DEFAULT_RELEASES_MANIFEST,
+) -> None:
+    release_payload = json.loads(release_channel.read_text(encoding="utf-8"))
+    manifest_payload = json.loads(releases_manifest.read_text(encoding="utf-8"))
     release_registry = release_payload.get("installAwareArtifactRegistry")
     manifest_registry = manifest_payload.get("installAwareArtifactRegistry")
     if release_registry != manifest_registry:
@@ -407,11 +413,11 @@ def main() -> int:
     verify_queue_staging(args.queue_staging)
     verify_queue_staging(args.source_queue_staging)
     verify_queue_staging(args.mirror_queue_staging)
-    run_public_release_channel_verifier(args.release_channel)
-    run_public_release_channel_verifier(args.releases_manifest)
+    run_public_release_channel_verifier(args.release_channel, args.public_verifier)
+    run_public_release_channel_verifier(args.releases_manifest, args.public_verifier)
     verify_release_payload_identity(args.release_channel)
     verify_release_payload_identity(args.releases_manifest)
-    verify_projection_identity_matches()
+    verify_projection_identity_matches(args.release_channel, args.releases_manifest)
     verify_doc(args.closeout_doc, label="M111 closeout doc", snippets=REQUIRED_CLOSEOUT_SNIPPETS)
     verify_no_active_run_helper_evidence(args.closeout_doc, label="M111 closeout doc")
     verify_standard_gate_includes_guardrail(args.verify_sh)

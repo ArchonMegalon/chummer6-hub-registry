@@ -1,8 +1,10 @@
 #!/usr/bin/env python3
 from __future__ import annotations
 
+import json
 import subprocess
 import sys
+import tempfile
 import unittest
 from unittest import mock
 from pathlib import Path
@@ -35,14 +37,59 @@ class VerifyNext90M111RegistryInstallAwareConciergeTests(unittest.TestCase):
         self.assertIn("verified next90 M111 registry install-aware concierge self-test", result.stdout)
 
     def test_default_verifier_passes(self) -> None:
-        result = subprocess.run(
-            [sys.executable, str(SCRIPT)],
-            cwd=str(REPO_ROOT),
-            check=False,
-            text=True,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-        )
+        with tempfile.TemporaryDirectory() as temp_dir:
+            root = Path(temp_dir)
+            registry_rows = [
+                {
+                    "artifactId": "hermetic-installer",
+                    "channelId": "preview",
+                    "releaseVersion": "run-hermetic",
+                }
+            ]
+            payload = {
+                "version": "run-hermetic",
+                "releaseVersion": "run-hermetic",
+                "channel": "preview",
+                "channelId": "preview",
+                "installAwareArtifactRegistry": registry_rows,
+            }
+            release_channel = root / "RELEASE_CHANNEL.generated.json"
+            releases_manifest = root / "releases.json"
+            release_channel.write_text(json.dumps(payload), encoding="utf-8")
+            releases_manifest.write_text(json.dumps(payload), encoding="utf-8")
+            public_verifier = root / "verify_public_release_channel.py"
+            public_verifier.write_text(
+                "from typing import Any\n"
+                "\n"
+                "def expected_install_aware_artifact_registry_rows(payload: dict[str, Any]) -> list[dict[str, Any]]:\n"
+                "    return []\n"
+                "\n"
+                "def verify_install_aware_artifact_registry(payload: dict[str, Any], source: str) -> None:\n"
+                "    return None\n"
+                "\n"
+                "payload: dict[str, Any] = {}\n"
+                "source = 'hermetic fixture'\n"
+                "verify_install_aware_artifact_registry(payload, source)\n"
+                "raise SystemExit(0)\n",
+                encoding="utf-8",
+            )
+            result = subprocess.run(
+                [
+                    sys.executable,
+                    str(SCRIPT),
+                    "--release-channel",
+                    str(release_channel),
+                    "--releases-manifest",
+                    str(releases_manifest),
+                    "--public-verifier",
+                    str(public_verifier),
+                ],
+                cwd=str(REPO_ROOT),
+                check=False,
+                text=True,
+                stdout=subprocess.PIPE,
+                stderr=subprocess.STDOUT,
+            )
         self.assertEqual(result.returncode, 0, result.stdout)
 
     def test_release_channel_verifier_uses_historical_startup_smoke_window(self) -> None:

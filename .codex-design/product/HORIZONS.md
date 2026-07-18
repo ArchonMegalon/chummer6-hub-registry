@@ -10,7 +10,7 @@ For the writing, public-guide, and media standard, use `HORIZON_DESIGN_INSTRUCTI
 
 * Horizon docs are canon for lane posture, not promises of shipment.
 * Mature base-client areas belong in `PUBLIC_FEATURE_REGISTRY.yaml` and `features/*.md`, not in the Horizon registry.
-* Horizon docs must stay consistent with `VISION.md`, `ARCHITECTURE.md`, `EXTERNAL_TOOLS_PLANE.md`, and `PROGRAM_MILESTONES.yaml`.
+* Horizon docs must stay consistent with `VISION.md`, `ARCHITECTURE.md`, `chummer-design/products/chummer/EXTERNAL_TOOLS_PLANE.md`, and `PROGRAM_MILESTONES.yaml`.
 * The public `Chummer6` guide may explain Horizons in human language, but it may not outrun this directory.
 * Public horizon output must satisfy `HORIZON_DESIGN_INSTRUCTIONS.md`: human value first, no repo-speak, no foundation-code checklists, no unsupported shipment claims, and no decorative AR that does not fit the scene.
 * When a horizon already has first-party preview artifacts or detail routes in the public registry, downstream public surfaces should point at that proof instead of presenting the horizon as an empty teaser.

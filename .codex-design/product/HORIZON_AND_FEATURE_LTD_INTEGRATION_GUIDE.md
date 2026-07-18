@@ -18,7 +18,7 @@ The goal is:
 This audit covers:
 
 * canonical horizons listed in `HORIZON_REGISTRY.yaml`
-* active feature systems listed in `LTD_RUNTIME_AND_PROJECTION_REGISTRY.yaml`
+* active feature systems listed in `chummer-design/products/chummer/LTD_RUNTIME_AND_PROJECTION_REGISTRY.yaml`
 
 This audit does not promote parked horizon drafts such as `edition-studio`.
 Those files stay out of scope until they return to the machine-readable horizon canon.
