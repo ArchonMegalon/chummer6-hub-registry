@@ -3386,10 +3386,10 @@ def output_readiness_freshness_status(
     normalized_status = normalize_token(proof_freshness_status_value) or "fresh"
     if normalized_status == "missing":
         return "missing"
-    if normalized_status == "stale":
-        return "stale"
     if not isinstance(flagship_readiness, dict) or not flagship_readiness:
         return "missing"
+    if normalized_status == "stale":
+        return "stale"
     flagship_readiness_age_seconds = projection_age_seconds(
         projection_generated_at=projection_generated_at,
         evidence_generated_at=flagship_readiness.get("generatedAt"),

@@ -87,6 +87,57 @@ def _object(value: Any) -> dict[str, Any]:
     return value if isinstance(value, dict) else {}
 
 
+def _optional_alias(
+    payload: dict[str, Any],
+    first: str,
+    second: str,
+    label: str,
+    *,
+    casefold: bool = False,
+) -> str:
+    left = _text(payload.get(first))
+    right = _text(payload.get(second))
+    left_comparison = left.casefold() if casefold else left
+    right_comparison = right.casefold() if casefold else right
+    if left and right and left_comparison != right_comparison:
+        raise ReleaseTruthError(f"{label} aliases disagree")
+    value = left or right
+    return value.casefold() if casefold else value
+
+
+def _artifact_rows(
+    payload: dict[str, Any],
+    *,
+    collection_name: str,
+    allow_empty: bool,
+) -> list[dict[str, Any]]:
+    other_collection = "downloads" if collection_name == "artifacts" else "artifacts"
+    if other_collection in payload:
+        raise ReleaseTruthError(
+            f"release truth artifact collections are ambiguous: both {collection_name} "
+            f"and {other_collection} are present"
+        )
+    raw_rows = payload.get(collection_name)
+    if not isinstance(raw_rows, list) or (not raw_rows and not allow_empty):
+        raise ReleaseTruthError("release truth artifact set is missing")
+    if any(not isinstance(raw, dict) for raw in raw_rows):
+        raise ReleaseTruthError("release truth artifact row is invalid")
+    return raw_rows
+
+
+def _recognized_platform_family(value: Any) -> str:
+    token = _text(value).casefold().replace("_", "-")
+    if not token:
+        return ""
+    if re.search(r"(?:^|[^a-z0-9])(?:windows|win)(?:[^a-z0-9]|$)", token):
+        return "windows"
+    if re.search(r"(?:^|[^a-z0-9])(?:macos|osx|darwin|mac)(?:[^a-z0-9]|$)", token):
+        return "macos"
+    if re.search(r"(?:^|[^a-z0-9])linux(?:[^a-z0-9]|$)", token):
+        return "linux"
+    return ""
+
+
 def _platform_family(*values: Any) -> str:
     """Normalize producer labels, platformIds, and RIDs to one OS family."""
     normalized_values = [
@@ -104,23 +155,113 @@ def _platform_family(*values: Any) -> str:
     return normalized_values[0] if normalized_values else ""
 
 
+def _checked_platform_family(raw: dict[str, Any], artifact_id: str) -> str:
+    values = (raw.get("platform"), raw.get("rid"), raw.get("platformId"))
+    recognized = {
+        family
+        for value in values
+        if (family := _recognized_platform_family(value))
+    }
+    if len(recognized) > 1:
+        raise ReleaseTruthError(
+            f"release truth artifact platform aliases disagree: {artifact_id}"
+        )
+    return next(iter(recognized), _platform_family(*values))
+
+
+def _checked_arch(raw: dict[str, Any], artifact_id: str) -> str:
+    explicit = _text(raw.get("arch")).casefold()
+    derived = {
+        match.group(1)
+        for value in (raw.get("rid"), raw.get("platformId"))
+        if (match := re.search(r"(?:^|[-_])(arm64|x64|x86)(?:$|[-_])", _text(value).casefold()))
+    }
+    if explicit:
+        derived.add(explicit)
+    if len(derived) > 1:
+        raise ReleaseTruthError(
+            f"release truth artifact architecture aliases disagree: {artifact_id}"
+        )
+    return next(iter(derived), "")
+
+
+def _validate_platform_id(
+    raw: dict[str, Any],
+    artifact_id: str,
+    platform: str,
+    arch: str,
+) -> None:
+    platform_id = _text(raw.get("platformId"))
+    if not platform_id:
+        return
+    platform_id_family = _recognized_platform_family(platform_id)
+    platform_id_arch_match = re.search(
+        r"(?:^|[-_])(arm64|x64|x86)(?:$|[-_])",
+        platform_id.casefold(),
+    )
+    platform_id_arch = platform_id_arch_match.group(1) if platform_id_arch_match else ""
+    if (
+        (platform and platform_id_family != platform)
+        or (arch and platform_id_arch != arch)
+    ):
+        raise ReleaseTruthError(
+            f"release truth artifact platformId disagrees with platform or arch: {artifact_id}"
+        )
+
+
+def _artifact_format(file_name: str) -> str:
+    lowered = file_name.casefold()
+    if lowered.endswith(".tar.gz"):
+        return "tar.gz"
+    return Path(file_name).suffix.casefold().lstrip(".")
+
+
+def _artifact_release_binding(
+    raw: dict[str, Any],
+    payload: dict[str, Any],
+    artifact_id: str,
+) -> tuple[str, str]:
+    manifest_version = _alias(payload, "version", "releaseVersion", "release version")
+    artifact_version = _optional_alias(
+        raw,
+        "version",
+        "releaseVersion",
+        f"release truth artifact version for {artifact_id}",
+    )
+    if artifact_version and artifact_version != manifest_version:
+        raise ReleaseTruthError(
+            f"release truth artifact version disagrees with manifest: {artifact_id}"
+        )
+    manifest_channel = _alias(payload, "channel", "channelId", "release channel")
+    artifact_channel = _optional_alias(
+        raw,
+        "channel",
+        "channelId",
+        f"release truth artifact channel for {artifact_id}",
+    )
+    if artifact_channel and artifact_channel != manifest_channel:
+        raise ReleaseTruthError(
+            f"release truth artifact channel disagrees with manifest: {artifact_id}"
+        )
+    return artifact_version or manifest_version, artifact_channel or manifest_channel
+
+
 def _artifact_projection(
     payload: dict[str, Any],
     *,
+    collection_name: str,
     allow_empty: bool = False,
 ) -> tuple[tuple[Any, ...], ...]:
-    raw_rows = payload.get("artifacts")
-    if not isinstance(raw_rows, list):
-        raw_rows = payload.get("downloads")
-    if not isinstance(raw_rows, list) or (not raw_rows and not allow_empty):
-        raise ReleaseTruthError("release truth artifact set is missing")
+    raw_rows = _artifact_rows(
+        payload,
+        collection_name=collection_name,
+        allow_empty=allow_empty,
+    )
 
     rows: list[tuple[Any, ...]] = []
     seen: set[str] = set()
     for raw in raw_rows:
-        if not isinstance(raw, dict):
-            raise ReleaseTruthError("release truth artifact row is invalid")
-        artifact_id = _text(raw.get("artifactId") or raw.get("id"))
+        artifact_id = _alias(raw, "artifactId", "id", "release truth artifact id")
         if not artifact_id or artifact_id.casefold() in seen:
             raise ReleaseTruthError("release truth artifact ids are missing or duplicated")
         seen.add(artifact_id.casefold())
@@ -128,7 +269,29 @@ def _artifact_projection(
         if isinstance(size, bool) or not isinstance(size, int) or size <= 0:
             raise ReleaseTruthError(f"release truth artifact size is invalid: {artifact_id}")
         file_name = _text(raw.get("fileName"))
-        url = _text(raw.get("downloadUrl") or raw.get("url"))
+        url = _alias(
+            raw,
+            "downloadUrl",
+            "url",
+            f"release truth artifact URL for {artifact_id}",
+        )
+        _artifact_release_binding(raw, payload, artifact_id)
+        kind = _optional_alias(
+            raw,
+            "kind",
+            "flavor",
+            f"release truth artifact kind for {artifact_id}",
+            casefold=True,
+        )
+        derived_format = _artifact_format(file_name)
+        published_format = _text(raw.get("format")).casefold()
+        if published_format and published_format != derived_format:
+            raise ReleaseTruthError(
+                f"release truth artifact format disagrees with file name: {artifact_id}"
+            )
+        platform = _checked_platform_family(raw, artifact_id)
+        arch = _checked_arch(raw, artifact_id)
+        _validate_platform_id(raw, artifact_id, platform, arch)
         sha256 = _text(raw.get("sha256")).lower().removeprefix("sha256:")
         if not file_name or not url:
             raise ReleaseTruthError(f"release truth artifact file or URL is missing: {artifact_id}")
@@ -151,7 +314,7 @@ def _artifact_projection(
                 _text(raw.get("platform")).casefold(),
                 _text(raw.get("rid")).casefold(),
                 _text(raw.get("arch")).casefold(),
-                _text(raw.get("kind")).casefold(),
+                kind,
                 _text(raw.get("installAccessClass")).casefold(),
                 url,
                 payload_sha256,
@@ -164,41 +327,76 @@ def _artifact_projection(
 def _authority_pair_artifact_projection(
     payload: dict[str, Any],
     *,
+    collection_name: str,
     allow_empty: bool = False,
 ) -> tuple[tuple[Any, ...], ...]:
     """Normalize the canonical and compatibility artifact shapes for pair checks."""
-    raw_rows = payload.get("artifacts")
-    if not isinstance(raw_rows, list):
-        raw_rows = payload.get("downloads")
-    if not isinstance(raw_rows, list) or (not raw_rows and not allow_empty):
-        raise ReleaseTruthError("release truth artifact set is missing")
+    raw_rows = _artifact_rows(
+        payload,
+        collection_name=collection_name,
+        allow_empty=allow_empty,
+    )
 
     rows: list[tuple[Any, ...]] = []
     for raw in raw_rows:
-        if not isinstance(raw, dict):
-            raise ReleaseTruthError("release truth artifact row is invalid")
-        platform = _platform_family(raw.get("platform"), raw.get("rid"), raw.get("platformId"))
-        arch = _text(raw.get("arch")).casefold()
+        artifact_id = _alias(raw, "artifactId", "id", "release truth artifact id")
+        platform = _checked_platform_family(raw, artifact_id)
+        arch = _checked_arch(raw, artifact_id)
+        _validate_platform_id(raw, artifact_id, platform, arch)
         rid = _text(raw.get("rid")).casefold()
         if not rid and platform and arch:
             rid_prefix = {"windows": "win", "macos": "osx", "linux": "linux"}.get(platform)
             if rid_prefix:
                 rid = f"{rid_prefix}-{arch}"
+        file_name = _text(raw.get("fileName"))
+        url = _alias(
+            raw,
+            "downloadUrl",
+            "url",
+            f"release truth artifact URL for {artifact_id}",
+        )
+        artifact_version, artifact_channel = _artifact_release_binding(
+            raw,
+            payload,
+            artifact_id,
+        )
+        kind = _optional_alias(
+            raw,
+            "kind",
+            "flavor",
+            f"release truth artifact kind for {artifact_id}",
+            casefold=True,
+        )
+        derived_format = _artifact_format(file_name)
+        published_format = _text(raw.get("format")).casefold()
+        if published_format and published_format != derived_format:
+            raise ReleaseTruthError(
+                f"release truth artifact format disagrees with file name: {artifact_id}"
+            )
         rows.append(
             (
-                _text(raw.get("artifactId") or raw.get("id")),
-                _text(raw.get("fileName")),
+                artifact_id,
+                file_name,
                 _text(raw.get("sha256")).lower().removeprefix("sha256:"),
                 raw.get("sizeBytes"),
                 _text(raw.get("head")).casefold(),
                 platform,
                 rid,
                 arch,
-                _text(raw.get("kind")).casefold(),
+                kind,
                 _text(raw.get("installAccessClass")).casefold(),
-                _text(raw.get("downloadUrl") or raw.get("url")),
+                url,
                 _text(raw.get("payloadSha256")).lower().removeprefix("sha256:"),
                 raw.get("payloadSizeBytes"),
+                artifact_version,
+                artifact_channel,
+                _text(raw.get("platformLabel")) or platform,
+                derived_format,
+                _text(raw.get("compatibilityState")).casefold(),
+                _text(raw.get("compatibilityReason")),
+                _text(raw.get("installerMode")).casefold(),
+                _text(raw.get("payloadFileName")),
+                _text(raw.get("payloadDownloadUrl")),
             )
         )
     return tuple(sorted(rows, key=lambda row: row[0].casefold()))
@@ -278,11 +476,11 @@ _PUBLIC_TRUST_RANKS = {
 }
 _FRESHNESS_RANKS = {
     "": -1,
-    "missing": -1,
     "unknown": -1,
     "failed": 0,
     "blocked": 0,
     "invalid": 0,
+    "missing": 0,
     "expired": 1,
     "stale": 1,
     "current": 2,
@@ -352,6 +550,7 @@ def _posture_upgrade_fields(
 def release_truth_projection(
     payload: dict[str, Any],
     *,
+    collection_name: str,
     allow_empty_artifacts: bool = False,
 ) -> dict[str, Any]:
     return {
@@ -359,7 +558,11 @@ def release_truth_projection(
         "channel": _alias(payload, "channel", "channelId", "release channel"),
         "publishedAt": _published_at(payload.get("publishedAt")),
         "posture": _posture_projection(payload),
-        "artifacts": _artifact_projection(payload, allow_empty=allow_empty_artifacts),
+        "artifacts": _artifact_projection(
+            payload,
+            collection_name=collection_name,
+            allow_empty=allow_empty_artifacts,
+        ),
     }
 
 
@@ -368,6 +571,7 @@ def compare_manifest(
     mirror_path: Path,
     label: str,
     *,
+    collection_name: str,
     allow_empty_artifacts: bool = False,
 ) -> dict[str, Any]:
     authority_bytes, authority, authority_identity = read_manifest(authority_path, f"authority {label}")
@@ -376,10 +580,12 @@ def compare_manifest(
         raise ReleaseTruthError(f"{label} authority and mirror must be distinct files")
     authority_projection = release_truth_projection(
         authority,
+        collection_name=collection_name,
         allow_empty_artifacts=allow_empty_artifacts,
     )
     mirror_projection = release_truth_projection(
         mirror,
+        collection_name=collection_name,
         allow_empty_artifacts=allow_empty_artifacts,
     )
     mismatches: list[str] = []
@@ -403,6 +609,7 @@ def compare_manifest(
         "projection": authority_projection,
         "pairArtifacts": _authority_pair_artifact_projection(
             authority,
+            collection_name=collection_name,
             allow_empty=allow_empty_artifacts,
         ),
     }
@@ -414,18 +621,24 @@ def verify_pair(
     mirror_canonical: Path,
     mirror_compatibility: Path,
 ) -> dict[str, Any]:
-    canonical = compare_manifest(authority_canonical, mirror_canonical, "canonical manifest")
+    canonical = compare_manifest(
+        authority_canonical,
+        mirror_canonical,
+        "canonical manifest",
+        collection_name="artifacts",
+    )
     compatibility = compare_manifest(
         authority_compatibility,
         mirror_compatibility,
         "compatibility manifest",
+        collection_name="downloads",
         allow_empty_artifacts=True,
     )
     canonical_posture = canonical["projection"]["posture"]
     missing_canonical_posture = [
         field
         for field, ranks in _POSTURE_RANKS.items()
-        if ranks[canonical_posture[field]] < 0
+        if not canonical_posture[field]
     ]
     if missing_canonical_posture:
         raise ReleaseTruthError(
@@ -444,6 +657,8 @@ def verify_pair(
     )
     if compatibility["projection"]["channel"] != expected_compatibility_channel:
         pair_mismatches.append("channel")
+    if not compatibility["projection"]["posture"]["proofFreshnessStatus"]:
+        pair_mismatches.append("posture(proofFreshnessStatus missing)")
     posture_upgrades = _posture_upgrade_fields(
         canonical_posture,
         compatibility["projection"]["posture"],

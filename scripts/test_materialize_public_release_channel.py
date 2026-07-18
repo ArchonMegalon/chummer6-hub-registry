@@ -411,7 +411,7 @@ def test_canonical_payload_projects_missing_flagship_receipt_into_review_require
         root = Path(tmp)
         payload = materialize_flagship_readiness_fixture(
             root,
-            flagship_readiness=None,
+            flagship_readiness=root / "missing-flagship-readiness.json",
             channel="preview",
             proof_generated_at="2026-06-01T03:10:00Z",
             published_at="2026-07-13T02:20:15Z",
@@ -438,6 +438,16 @@ def test_canonical_payload_projects_missing_flagship_receipt_into_review_require
         "fixAvailabilitySummary",
     ):
         assert "stale or incomplete proof receipts" in payload[field].casefold()
+
+
+def test_missing_flagship_readiness_dominates_stale_release_proof_freshness() -> None:
+    projection_generated_at = MODULE.dt.datetime(2026, 7, 18, 0, 0, tzinfo=MODULE.UTC)
+
+    assert MODULE.output_readiness_freshness_status(
+        "stale",
+        flagship_readiness={},
+        projection_generated_at=projection_generated_at,
+    ) == "missing"
 
 
 def test_public_trust_review_required_projection_cannot_leave_optimistic_top_level_state() -> None:

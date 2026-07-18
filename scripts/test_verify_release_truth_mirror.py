@@ -120,7 +120,7 @@ def test_linux_compatibility_platform_and_arch_derive_canonical_rid(tmp_path: Pa
     canonical["artifacts"][0].update({"platform": "linux", "rid": "linux-x64"})
     compatibility = payload(compatibility=True)
     compatibility["downloads"][0].update(
-        {"platform": "Avalonia Desktop Linux X64 Installer", "platformId": "linux"}
+        {"platform": "Avalonia Desktop Linux X64 Installer", "platformId": "linux-x64"}
     )
     for path in (paths[0], paths[2]):
         write(path, canonical)
@@ -228,6 +228,90 @@ def test_real_compatibility_producer_projects_linux_platform_family_and_archives
     assert module.verify_pair(*paths)["compatibilityArtifactCount"] == 2
 
 
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("id", "redirected-installer"),
+        ("url", "/downloads/g/other/files/redirected.exe"),
+    ],
+)
+def test_real_compatibility_producer_rejects_disagreeing_public_aliases(
+    tmp_path: Path,
+    field: str,
+    value: str,
+) -> None:
+    module = load_module()
+    producer = load_producer()
+    paths = pair(tmp_path)
+    canonical = payload()
+    canonical["contract_name"] = producer.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
+    compatibility = materialized_compatibility(producer, canonical)
+    compatibility["downloads"][0][field] = value
+    for path in (paths[0], paths[2]):
+        write(path, canonical)
+    for path in (paths[1], paths[3]):
+        write(path, compatibility)
+
+    with pytest.raises(module.ReleaseTruthError, match="aliases disagree"):
+        module.verify_pair(*paths)
+
+
+def test_compatibility_cannot_hide_divergent_downloads_behind_artifacts_collection(
+    tmp_path: Path,
+) -> None:
+    module = load_module()
+    paths = pair(tmp_path)
+    compatibility = payload(compatibility=True)
+    compatibility["downloads"][0]["sha256"] = "b" * 64
+    compatibility["artifacts"] = []
+    for path in (paths[1], paths[3]):
+        write(path, compatibility)
+
+    with pytest.raises(module.ReleaseTruthError, match="collections are ambiguous"):
+        module.verify_pair(*paths)
+
+
+@pytest.mark.parametrize(
+    ("field", "value"),
+    [
+        ("installerMode", "embedded"),
+        ("payloadFileName", "redirected-payload.zip"),
+        ("payloadDownloadUrl", "/downloads/g/other/files/redirected-payload.zip"),
+        ("format", "msix"),
+        ("flavor", "archive"),
+        ("platformId", "macos-arm64"),
+    ],
+)
+def test_real_compatibility_producer_rejects_behavior_field_drift(
+    tmp_path: Path,
+    field: str,
+    value: str,
+) -> None:
+    module = load_module()
+    producer = load_producer()
+    paths = pair(tmp_path)
+    canonical = payload()
+    canonical["contract_name"] = producer.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
+    canonical["artifacts"][0].update(
+        {
+            "installerMode": "bootstrap",
+            "payloadFileName": "chummer-payload.zip",
+            "payloadDownloadUrl": "/downloads/g/generation/files/chummer-payload.zip",
+            "payloadSha256": "c" * 64,
+            "payloadSizeBytes": 84,
+        }
+    )
+    compatibility = materialized_compatibility(producer, canonical)
+    compatibility["downloads"][0][field] = value
+    for path in (paths[0], paths[2]):
+        write(path, canonical)
+    for path in (paths[1], paths[3]):
+        write(path, compatibility)
+
+    with pytest.raises(module.ReleaseTruthError):
+        module.verify_pair(*paths)
+
+
 def test_compatibility_posture_may_be_conservatively_stricter(tmp_path: Path) -> None:
     module = load_module()
     producer = load_producer()
@@ -266,6 +350,35 @@ def test_compatibility_posture_may_be_conservatively_stricter(tmp_path: Path) ->
         write(path, compatibility)
 
     assert module.verify_pair(*paths)["status"] == "pass"
+
+
+def test_explicit_missing_freshness_is_conservative_release_truth(tmp_path: Path) -> None:
+    module = load_module()
+    paths = pair(tmp_path)
+    canonical = payload()
+    compatibility = payload(compatibility=True)
+    canonical["publicTrustMetrics"]["proofFreshness"]["status"] = "missing"
+    compatibility["publicTrustMetrics"]["proofFreshness"]["status"] = "missing"
+    for path in (paths[0], paths[2]):
+        write(path, canonical)
+    for path in (paths[1], paths[3]):
+        write(path, compatibility)
+
+    assert module.verify_pair(*paths)["status"] == "pass"
+
+
+def test_absent_compatibility_freshness_is_not_a_conservative_state(
+    tmp_path: Path,
+) -> None:
+    module = load_module()
+    paths = pair(tmp_path)
+    compatibility = payload(compatibility=True)
+    compatibility["publicTrustMetrics"].pop("proofFreshness")
+    for path in (paths[1], paths[3]):
+        write(path, compatibility)
+
+    with pytest.raises(module.ReleaseTruthError, match="proofFreshnessStatus missing"):
+        module.verify_pair(*paths)
 
 
 def test_exact_open_public_projection_includes_archives(tmp_path: Path) -> None:
@@ -398,7 +511,12 @@ def test_canonical_truth_requires_all_explicit_producer_posture_fields(
     [
         (
             "version",
-            lambda value: value.update({"version": "run-stale", "releaseVersion": "run-stale"}),
+            lambda value: (
+                value.update({"version": "run-stale", "releaseVersion": "run-stale"}),
+                value["artifacts"][0].update(
+                    {"version": "run-stale", "releaseVersion": "run-stale"}
+                ),
+            ),
             "version",
         ),
         ("posture", lambda value: value.__setitem__("supportabilityState", "preview_supported"), "posture"),
@@ -496,9 +614,10 @@ def test_authority_pair_semantic_drift_is_rejected(
     mutate(compatibility)
     write(paths[1], compatibility)
     write(paths[3], compatibility)
-    with pytest.raises(module.ReleaseTruthError, match="canonical authority pair") as error:
+    with pytest.raises(module.ReleaseTruthError) as error:
         module.verify_pair(*paths)
-    assert expected in str(error.value)
+    message = str(error.value)
+    assert expected in message or (expected == "artifacts" and "artifact" in message)
 
 
 def test_invalid_json_and_symlink_mirror_fail_closed(tmp_path: Path) -> None:
