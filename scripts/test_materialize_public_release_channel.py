@@ -1168,6 +1168,12 @@ def test_load_startup_smoke_receipts_rejects_noncanonical_bootstrap_metadata_bef
         ("bootstrapPayloadSha256", "CB5110834703163E35F33902319029C65D575E98A1092C8D71E58AE1CD440BB2"),
         ("bootstrapPayloadSha256", " cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2"),
         ("bootstrapPayloadSha256", "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2 "),
+        ("bootstrapPayloadSizeBytes", True),
+        ("bootstrapPayloadSizeBytes", 1.9),
+        ("bootstrapPayloadAcquisitionMode", " download "),
+        ("bootstrapPayloadAcquisitionMode", "DOWNLOAD"),
+        ("bootstrapPayloadAcquisitionMode", " "),
+        ("bootstrapPayloadAcquisitionMode", None),
         ("bootstrapPayloadFileName", "."),
         ("bootstrapPayloadFileName", ".."),
         ("bootstrapPayloadFileName", "./chummer-avalonia-win-x64-payload.zip"),
@@ -2026,6 +2032,44 @@ def test_filter_unproven_installers_enriches_windows_installer_with_bootstrap_pa
     legacy_filtered = MODULE.filter_unproven_installers(artifacts, startup_smoke_receipts)
     assert legacy_filtered[0]["payloadAcquisitionMode"] == "download"
 
+    startup_smoke_receipts[0].pop("payloadAcquisitionMode")
+    absent_mode_filtered = MODULE.filter_unproven_installers(artifacts, startup_smoke_receipts)
+    assert absent_mode_filtered[0]["payloadAcquisitionMode"] == "download"
+
+
+def test_enrich_artifact_from_startup_smoke_scrubs_stale_payload_authority() -> None:
+    artifact = {
+        "artifactId": "avalonia-win-x64-installer",
+        "downloadUrl": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
+        "releaseNotes": "preserve unrelated artifact metadata",
+        "installerMode": "bootstrap",
+        "artifact_install_mode": "stale-bootstrap",
+        "bootstrapInstallerMode": "stale-bootstrap-alias",
+        "payloadAcquisitionMode": "download",
+        "payloadFileName": "stale-evil-payload.zip",
+        "payloadDownloadUrl": "https://evil.invalid/stale-evil-payload.zip",
+        "payloadSha256": "e" * 64,
+        "payloadSizeBytes": 666,
+        "payloadDigest": "sha256:evil",
+        "bootstrap_payload_file_name": "stale-alias-payload.zip",
+        "bootstrapPayloadAuthorityToken": "evil-token",
+    }
+    expected = {
+        "artifactId": "avalonia-win-x64-installer",
+        "downloadUrl": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
+        "releaseNotes": "preserve unrelated artifact metadata",
+    }
+    malformed_receipt = {
+        "installerMode": "bootstrap",
+        "payloadAcquisitionMode": "download",
+        "payloadFileName": "chummer-avalonia-win-x64-payload.zip",
+        "payloadSha256": "not-a-sha256",
+        "payloadSizeBytes": 51124044,
+    }
+
+    assert MODULE.enrich_artifact_from_startup_smoke(artifact, []) == expected
+    assert MODULE.enrich_artifact_from_startup_smoke(artifact, [malformed_receipt]) == expected
+
 
 def test_filter_unproven_installers_does_not_enrich_noncanonical_bootstrap_metadata() -> None:
     artifact = {
@@ -2057,6 +2101,12 @@ def test_filter_unproven_installers_does_not_enrich_noncanonical_bootstrap_metad
         ("payloadSha256", "CB5110834703163E35F33902319029C65D575E98A1092C8D71E58AE1CD440BB2"),
         ("payloadSha256", " cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2"),
         ("payloadSha256", "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2 "),
+        ("payloadSizeBytes", True),
+        ("payloadSizeBytes", 1.9),
+        ("payloadAcquisitionMode", " download "),
+        ("payloadAcquisitionMode", "DOWNLOAD"),
+        ("payloadAcquisitionMode", " "),
+        ("payloadAcquisitionMode", None),
         ("payloadFileName", "."),
         ("payloadFileName", ".."),
         ("payloadFileName", "./chummer-avalonia-win-x64-payload.zip"),
@@ -2074,6 +2124,8 @@ def test_filter_unproven_installers_does_not_enrich_noncanonical_bootstrap_metad
     for field, invalid_value in invalid_values:
         malformed_receipt = dict(receipt)
         malformed_receipt[field] = invalid_value
+        enriched = MODULE.enrich_artifact_from_startup_smoke(artifact, [malformed_receipt])
+        assert enriched == artifact, (field, invalid_value)
         filtered = MODULE.filter_unproven_installers([artifact], [malformed_receipt])
         assert filtered == [artifact], (field, invalid_value)
 

@@ -471,11 +471,20 @@ def startup_smoke_manifest_installer_mode(loaded: dict[str, Any]) -> str:
 
 
 def positive_int_or_none(value: Any) -> int | None:
-    try:
-        parsed = int(value)
-    except (TypeError, ValueError):
+    if type(value) is not int or value <= 0:
         return None
-    return parsed if parsed > 0 else None
+    return value
+
+
+BOOTSTRAP_PAYLOAD_MODE_ABSENT = object()
+
+
+def canonical_bootstrap_payload_acquisition_mode(value: Any) -> str | None:
+    if value is BOOTSTRAP_PAYLOAD_MODE_ABSENT:
+        return ""
+    if type(value) is str and value in {"", "download"}:
+        return value
+    return None
 
 
 def canonical_bootstrap_payload_file_name(value: Any) -> str:
@@ -529,11 +538,24 @@ def enrich_artifact_from_startup_smoke(
     matching_receipts: list[dict[str, Any]],
 ) -> dict[str, Any]:
     enriched = dict(artifact)
+    for field_name in tuple(enriched):
+        normalized_field_name = re.sub(r"[^a-z0-9]", "", str(field_name).lower())
+        if (
+            normalized_field_name.endswith(("installermode", "installmode"))
+            or normalized_field_name.startswith("payload")
+            or normalized_field_name.startswith("bootstrappayload")
+        ):
+            enriched.pop(field_name, None)
 
     for bootstrap_receipt in matching_receipts:
         if normalize_token(bootstrap_receipt.get("installerMode")) != "bootstrap":
             continue
-        if normalize_token(bootstrap_receipt.get("payloadAcquisitionMode")) not in {"", "download"}:
+        payload_acquisition_mode = canonical_bootstrap_payload_acquisition_mode(
+            bootstrap_receipt["payloadAcquisitionMode"]
+            if "payloadAcquisitionMode" in bootstrap_receipt
+            else BOOTSTRAP_PAYLOAD_MODE_ABSENT
+        )
+        if payload_acquisition_mode is None:
             continue
 
         payload_file_name = canonical_bootstrap_payload_file_name(
@@ -1279,9 +1301,14 @@ def load_startup_smoke_receipts(
         installer_mode = startup_smoke_manifest_installer_mode(loaded)
         if installer_mode:
             receipt_entry["installerMode"] = installer_mode
-        payload_acquisition_mode = normalize_token(
-            loaded.get("bootstrapPayloadAcquisitionMode")
-            or loaded.get("bootstrap_payload_acquisition_mode")
+        payload_acquisition_mode = canonical_bootstrap_payload_acquisition_mode(
+            loaded["bootstrapPayloadAcquisitionMode"]
+            if "bootstrapPayloadAcquisitionMode" in loaded
+            else (
+                loaded["bootstrap_payload_acquisition_mode"]
+                if "bootstrap_payload_acquisition_mode" in loaded
+                else BOOTSTRAP_PAYLOAD_MODE_ABSENT
+            )
         )
         payload_file_name = canonical_bootstrap_payload_file_name(
             loaded.get("bootstrapPayloadFileName")
@@ -1297,7 +1324,7 @@ def load_startup_smoke_receipts(
         )
         if (
             installer_mode == "bootstrap"
-            and payload_acquisition_mode in {"", "download"}
+            and payload_acquisition_mode is not None
             and payload_file_name
             and payload_sha256
             and payload_size_bytes is not None
