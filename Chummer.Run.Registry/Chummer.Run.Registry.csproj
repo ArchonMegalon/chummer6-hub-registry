@@ -5,8 +5,8 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Content Update="appsettings.json" CopyToPublishDirectory="Never" />
-    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" />
+    <Content Update="appsettings.json" CopyToPublishDirectory="Never" Pack="false" />
+    <Content Update="appsettings.Development.json" CopyToPublishDirectory="Never" Pack="false" />
   </ItemGroup>
 
   <PropertyGroup>
@@ -14,6 +14,38 @@
     <Nullable>enable</Nullable>
     <ImplicitUsings>enable</ImplicitUsings>
     <GenerateRuntimeConfigurationFiles>true</GenerateRuntimeConfigurationFiles>
+    <AllowedOutputExtensionsInPackageBuildOutputFolder>.dll;.xml</AllowedOutputExtensionsInPackageBuildOutputFolder>
+    <TargetsForTfmSpecificBuildOutput>$(TargetsForTfmSpecificBuildOutput);RestrictRegistryPackageBuildOutput</TargetsForTfmSpecificBuildOutput>
+    <IsPackable>true</IsPackable>
+    <PackageId>Chummer.Run.Registry</PackageId>
+    <PackageVersion Condition="'$(PackageVersion)' == ''">0.0.0-packageplane.20260718.1</PackageVersion>
+    <Title>Chummer Run Registry Runtime</Title>
+    <Description>Licensed Registry runtime services for Hub composition. Publication and release authority remain owned by chummer6-hub-registry.</Description>
+    <PackageTags>chummer;registry;runtime;publication;release-authority</PackageTags>
+    <PackageReadmeFile>PACKAGE_README.md</PackageReadmeFile>
+    <PackageLicenseFile>LICENSE</PackageLicenseFile>
+    <RepositoryType>git</RepositoryType>
+    <RepositoryUrl>https://github.com/ArchonMegalon/chummer6-hub-registry.git</RepositoryUrl>
+    <PublishRepositoryUrl>true</PublishRepositoryUrl>
+    <ContinuousIntegrationBuild Condition="'$(ContinuousIntegrationBuild)' == ''">true</ContinuousIntegrationBuild>
+    <GeneratePackageOnBuild>false</GeneratePackageOnBuild>
   </PropertyGroup>
+
+  <ItemGroup>
+    <None Include="PACKAGE_README.md" Pack="true" PackagePath="\" />
+    <None Include="../LICENSE" Pack="true" PackagePath="" />
+  </ItemGroup>
+
+  <Target Name="RestrictRegistryPackageBuildOutput">
+    <ItemGroup>
+      <_RegistryAllowedPackageBuildOutput
+          Include="@(BuiltProjectOutputGroupOutput)"
+          Condition="'%(BuiltProjectOutputGroupOutput.Filename)%(BuiltProjectOutputGroupOutput.Extension)' == '$(AssemblyName).dll'" />
+      <BuiltProjectOutputGroupOutput Remove="@(BuiltProjectOutputGroupOutput)" />
+      <BuiltProjectOutputGroupOutput Include="@(_RegistryAllowedPackageBuildOutput)" />
+      <SatelliteDllsProjectOutputGroupOutput Remove="@(SatelliteDllsProjectOutputGroupOutput)" />
+      <_PathToPriFile Remove="@(_PathToPriFile)" />
+    </ItemGroup>
+  </Target>
 
 </Project>
