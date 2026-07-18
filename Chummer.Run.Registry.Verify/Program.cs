@@ -17,6 +17,7 @@ using System.Reflection;
 using System.Net;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using RegistryReleaseChannelHeadProjection = Chummer.Hub.Registry.Contracts.ReleaseChannelHeadProjection;
 using RegistryOwner = Chummer.Hub.Registry.Contracts;
 
@@ -29,6 +30,7 @@ File.WriteAllText(
     JsonSerializer.Serialize(
         new
         {
+            generationId = "registry-smoke-generation",
             product = "chummer6",
             channelId = "docker",
             version = "smoke-2026.03.28-linux-x64",
@@ -38,6 +40,7 @@ File.WriteAllText(
             rolloutState = RegistryOwner.ReleaseRolloutStates.CoverageIncomplete,
             supportabilityState = RegistryOwner.ReleaseSupportabilityStates.ReviewRequired,
             supportabilitySummary = "Required desktop tuple coverage remains incomplete, so supportability stays review-required until promoted tuple proof is complete.",
+            supportOwner = "registry-operations",
             knownIssueSummary = "Required desktop tuple coverage is incomplete for this channel; treat this shelf as a review-required projection, not promotion truth.",
             fixAvailabilitySummary = "Only send fixed notices after the affected install can receive the published channel artifact now on the shelf.",
             releaseProof = new
@@ -52,16 +55,34 @@ File.WriteAllText(
             {
                 new
                 {
-                    artifactId = "avalonia-linux-x64-archive",
+                    artifactId = "avalonia-linux-x64-installer",
                     head = "avalonia",
                     platform = "linux",
+                    rid = "linux-x64",
                     arch = "x64",
-                    kind = "archive",
-                    fileName = "chummer-avalonia-linux-x64.tar.gz",
-                    downloadUrl = "/downloads/files/chummer-avalonia-linux-x64.tar.gz",
+                    kind = "installer",
+                    fileName = "chummer-avalonia-linux-x64.bin",
+                    downloadUrl = "https://downloads.chummer.run/downloads/g/registry-smoke-generation/files/chummer-avalonia-linux-x64.bin",
                     sha256 = "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
                     sizeBytes = 4096L,
                     platformLabel = "Avalonia Desktop Linux X64",
+                    embeddedRuntimeBundleHeadId = "runtime-head-preview-sr6",
+                    compatibilityState = "compatible",
+                    installAccessClass = "open_public"
+                },
+                new
+                {
+                    artifactId = "avalonia-linux-x64-unpromoted-archive",
+                    head = "avalonia",
+                    platform = "linux",
+                    rid = "linux-x64",
+                    arch = "x64",
+                    kind = "archive",
+                    fileName = "chummer-avalonia-linux-x64.tar.gz",
+                    downloadUrl = "https://downloads.chummer.run/downloads/g/registry-smoke-generation/files/chummer-avalonia-linux-x64.tar.gz",
+                    sha256 = "1123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+                    sizeBytes = 8192L,
+                    platformLabel = "Unpromoted archive retained in the canonical manifest",
                     embeddedRuntimeBundleHeadId = "runtime-head-preview-sr6",
                     compatibilityState = "compatible",
                     installAccessClass = "open_public"
@@ -79,12 +100,49 @@ File.WriteAllText(
                     compatibilityState = "compatible"
                 }
             },
+            desktopTupleCoverage = new
+            {
+                requiredDesktopPlatforms = new[] { "linux" },
+                requiredDesktopHeads = new[] { "avalonia" },
+                desktopRouteTruth = new[]
+                {
+                    new
+                    {
+                        tupleId = "avalonia:linux:linux-x64",
+                        artifactId = "avalonia-linux-x64-installer",
+                        routeRole = "primary",
+                        routeRoleReasonCode = "primary_flagship_head",
+                        routeRoleReason = "Avalonia is the explicit primary Linux head.",
+                        promotionState = "promoted",
+                        promotionReasonCode = "installer_smoke_and_release_proof_passed",
+                        promotionReason = "Installer smoke and release proof passed.",
+                        parityPosture = "flagship_primary",
+                        updateEligibility = "eligible",
+                        updateEligibilityReason = "The promoted installer is update eligible.",
+                        rollbackState = "primary_reinstall_available",
+                        rollbackReasonCode = "primary_installer_reinstall_available",
+                        rollbackReason = "The immutable installer remains available for reinstall.",
+                        revokeState = "not_revoked",
+                        revokeSource = "none",
+                        revokeReasonCode = "no_registry_revoke_marker",
+                        revokeReason = "No registry revoke marker is active.",
+                        installPosture = "installer_first",
+                        installPostureReason = "The promoted installer is the public install route.",
+                        publicInstallRoute = "/downloads/install/avalonia-linux-x64-installer",
+                        head = "avalonia",
+                        platform = "linux",
+                        rid = "linux-x64",
+                        arch = "x64"
+                    }
+                },
+                complete = true
+            },
             desktopSurfaceRefs = new[]
             {
                 new
                 {
                     registryId = "desktop-surface:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
-                    artifactId = "avalonia-linux-x64-archive",
+                    artifactId = "avalonia-linux-x64-installer",
                     channelId = "docker",
                     releaseVersion = "smoke-2026.03.28-linux-x64",
                     tupleId = "avalonia:linux:linux-x64",
@@ -92,10 +150,10 @@ File.WriteAllText(
                     platform = "linux",
                     rid = "linux-x64",
                     arch = "x64",
-                    kind = "archive",
+                    kind = "installer",
                     installAccessClass = "open_public",
                     desktopChannelRef = "desktop-channel:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
-                    installGuidanceRef = "install-guidance:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
+                    installGuidanceRef = "install-guidance:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-installer",
                     participationReceiptRef = "participation-receipt:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
                     rewardPublicationRef = "reward-publication:binding:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
                     publicationBindingId = "binding:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
@@ -109,7 +167,7 @@ File.WriteAllText(
                 {
                     registryId = "artifact-identity:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
                     artifactFamilyId = "artifact-family:avalonia:linux:linux-x64",
-                    artifactId = "avalonia-linux-x64-archive",
+                    artifactId = "avalonia-linux-x64-installer",
                     channelId = "docker",
                     releaseVersion = "smoke-2026.03.28-linux-x64",
                     tupleId = "avalonia:linux:linux-x64",
@@ -117,17 +175,17 @@ File.WriteAllText(
                     platform = "linux",
                     rid = "linux-x64",
                     arch = "x64",
-                    kind = "archive",
-                    previewRef = "registry-preview:avalonia-linux-x64-archive:avalonia:linux:linux-x64",
+                    kind = "installer",
+                    previewRef = "registry-preview:avalonia-linux-x64-installer:avalonia:linux:linux-x64",
                     captionRef = "registry-caption:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
-                    packetRef = "registry-packet:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
-                    localeRef = "registry-locale:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
-                    retentionRef = "registry-retention:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
+                    packetRef = "registry-packet:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-installer",
+                    localeRef = "registry-locale:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-installer",
+                    retentionRef = "registry-retention:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-installer",
                     retentionState = "current",
                     publicationBindingId = "binding:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
                     publicationState = "published",
-                    signedInShelfRef = "shelf:signed-in:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
-                    publicShelfRef = "shelf:public:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
+                    signedInShelfRef = "shelf:signed-in:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-installer",
+                    publicShelfRef = "shelf:public:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-installer",
                     publicInstallRoute = "/downloads/install/avalonia-linux-x64-installer"
                 }
             },
@@ -137,7 +195,7 @@ File.WriteAllText(
                 {
                     bindingId = "binding:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
                     artifactFamilyId = "artifact-family:avalonia:linux:linux-x64",
-                    artifactId = "avalonia-linux-x64-archive",
+                    artifactId = "avalonia-linux-x64-installer",
                     channelId = "docker",
                     releaseVersion = "smoke-2026.03.28-linux-x64",
                     tupleId = "avalonia:linux:linux-x64",
@@ -145,16 +203,16 @@ File.WriteAllText(
                     platform = "linux",
                     rid = "linux-x64",
                     arch = "x64",
-                    kind = "archive",
+                    kind = "installer",
                     publicationScope = "signed-in-and-public",
                     publicationState = "published",
-                    signedInShelfRef = "shelf:signed-in:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
-                    publicShelfRef = "shelf:public:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
-                    previewRef = "registry-preview:avalonia-linux-x64-archive:avalonia:linux:linux-x64",
+                    signedInShelfRef = "shelf:signed-in:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-installer",
+                    publicShelfRef = "shelf:public:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-installer",
+                    previewRef = "registry-preview:avalonia-linux-x64-installer:avalonia:linux:linux-x64",
                     captionRef = "registry-caption:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64",
-                    packetRef = "registry-packet:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
-                    localeRef = "registry-locale:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
-                    retentionRef = "registry-retention:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive",
+                    packetRef = "registry-packet:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-installer",
+                    localeRef = "registry-locale:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-installer",
+                    retentionRef = "registry-retention:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-installer",
                     retentionState = "current",
                     publicInstallRoute = "/downloads/install/avalonia-linux-x64-installer",
                     rationale = "docker keeps tuple avalonia:linux:linux-x64 published so signed-in and public shelves cite the same governed refs."
@@ -325,17 +383,72 @@ File.WriteAllText(
             }
         },
         new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+byte[] releaseManifestBytes = File.ReadAllBytes(releaseManifestPath);
+var releaseAuthorityMetadata = new RegistryOwner.ReleaseAuthorityPublicationMetadata(
+    ReleaseVersion: "smoke-2026.03.28-linux-x64",
+    Channel: "docker",
+    Status: "published",
+    RolloutState: RegistryOwner.ReleaseRolloutStates.CoverageIncomplete,
+    SupportabilityState: RegistryOwner.ReleaseSupportabilityStates.ReviewRequired,
+    AvailablePlatforms: ["linux"],
+    PrimaryHeadByPlatform: new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["linux"] = "avalonia"
+    },
+    ArtifactCount: 1,
+    DownloadAccessPosture: "open_public",
+    KnownIssueSummary: "Required desktop tuple coverage is incomplete for this channel; treat this shelf as a review-required projection, not promotion truth.",
+    RegistryRepository: "ArchonMegalon/chummer6-hub-registry",
+    RegistryCommit: new string('a', 40),
+    SupportOwner: "registry-operations",
+    NextActions: ["Complete required desktop tuple proof before promotion."],
+    Artifacts:
+    [
+        new RegistryOwner.ReleaseAuthorityArtifactProjection(
+            ArtifactId: "avalonia-linux-x64-installer",
+            Head: "avalonia",
+            Platform: "linux",
+            Rid: "linux-x64",
+            Arch: "x64",
+            Kind: "installer",
+            DownloadUrl: "https://downloads.chummer.run/downloads/g/registry-smoke-generation/files/chummer-avalonia-linux-x64.bin",
+            Sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            SizeBytes: 4096L,
+            CompatibilityState: "compatible",
+            PromotionState: "promoted",
+            PublicationScope: "signed-in-and-public",
+            RevokeState: "not_revoked",
+            PublicInstallRoute: "/downloads/install/avalonia-linux-x64-installer",
+            InstallAccessClass: "open_public")
+    ]);
+byte[] releaseDecisionBytes = BuildPreviewDecisionBytes(
+    releaseManifestBytes,
+    releaseAuthorityMetadata,
+    "review_required");
+ReleaseAuthorityCurrentPointer releaseAuthorityCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+    releaseManifestRoot,
+    releaseAuthorityMetadata,
+    releaseManifestBytes,
+    releaseDecisionBytes,
+    expectedCurrentSnapshotSha256: null);
 var config = new ConfigurationBuilder()
     .AddInMemoryCollection(
         new Dictionary<string, string?>
         {
-            ["CHUMMER_RELEASE_CHANNEL_MANIFEST"] = releaseManifestPath
+            [ReleaseAuthoritySnapshotStore.AuthorityRootConfigKey] = releaseManifestRoot
         })
     .Build();
 FileReleaseChannelManifestStore releaseChannelStore = new(config);
+VerifyReleaseAuthoritySnapshotFiles(
+    releaseManifestRoot,
+    releaseManifestPath,
+    releaseManifestBytes,
+    releaseDecisionBytes,
+    releaseAuthorityMetadata,
+    releaseAuthorityCurrent);
 PublicationWorkflowService workflow = new(store);
 HubPublicationDraftService draftWorkflow = new();
-HubRegistryController registryController = CreateController(new HubRegistryController(store, releaseChannelStore, workflow));
+HubRegistryController registryController = CreateController(new HubRegistryController(store, releaseChannelStore, workflow, config));
 PublicationsController publicationsController = CreateController(new PublicationsController(workflow));
 HubPublicationDraftsController draftController = CreateController(new HubPublicationDraftsController(draftWorkflow));
 
@@ -367,6 +480,7 @@ Assert(restoredDurableArtifact is not null, "File-backed registry artifact store
 Assert(string.Equals(restoredDurableArtifact!.RuntimeFingerprint, "sha256:durable-registry-fixture", StringComparison.Ordinal), "Reloaded registry artifact should retain runtime fingerprint.");
 
 VerifyRegistryAuthorizationSurface();
+VerifyRegistryStartupCredentialValidation();
 VerifyRegistryAuthorizationHttpPipeline().GetAwaiter().GetResult();
 
 RegistryReleaseChannelHeadProjection releaseChannel = RequireOk(registryController.GetCurrentReleaseChannel());
@@ -374,18 +488,22 @@ Assert(string.Equals(releaseChannel.ChannelId, "docker", StringComparison.Ordina
 Assert(string.Equals(releaseChannel.RolloutState, RegistryOwner.ReleaseRolloutStates.CoverageIncomplete, StringComparison.Ordinal), "Release-channel read model should retain rollout posture.");
 Assert(string.Equals(releaseChannel.SupportabilityState, RegistryOwner.ReleaseSupportabilityStates.ReviewRequired, StringComparison.Ordinal), "Release-channel read model should retain supportability posture.");
 Assert(string.Equals(releaseChannel.ReleaseProof?.Status, "passed", StringComparison.Ordinal), "Release-channel read model should retain proof posture.");
+Assert(
+    releaseChannel.Artifacts.Count == 1
+    && releaseChannel.Artifacts[0].ArtifactId == "avalonia-linux-x64-installer",
+    "The public release-channel shelf must omit manifest artifacts without explicit promotion and public-scope approval.");
 Assert(string.Equals(releaseChannel.Artifacts[0].CompatibilityState, "compatible", StringComparison.Ordinal), "Release-channel artifacts should retain compatibility posture.");
 Assert(string.Equals(releaseChannel.RuntimeBundleHeads?[0].CompatibilityState, "compatible", StringComparison.Ordinal), "Release-channel runtime heads should retain compatibility posture.");
 Assert(string.Equals(releaseChannel.DesktopSurfaceRefs?.Single().InstallAccessClass, "open_public", StringComparison.Ordinal), "Release-channel desktop surface refs should retain install access posture.");
 Assert(string.Equals(releaseChannel.DesktopSurfaceRefs?.Single().DesktopChannelRef, "desktop-channel:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64", StringComparison.Ordinal), "Release-channel desktop surface refs should retain desktop channel refs.");
 Assert(string.Equals(releaseChannel.DesktopSurfaceRefs?.Single().RewardPublicationRef, "reward-publication:binding:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64", StringComparison.Ordinal), "Release-channel desktop surface refs should retain reward publication refs.");
 Assert(string.Equals(releaseChannel.ArtifactIdentityRegistry?.Single().ArtifactFamilyId, "artifact-family:avalonia:linux:linux-x64", StringComparison.Ordinal), "Release-channel artifact identity registry should retain artifact family ids.");
-Assert(string.Equals(releaseChannel.ArtifactIdentityRegistry?.Single().PreviewRef, "registry-preview:avalonia-linux-x64-archive:avalonia:linux:linux-x64", StringComparison.Ordinal), "Release-channel artifact identity registry should retain preview refs.");
-Assert(string.Equals(releaseChannel.ArtifactIdentityRegistry?.Single().PacketRef, "registry-packet:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive", StringComparison.Ordinal), "Release-channel artifact identity registry should retain packet refs.");
+Assert(string.Equals(releaseChannel.ArtifactIdentityRegistry?.Single().PreviewRef, "registry-preview:avalonia-linux-x64-installer:avalonia:linux:linux-x64", StringComparison.Ordinal), "Release-channel artifact identity registry should retain preview refs.");
+Assert(string.Equals(releaseChannel.ArtifactIdentityRegistry?.Single().PacketRef, "registry-packet:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-installer", StringComparison.Ordinal), "Release-channel artifact identity registry should retain packet refs.");
 Assert(string.Equals(releaseChannel.ArtifactIdentityRegistry?.Single().RetentionState, "current", StringComparison.Ordinal), "Release-channel artifact identity registry should retain retention posture.");
 Assert(string.Equals(releaseChannel.ArtifactPublicationBindings?.Single().BindingId, "binding:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64", StringComparison.Ordinal), "Release-channel artifact publication bindings should retain binding ids.");
 Assert(string.Equals(releaseChannel.ArtifactPublicationBindings?.Single().CaptionRef, "registry-caption:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64", StringComparison.Ordinal), "Release-channel artifact publication bindings should retain caption refs.");
-Assert(string.Equals(releaseChannel.ArtifactPublicationBindings?.Single().LocaleRef, "registry-locale:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive", StringComparison.Ordinal), "Release-channel artifact publication bindings should retain locale refs.");
+Assert(string.Equals(releaseChannel.ArtifactPublicationBindings?.Single().LocaleRef, "registry-locale:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-installer", StringComparison.Ordinal), "Release-channel artifact publication bindings should retain locale refs.");
 Assert(string.Equals(releaseChannel.ArtifactPublicationBindings?.Single().RetentionState, "current", StringComparison.Ordinal), "Release-channel artifact publication bindings should retain retention posture.");
 Assert(releaseChannel.ExchangeLineageRegistry?.Count == 5, "Release-channel exchange lineage registry should retain the full exchange artifact set.");
 Assert(string.Equals(releaseChannel.ExchangeLineageRegistry?[0].ArtifactKind, "campaign", StringComparison.Ordinal), "Exchange lineage registry should preserve canonical artifact-kind ordering.");
@@ -395,6 +513,16 @@ Assert(string.Equals(releaseChannel.ExchangeLineageRegistry?.Single(item => item
 Assert(string.Equals(releaseChannel.PublicTrustMetrics?.ReleaseChannel.Posture, "preview", StringComparison.Ordinal), "Release-channel public trust metrics should retain posture.");
 Assert(releaseChannel.PublicTrustMetrics?.ProofFreshness.ReleaseProofAgeSeconds == 0, "Release-channel public trust metrics should retain proof freshness age.");
 Assert(releaseChannel.PublicTrustMetrics?.RevocationFacts.ActiveRevocationCount == 0, "Release-channel public trust metrics should retain revocation counts.");
+RegistryOwner.ReleaseAuthorityEnvelopeProjection authorityEnvelope = RequireOk(registryController.GetCurrentReleaseAuthority());
+Assert(
+    string.Equals(authorityEnvelope.Current.SnapshotSha256, releaseAuthorityCurrent.SnapshotSha256, StringComparison.Ordinal)
+    && authorityEnvelope.Snapshot.Artifacts.Single().Kind == "installer"
+    && authorityEnvelope.Snapshot.PrimaryHeadByPlatform["linux"] == "avalonia"
+    && authorityEnvelope.Snapshot.DownloadAccessPosture == "open_public"
+    && authorityEnvelope.SnapshotBytes.Length > 0
+    && authorityEnvelope.ManifestBytes.AsSpan().SequenceEqual(releaseManifestBytes)
+    && authorityEnvelope.ReleaseDecisionBytes.AsSpan().SequenceEqual(releaseDecisionBytes),
+    "The public release-authority API must expose digest, commit, decision, platform, explicit primary head, access, and exact authority bytes.");
 
 var missingInstallEvent = new HubInstallEvent(
     ArtifactId: "artifact-missing",
@@ -1045,11 +1173,1156 @@ static bool HasHeader(ControllerBase controller, string key, string expectedValu
     controller.Response.Headers.TryGetValue(key, out var values)
     && values.Any(value => string.Equals(value, expectedValue, StringComparison.Ordinal));
 
+static void VerifyReleaseAuthoritySnapshotFiles(
+    string authorityRoot,
+    string mutableManifestPath,
+    byte[] manifestBytes,
+    byte[] decisionBytes,
+    RegistryOwner.ReleaseAuthorityPublicationMetadata metadata,
+    ReleaseAuthorityCurrentPointer current)
+{
+    LoadedReleaseAuthoritySnapshot loaded = ReleaseAuthoritySnapshotStore.LoadCurrent(authorityRoot)
+        ?? throw new InvalidOperationException("The published release authority must load.");
+    ReleaseAuthoritySnapshot snapshot = loaded.Snapshot;
+    string currentPath = Path.Combine(authorityRoot, ReleaseAuthoritySnapshotStore.CurrentFileName);
+    using (JsonDocument currentDocument = JsonDocument.Parse(File.ReadAllBytes(currentPath)))
+    {
+        string[] actualProperties = currentDocument.RootElement
+            .EnumerateObject()
+            .Select(static property => property.Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        string[] expectedProperties =
+        [
+            "decisionSha256",
+            "releaseVersion",
+            "snapshotSha256",
+            "status"
+        ];
+        Assert(
+            actualProperties.SequenceEqual(expectedProperties, StringComparer.Ordinal),
+            "CURRENT.json must remain the minimal four-field release pointer.");
+    }
+    VerifyReleaseAuthoritySchemaContract(
+        File.ReadAllBytes(currentPath),
+        loaded.SnapshotBytes,
+        decisionBytes);
+
+    string snapshotPath = ReleaseAuthoritySnapshotStore.GetSnapshotPath(authorityRoot, current);
+    string expectedSnapshotPath = Path.Combine(
+        authorityRoot,
+        "snapshots",
+        snapshot.ReleaseVersion,
+        current.SnapshotSha256,
+        ReleaseAuthoritySnapshotStore.SnapshotFileName);
+    Assert(
+        string.Equals(snapshotPath, expectedSnapshotPath, StringComparison.Ordinal),
+        "CURRENT.json must derive the exact content-addressed snapshot path without carrying a mutable path field.");
+    Assert(File.Exists(snapshotPath), "Publishing a release authority snapshot should persist SNAPSHOT.json.");
+    Assert(
+        File.Exists(Path.Combine(Path.GetDirectoryName(snapshotPath)!, ReleaseAuthoritySnapshotStore.ManifestFileName)),
+        "Publishing a release authority snapshot should persist the exact immutable release manifest sibling.");
+    string immutableDecisionPath = Path.Combine(
+        Path.GetDirectoryName(snapshotPath)!,
+        ReleaseAuthoritySnapshotStore.ReleaseDecisionFileName);
+    Assert(
+        File.Exists(immutableDecisionPath)
+        && File.ReadAllBytes(immutableDecisionPath).AsSpan().SequenceEqual(decisionBytes),
+        "Publishing must preserve the exact RELEASE_DECISION.json bytes as an immutable sibling.");
+    Assert(
+        File.ReadAllBytes(Path.Combine(Path.GetDirectoryName(snapshotPath)!, ReleaseAuthoritySnapshotStore.ManifestFileName))
+            .AsSpan()
+            .SequenceEqual(manifestBytes),
+        "Publishing must preserve exact manifest bytes without embedding release-decision hashes.");
+    Assert(
+        string.Equals(
+            ReleaseAuthoritySnapshotStore.ComputeSha256(File.ReadAllBytes(snapshotPath)),
+            current.SnapshotSha256,
+            StringComparison.Ordinal),
+        "CURRENT.json snapshotSha256 must cover the raw SNAPSHOT.json bytes.");
+    Assert(
+        string.Equals(current.DecisionSha256, snapshot.ReleaseDecisionSha256, StringComparison.Ordinal)
+        && string.Equals(current.Status, snapshot.ReleaseDecisionStatus, StringComparison.Ordinal),
+        "CURRENT.json decision digest and status must close over SNAPSHOT.json release-decision authority.");
+
+    Assert(
+        string.Equals(loaded.Snapshot.AuthorityContract, "chummer.release-authority-snapshot/v2", StringComparison.Ordinal),
+        "SNAPSHOT.json must pin the shared v2 release-authority contract.");
+    Assert(
+        loaded.Snapshot.NextActions.Count > 0 && !string.IsNullOrWhiteSpace(loaded.Snapshot.SupportOwner),
+        "Review-required decision closure must retain a support owner and nonempty next actions.");
+    Assert(
+        string.Equals(loaded.Snapshot.ReleaseDecisionPath, ReleaseAuthoritySnapshotStore.ReleaseDecisionFileName, StringComparison.Ordinal)
+        && string.Equals(loaded.Snapshot.RegistryRepository, "ArchonMegalon/chummer6-hub-registry", StringComparison.Ordinal),
+        "SNAPSHOT.json must pin the fixed decision sibling and exact registry repository slug.");
+    RegistryOwner.ReleaseAuthorityEnvelopeProjection envelope = ReleaseAuthoritySnapshotStore.ToEnvelope(loaded);
+    Assert(
+        envelope.SnapshotBytes.AsSpan().SequenceEqual(loaded.SnapshotBytes)
+        && envelope.ManifestBytes.AsSpan().SequenceEqual(manifestBytes)
+        && envelope.ReleaseDecisionBytes.AsSpan().SequenceEqual(decisionBytes)
+        && string.Equals(envelope.Current.SnapshotSha256, current.SnapshotSha256, StringComparison.Ordinal),
+        "The Registry authority envelope must expose all exact bytes and CURRENT digest for independent Hub verification.");
+
+    var missingRootConfiguration = new ConfigurationBuilder().Build();
+    Assert(
+        new FileReleaseChannelManifestStore(missingRootConfiguration).LoadCurrent() is null,
+        "The release-channel store must not fall back to a mutable repository sibling when no authority root is configured.");
+
+    var legacyManifestConfiguration = new ConfigurationBuilder()
+        .AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [ReleaseAuthoritySnapshotStore.LegacyManifestPathConfigKey] = mutableManifestPath
+        })
+        .Build();
+    AssertThrows<InvalidOperationException>(
+        () => _ = new FileReleaseChannelManifestStore(legacyManifestConfiguration).LoadCurrent(),
+        "A direct mutable release manifest must be rejected instead of becoming authority fallback.");
+    AssertThrows<InvalidOperationException>(
+        () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent("relative/authority"),
+        "The authority root must be an explicit absolute path.");
+
+    string strictPointerRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-strict", Guid.NewGuid().ToString("N"));
+    string tamperRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-tamper", Guid.NewGuid().ToString("N"));
+    string unknownSnapshotRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-unknown", Guid.NewGuid().ToString("N"));
+    string decisionMismatchRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-decision", Guid.NewGuid().ToString("N"));
+    string convergenceRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-convergence", Guid.NewGuid().ToString("N"));
+    string atomicRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-atomic", Guid.NewGuid().ToString("N"));
+    string emptyRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-empty", Guid.NewGuid().ToString("N"));
+    string stableRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-stable", Guid.NewGuid().ToString("N"));
+    string eligibilityRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-eligibility", Guid.NewGuid().ToString("N"));
+    string apiRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-api", Guid.NewGuid().ToString("N"));
+    string symlinkRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-link", Guid.NewGuid().ToString("N"));
+    string symlinkTargetRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-link-target", Guid.NewGuid().ToString("N"));
+    try
+    {
+        Directory.CreateDirectory(strictPointerRoot);
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                strictPointerRoot,
+                metadata,
+                manifestBytes,
+                BuildPreviewDecisionBytes(manifestBytes, metadata, "preview"),
+                expectedCurrentSnapshotSha256: null),
+            "Release-decision publication must reject legacy or unknown decision status values.");
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                strictPointerRoot,
+                metadata,
+                manifestBytes,
+                BuildPreviewDecisionBytes(
+                    manifestBytes,
+                    metadata,
+                    "review_required",
+                    manifestSha256: new string('f', 64)),
+                expectedCurrentSnapshotSha256: null),
+            "Release-decision publication must reject a manifest digest that does not bind the raw manifest bytes.");
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                strictPointerRoot,
+                metadata with { RegistryCommit = new string('a', 64) },
+                manifestBytes,
+                decisionBytes,
+                expectedCurrentSnapshotSha256: null),
+            "SNAPSHOT.json registryCommit must remain the shared exact 40-lowercase-hex contract.");
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                strictPointerRoot,
+                metadata with { RegistryRepository = "example/other-registry" },
+                manifestBytes,
+                decisionBytes,
+                expectedCurrentSnapshotSha256: null),
+            "SNAPSHOT.json must pin the one settled Registry repository slug.");
+
+        RegistryOwner.ReleaseAuthorityPublicationMetadata mixedCaseMetadata = metadata with
+        {
+            Channel = "Docker"
+        };
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                strictPointerRoot,
+                mixedCaseMetadata,
+                manifestBytes,
+                BuildPreviewDecisionBytes(manifestBytes, mixedCaseMetadata, "review_required"),
+                expectedCurrentSnapshotSha256: null),
+            "Snapshot and decision posture tokens must be normalized lowercase.");
+
+        RegistryOwner.ReleaseAuthorityArtifactProjection sentinelArtifact = metadata.Artifacts.Single() with
+        {
+            Platform = "unknown"
+        };
+        RegistryOwner.ReleaseAuthorityPublicationMetadata sentinelMetadata = metadata with
+        {
+            AvailablePlatforms = ["unknown"],
+            PrimaryHeadByPlatform = new Dictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["unknown"] = "avalonia"
+            },
+            Artifacts = [sentinelArtifact]
+        };
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                strictPointerRoot,
+                sentinelMetadata,
+                manifestBytes,
+                BuildPreviewDecisionBytes(manifestBytes, sentinelMetadata, "review_required"),
+                expectedCurrentSnapshotSha256: null),
+            "Snapshot and decision platform/head identifiers must reject sentinel values.");
+
+        AssertDecisionMutationRejected(
+            Path.Combine(strictPointerRoot, "preview-channel-binding"),
+            metadata,
+            manifestBytes,
+            decisionBytes,
+            static root => root["channel"] = "other",
+            "Preview decision channel must bind SNAPSHOT.json exactly.");
+        AssertDecisionMutationRejected(
+            Path.Combine(strictPointerRoot, "preview-registry-binding"),
+            metadata,
+            manifestBytes,
+            decisionBytes,
+            static root => root["registryCommit"] = new string('b', 40),
+            "Preview decision registryCommit must bind SNAPSHOT.json exactly.");
+        AssertDecisionMutationRejected(
+            Path.Combine(strictPointerRoot, "preview-platform-binding"),
+            metadata,
+            manifestBytes,
+            decisionBytes,
+            static root => root["platforms"] = JsonNode.Parse("[\"windows\"]"),
+            "Preview decision platforms must bind SNAPSHOT.json exactly.");
+        AssertDecisionMutationRejected(
+            Path.Combine(strictPointerRoot, "preview-primary-binding"),
+            metadata,
+            manifestBytes,
+            decisionBytes,
+            static root => root["primaryHeadByPlatform"] = JsonNode.Parse("{\"linux\":\"qt\"}"),
+            "Preview decision primary heads must bind SNAPSHOT.json exactly.");
+        AssertDecisionMutationRejected(
+            Path.Combine(strictPointerRoot, "preview-fallback-binding"),
+            metadata,
+            manifestBytes,
+            decisionBytes,
+            static root => root["fallbackHeadsByPlatform"] = JsonNode.Parse("{\"linux\":[\"qt\"]}"),
+            "Preview decision fallback heads must equal the canonical manifest-derived fallback scope.");
+        AssertDecisionMutationRejected(
+            Path.Combine(strictPointerRoot, "preview-support-binding"),
+            metadata,
+            manifestBytes,
+            decisionBytes,
+            static root => root["supportOwner"] = "other-owner",
+            "Preview decision supportOwner must bind SNAPSHOT.json exactly.");
+        AssertDecisionMutationRejected(
+            Path.Combine(strictPointerRoot, "preview-access-binding"),
+            metadata,
+            manifestBytes,
+            decisionBytes,
+            static root => root["artifactAccessClass"] = "account_required",
+            "Preview decision artifactAccessClass must bind SNAPSHOT.json exactly.");
+        AssertDecisionMutationRejected(
+            Path.Combine(strictPointerRoot, "preview-missing-scope"),
+            metadata,
+            manifestBytes,
+            decisionBytes,
+            static root => root.Remove("fallbackHeadsByPlatform"),
+            "Preview decision scope fields are mandatory, including an explicit canonical fallback map.");
+
+        string manifestText = System.Text.Encoding.UTF8.GetString(manifestBytes);
+        byte[] duplicateManifestBytes = System.Text.Encoding.UTF8.GetBytes(
+            "{\"generationId\":\"shadow-generation\"," + manifestText[1..]);
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                eligibilityRoot,
+                metadata,
+                duplicateManifestBytes,
+                BuildPreviewDecisionBytes(
+                    duplicateManifestBytes,
+                    metadata,
+                    "review_required"),
+                expectedCurrentSnapshotSha256: null),
+            "RELEASE_CHANNEL.json must reject duplicate authority fields before shelf derivation.");
+
+        byte[] duplicateDecisionBytes = System.Text.Encoding.UTF8.GetBytes(
+            $$"""
+            {
+              "contractName": "{{ReleaseAuthoritySnapshotStore.PreviewDecisionContract}}",
+              "releaseVersion": "{{metadata.ReleaseVersion}}",
+              "releaseDecisionStatus": "review_required",
+              "releaseDecisionStatus": "preview_ready",
+              "status": "review_required",
+              "manifestSha256": "{{ReleaseAuthoritySnapshotStore.ComputeSha256(manifestBytes)}}"
+            }
+            """);
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                eligibilityRoot,
+                metadata,
+                manifestBytes,
+                duplicateDecisionBytes,
+                expectedCurrentSnapshotSha256: null),
+            "RELEASE_DECISION.json must reject duplicate or case-shadowed authority fields.");
+
+        byte[] embeddedDecisionDigestManifest = MutateJson(
+            manifestBytes,
+            static root => root["releaseDecisionSha256"] = new string('a', 64));
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                eligibilityRoot,
+                metadata,
+                embeddedDecisionDigestManifest,
+                BuildPreviewDecisionBytes(
+                    embeddedDecisionDigestManifest,
+                    metadata,
+                    "review_required"),
+                expectedCurrentSnapshotSha256: null),
+            "Release manifests must remain unchanged decision inputs and must never embed decision hashes.");
+
+        byte[] missingPublicScopeManifest = MutateJson(
+            manifestBytes,
+            static root => root["artifactPublicationBindings"]!.AsArray()[0]!["publicationScope"] = "signed-in-only");
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                eligibilityRoot,
+                metadata,
+                missingPublicScopeManifest,
+                BuildPreviewDecisionBytes(
+                    missingPublicScopeManifest,
+                    metadata,
+                    "review_required"),
+                expectedCurrentSnapshotSha256: null),
+            "Top-level platform counts must not promote an artifact without exact public-scope approval.");
+
+        byte[] inferredPrimaryManifest = MutateJson(
+            manifestBytes,
+            static root => root["desktopTupleCoverage"]!["desktopRouteTruth"]!.AsArray()[0]!["routeRole"] = "fallback");
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                eligibilityRoot,
+                metadata,
+                inferredPrimaryManifest,
+                BuildPreviewDecisionBytes(
+                    inferredPrimaryManifest,
+                    metadata,
+                    "review_required"),
+                expectedCurrentSnapshotSha256: null),
+            "primaryHeadByPlatform must never be inferred when no eligible routeRole=primary row exists.");
+
+        byte[] incompatibleManifest = MutateJson(
+            manifestBytes,
+            static root => root["artifacts"]!.AsArray()[0]!["compatibilityState"] = "review_required");
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                eligibilityRoot,
+                metadata,
+                incompatibleManifest,
+                BuildPreviewDecisionBytes(
+                    incompatibleManifest,
+                    metadata,
+                    "review_required"),
+                expectedCurrentSnapshotSha256: null),
+            "A promoted public-scope installer must still be exactly compatible before entering the authority shelf.");
+
+        foreach (string blockedStatus in new[] { "blocked", "Blocked" })
+        {
+            byte[] blockedArtifactManifest = MutateJson(
+                manifestBytes,
+                root => root["artifacts"]!.AsArray()[0]!["status"] = blockedStatus);
+            AssertThrows<InvalidDataException>(
+                () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                    Path.Combine(eligibilityRoot, $"blocked-artifact-{blockedStatus}"),
+                    metadata,
+                    blockedArtifactManifest,
+                    BuildPreviewDecisionBytes(
+                        blockedArtifactManifest,
+                        metadata,
+                        "review_required"),
+                    expectedCurrentSnapshotSha256: null),
+                "Blocked or non-normalized artifact status must never enter the public authority shelf.");
+        }
+
+        byte[] revokedChannelManifest = MutateJson(
+            manifestBytes,
+            static root => root["publicTrustMetrics"]!["revocationFacts"]!["channelRevoked"] = true);
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                eligibilityRoot,
+                metadata,
+                revokedChannelManifest,
+                BuildPreviewDecisionBytes(
+                    revokedChannelManifest,
+                    metadata,
+                    "review_required"),
+                expectedCurrentSnapshotSha256: null),
+            "A channel or tuple revocation must exclude an otherwise promoted public installer.");
+
+        string[] unsafeDownloadUrls =
+        [
+            "/downloads/g/registry-smoke-generation/files/chummer-avalonia-linux-x64.bin",
+            "http://downloads.chummer.run/downloads/g/registry-smoke-generation/files/chummer-avalonia-linux-x64.bin",
+            "https://user:secret@downloads.chummer.run/downloads/g/registry-smoke-generation/files/chummer-avalonia-linux-x64.bin",
+            "https://downloads.chummer.run/downloads/g/registry-smoke-generation/files/chummer-avalonia-linux-x64.bin?latest=1",
+            "https://downloads.chummer.run/downloads/g/registry-smoke-generation/files/chummer-avalonia-linux-x64.bin#latest",
+            "https://downloads.chummer.run/downloads/g/other-generation/files/chummer-avalonia-linux-x64.bin",
+            "https://downloads.chummer.run/downloads/g/registry-smoke-generation/files/%2e%2e",
+            "https://downloads.chummer.run/downloads/g/registry-smoke-generation/files/%5cevil.bin"
+        ];
+        for (int index = 0; index < unsafeDownloadUrls.Length; index++)
+        {
+            string unsafeDownloadUrl = unsafeDownloadUrls[index];
+            byte[] unsafeDownloadManifest = MutateJson(
+                manifestBytes,
+                root => root["artifacts"]!.AsArray()[0]!["downloadUrl"] = unsafeDownloadUrl);
+            RegistryOwner.ReleaseAuthorityPublicationMetadata unsafeDownloadMetadata = metadata with
+            {
+                Artifacts =
+                [
+                    metadata.Artifacts.Single() with { DownloadUrl = unsafeDownloadUrl }
+                ]
+            };
+            AssertThrows<InvalidDataException>(
+                () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                    Path.Combine(eligibilityRoot, $"unsafe-download-{index}"),
+                    unsafeDownloadMetadata,
+                    unsafeDownloadManifest,
+                    BuildPreviewDecisionBytes(
+                        unsafeDownloadManifest,
+                        unsafeDownloadMetadata,
+                        "review_required"),
+                    expectedCurrentSnapshotSha256: null),
+                "A promoted shelf artifact must pin an absolute HTTPS credential/query/fragment/traversal-free URL with the exact generationId/fileName path.");
+        }
+
+        string[] unsafePublicRoutes =
+        [
+            "https://downloads.chummer.run/downloads/install/avalonia-linux-x64-installer",
+            "//downloads/install/avalonia-linux-x64-installer",
+            "/downloads/install/avalonia-linux-x64-installer?latest=1",
+            "/downloads/install/%2e%2e",
+            "/downloads/install/%5cevil",
+            "/downloads/install/evil\u0001route"
+        ];
+        for (int index = 0; index < unsafePublicRoutes.Length; index++)
+        {
+            string unsafePublicRoute = unsafePublicRoutes[index];
+            byte[] unsafeRouteManifest = MutateJson(
+                manifestBytes,
+                root =>
+                {
+                    root["desktopTupleCoverage"]!["desktopRouteTruth"]!.AsArray()[0]!["publicInstallRoute"] =
+                        unsafePublicRoute;
+                    root["artifactPublicationBindings"]!.AsArray()[0]!["publicInstallRoute"] = unsafePublicRoute;
+                });
+            RegistryOwner.ReleaseAuthorityPublicationMetadata unsafeRouteMetadata = metadata with
+            {
+                Artifacts =
+                [
+                    metadata.Artifacts.Single() with { PublicInstallRoute = unsafePublicRoute }
+                ]
+            };
+            AssertThrows<InvalidDataException>(
+                () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                    Path.Combine(eligibilityRoot, $"unsafe-route-{index}"),
+                    unsafeRouteMetadata,
+                    unsafeRouteManifest,
+                    BuildPreviewDecisionBytes(
+                        unsafeRouteManifest,
+                        unsafeRouteMetadata,
+                        "review_required"),
+                    expectedCurrentSnapshotSha256: null),
+                "A public install route must be safe root-relative decoded path data without authority, query, traversal, backslash, or control characters.");
+        }
+
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                stableRoot,
+                metadata,
+                manifestBytes,
+                BuildStableDecisionBytes(
+                    manifestBytes,
+                    metadata,
+                    "stable_ready",
+                    status: "review_required"),
+                expectedCurrentSnapshotSha256: null),
+            "Stable decision status must be pass iff releaseDecisionStatus is stable_ready.");
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                stableRoot,
+                metadata,
+                manifestBytes,
+                BuildStableDecisionBytes(
+                    manifestBytes,
+                    metadata,
+                    "review_required",
+                    contractVersion: 3),
+                expectedCurrentSnapshotSha256: null),
+            "Stable decision publication must pin contract_version 2.");
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                stableRoot,
+                metadata,
+                manifestBytes,
+                BuildStableDecisionBytes(
+                    manifestBytes,
+                    metadata,
+                    "review_required"),
+                expectedCurrentSnapshotSha256: null),
+            "review_required authority must use the consumer-readable preview contract, not a stable contract seed.");
+
+        byte[] stableReviewDecisionBytes = BuildPreviewDecisionBytes(
+            manifestBytes,
+            metadata,
+            "review_required");
+        ReleaseAuthorityCurrentPointer stableReviewCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            stableRoot,
+            metadata,
+            manifestBytes,
+            stableReviewDecisionBytes,
+            expectedCurrentSnapshotSha256: null);
+        byte[] stableReadyDecisionBytes = BuildStableDecisionBytes(
+            manifestBytes,
+            metadata,
+            "stable_ready");
+        AssertDecisionMutationRejected(
+            Path.Combine(stableRoot, "invalid-live-binding"),
+            metadata,
+            manifestBytes,
+            stableReadyDecisionBytes,
+            static root => root["live_release"]!["registry_commit"] = new string('b', 40),
+            "Stable live_release registry_commit must bind SNAPSHOT.json exactly.");
+        AssertDecisionMutationRejected(
+            Path.Combine(stableRoot, "invalid-live-platforms"),
+            metadata,
+            manifestBytes,
+            stableReadyDecisionBytes,
+            static root => root["live_release"]!["available_platforms"] = JsonNode.Parse("[\"windows\"]"),
+            "Stable live_release platform scope must bind SNAPSHOT.json exactly.");
+        AssertDecisionMutationRejected(
+            Path.Combine(stableRoot, "invalid-live-posture"),
+            metadata,
+            manifestBytes,
+            stableReadyDecisionBytes,
+            static root => root["live_release"]!["download_access_posture"] = "account_required",
+            "Stable live_release artifact access posture must bind SNAPSHOT.json exactly.");
+        AssertDecisionMutationRejected(
+            Path.Combine(stableRoot, "invalid-authority-binding"),
+            metadata,
+            manifestBytes,
+            stableReadyDecisionBytes,
+            static root => root["release_authority"]!["contract"] = "other-contract",
+            "Stable release_authority must bind the v2 authority contract exactly.");
+        AssertDecisionMutationRejected(
+            Path.Combine(stableRoot, "missing-live-binding"),
+            metadata,
+            manifestBytes,
+            stableReadyDecisionBytes,
+            static root => root["live_release"]!.AsObject().Remove("known_issue_summary"),
+            "Stable live_release must carry every settled snapshot binding field.");
+        ReleaseAuthorityCurrentPointer stableReadyCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            stableRoot,
+            metadata,
+            manifestBytes,
+            stableReadyDecisionBytes,
+            expectedCurrentSnapshotSha256: stableReviewCurrent.SnapshotSha256);
+        Assert(
+            stableReviewCurrent.Status == "review_required"
+            && stableReadyCurrent.Status == "stable_ready",
+            "Stable contract v2 must converge from a consumer-readable preview review_required candidate to stable_ready.");
+
+        const string emptyReleaseVersion = "empty-preview-candidate";
+        byte[] emptyManifestBytes = BuildEmptyReleaseManifestBytes(emptyReleaseVersion);
+        RegistryOwner.ReleaseAuthorityPublicationMetadata emptyMetadata = metadata with
+        {
+            ReleaseVersion = emptyReleaseVersion,
+            Channel = "preview",
+            AvailablePlatforms = [],
+            PrimaryHeadByPlatform = new Dictionary<string, string>(StringComparer.Ordinal),
+            ArtifactCount = 0,
+            DownloadAccessPosture = "unavailable",
+            KnownIssueSummary = "No promoted public installer shelf is available yet.",
+            Artifacts = []
+        };
+        byte[] emptyDecisionBytes = BuildPreviewDecisionBytes(
+            emptyManifestBytes,
+            emptyMetadata,
+            "review_required");
+        ReleaseAuthorityCurrentPointer emptyCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            emptyRoot,
+            emptyMetadata,
+            emptyManifestBytes,
+            emptyDecisionBytes,
+            expectedCurrentSnapshotSha256: null);
+        LoadedReleaseAuthoritySnapshot emptyLoaded = ReleaseAuthoritySnapshotStore.LoadCurrent(emptyRoot)
+            ?? throw new InvalidOperationException("The empty review-required candidate must load.");
+        Assert(
+            emptyCurrent.Status == "review_required"
+            && emptyLoaded.Snapshot.ArtifactCount == 0
+            && emptyLoaded.Snapshot.AvailablePlatforms.Count == 0
+            && emptyLoaded.Snapshot.PrimaryHeadByPlatform.Count == 0
+            && emptyLoaded.Snapshot.DownloadAccessPosture == "unavailable",
+            "Only the exact review_required empty-shelf invariant is publishable.");
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                Path.Combine(emptyRoot, "ready-invalid"),
+                emptyMetadata,
+                emptyManifestBytes,
+                BuildPreviewDecisionBytes(emptyManifestBytes, emptyMetadata, "preview_ready"),
+                expectedCurrentSnapshotSha256: null),
+            "preview_ready and stable_ready must never publish an unavailable empty shelf.");
+
+        Directory.CreateDirectory(symlinkTargetRoot);
+        Directory.CreateDirectory(Path.GetDirectoryName(symlinkRoot)!);
+        Directory.CreateSymbolicLink(symlinkRoot, symlinkTargetRoot);
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent(symlinkRoot),
+            "Authority roots and descendants must reject symbolic links or reparse points.");
+
+        var apiConfiguration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [ReleaseAuthoritySnapshotStore.AuthorityRootConfigKey] = apiRoot
+            })
+            .Build();
+        var apiManifestStore = new FileReleaseChannelManifestStore(apiConfiguration);
+        HubRegistryController apiController = CreateController(
+            new HubRegistryController(new HubArtifactStore(), apiManifestStore, configuration: apiConfiguration));
+        var publishRequest = new RegistryOwner.ReleaseAuthorityPublishRequest(
+            metadata,
+            manifestBytes,
+            decisionBytes,
+            ExpectedCurrentSnapshotSha256: null);
+        RegistryOwner.ReleaseAuthorityEnvelopeProjection publishedEnvelope = RequireOk(
+            apiController.PublishReleaseAuthority(publishRequest));
+        Assert(
+            publishedEnvelope.ManifestBytes.AsSpan().SequenceEqual(manifestBytes)
+            && publishedEnvelope.ReleaseDecisionBytes.AsSpan().SequenceEqual(decisionBytes)
+            && publishedEnvelope.Snapshot.RegistryCommit == metadata.RegistryCommit,
+            "The production publish endpoint must call the same exact-byte authority writer and return a verifiable envelope.");
+        ActionResult<RegistryOwner.ReleaseAuthorityEnvelopeProjection> staleApiResult =
+            apiController.PublishReleaseAuthority(publishRequest);
+        Assert(
+            staleApiResult.Result is ConflictObjectResult,
+            "The production publish endpoint must surface stale or missing CURRENT compare-and-swap state as HTTP 409.");
+
+        string digest = new('c', 64);
+        File.WriteAllText(
+            Path.Combine(strictPointerRoot, ReleaseAuthoritySnapshotStore.CurrentFileName),
+            $$"""
+            {
+              "releaseVersion": "safe-version",
+              "releaseVersion": "shadow-version",
+              "snapshotSha256": "{{digest}}",
+              "decisionSha256": "{{digest}}",
+              "status": "review_required"
+            }
+            """);
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent(strictPointerRoot),
+            "CURRENT.json must reject duplicate properties before path resolution.");
+
+        File.WriteAllText(
+            Path.Combine(strictPointerRoot, ReleaseAuthoritySnapshotStore.CurrentFileName),
+            JsonSerializer.Serialize(
+                new
+                {
+                    releaseVersion = "safe-version",
+                    snapshotSha256 = digest,
+                    decisionSha256 = digest,
+                    status = "review_required",
+                    mutableManifestPath = mutableManifestPath
+                },
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent(strictPointerRoot),
+            "CURRENT.json must reject nonminimal path or authority fields.");
+
+        File.WriteAllText(
+            Path.Combine(strictPointerRoot, ReleaseAuthoritySnapshotStore.CurrentFileName),
+            JsonSerializer.Serialize(
+                new
+                {
+                    releaseVersion = "../escape",
+                    snapshotSha256 = digest,
+                    decisionSha256 = digest,
+                    status = "review_required"
+                },
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent(strictPointerRoot),
+            "CURRENT.json releaseVersion must not escape the content-addressed authority root.");
+
+        ReleaseAuthorityCurrentPointer tamperCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            tamperRoot,
+            metadata,
+            manifestBytes,
+            decisionBytes,
+            expectedCurrentSnapshotSha256: null);
+        File.AppendAllText(ReleaseAuthoritySnapshotStore.GetSnapshotPath(tamperRoot, tamperCurrent), " ");
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent(tamperRoot),
+            "Loading CURRENT.json must reject a snapshot whose raw bytes no longer match snapshotSha256.");
+
+        ReleaseAuthorityCurrentPointer unknownCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            unknownSnapshotRoot,
+            metadata,
+            manifestBytes,
+            decisionBytes,
+            expectedCurrentSnapshotSha256: null);
+        string originalUnknownSnapshotPath = ReleaseAuthoritySnapshotStore.GetSnapshotPath(
+            unknownSnapshotRoot,
+            unknownCurrent);
+        byte[] unknownSnapshotBytes = MutateJson(
+            File.ReadAllBytes(originalUnknownSnapshotPath),
+            static root => root["mutableManifestPath"] = "/tmp/not-authority.json");
+        string unknownSnapshotSha256 = ReleaseAuthoritySnapshotStore.ComputeSha256(unknownSnapshotBytes);
+        string unknownGenerationDirectory = Path.Combine(
+            unknownSnapshotRoot,
+            "snapshots",
+            unknownCurrent.ReleaseVersion,
+            unknownSnapshotSha256);
+        Directory.CreateDirectory(unknownGenerationDirectory);
+        File.WriteAllBytes(
+            Path.Combine(unknownGenerationDirectory, ReleaseAuthoritySnapshotStore.SnapshotFileName),
+            unknownSnapshotBytes);
+        File.Copy(
+            Path.Combine(Path.GetDirectoryName(originalUnknownSnapshotPath)!, ReleaseAuthoritySnapshotStore.ManifestFileName),
+            Path.Combine(unknownGenerationDirectory, ReleaseAuthoritySnapshotStore.ManifestFileName));
+        File.Copy(
+            Path.Combine(Path.GetDirectoryName(originalUnknownSnapshotPath)!, ReleaseAuthoritySnapshotStore.ReleaseDecisionFileName),
+            Path.Combine(unknownGenerationDirectory, ReleaseAuthoritySnapshotStore.ReleaseDecisionFileName));
+        File.WriteAllBytes(
+            Path.Combine(unknownSnapshotRoot, ReleaseAuthoritySnapshotStore.CurrentFileName),
+            JsonSerializer.SerializeToUtf8Bytes(
+                new
+                {
+                    releaseVersion = unknownCurrent.ReleaseVersion,
+                    snapshotSha256 = unknownSnapshotSha256,
+                    decisionSha256 = unknownCurrent.DecisionSha256,
+                    status = unknownCurrent.Status
+                },
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent(unknownSnapshotRoot),
+            "SNAPSHOT.json must reject unknown properties even when CURRENT.json carries the matching raw-byte digest.");
+
+        ReleaseAuthorityCurrentPointer decisionCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            decisionMismatchRoot,
+            metadata,
+            manifestBytes,
+            decisionBytes,
+            expectedCurrentSnapshotSha256: null);
+        File.WriteAllText(
+            Path.Combine(decisionMismatchRoot, ReleaseAuthoritySnapshotStore.CurrentFileName),
+            JsonSerializer.Serialize(
+                new
+                {
+                    releaseVersion = decisionCurrent.ReleaseVersion,
+                    snapshotSha256 = decisionCurrent.SnapshotSha256,
+                    decisionSha256 = new string('d', 64),
+                    status = "stable_ready"
+                },
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent(decisionMismatchRoot),
+            "CURRENT.json decision digest and status must match SNAPSHOT.json exactly.");
+
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                convergenceRoot,
+                metadata with { Channel = "conflicting-channel" },
+                manifestBytes,
+                decisionBytes,
+                expectedCurrentSnapshotSha256: null),
+            "Publication must reject snapshot metadata that diverges from the exact immutable release manifest.");
+
+        ReleaseAuthorityCurrentPointer firstCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            atomicRoot,
+            metadata,
+            manifestBytes,
+            decisionBytes,
+            expectedCurrentSnapshotSha256: null);
+        string firstSnapshotPath = ReleaseAuthoritySnapshotStore.GetSnapshotPath(atomicRoot, firstCurrent);
+        byte[] firstSnapshotBytes = File.ReadAllBytes(firstSnapshotPath);
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                atomicRoot,
+                metadata,
+                manifestBytes,
+                BuildPreviewDecisionBytes(
+                    manifestBytes,
+                    metadata,
+                    "preview_ready",
+                    authoritySnapshotSha256: new string('f', 64),
+                    candidateDecisionStatus: firstCurrent.Status,
+                    candidateDecisionSha256: firstCurrent.DecisionSha256),
+                expectedCurrentSnapshotSha256: firstCurrent.SnapshotSha256),
+            "preview_ready must bind the exact prior authority snapshot rather than any syntactically valid digest.");
+        byte[] readyDecisionBytes = BuildPreviewDecisionBytes(
+            manifestBytes,
+            metadata,
+            "preview_ready",
+            authoritySnapshotSha256: firstCurrent.SnapshotSha256,
+            candidateDecisionStatus: firstCurrent.Status,
+            candidateDecisionSha256: firstCurrent.DecisionSha256);
+        ReleaseAuthorityCurrentPointer secondCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            atomicRoot,
+            metadata,
+            manifestBytes,
+            readyDecisionBytes,
+            expectedCurrentSnapshotSha256: firstCurrent.SnapshotSha256);
+        AssertThrows<ReleaseAuthorityConcurrencyException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                atomicRoot,
+                metadata,
+                manifestBytes,
+                decisionBytes,
+                expectedCurrentSnapshotSha256: firstCurrent.SnapshotSha256),
+            "A stale expected CURRENT digest must not regress release authority.");
+        AssertThrows<ReleaseAuthorityConcurrencyException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                atomicRoot,
+                metadata,
+                manifestBytes,
+                decisionBytes,
+                expectedCurrentSnapshotSha256: null),
+            "An existing CURRENT pointer must require an explicit compare-and-swap digest.");
+        Assert(
+            !string.Equals(firstCurrent.SnapshotSha256, secondCurrent.SnapshotSha256, StringComparison.Ordinal),
+            "A changed release decision must produce a new immutable snapshot generation.");
+        Assert(
+            File.ReadAllBytes(firstSnapshotPath).AsSpan().SequenceEqual(firstSnapshotBytes),
+            "Advancing CURRENT.json must preserve the prior content-addressed snapshot bytes.");
+        Assert(
+            string.Equals(
+                ReleaseAuthoritySnapshotStore.LoadCurrent(atomicRoot)?.Current.SnapshotSha256,
+                secondCurrent.SnapshotSha256,
+                StringComparison.Ordinal),
+            "Atomic CURRENT.json replacement must expose only the complete new snapshot generation.");
+        Assert(
+            !Directory.EnumerateFileSystemEntries(atomicRoot, "*", SearchOption.AllDirectories)
+                .Any(path => Path.GetFileName(path).EndsWith(".tmp", StringComparison.Ordinal)),
+            "Successful snapshot publication must not leave temporary pointer or generation files behind.");
+
+        File.WriteAllText(
+            Path.Combine(Path.GetDirectoryName(firstSnapshotPath)!, "unexpected.txt"),
+            "conflict");
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                atomicRoot,
+                metadata,
+                manifestBytes,
+                decisionBytes,
+                expectedCurrentSnapshotSha256: secondCurrent.SnapshotSha256),
+            "Republishing must reject a conflicting existing immutable generation instead of overwriting it.");
+    }
+    finally
+    {
+        if (Directory.Exists(symlinkRoot))
+        {
+            Directory.Delete(symlinkRoot);
+        }
+
+        foreach (string path in new[]
+                 {
+                     strictPointerRoot,
+                     tamperRoot,
+                     unknownSnapshotRoot,
+                     decisionMismatchRoot,
+                     convergenceRoot,
+                     atomicRoot,
+                     emptyRoot,
+                     stableRoot,
+                     eligibilityRoot,
+                     apiRoot,
+                     symlinkTargetRoot
+                 })
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+    }
+}
+
+static void VerifyReleaseAuthoritySchemaContract(
+    byte[] currentBytes,
+    byte[] snapshotBytes,
+    byte[] decisionBytes)
+{
+    string schemaPath = Path.Combine(
+        AppContext.BaseDirectory,
+        "contracts",
+        "release-authority-v2.schema.json");
+    Assert(File.Exists(schemaPath), "The portable release-authority v2 JSON Schema must ship with the verifier.");
+    using JsonDocument schemaDocument = JsonDocument.Parse(File.ReadAllBytes(schemaPath));
+    JsonElement definitions = schemaDocument.RootElement.GetProperty("$defs");
+    using JsonDocument currentDocument = JsonDocument.Parse(currentBytes);
+    using JsonDocument snapshotDocument = JsonDocument.Parse(snapshotBytes);
+    using JsonDocument decisionDocument = JsonDocument.Parse(decisionBytes);
+
+    AssertSchemaPropertySet(definitions.GetProperty("current"), currentDocument.RootElement, "CURRENT.json");
+    JsonElement snapshotSchema = definitions.GetProperty("snapshot");
+    AssertSchemaPropertySet(snapshotSchema, snapshotDocument.RootElement, "SNAPSHOT.json");
+    Assert(
+        string.Equals(
+            snapshotSchema.GetProperty("properties").GetProperty("authorityContract").GetProperty("const").GetString(),
+            snapshotDocument.RootElement.GetProperty("authorityContract").GetString(),
+            StringComparison.Ordinal),
+        "Emitted SNAPSHOT.json authorityContract must match the portable schema constant.");
+    string[] schemaStatuses = definitions
+        .GetProperty("decisionStatus")
+        .GetProperty("enum")
+        .EnumerateArray()
+        .Select(static item => item.GetString() ?? string.Empty)
+        .ToArray();
+    Assert(
+        schemaStatuses.SequenceEqual(
+            new[] { "review_required", "preview_ready", "stable_ready" },
+            StringComparer.Ordinal),
+        "The portable schema must pin the exact three decision status values.");
+
+    JsonElement artifactSchema = definitions.GetProperty("artifact");
+    foreach (JsonElement artifact in snapshotDocument.RootElement.GetProperty("artifacts").EnumerateArray())
+    {
+        AssertSchemaPropertySet(artifactSchema, artifact, "SNAPSHOT.json artifact");
+    }
+
+    string decisionDefinition = decisionDocument.RootElement.TryGetProperty("contractName", out _)
+        ? "previewDecision"
+        : "stableDecision";
+    JsonElement decisionSchema = definitions.GetProperty(decisionDefinition);
+    string[] decisionRequired = decisionSchema
+        .GetProperty("required")
+        .EnumerateArray()
+        .Select(static item => item.GetString() ?? string.Empty)
+        .ToArray();
+    Assert(
+        decisionRequired.All(name => decisionDocument.RootElement.TryGetProperty(name, out _)),
+        "The exact emitted RELEASE_DECISION.json bytes must contain every native schema binding field.");
+    Assert(
+        snapshotSchema.TryGetProperty("x-chummer-derivation-invariants", out JsonElement derivation)
+        && derivation.TryGetProperty("artifacts", out _)
+        && derivation.TryGetProperty("primaryHeadByPlatform", out _)
+        && derivation.TryGetProperty("downloadAccessPosture", out _),
+        "The portable schema must carry machine-readable curated-shelf, explicit-primary, and access-posture derivation invariants.");
+}
+
+static void AssertSchemaPropertySet(JsonElement schema, JsonElement instance, string contractName)
+{
+    string[] required = schema
+        .GetProperty("required")
+        .EnumerateArray()
+        .Select(static item => item.GetString() ?? string.Empty)
+        .Order(StringComparer.Ordinal)
+        .ToArray();
+    string[] properties = schema
+        .GetProperty("properties")
+        .EnumerateObject()
+        .Select(static property => property.Name)
+        .Order(StringComparer.Ordinal)
+        .ToArray();
+    string[] actual = instance
+        .EnumerateObject()
+        .Select(static property => property.Name)
+        .Order(StringComparer.Ordinal)
+        .ToArray();
+    Assert(
+        required.SequenceEqual(properties, StringComparer.Ordinal)
+        && actual.SequenceEqual(required, StringComparer.Ordinal),
+        $"Emitted {contractName} must have exactly the required property set in the portable schema.");
+}
+
+static byte[] BuildPreviewDecisionBytes(
+    byte[] manifestBytes,
+    RegistryOwner.ReleaseAuthorityPublicationMetadata metadata,
+    string releaseDecisionStatus,
+    string? manifestSha256 = null,
+    string authoritySnapshotSha256 = "",
+    string candidateDecisionStatus = "",
+    string candidateDecisionSha256 = "",
+    IReadOnlyDictionary<string, IReadOnlyList<string>>? fallbackHeadsByPlatform = null)
+    => JsonSerializer.SerializeToUtf8Bytes(
+        new
+        {
+            contractName = ReleaseAuthoritySnapshotStore.PreviewDecisionContract,
+            releaseVersion = metadata.ReleaseVersion,
+            channel = metadata.Channel,
+            releaseDecisionStatus,
+            status = releaseDecisionStatus,
+            manifestSha256 = manifestSha256 ?? ReleaseAuthoritySnapshotStore.ComputeSha256(manifestBytes),
+            registryCommit = metadata.RegistryCommit,
+            platforms = metadata.AvailablePlatforms,
+            primaryHeadByPlatform = metadata.PrimaryHeadByPlatform,
+            fallbackHeadsByPlatform = fallbackHeadsByPlatform
+                ?? new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal),
+            supportOwner = metadata.SupportOwner,
+            artifactAccessClass = releaseDecisionStatus == "review_required" && metadata.ArtifactCount == 0
+                ? "review_required"
+                : metadata.DownloadAccessPosture,
+            authoritySnapshotSha256,
+            candidateDecisionStatus,
+            candidateDecisionSha256
+        },
+        new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+static byte[] BuildStableDecisionBytes(
+    byte[] manifestBytes,
+    RegistryOwner.ReleaseAuthorityPublicationMetadata metadata,
+    string releaseDecisionStatus,
+    string? manifestSha256 = null,
+    string? status = null,
+    int contractVersion = ReleaseAuthoritySnapshotStore.StableDecisionContractVersion)
+{
+    string boundManifestSha256 = manifestSha256
+        ?? ReleaseAuthoritySnapshotStore.ComputeSha256(manifestBytes);
+    return JsonSerializer.SerializeToUtf8Bytes(
+        new
+        {
+            contract_name = ReleaseAuthoritySnapshotStore.StableDecisionContract,
+            contract_version = contractVersion,
+            releaseVersion = metadata.ReleaseVersion,
+            releaseDecisionStatus,
+            status = status ?? (releaseDecisionStatus == "stable_ready" ? "pass" : "review_required"),
+            live_release = new
+            {
+                version = metadata.ReleaseVersion,
+                channel = metadata.Channel,
+                manifest_sha256 = boundManifestSha256,
+                registry_commit = metadata.RegistryCommit,
+                available_platforms = metadata.AvailablePlatforms,
+                primary_head_by_platform = metadata.PrimaryHeadByPlatform,
+                status = metadata.Status,
+                rollout_state = metadata.RolloutState,
+                supportability_state = metadata.SupportabilityState,
+                artifact_count = metadata.ArtifactCount,
+                download_access_posture = metadata.DownloadAccessPosture,
+                known_issue_summary = metadata.KnownIssueSummary,
+                release_decision_status = releaseDecisionStatus
+            },
+            release_authority = new
+            {
+                contract = ReleaseAuthoritySnapshotStore.AuthorityContract,
+                manifest_sha256 = boundManifestSha256,
+                registry_commit = metadata.RegistryCommit,
+                release_decision_status = releaseDecisionStatus
+            }
+        },
+        new JsonSerializerOptions(JsonSerializerDefaults.Web));
+}
+
+static byte[] MutateJson(byte[] source, Action<JsonObject> mutation)
+{
+    JsonObject root = JsonNode.Parse(source)?.AsObject()
+        ?? throw new InvalidOperationException("Expected a JSON object fixture.");
+    mutation(root);
+    return JsonSerializer.SerializeToUtf8Bytes(root, new JsonSerializerOptions(JsonSerializerDefaults.Web));
+}
+
+static void AssertDecisionMutationRejected(
+    string authorityRoot,
+    RegistryOwner.ReleaseAuthorityPublicationMetadata metadata,
+    byte[] manifestBytes,
+    byte[] decisionBytes,
+    Action<JsonObject> mutation,
+    string message)
+{
+    byte[] mutatedDecisionBytes = MutateJson(decisionBytes, mutation);
+    AssertThrows<InvalidDataException>(
+        () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            authorityRoot,
+            metadata,
+            manifestBytes,
+            mutatedDecisionBytes,
+            expectedCurrentSnapshotSha256: null),
+        message);
+}
+
+static byte[] BuildEmptyReleaseManifestBytes(string releaseVersion)
+    => JsonSerializer.SerializeToUtf8Bytes(
+        new
+        {
+            generationId = "registry-empty-generation",
+            product = "chummer6",
+            channelId = "preview",
+            version = releaseVersion,
+            publishedAt = "2026-07-18T00:00:00Z",
+            status = "published",
+            artifactSource = "registry_manifest",
+            rolloutState = RegistryOwner.ReleaseRolloutStates.CoverageIncomplete,
+            supportabilityState = RegistryOwner.ReleaseSupportabilityStates.ReviewRequired,
+            supportOwner = "registry-operations",
+            knownIssueSummary = "No promoted public installer shelf is available yet.",
+            artifacts = Array.Empty<object>(),
+            desktopTupleCoverage = new
+            {
+                requiredDesktopPlatforms = Array.Empty<string>(),
+                requiredDesktopHeads = Array.Empty<string>(),
+                desktopRouteTruth = Array.Empty<object>(),
+                complete = false
+            },
+            artifactPublicationBindings = Array.Empty<object>(),
+            publicTrustMetrics = new
+            {
+                revocationFacts = new
+                {
+                    channelRevoked = false,
+                    activeRevocations = Array.Empty<object>()
+                }
+            }
+        },
+        new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+static void VerifyRegistryStartupCredentialValidation()
+{
+    AssertThrows<InvalidOperationException>(
+        () => RegistryAuthorization.ValidateStartupConfiguration(new ConfigurationBuilder().Build()),
+        "Registry startup must fail when no control credential is configured.");
+
+    var whitespaceConfiguration = new ConfigurationBuilder()
+        .AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [RegistryAuthorization.PrimaryApiKeyConfigKey] = "   ",
+            [RegistryAuthorization.LegacyApiKeyConfigKey] = "\t"
+        })
+        .Build();
+    AssertThrows<InvalidOperationException>(
+        () => RegistryAuthorization.ValidateStartupConfiguration(whitespaceConfiguration),
+        "Registry startup must reject blank control credentials.");
+
+    var primaryConfiguration = new ConfigurationBuilder()
+        .AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [RegistryAuthorization.PrimaryApiKeyConfigKey] = "  primary-control-key  ",
+            [RegistryAuthorization.LegacyApiKeyConfigKey] = "legacy-control-key"
+        })
+        .Build();
+    RegistryAuthorization.ValidateStartupConfiguration(primaryConfiguration);
+    Assert(
+        string.Equals(
+            RegistryAuthorization.GetConfiguredControlCredential(primaryConfiguration),
+            "primary-control-key",
+            StringComparison.Ordinal),
+        "Registry startup must prefer and trim the Chummer-scoped control credential.");
+
+    var legacyConfiguration = new ConfigurationBuilder()
+        .AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [RegistryAuthorization.LegacyApiKeyConfigKey] = "legacy-control-key"
+        })
+        .Build();
+    RegistryAuthorization.ValidateStartupConfiguration(legacyConfiguration);
+    Assert(
+        string.Equals(
+            RegistryAuthorization.GetConfiguredControlCredential(legacyConfiguration),
+            "legacy-control-key",
+            StringComparison.Ordinal),
+        "Registry startup may retain the legacy control credential only as compatibility input.");
+}
+
 static void VerifyRegistryAuthorizationSurface()
 {
     string programSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "Chummer.Run.Registry", "Program.cs"));
     string authorizationSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "Chummer.Run.Registry", "Services", "RegistryAuthorization.cs"));
     Assert(programSource.Contains(".AddAuthentication(RegistryAuthorization.Scheme)", StringComparison.Ordinal), "Registry startup must configure the control-plane authentication scheme.");
+    Assert(programSource.Contains("RegistryAuthorization.ValidateStartupConfiguration(builder.Configuration);", StringComparison.Ordinal), "Registry startup must validate that a control credential exists before building the app.");
     Assert(programSource.Contains("options.FallbackPolicy = controlPolicy;", StringComparison.Ordinal), "Registry startup must default-deny endpoints without an explicit AllowAnonymous marker.");
     Assert(programSource.Contains("app.UseAuthentication();", StringComparison.Ordinal), "Registry startup must authenticate requests before authorization.");
     Assert(programSource.Contains("AddSingleton<IHubArtifactStore, FileBackedHubArtifactStore>()", StringComparison.Ordinal), "Registry startup must use the durable artifact store, not the raw in-memory store.");
@@ -1110,6 +2383,21 @@ static void VerifyRegistryAuthorizationSurface()
     {
         Assert(!method.GetCustomAttributes<AllowAnonymousAttribute>(inherit: true).Any(), $"Draft control-plane action {method.Name} must not allow anonymous access.");
     }
+}
+
+static void AssertThrows<TException>(Action action, string message)
+    where TException : Exception
+{
+    try
+    {
+        action();
+    }
+    catch (TException)
+    {
+        return;
+    }
+
+    throw new InvalidOperationException(message);
 }
 
 static async Task VerifyRegistryAuthorizationHttpPipeline()

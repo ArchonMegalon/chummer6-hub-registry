@@ -4,6 +4,7 @@ using Microsoft.AspNetCore.Mvc;
 using Chummer.Run.Registry.Services;
 
 var builder = WebApplication.CreateBuilder(args);
+RegistryAuthorization.ValidateStartupConfiguration(builder.Configuration);
 
 // Add services to the container.
 

@@ -13,4 +13,10 @@
     <ProjectReference Include="..\Chummer.Run.Registry\Chummer.Run.Registry.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <None Include="..\contracts\release-authority-v2.schema.json"
+          Link="contracts\release-authority-v2.schema.json"
+          CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
 </Project>

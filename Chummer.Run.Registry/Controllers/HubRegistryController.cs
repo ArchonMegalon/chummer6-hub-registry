@@ -4,6 +4,8 @@ using Chummer.Run.Registry.Services;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using RegistryReleaseChannelHeadProjection = Chummer.Hub.Registry.Contracts.ReleaseChannelHeadProjection;
+using RegistryReleaseAuthorityEnvelopeProjection = Chummer.Hub.Registry.Contracts.ReleaseAuthorityEnvelopeProjection;
+using RegistryReleaseAuthorityPublishRequest = Chummer.Hub.Registry.Contracts.ReleaseAuthorityPublishRequest;
 
 namespace Chummer.Run.Registry.Controllers;
 
@@ -15,15 +17,18 @@ public sealed class HubRegistryController : ControllerBase
     private readonly IHubArtifactStore _artifactStore;
     private readonly IReleaseChannelManifestStore _releaseChannelManifestStore;
     private readonly IPublicationWorkflowService? _publicationWorkflow;
+    private readonly IConfiguration? _configuration;
 
     public HubRegistryController(
         IHubArtifactStore artifactStore,
         IReleaseChannelManifestStore releaseChannelManifestStore,
-        IPublicationWorkflowService? publicationWorkflow = null)
+        IPublicationWorkflowService? publicationWorkflow = null,
+        IConfiguration? configuration = null)
     {
         _artifactStore = artifactStore;
         _releaseChannelManifestStore = releaseChannelManifestStore;
         _publicationWorkflow = publicationWorkflow;
+        _configuration = configuration;
     }
 
     [HttpGet("search")]
@@ -101,6 +106,73 @@ public sealed class HubRegistryController : ControllerBase
         }
 
         return Ok(projection);
+    }
+
+    [HttpGet("release-authority/current")]
+    [AllowAnonymous]
+    [ProducesResponseType<RegistryReleaseAuthorityEnvelopeProjection>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public ActionResult<RegistryReleaseAuthorityEnvelopeProjection> GetCurrentReleaseAuthority()
+    {
+        RegistryReleaseAuthorityEnvelopeProjection? envelope = _configuration is null
+            ? null
+            : ReleaseAuthoritySnapshotStore.LoadCurrentEnvelope(_configuration);
+        return envelope is null ? NotFound() : Ok(envelope);
+    }
+
+    [HttpPost("release-authority/publish")]
+    [ProducesResponseType<RegistryReleaseAuthorityEnvelopeProjection>(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status409Conflict)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
+    public ActionResult<RegistryReleaseAuthorityEnvelopeProjection> PublishReleaseAuthority(
+        [FromBody] RegistryReleaseAuthorityPublishRequest? request)
+    {
+        if (request is null
+            || request.Metadata is null
+            || request.ManifestBytes is null
+            || request.ReleaseDecisionBytes is null)
+        {
+            return BadRequest("Release-authority publication payload is required.");
+        }
+
+        string? authorityRoot = _configuration?[ReleaseAuthoritySnapshotStore.AuthorityRootConfigKey]?.Trim();
+        if (string.IsNullOrWhiteSpace(authorityRoot))
+        {
+            return Problem(
+                title: "Release authority is not configured.",
+                statusCode: StatusCodes.Status503ServiceUnavailable);
+        }
+
+        try
+        {
+            ReleaseAuthorityCurrentPointer current = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                authorityRoot,
+                request.Metadata,
+                request.ManifestBytes,
+                request.ReleaseDecisionBytes,
+                request.ExpectedCurrentSnapshotSha256);
+            LoadedReleaseAuthoritySnapshot loaded = ReleaseAuthoritySnapshotStore.LoadCurrent(authorityRoot)
+                ?? throw new InvalidOperationException("Published release authority could not be loaded.");
+            if (!string.Equals(
+                    loaded.Current.SnapshotSha256,
+                    current.SnapshotSha256,
+                    StringComparison.Ordinal))
+            {
+                throw new InvalidOperationException(
+                    "Published release authority did not converge to the returned CURRENT.json digest.");
+            }
+
+            return Ok(ReleaseAuthoritySnapshotStore.ToEnvelope(loaded));
+        }
+        catch (ReleaseAuthorityConcurrencyException exception)
+        {
+            return Conflict(exception.Message);
+        }
+        catch (InvalidDataException exception)
+        {
+            return BadRequest(exception.Message);
+        }
     }
 
     [HttpPost("artifacts")]

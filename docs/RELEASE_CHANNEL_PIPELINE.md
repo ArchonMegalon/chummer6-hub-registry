@@ -18,7 +18,113 @@ Registry-owned generated artifacts:
 * `.codex-studio/published/RELEASE_CHANNEL.generated.json`
 * compatibility projection `releases.json` when a legacy `/downloads/releases.json` surface still needs it
 
-`RELEASE_CHANNEL.generated.json` is the canonical projection. `releases.json` is a compatibility export for existing Hub/download consumers.
+`RELEASE_CHANNEL.generated.json` is the canonical materialized projection used as input to an authority decision. It is not mutable runtime authority. `releases.json` is a compatibility export for existing Hub/download consumers.
+
+## Immutable runtime authority
+
+The registry runtime reads release authority only from the absolute directory configured by `CHUMMER_RELEASE_AUTHORITY_ROOT`. It does not fall back to a repository-local `RELEASE_CHANNEL.generated.json`, and the former direct-manifest input `CHUMMER_RELEASE_CHANNEL_MANIFEST` is rejected.
+
+Each accepted decision is a content-addressed immutable generation:
+
+```text
+<authority-root>/
+  CURRENT.json
+  snapshots/<releaseVersion>/<snapshotSha256>/
+    SNAPSHOT.json
+    RELEASE_CHANNEL.json
+    RELEASE_DECISION.json
+```
+
+`CURRENT.json` is an atomic pointer with exactly four fields. Digests are lowercase, unprefixed 64-character SHA-256 values:
+
+```json
+{
+  "releaseVersion": "2026.03.23-preview.1",
+  "snapshotSha256": "<sha256-of-raw-SNAPSHOT.json-bytes>",
+  "decisionSha256": "<sha256-of-raw-RELEASE_DECISION.json-bytes>",
+  "status": "review_required"
+}
+```
+
+The snapshot path is derived from `releaseVersion` and `snapshotSha256`; the pointer cannot supply an alternate path. `decisionSha256` and `status` must equal `SNAPSHOT.json`'s `releaseDecisionSha256` and `releaseDecisionStatus`. The only decision statuses are `review_required`, `preview_ready`, and `stable_ready`.
+
+`SNAPSHOT.json` uses the shared `chummer.release-authority-snapshot/v2` contract:
+
+```json
+{
+  "authorityContract": "chummer.release-authority-snapshot/v2",
+  "releaseVersion": "2026.03.23-preview.1",
+  "channel": "preview",
+  "status": "published",
+  "rolloutState": "coverage_incomplete",
+  "supportabilityState": "review_required",
+  "availablePlatforms": ["linux"],
+  "primaryHeadByPlatform": { "linux": "avalonia" },
+  "artifactCount": 1,
+  "downloadAccessPosture": "open_public",
+  "knownIssueSummary": "Required tuple proof remains incomplete.",
+  "manifestSha256": "<sha256-of-raw-RELEASE_CHANNEL.json-bytes>",
+  "registryRepository": "ArchonMegalon/chummer6-hub-registry",
+  "registryCommit": "<40-lowercase-hex-registry-commit>",
+  "releaseDecisionStatus": "review_required",
+  "releaseDecisionSha256": "<sha256-of-raw-RELEASE_DECISION.json-bytes>",
+  "releaseDecisionPath": "RELEASE_DECISION.json",
+  "supportOwner": "registry-operations",
+  "nextActions": ["Complete required tuple proof before promotion."],
+  "artifacts": [
+    {
+      "artifactId": "avalonia-linux-x64-installer",
+      "head": "avalonia",
+      "platform": "linux",
+      "rid": "linux-x64",
+      "arch": "x64",
+      "kind": "installer",
+      "downloadUrl": "https://downloads.chummer.run/downloads/g/generation-id/files/installer.bin",
+      "sha256": "<artifact-sha256>",
+      "sizeBytes": 4096,
+      "compatibilityState": "compatible",
+      "promotionState": "promoted",
+      "publicationScope": "signed-in-and-public",
+      "revokeState": "not_revoked",
+      "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
+      "installAccessClass": "open_public"
+    }
+  ],
+  "manifestPath": "RELEASE_CHANNEL.json"
+}
+```
+
+The portable, machine-readable contract is [`contracts/release-authority-v2.schema.json`](../contracts/release-authority-v2.schema.json). Snapshot v2 has exactly 21 required top-level fields and each curated artifact projection has exactly 15 required fields; missing, unknown, duplicate, and case-shadowed authority properties fail closed. There is intentionally no snapshot `generatedAt` field.
+
+### Exact release decisions
+
+Registry accepts generated decision bytes directly and never rewrites or wraps them:
+
+* Preview uses `contractName: "chummer.preview-release-decision/v1"`, top-level `releaseVersion`, `releaseDecisionStatus` (`review_required` or `preview_ready`), equal `status`, and `manifestSha256`. It also requires exact snapshot/manifest scope bindings for `channel`, `registryCommit`, sorted `platforms`, sorted `primaryHeadByPlatform`, canonical manifest-derived `fallbackHeadsByPlatform`, `supportOwner`, and `artifactAccessClass`, plus string fields `authoritySnapshotSha256`, `candidateDecisionStatus`, and `candidateDecisionSha256`. A raw manifest-bound `review_required` seed may set all three candidate fields to empty strings. `preview_ready` requires lowercase 64-hex snapshot/candidate digests and those values must match the exact prior `CURRENT.json` candidate.
+* Stable uses `contract_name: "chummer.final_gold_graph"`, `contract_version: 2`, top-level `releaseVersion`, `releaseDecisionStatus: "stable_ready"`, and `status: "pass"`. Its `live_release` object must exactly bind version, channel, manifest digest, Registry commit, platforms/primary heads, publication/rollout/supportability posture, artifact count/access posture, known issue summary, and `stable_ready`; `release_authority` must bind the v2 authority contract, manifest digest, Registry commit, and `stable_ready`. A stable decision cannot silently omit eligible fallback heads. `stable_ready` advances from a manifest-bound preview-contract `review_required` candidate so every intermediate `CURRENT.json` remains consumer-readable.
+
+Both schemas bind the SHA-256 of the exact manifest bytes. Registry computes the decision digest from the exact input bytes and preserves those bytes as `RELEASE_DECISION.json`. The manifest remains unchanged and must not contain a decision digest.
+
+### Curated public shelf
+
+`SNAPSHOT.json.artifacts` is a canonical curated projection re-derived from the exact manifest bytes, not a copy of every manifest artifact and not a caller assertion. An artifact is eligible only when all of these facts converge:
+
+* the manifest artifact is an `installer`, is `compatible`, has a lowercase SHA-256, positive size, and an absolute HTTPS, credential/query/fragment-free immutable `/downloads/g/<generationId>/files/<fileName>` URL;
+* exactly one matching desktop route is `promoted`, `not_revoked`, `eligible`, `installer_first`, names `primary` or `fallback`, and carries the public install route;
+* exactly one matching publication binding is `published` with `publicationScope: "signed-in-and-public"`, a public shelf ref, and the same tuple, channel, release, and public install route;
+* channel and artifact active-revocation facts are clear; and install access is `open_public`, `account_recommended`, or `account_required`.
+
+`availablePlatforms` is the sorted distinct eligible platform set. `primaryHeadByPlatform` comes only from eligible route rows explicitly marked `routeRole: "primary"`, exactly one per eligible platform; it is never inferred from artifact order. `downloadAccessPosture` is `unavailable`, one recognized access class, or `mixed` when eligible rows use multiple classes.
+
+An empty shelf is allowed only as the exact combination `artifacts: []`, `artifactCount: 0`, `availablePlatforms: []`, `primaryHeadByPlatform: {}`, `downloadAccessPosture: "unavailable"`, and `releaseDecisionStatus: "review_required"`. Ready decisions always require a nonempty eligible shelf.
+
+### Publication and consumption
+
+Authenticated registry control callers publish through `POST /api/v1/registry/release-authority/publish`, sending metadata plus base64 JSON byte arrays `manifestBytes` and `releaseDecisionBytes`. Digest/path fields are not accepted from callers. When `CURRENT.json` already exists, `expectedCurrentSnapshotSha256` is mandatory and must match exactly; the exclusive writer lock and compare-and-swap prevent stale regression.
+
+Hub and other consumers read `GET /api/v1/registry/release-authority/current`. Its envelope contains the minimal pointer, parsed snapshot (including repository commit, platform, explicit primary head, and access posture), and the exact snapshot, manifest, and decision bytes so a consumer can recompute every digest independently.
+
+Publication writes all three immutable files to a temporary sibling, flushes file data and directory metadata, renames the complete generation, and only then atomically replaces and parent-directory-flushes `CURRENT.json`. Existing generations are never overwritten. Authority roots and descendants reject symbolic links/reparse points. Registry startup also fails before serving when neither `CHUMMER_REGISTRY_CONTROL_API_KEY` nor its legacy compatibility key is configured.
 
 ## Shape
 
