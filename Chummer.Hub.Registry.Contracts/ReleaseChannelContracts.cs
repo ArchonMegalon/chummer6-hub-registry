@@ -1,3 +1,5 @@
+using System.Text.Json.Serialization;
+
 namespace Chummer.Hub.Registry.Contracts;
 
 public static class ReleaseChannelStatuses
@@ -471,3 +473,101 @@ public sealed record ReleaseChannelHeadProjection(
     IReadOnlyList<ArtifactPublicationBindingRow>? ArtifactPublicationBindings = null,
     IReadOnlyList<ExchangeArtifactLineageRegistryRow>? ExchangeLineageRegistry = null,
     ReleasePublicTrustMetricsProjection? PublicTrustMetrics = null);
+
+/// <summary>
+/// One immutable, explicitly promoted and public-scope-approved installer on
+/// the release-authority shelf. Presence in the wider release manifest is not
+/// sufficient to create one of these rows.
+/// </summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record ReleaseAuthorityArtifactProjection(
+    string ArtifactId,
+    string Head,
+    string Platform,
+    string Rid,
+    string Arch,
+    string Kind,
+    string DownloadUrl,
+    string Sha256,
+    long SizeBytes,
+    string CompatibilityState,
+    string PromotionState,
+    string PublicationScope,
+    string RevokeState,
+    string PublicInstallRoute,
+    string InstallAccessClass);
+
+/// <summary>
+/// Caller-supplied release metadata. Content digests, decision posture, and
+/// immutable sibling paths are deliberately absent because Registry derives
+/// them from the exact manifest and decision bytes.
+/// </summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record ReleaseAuthorityPublicationMetadata(
+    string ReleaseVersion,
+    string Channel,
+    string Status,
+    string RolloutState,
+    string SupportabilityState,
+    IReadOnlyList<string> AvailablePlatforms,
+    IReadOnlyDictionary<string, string> PrimaryHeadByPlatform,
+    int ArtifactCount,
+    string DownloadAccessPosture,
+    string KnownIssueSummary,
+    string RegistryRepository,
+    string RegistryCommit,
+    string SupportOwner,
+    IReadOnlyList<string> NextActions,
+    IReadOnlyList<ReleaseAuthorityArtifactProjection> Artifacts);
+
+/// <summary>
+/// Authenticated publication request. Byte arrays use JSON base64 encoding and
+/// round-trip to the exact files persisted in the immutable generation.
+/// </summary>
+[JsonUnmappedMemberHandling(JsonUnmappedMemberHandling.Disallow)]
+public sealed record ReleaseAuthorityPublishRequest(
+    ReleaseAuthorityPublicationMetadata Metadata,
+    byte[] ManifestBytes,
+    byte[] ReleaseDecisionBytes,
+    string? ExpectedCurrentSnapshotSha256);
+
+public sealed record ReleaseAuthorityCurrentPointerProjection(
+    string ReleaseVersion,
+    string SnapshotSha256,
+    string DecisionSha256,
+    string Status);
+
+public sealed record ReleaseAuthoritySnapshotProjection(
+    string AuthorityContract,
+    string ReleaseVersion,
+    string Channel,
+    string Status,
+    string RolloutState,
+    string SupportabilityState,
+    IReadOnlyList<string> AvailablePlatforms,
+    IReadOnlyDictionary<string, string> PrimaryHeadByPlatform,
+    int ArtifactCount,
+    string DownloadAccessPosture,
+    string KnownIssueSummary,
+    string ManifestSha256,
+    string RegistryRepository,
+    string RegistryCommit,
+    string ReleaseDecisionStatus,
+    string ReleaseDecisionSha256,
+    string ReleaseDecisionPath,
+    string SupportOwner,
+    IReadOnlyList<string> NextActions,
+    IReadOnlyList<ReleaseAuthorityArtifactProjection> Artifacts,
+    string ManifestPath);
+
+/// <summary>
+/// Complete release-authority response. Exact file bytes are included so Hub
+/// can recompute snapshot, manifest, and decision digests independently rather
+/// than trusting the parsed projection alone.
+/// </summary>
+public sealed record ReleaseAuthorityEnvelopeProjection(
+    ReleaseAuthorityCurrentPointerProjection Current,
+    ReleaseAuthoritySnapshotProjection Snapshot,
+    byte[] SnapshotBytes,
+    byte[] ManifestBytes,
+    byte[] ReleaseDecisionBytes);

@@ -1,0 +1,493 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chummer.run/contracts/release-authority-v2.schema.json",
+  "title": "Chummer release authority v2 file contracts",
+  "description": "Portable contract for CURRENT.json, SNAPSHOT.json, and accepted generated release-decision files. Registry remains the derivation owner and persists generated manifest/decision bytes unchanged.",
+  "oneOf": [
+    { "$ref": "#/$defs/current" },
+    { "$ref": "#/$defs/snapshot" },
+    { "$ref": "#/$defs/previewDecision" },
+    { "$ref": "#/$defs/stableDecision" }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "releaseVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9._+-]+$",
+      "not": { "enum": [".", ".."] }
+    },
+    "normalizedToken": {
+      "type": "string",
+      "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+    },
+    "normalizedIdentifier": {
+      "type": "string",
+      "pattern": "^(?!unknown$|missing$|invalid$)[a-z0-9][a-z0-9._+-]*$"
+    },
+    "decisionStatus": {
+      "enum": [
+        "review_required",
+        "preview_ready",
+        "stable_ready"
+      ]
+    },
+    "installAccessClass": {
+      "enum": [
+        "open_public",
+        "account_recommended",
+        "account_required"
+      ]
+    },
+    "downloadAccessPosture": {
+      "enum": [
+        "unavailable",
+        "open_public",
+        "account_recommended",
+        "account_required",
+        "mixed"
+      ]
+    },
+    "current": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "releaseVersion",
+        "snapshotSha256",
+        "decisionSha256",
+        "status"
+      ],
+      "properties": {
+        "releaseVersion": { "$ref": "#/$defs/releaseVersion" },
+        "snapshotSha256": { "$ref": "#/$defs/sha256" },
+        "decisionSha256": { "$ref": "#/$defs/sha256" },
+        "status": { "$ref": "#/$defs/decisionStatus" }
+      }
+    },
+    "artifact": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId",
+        "head",
+        "platform",
+        "rid",
+        "arch",
+        "kind",
+        "downloadUrl",
+        "sha256",
+        "sizeBytes",
+        "compatibilityState",
+        "promotionState",
+        "publicationScope",
+        "revokeState",
+        "publicInstallRoute",
+        "installAccessClass"
+      ],
+      "properties": {
+        "artifactId": { "$ref": "#/$defs/normalizedIdentifier" },
+        "head": { "$ref": "#/$defs/normalizedIdentifier" },
+        "platform": { "$ref": "#/$defs/normalizedIdentifier" },
+        "rid": { "$ref": "#/$defs/normalizedIdentifier" },
+        "arch": { "$ref": "#/$defs/normalizedIdentifier" },
+        "kind": { "const": "installer" },
+        "downloadUrl": {
+          "type": "string",
+          "minLength": 1,
+          "format": "uri",
+          "pattern": "^https://[^/?#@\\s]+/(?![^?#]*%(?:2[eEfF]|5[cC]))downloads/g/(?!\\.{1,2}(?:/|$))[^/?#\\\\]+/files/(?!\\.{1,2}$)[^/?#\\\\]+$"
+        },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "sizeBytes": { "type": "integer", "minimum": 1 },
+        "compatibilityState": { "const": "compatible" },
+        "promotionState": { "const": "promoted" },
+        "publicationScope": { "const": "signed-in-and-public" },
+        "revokeState": { "const": "not_revoked" },
+        "publicInstallRoute": {
+          "type": "string",
+          "pattern": "^/downloads/install/(?!\\.{1,2}$)(?!.*%(?:2[eEfF]|5[cC]))[^/?#\\\\\\x00-\\x1f\\x7f]+$"
+        },
+        "installAccessClass": { "$ref": "#/$defs/installAccessClass" }
+      }
+    },
+    "snapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorityContract",
+        "releaseVersion",
+        "channel",
+        "status",
+        "rolloutState",
+        "supportabilityState",
+        "availablePlatforms",
+        "primaryHeadByPlatform",
+        "artifactCount",
+        "downloadAccessPosture",
+        "knownIssueSummary",
+        "manifestSha256",
+        "registryRepository",
+        "registryCommit",
+        "releaseDecisionStatus",
+        "releaseDecisionSha256",
+        "releaseDecisionPath",
+        "supportOwner",
+        "nextActions",
+        "artifacts",
+        "manifestPath"
+      ],
+      "properties": {
+        "authorityContract": { "const": "chummer.release-authority-snapshot/v2" },
+        "releaseVersion": { "$ref": "#/$defs/releaseVersion" },
+        "channel": { "$ref": "#/$defs/normalizedToken" },
+        "status": { "$ref": "#/$defs/normalizedToken" },
+        "rolloutState": { "$ref": "#/$defs/normalizedToken" },
+        "supportabilityState": { "$ref": "#/$defs/normalizedToken" },
+        "availablePlatforms": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/normalizedIdentifier" },
+          "uniqueItems": true
+        },
+        "primaryHeadByPlatform": {
+          "type": "object",
+          "propertyNames": { "$ref": "#/$defs/normalizedIdentifier" },
+          "additionalProperties": { "$ref": "#/$defs/normalizedIdentifier" }
+        },
+        "artifactCount": { "type": "integer", "minimum": 0 },
+        "downloadAccessPosture": { "$ref": "#/$defs/downloadAccessPosture" },
+        "knownIssueSummary": { "type": "string", "minLength": 1 },
+        "manifestSha256": { "$ref": "#/$defs/sha256" },
+        "registryRepository": { "const": "ArchonMegalon/chummer6-hub-registry" },
+        "registryCommit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "releaseDecisionStatus": { "$ref": "#/$defs/decisionStatus" },
+        "releaseDecisionSha256": { "$ref": "#/$defs/sha256" },
+        "releaseDecisionPath": { "const": "RELEASE_DECISION.json" },
+        "supportOwner": { "type": "string", "minLength": 1 },
+        "nextActions": {
+          "type": "array",
+          "items": { "type": "string", "minLength": 1 }
+        },
+        "artifacts": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/artifact" }
+        },
+        "manifestPath": { "const": "RELEASE_CHANNEL.json" }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "artifacts": { "maxItems": 0 }
+            }
+          },
+          "then": {
+            "properties": {
+              "artifactCount": { "const": 0 },
+              "availablePlatforms": { "maxItems": 0 },
+              "primaryHeadByPlatform": { "maxProperties": 0 },
+              "downloadAccessPosture": { "const": "unavailable" },
+              "releaseDecisionStatus": { "const": "review_required" }
+            }
+          },
+          "else": {
+            "properties": {
+              "artifactCount": { "minimum": 1 },
+              "availablePlatforms": { "minItems": 1 },
+              "primaryHeadByPlatform": { "minProperties": 1 },
+              "downloadAccessPosture": {
+                "enum": [
+                  "open_public",
+                  "account_recommended",
+                  "account_required",
+                  "mixed"
+                ]
+              }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "releaseDecisionStatus": { "const": "review_required" }
+            }
+          },
+          "then": {
+            "properties": {
+              "nextActions": { "minItems": 1 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "releaseDecisionStatus": {
+                "enum": ["preview_ready", "stable_ready"]
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "artifacts": { "minItems": 1 },
+              "availablePlatforms": { "minItems": 1 },
+              "primaryHeadByPlatform": { "minProperties": 1 }
+            }
+          }
+        }
+      ],
+      "x-chummer-derivation-invariants": {
+        "artifactCount": "Must equal artifacts.length.",
+        "artifacts": "Must equal the ordinal artifactId-sorted canonical projection re-derived from the exact manifest bytes. Each source artifact has kind=installer and compatibilityState=compatible; exactly one matching desktopRouteTruth row has promotionState=promoted, routeRole primary or fallback, updateEligibility=eligible, installPosture=installer_first, revokeState=not_revoked, and a publicInstallRoute; exactly one matching artifactPublicationBindings row has publicationScope=signed-in-and-public, publicationState=published, a publicShelfRef, and the same tuple/route/channel/version. Channel and artifact active-revocation facts must be clear.",
+        "availablePlatforms": "Must equal the sorted distinct platform values from eligible artifacts.",
+        "primaryHeadByPlatform": "Must be derived only from eligible desktopRouteTruth rows with routeRole=primary, exactly one per eligible platform; never inferred from artifact presence or order.",
+        "downloadAccessPosture": "Must be unavailable for an empty shelf, the single recognized installAccessClass when all eligible artifacts share one, or mixed when multiple recognized classes occur.",
+        "immutableArtifact": "downloadUrl must be absolute HTTPS without credentials and bind /downloads/g/{generationId}/files/{fileName} without query, fragment, or traversal; sha256 and positive sizeBytes are pinned from the same exact manifest row."
+      }
+    },
+    "previewDecision": {
+      "type": "object",
+      "required": [
+        "contractName",
+        "releaseVersion",
+        "channel",
+        "releaseDecisionStatus",
+        "status",
+        "manifestSha256",
+        "registryCommit",
+        "platforms",
+        "primaryHeadByPlatform",
+        "fallbackHeadsByPlatform",
+        "supportOwner",
+        "artifactAccessClass",
+        "authoritySnapshotSha256",
+        "candidateDecisionStatus",
+        "candidateDecisionSha256"
+      ],
+      "properties": {
+        "contractName": { "const": "chummer.preview-release-decision/v1" },
+        "releaseVersion": { "$ref": "#/$defs/releaseVersion" },
+        "channel": {
+          "type": "string",
+          "pattern": "^[a-z0-9][a-z0-9._+-]*$"
+        },
+        "releaseDecisionStatus": {
+          "enum": ["review_required", "preview_ready"]
+        },
+        "status": {
+          "enum": ["review_required", "preview_ready"]
+        },
+        "manifestSha256": { "$ref": "#/$defs/sha256" },
+        "registryCommit": {
+          "type": "string",
+          "pattern": "^[0-9a-f]{40}$"
+        },
+        "platforms": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "pattern": "^(?!unknown$|missing$|invalid$)[a-z0-9][a-z0-9._+-]*$"
+          },
+          "uniqueItems": true
+        },
+        "primaryHeadByPlatform": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^(?!unknown$|missing$|invalid$)[a-z0-9][a-z0-9._+-]*$"
+          },
+          "additionalProperties": {
+            "type": "string",
+            "pattern": "^(?!unknown$|missing$|invalid$)[a-z0-9][a-z0-9._+-]*$"
+          }
+        },
+        "fallbackHeadsByPlatform": {
+          "type": "object",
+          "propertyNames": {
+            "pattern": "^(?!unknown$|missing$|invalid$)[a-z0-9][a-z0-9._+-]*$"
+          },
+          "additionalProperties": {
+            "type": "array",
+            "items": {
+              "type": "string",
+              "pattern": "^(?!unknown$|missing$|invalid$)[a-z0-9][a-z0-9._+-]*$"
+            },
+            "uniqueItems": true
+          }
+        },
+        "supportOwner": { "type": "string", "minLength": 1 },
+        "artifactAccessClass": {
+          "enum": [
+            "review_required",
+            "open_public",
+            "account_recommended",
+            "account_required",
+            "mixed"
+          ]
+        },
+        "authoritySnapshotSha256": {
+          "type": "string",
+          "pattern": "^$|^[0-9a-f]{64}$"
+        },
+        "candidateDecisionStatus": {
+          "enum": ["", "review_required", "preview_ready"]
+        },
+        "candidateDecisionSha256": {
+          "type": "string",
+          "pattern": "^$|^[0-9a-f]{64}$"
+        }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": {
+              "releaseDecisionStatus": { "const": "review_required" }
+            }
+          },
+          "then": {
+            "properties": { "status": { "const": "review_required" } },
+            "anyOf": [
+              {
+                "properties": {
+                  "authoritySnapshotSha256": { "const": "" },
+                  "candidateDecisionStatus": { "const": "" },
+                  "candidateDecisionSha256": { "const": "" }
+                }
+              },
+              {
+                "properties": {
+                  "authoritySnapshotSha256": { "$ref": "#/$defs/sha256" },
+                  "candidateDecisionStatus": {
+                    "enum": ["review_required", "preview_ready"]
+                  },
+                  "candidateDecisionSha256": { "$ref": "#/$defs/sha256" }
+                }
+              }
+            ]
+          },
+          "else": {
+            "properties": {
+              "status": { "const": "preview_ready" },
+              "authoritySnapshotSha256": { "$ref": "#/$defs/sha256" },
+              "candidateDecisionStatus": {
+                "enum": ["review_required", "preview_ready"]
+              },
+              "candidateDecisionSha256": { "$ref": "#/$defs/sha256" }
+            }
+          }
+        }
+      ],
+      "not": {
+        "anyOf": [
+          { "required": ["contract_name"] },
+          { "required": ["contract_version"] },
+          { "required": ["release_authority"] }
+        ]
+      },
+      "x-chummer-candidate-seed-invariant": "review_required may seed from exact manifest bytes with all three candidate fields empty. Any nonempty candidate closure, and every preview_ready decision, must carry a complete digest/status/digest triple; Registry compares preview_ready values to the exact prior CURRENT candidate.",
+      "x-chummer-scope-binding-invariant": "channel, registryCommit, platforms, primaryHeadByPlatform, canonical manifest-derived fallbackHeadsByPlatform, supportOwner, and artifactAccessClass must exactly bind the derived SNAPSHOT.json projection.",
+      "additionalProperties": true
+    },
+    "stableDecision": {
+      "type": "object",
+      "required": [
+        "contract_name",
+        "contract_version",
+        "releaseVersion",
+        "releaseDecisionStatus",
+        "status",
+        "live_release",
+        "release_authority"
+      ],
+      "properties": {
+        "contract_name": { "const": "chummer.final_gold_graph" },
+        "contract_version": { "const": 2 },
+        "releaseVersion": { "$ref": "#/$defs/releaseVersion" },
+        "releaseDecisionStatus": { "const": "stable_ready" },
+        "status": { "const": "pass" },
+        "live_release": {
+          "type": "object",
+          "required": [
+            "version",
+            "channel",
+            "manifest_sha256",
+            "registry_commit",
+            "available_platforms",
+            "primary_head_by_platform",
+            "status",
+            "rollout_state",
+            "supportability_state",
+            "artifact_count",
+            "download_access_posture",
+            "known_issue_summary",
+            "release_decision_status"
+          ],
+          "properties": {
+            "version": { "$ref": "#/$defs/releaseVersion" },
+            "channel": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._+-]*$" },
+            "manifest_sha256": { "$ref": "#/$defs/sha256" },
+            "registry_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+            "available_platforms": {
+              "type": "array",
+              "minItems": 1,
+              "uniqueItems": true,
+              "items": {
+                "type": "string",
+                "pattern": "^(?!unknown$|missing$|invalid$)[a-z0-9][a-z0-9._+-]*$"
+              }
+            },
+            "primary_head_by_platform": {
+              "type": "object",
+              "minProperties": 1,
+              "propertyNames": {
+                "pattern": "^(?!unknown$|missing$|invalid$)[a-z0-9][a-z0-9._+-]*$"
+              },
+              "additionalProperties": {
+                "type": "string",
+                "pattern": "^(?!unknown$|missing$|invalid$)[a-z0-9][a-z0-9._+-]*$"
+              }
+            },
+            "status": { "type": "string", "minLength": 1 },
+            "rollout_state": { "type": "string", "minLength": 1 },
+            "supportability_state": { "type": "string", "minLength": 1 },
+            "artifact_count": { "type": "integer", "minimum": 1 },
+            "download_access_posture": {
+              "enum": ["open_public", "account_recommended", "account_required", "mixed"]
+            },
+            "known_issue_summary": { "type": "string", "minLength": 1 },
+            "release_decision_status": { "const": "stable_ready" }
+          },
+          "additionalProperties": true
+        },
+        "release_authority": {
+          "type": "object",
+          "required": [
+            "contract",
+            "manifest_sha256",
+            "registry_commit",
+            "release_decision_status"
+          ],
+          "properties": {
+            "contract": { "const": "chummer.release-authority-snapshot/v2" },
+            "manifest_sha256": { "$ref": "#/$defs/sha256" },
+            "registry_commit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+            "release_decision_status": { "const": "stable_ready" }
+          },
+          "additionalProperties": true
+        }
+      },
+      "not": {
+        "anyOf": [
+          { "required": ["contractName"] },
+          { "required": ["manifestSha256"] }
+        ]
+      },
+      "x-chummer-scope-binding-invariant": "live_release must exactly bind version, channel, manifest digest, registry commit, platform/primary scope, release status, rollout/supportability posture, artifact count/access posture, known issue, and stable_ready. release_authority must bind the v2 authority contract, manifest digest, registry commit, and stable_ready. Stable publication converges from a preview-contract review_required CURRENT candidate and cannot omit eligible fallback heads.",
+      "additionalProperties": true
+    }
+  }
+}

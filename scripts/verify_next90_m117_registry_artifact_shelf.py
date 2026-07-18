@@ -127,10 +127,10 @@ REQUIRED_CONTRACT_VERIFY_SNIPPETS = (
 )
 
 REQUIRED_RUNTIME_VERIFY_SNIPPETS = (
-    'Assert(string.Equals(releaseChannel.ArtifactIdentityRegistry?.Single().PreviewRef, "registry-preview:avalonia-linux-x64-archive:avalonia:linux:linux-x64", StringComparison.Ordinal)',
+    'Assert(string.Equals(releaseChannel.ArtifactIdentityRegistry?.Single().PreviewRef, "registry-preview:avalonia-linux-x64-installer:avalonia:linux:linux-x64", StringComparison.Ordinal)',
     'Assert(string.Equals(releaseChannel.ArtifactPublicationBindings?.Single().CaptionRef, "registry-caption:docker:smoke-2026.03.28-linux-x64:avalonia:linux:linux-x64", StringComparison.Ordinal)',
     'Assert(string.Equals(releaseChannel.ArtifactIdentityRegistry?.Single().RetentionState, "current", StringComparison.Ordinal)',
-    'Assert(string.Equals(releaseChannel.ArtifactPublicationBindings?.Single().LocaleRef, "registry-locale:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-archive", StringComparison.Ordinal)',
+    'Assert(string.Equals(releaseChannel.ArtifactPublicationBindings?.Single().LocaleRef, "registry-locale:docker:smoke-2026.03.28-linux-x64:avalonia-linux-x64-installer", StringComparison.Ordinal)',
     'Assert(string.Equals(releaseChannel.ArtifactPublicationBindings?.Single().RetentionState, "current", StringComparison.Ordinal)',
     'Assert(string.Equals(releaseChannel.ExchangeLineageRegistry?.Single(item => item.ArtifactKind == "exchange").SignedInShelfRef, "shelf:signed-in:docker:smoke-2026.03.28-linux-x64:exchange-bundle-001", StringComparison.Ordinal)',
     'Assert(string.Equals(releaseChannel.ExchangeLineageRegistry?.Single(item => item.ArtifactKind == "exchange").RetentionState, "retained", StringComparison.Ordinal)',
