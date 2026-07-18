@@ -539,6 +539,7 @@ def enrich_artifact_from_startup_smoke(
         return enriched
 
     enriched["installerMode"] = "bootstrap"
+    enriched["payloadAcquisitionMode"] = "download"
     enriched["payloadFileName"] = payload_file_name
     enriched["payloadDownloadUrl"] = payload_download_url
     enriched["payloadSha256"] = payload_sha256

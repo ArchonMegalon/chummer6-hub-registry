@@ -1923,10 +1923,15 @@ def test_filter_unproven_installers_enriches_windows_installer_with_bootstrap_pa
     assert len(filtered) == 1
     assert filtered[0]["artifactId"] == "avalonia-win-x64-installer"
     assert filtered[0]["installerMode"] == "bootstrap"
+    assert filtered[0]["payloadAcquisitionMode"] == "download"
     assert filtered[0]["payloadFileName"] == "chummer-avalonia-win-x64-payload.zip"
     assert filtered[0]["payloadDownloadUrl"] == "https://chummer.run/downloads/files/chummer-avalonia-win-x64-payload.zip"
     assert filtered[0]["payloadSha256"] == "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2"
     assert filtered[0]["payloadSizeBytes"] == 51124044
+
+    startup_smoke_receipts[0]["payloadAcquisitionMode"] = ""
+    legacy_filtered = MODULE.filter_unproven_installers(artifacts, startup_smoke_receipts)
+    assert legacy_filtered[0]["payloadAcquisitionMode"] == "download"
 
 
 def test_desktop_tuple_coverage_emits_explicit_complete_flag() -> None:
