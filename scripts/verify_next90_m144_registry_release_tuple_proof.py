@@ -423,6 +423,16 @@ def verify_startup_smoke_dir(
 
 def verify_verify_sh(path: Path) -> None:
     text = read_text(path)
+    for line in text.splitlines():
+        if (
+            "verify_public_release_channel.py" in line
+            and '"$published_release_channel_path"' in line
+            and "--skip-startup-smoke-filter" in line
+        ):
+            fail(
+                "verify harness must not allow --skip-startup-smoke-filter "
+                "on the published release-channel proof hook"
+            )
     published_bundle_hook = (
         'python3 "$repo_root/scripts/verify_public_release_channel.py" '
         '"$published_release_channel_path" >/dev/null 2>&1'
@@ -459,9 +469,6 @@ def verify_verify_sh(path: Path) -> None:
             first_build_or_test = min(first_build_or_test, index)
     if hook_offsets[self_test_hook] > first_build_or_test:
         fail("verify harness must run the published release-channel and M144 verifiers before build/test work")
-
-    if f"{published_bundle_hook} --skip-startup-smoke-filter" in text:
-        fail("verify harness must not allow --skip-startup-smoke-filter on the published release-channel proof hook")
 
 
 def verify_all() -> None:

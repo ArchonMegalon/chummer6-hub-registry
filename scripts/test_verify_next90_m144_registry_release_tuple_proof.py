@@ -47,10 +47,11 @@ class VerifyNext90M144RegistryReleaseTupleProofTests(unittest.TestCase):
     def test_verify_sh_rejects_published_bundle_skip_flag_drift(self) -> None:
         source = (REPO_ROOT / "scripts/ai/verify.sh").read_text(encoding="utf-8")
         mutated = source.replace(
-            'python3 ${repo_root}/scripts/verify_public_release_channel.py "$published_release_channel_path" >/dev/null',
-            'python3 ${repo_root}/scripts/verify_public_release_channel.py "$published_release_channel_path" >/dev/null --skip-startup-smoke-filter',
+            'python3 "$repo_root/scripts/verify_public_release_channel.py" "$published_release_channel_path" >/dev/null 2>&1',
+            'python3 "$repo_root/scripts/verify_public_release_channel.py" "$published_release_channel_path" --skip-startup-smoke-filter >/dev/null 2>&1',
             1,
         )
+        self.assertNotEqual(source, mutated)
 
         with tempfile.TemporaryDirectory() as temp_dir:
             path = Path(temp_dir) / "verify.sh"
@@ -73,7 +74,7 @@ class VerifyNext90M144RegistryReleaseTupleProofTests(unittest.TestCase):
         self.assertIn(self_test_hook, source)
 
         without_hooks = source.replace(package_hook, "", 1).replace(self_test_hook, "", 1)
-        build_marker = "dotnet build /docker/chummercomplete/chummer-hub-registry/Chummer.Hub.Registry.Contracts/Chummer.Hub.Registry.Contracts.csproj"
+        build_marker = "dotnet build ${repo_root}/Chummer.Hub.Registry.Contracts/Chummer.Hub.Registry.Contracts.csproj"
         self.assertIn(build_marker, without_hooks)
         mutated = without_hooks.replace(build_marker, f"{build_marker}\n{package_hook}{self_test_hook}", 1)
 
