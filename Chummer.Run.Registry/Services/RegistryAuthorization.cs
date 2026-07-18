@@ -14,6 +14,25 @@ public static class RegistryAuthorization
     public const string HeaderName = "X-Chummer-Registry-Key";
     public const string PrimaryApiKeyConfigKey = "CHUMMER_REGISTRY_CONTROL_API_KEY";
     public const string LegacyApiKeyConfigKey = "REGISTRY_CONTROL_API_KEY";
+
+    public static void ValidateStartupConfiguration(IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        if (string.IsNullOrWhiteSpace(GetConfiguredControlCredential(configuration)))
+        {
+            throw new InvalidOperationException(
+                $"Registry startup requires {PrimaryApiKeyConfigKey} (or the legacy {LegacyApiKeyConfigKey} compatibility key) to be configured.");
+        }
+    }
+
+    public static string? GetConfiguredControlCredential(IConfiguration configuration)
+    {
+        ArgumentNullException.ThrowIfNull(configuration);
+        string? primary = configuration[PrimaryApiKeyConfigKey]?.Trim();
+        return !string.IsNullOrWhiteSpace(primary)
+            ? primary
+            : configuration[LegacyApiKeyConfigKey]?.Trim();
+    }
 }
 
 public sealed class RegistryControlApiKeyAuthenticationHandler : AuthenticationHandler<AuthenticationSchemeOptions>
@@ -63,8 +82,7 @@ public sealed class RegistryControlApiKeyAuthenticationHandler : AuthenticationH
     }
 
     private string? GetConfiguredKey()
-        => _configuration[RegistryAuthorization.PrimaryApiKeyConfigKey]
-           ?? _configuration[RegistryAuthorization.LegacyApiKeyConfigKey];
+        => RegistryAuthorization.GetConfiguredControlCredential(_configuration);
 
     private string? GetSuppliedKey()
     {

@@ -18,7 +18,72 @@ Registry-owned generated artifacts:
 * `.codex-studio/published/RELEASE_CHANNEL.generated.json`
 * compatibility projection `releases.json` when a legacy `/downloads/releases.json` surface still needs it
 
-`RELEASE_CHANNEL.generated.json` is the canonical projection. `releases.json` is a compatibility export for existing Hub/download consumers.
+`RELEASE_CHANNEL.generated.json` is the canonical materialized projection used as input to an authority decision. It is not mutable runtime authority. `releases.json` is a compatibility export for existing Hub/download consumers.
+
+## Immutable runtime authority
+
+The registry runtime reads release authority only from the absolute directory configured by `CHUMMER_RELEASE_AUTHORITY_ROOT`. It does not fall back to a repository-local `RELEASE_CHANNEL.generated.json`, and the former direct-manifest input `CHUMMER_RELEASE_CHANNEL_MANIFEST` is rejected.
+
+Each accepted decision is a content-addressed immutable generation:
+
+```text
+<authority-root>/
+  CURRENT.json
+  snapshots/<releaseVersion>/<snapshotSha256>/
+    SNAPSHOT.json
+    RELEASE_CHANNEL.json
+```
+
+`CURRENT.json` is an atomic pointer with exactly four fields. Digests are lowercase, unprefixed 64-character SHA-256 values:
+
+```json
+{
+  "releaseVersion": "2026.03.23-preview.1",
+  "snapshotSha256": "<sha256-of-raw-SNAPSHOT.json-bytes>",
+  "decisionSha256": "<release-decision-sha256>",
+  "status": "preview"
+}
+```
+
+The snapshot path is derived from `releaseVersion` and `snapshotSha256`; the pointer cannot supply an alternate path. `decisionSha256` and `status` must equal `SNAPSHOT.json`'s `releaseDecisionSha256` and `releaseDecisionStatus`.
+
+`SNAPSHOT.json` uses the shared `chummer.release-authority-snapshot/v2` contract:
+
+```json
+{
+  "authorityContract": "chummer.release-authority-snapshot/v2",
+  "releaseVersion": "2026.03.23-preview.1",
+  "channel": "preview",
+  "status": "published",
+  "rolloutState": "coverage_incomplete",
+  "supportabilityState": "review_required",
+  "availablePlatforms": ["linux"],
+  "primaryHeadByPlatform": { "linux": "avalonia" },
+  "artifactCount": 1,
+  "downloadAccessPosture": "open_public",
+  "knownIssueSummary": "Required tuple proof remains incomplete.",
+  "manifestSha256": "<sha256-of-raw-RELEASE_CHANNEL.json-bytes>",
+  "registryCommit": "<40-lowercase-hex-registry-commit>",
+  "releaseDecisionStatus": "preview",
+  "releaseDecisionSha256": "<release-decision-sha256>",
+  "supportOwner": "registry-operations",
+  "nextActions": ["Complete required tuple proof before promotion."],
+  "artifacts": [
+    {
+      "artifactId": "avalonia-linux-x64-installer",
+      "head": "avalonia",
+      "platform": "linux",
+      "arch": "x64",
+      "kind": "installer",
+      "sha256": "<artifact-sha256>",
+      "installAccessClass": "open_public"
+    }
+  ],
+  "manifestPath": "RELEASE_CHANNEL.json"
+}
+```
+
+The runtime verifies pointer, snapshot, manifest, and artifact digests plus snapshot/manifest field convergence before projecting a current release. Publication writes both immutable files to a temporary sibling directory, flushes them, renames that complete generation into place, and only then replaces `CURRENT.json` through a same-directory temporary file. Existing generations are never overwritten; a conflicting generation fails closed. Registry startup also fails before serving when neither `CHUMMER_REGISTRY_CONTROL_API_KEY` nor its legacy compatibility key is configured.
 
 ## Shape
 

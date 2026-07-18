@@ -325,14 +325,58 @@ File.WriteAllText(
             }
         },
         new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+byte[] releaseManifestBytes = File.ReadAllBytes(releaseManifestPath);
+var releaseAuthoritySnapshot = new ReleaseAuthoritySnapshot(
+    AuthorityContract: ReleaseAuthoritySnapshotStore.AuthorityContract,
+    ReleaseVersion: "smoke-2026.03.28-linux-x64",
+    Channel: "docker",
+    Status: "published",
+    RolloutState: RegistryOwner.ReleaseRolloutStates.CoverageIncomplete,
+    SupportabilityState: RegistryOwner.ReleaseSupportabilityStates.ReviewRequired,
+    AvailablePlatforms: ["linux"],
+    PrimaryHeadByPlatform: new Dictionary<string, string>(StringComparer.Ordinal)
+    {
+        ["linux"] = "avalonia"
+    },
+    ArtifactCount: 1,
+    DownloadAccessPosture: "open_public",
+    KnownIssueSummary: "Required desktop tuple coverage is incomplete for this channel; treat this shelf as a review-required projection, not promotion truth.",
+    ManifestSha256: ReleaseAuthoritySnapshotStore.ComputeSha256(releaseManifestBytes),
+    RegistryCommit: new string('a', 40),
+    ReleaseDecisionStatus: "preview",
+    ReleaseDecisionSha256: new string('b', 64),
+    SupportOwner: "registry-operations",
+    NextActions: ["Complete required desktop tuple proof before promotion."],
+    Artifacts:
+    [
+        new ReleaseAuthorityArtifactSnapshot(
+            ArtifactId: "avalonia-linux-x64-archive",
+            Head: "avalonia",
+            Platform: "linux",
+            Arch: "x64",
+            Kind: "archive",
+            Sha256: "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
+            InstallAccessClass: "open_public")
+    ],
+    ManifestPath: ReleaseAuthoritySnapshotStore.ManifestFileName);
+ReleaseAuthorityCurrentPointer releaseAuthorityCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+    releaseManifestRoot,
+    releaseAuthoritySnapshot,
+    releaseManifestBytes);
 var config = new ConfigurationBuilder()
     .AddInMemoryCollection(
         new Dictionary<string, string?>
         {
-            ["CHUMMER_RELEASE_CHANNEL_MANIFEST"] = releaseManifestPath
+            [ReleaseAuthoritySnapshotStore.AuthorityRootConfigKey] = releaseManifestRoot
         })
     .Build();
 FileReleaseChannelManifestStore releaseChannelStore = new(config);
+VerifyReleaseAuthoritySnapshotFiles(
+    releaseManifestRoot,
+    releaseManifestPath,
+    releaseManifestBytes,
+    releaseAuthoritySnapshot,
+    releaseAuthorityCurrent);
 PublicationWorkflowService workflow = new(store);
 HubPublicationDraftService draftWorkflow = new();
 HubRegistryController registryController = CreateController(new HubRegistryController(store, releaseChannelStore, workflow));
@@ -367,6 +411,7 @@ Assert(restoredDurableArtifact is not null, "File-backed registry artifact store
 Assert(string.Equals(restoredDurableArtifact!.RuntimeFingerprint, "sha256:durable-registry-fixture", StringComparison.Ordinal), "Reloaded registry artifact should retain runtime fingerprint.");
 
 VerifyRegistryAuthorizationSurface();
+VerifyRegistryStartupCredentialValidation();
 VerifyRegistryAuthorizationHttpPipeline().GetAwaiter().GetResult();
 
 RegistryReleaseChannelHeadProjection releaseChannel = RequireOk(registryController.GetCurrentReleaseChannel());
@@ -1045,11 +1090,306 @@ static bool HasHeader(ControllerBase controller, string key, string expectedValu
     controller.Response.Headers.TryGetValue(key, out var values)
     && values.Any(value => string.Equals(value, expectedValue, StringComparison.Ordinal));
 
+static void VerifyReleaseAuthoritySnapshotFiles(
+    string authorityRoot,
+    string mutableManifestPath,
+    byte[] manifestBytes,
+    ReleaseAuthoritySnapshot snapshot,
+    ReleaseAuthorityCurrentPointer current)
+{
+    string currentPath = Path.Combine(authorityRoot, ReleaseAuthoritySnapshotStore.CurrentFileName);
+    using (JsonDocument currentDocument = JsonDocument.Parse(File.ReadAllBytes(currentPath)))
+    {
+        string[] actualProperties = currentDocument.RootElement
+            .EnumerateObject()
+            .Select(static property => property.Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        string[] expectedProperties =
+        [
+            "decisionSha256",
+            "releaseVersion",
+            "snapshotSha256",
+            "status"
+        ];
+        Assert(
+            actualProperties.SequenceEqual(expectedProperties, StringComparer.Ordinal),
+            "CURRENT.json must remain the minimal four-field release pointer.");
+    }
+
+    string snapshotPath = ReleaseAuthoritySnapshotStore.GetSnapshotPath(authorityRoot, current);
+    string expectedSnapshotPath = Path.Combine(
+        authorityRoot,
+        "snapshots",
+        snapshot.ReleaseVersion,
+        current.SnapshotSha256,
+        ReleaseAuthoritySnapshotStore.SnapshotFileName);
+    Assert(
+        string.Equals(snapshotPath, expectedSnapshotPath, StringComparison.Ordinal),
+        "CURRENT.json must derive the exact content-addressed snapshot path without carrying a mutable path field.");
+    Assert(File.Exists(snapshotPath), "Publishing a release authority snapshot should persist SNAPSHOT.json.");
+    Assert(
+        File.Exists(Path.Combine(Path.GetDirectoryName(snapshotPath)!, ReleaseAuthoritySnapshotStore.ManifestFileName)),
+        "Publishing a release authority snapshot should persist the exact immutable release manifest sibling.");
+    Assert(
+        string.Equals(
+            ReleaseAuthoritySnapshotStore.ComputeSha256(File.ReadAllBytes(snapshotPath)),
+            current.SnapshotSha256,
+            StringComparison.Ordinal),
+        "CURRENT.json snapshotSha256 must cover the raw SNAPSHOT.json bytes.");
+    Assert(
+        string.Equals(current.DecisionSha256, snapshot.ReleaseDecisionSha256, StringComparison.Ordinal)
+        && string.Equals(current.Status, snapshot.ReleaseDecisionStatus, StringComparison.Ordinal),
+        "CURRENT.json decision digest and status must close over SNAPSHOT.json release-decision authority.");
+
+    LoadedReleaseAuthoritySnapshot? loaded = ReleaseAuthoritySnapshotStore.LoadCurrent(authorityRoot);
+    Assert(loaded is not null, "The immutable release authority pointer should load its current snapshot.");
+    Assert(
+        string.Equals(loaded!.Snapshot.AuthorityContract, "chummer.release-authority-snapshot/v2", StringComparison.Ordinal),
+        "SNAPSHOT.json must pin the shared v2 release-authority contract.");
+    Assert(
+        loaded.Snapshot.NextActions.Count > 0 && !string.IsNullOrWhiteSpace(loaded.Snapshot.SupportOwner),
+        "Preview decision closure must retain a support owner and nonempty next actions.");
+
+    var missingRootConfiguration = new ConfigurationBuilder().Build();
+    Assert(
+        new FileReleaseChannelManifestStore(missingRootConfiguration).LoadCurrent() is null,
+        "The release-channel store must not fall back to a mutable repository sibling when no authority root is configured.");
+
+    var legacyManifestConfiguration = new ConfigurationBuilder()
+        .AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [ReleaseAuthoritySnapshotStore.LegacyManifestPathConfigKey] = mutableManifestPath
+        })
+        .Build();
+    AssertThrows<InvalidOperationException>(
+        () => _ = new FileReleaseChannelManifestStore(legacyManifestConfiguration).LoadCurrent(),
+        "A direct mutable release manifest must be rejected instead of becoming authority fallback.");
+    AssertThrows<InvalidOperationException>(
+        () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent("relative/authority"),
+        "The authority root must be an explicit absolute path.");
+
+    string strictPointerRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-strict", Guid.NewGuid().ToString("N"));
+    string tamperRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-tamper", Guid.NewGuid().ToString("N"));
+    string decisionMismatchRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-decision", Guid.NewGuid().ToString("N"));
+    string convergenceRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-convergence", Guid.NewGuid().ToString("N"));
+    string atomicRoot = Path.Combine(Path.GetTempPath(), "registry-release-authority-atomic", Guid.NewGuid().ToString("N"));
+    try
+    {
+        Directory.CreateDirectory(strictPointerRoot);
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                strictPointerRoot,
+                snapshot with { ManifestPath = Path.Combine(strictPointerRoot, "mutable-manifest.json") },
+                manifestBytes),
+            "SNAPSHOT.json must reject an absolute or alternate manifest path.");
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                strictPointerRoot,
+                snapshot with { ManifestSha256 = new string('f', 64) },
+                manifestBytes),
+            "Snapshot publication must reject a manifest digest that does not bind the raw manifest bytes.");
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                strictPointerRoot,
+                snapshot with { RegistryCommit = new string('a', 64) },
+                manifestBytes),
+            "SNAPSHOT.json registryCommit must remain the shared exact 40-lowercase-hex contract.");
+
+        string digest = new('c', 64);
+        File.WriteAllText(
+            Path.Combine(strictPointerRoot, ReleaseAuthoritySnapshotStore.CurrentFileName),
+            $$"""
+            {
+              "releaseVersion": "safe-version",
+              "releaseVersion": "shadow-version",
+              "snapshotSha256": "{{digest}}",
+              "decisionSha256": "{{digest}}",
+              "status": "preview"
+            }
+            """);
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent(strictPointerRoot),
+            "CURRENT.json must reject duplicate properties before path resolution.");
+
+        File.WriteAllText(
+            Path.Combine(strictPointerRoot, ReleaseAuthoritySnapshotStore.CurrentFileName),
+            JsonSerializer.Serialize(
+                new
+                {
+                    releaseVersion = "safe-version",
+                    snapshotSha256 = digest,
+                    decisionSha256 = digest,
+                    status = "preview",
+                    mutableManifestPath = mutableManifestPath
+                },
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent(strictPointerRoot),
+            "CURRENT.json must reject nonminimal path or authority fields.");
+
+        File.WriteAllText(
+            Path.Combine(strictPointerRoot, ReleaseAuthoritySnapshotStore.CurrentFileName),
+            JsonSerializer.Serialize(
+                new
+                {
+                    releaseVersion = "../escape",
+                    snapshotSha256 = digest,
+                    decisionSha256 = digest,
+                    status = "preview"
+                },
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent(strictPointerRoot),
+            "CURRENT.json releaseVersion must not escape the content-addressed authority root.");
+
+        ReleaseAuthorityCurrentPointer tamperCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            tamperRoot,
+            snapshot,
+            manifestBytes);
+        File.AppendAllText(ReleaseAuthoritySnapshotStore.GetSnapshotPath(tamperRoot, tamperCurrent), " ");
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent(tamperRoot),
+            "Loading CURRENT.json must reject a snapshot whose raw bytes no longer match snapshotSha256.");
+
+        ReleaseAuthorityCurrentPointer decisionCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            decisionMismatchRoot,
+            snapshot,
+            manifestBytes);
+        File.WriteAllText(
+            Path.Combine(decisionMismatchRoot, ReleaseAuthoritySnapshotStore.CurrentFileName),
+            JsonSerializer.Serialize(
+                new
+                {
+                    releaseVersion = decisionCurrent.ReleaseVersion,
+                    snapshotSha256 = decisionCurrent.SnapshotSha256,
+                    decisionSha256 = new string('d', 64),
+                    status = "blocked"
+                },
+                new JsonSerializerOptions(JsonSerializerDefaults.Web)));
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent(decisionMismatchRoot),
+            "CURRENT.json decision digest and status must match SNAPSHOT.json exactly.");
+
+        ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            convergenceRoot,
+            snapshot with { Channel = "conflicting-channel" },
+            manifestBytes);
+        var convergenceConfiguration = new ConfigurationBuilder()
+            .AddInMemoryCollection(new Dictionary<string, string?>
+            {
+                [ReleaseAuthoritySnapshotStore.AuthorityRootConfigKey] = convergenceRoot
+            })
+            .Build();
+        AssertThrows<InvalidDataException>(
+            () => _ = new FileReleaseChannelManifestStore(convergenceConfiguration).LoadCurrent(),
+            "The runtime projection must reject snapshot fields that diverge from the immutable release manifest.");
+
+        ReleaseAuthorityCurrentPointer firstCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            atomicRoot,
+            snapshot,
+            manifestBytes);
+        string firstSnapshotPath = ReleaseAuthoritySnapshotStore.GetSnapshotPath(atomicRoot, firstCurrent);
+        byte[] firstSnapshotBytes = File.ReadAllBytes(firstSnapshotPath);
+        ReleaseAuthoritySnapshot revisedSnapshot = snapshot with
+        {
+            ReleaseDecisionStatus = "blocked",
+            ReleaseDecisionSha256 = new string('e', 64),
+            NextActions = ["Resolve the blocking release decision before promotion."]
+        };
+        ReleaseAuthorityCurrentPointer secondCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            atomicRoot,
+            revisedSnapshot,
+            manifestBytes);
+        Assert(
+            !string.Equals(firstCurrent.SnapshotSha256, secondCurrent.SnapshotSha256, StringComparison.Ordinal),
+            "A changed release decision must produce a new immutable snapshot generation.");
+        Assert(
+            File.ReadAllBytes(firstSnapshotPath).AsSpan().SequenceEqual(firstSnapshotBytes),
+            "Advancing CURRENT.json must preserve the prior content-addressed snapshot bytes.");
+        Assert(
+            string.Equals(
+                ReleaseAuthoritySnapshotStore.LoadCurrent(atomicRoot)?.Current.SnapshotSha256,
+                secondCurrent.SnapshotSha256,
+                StringComparison.Ordinal),
+            "Atomic CURRENT.json replacement must expose only the complete new snapshot generation.");
+        Assert(
+            !Directory.EnumerateFileSystemEntries(atomicRoot, "*", SearchOption.AllDirectories)
+                .Any(path => Path.GetFileName(path).EndsWith(".tmp", StringComparison.Ordinal)),
+            "Successful snapshot publication must not leave temporary pointer or generation files behind.");
+
+        File.WriteAllText(
+            Path.Combine(Path.GetDirectoryName(firstSnapshotPath)!, "unexpected.txt"),
+            "conflict");
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(atomicRoot, snapshot, manifestBytes),
+            "Republishing must reject a conflicting existing immutable generation instead of overwriting it.");
+    }
+    finally
+    {
+        foreach (string path in new[] { strictPointerRoot, tamperRoot, decisionMismatchRoot, convergenceRoot, atomicRoot })
+        {
+            if (Directory.Exists(path))
+            {
+                Directory.Delete(path, recursive: true);
+            }
+        }
+    }
+}
+
+static void VerifyRegistryStartupCredentialValidation()
+{
+    AssertThrows<InvalidOperationException>(
+        () => RegistryAuthorization.ValidateStartupConfiguration(new ConfigurationBuilder().Build()),
+        "Registry startup must fail when no control credential is configured.");
+
+    var whitespaceConfiguration = new ConfigurationBuilder()
+        .AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [RegistryAuthorization.PrimaryApiKeyConfigKey] = "   ",
+            [RegistryAuthorization.LegacyApiKeyConfigKey] = "\t"
+        })
+        .Build();
+    AssertThrows<InvalidOperationException>(
+        () => RegistryAuthorization.ValidateStartupConfiguration(whitespaceConfiguration),
+        "Registry startup must reject blank control credentials.");
+
+    var primaryConfiguration = new ConfigurationBuilder()
+        .AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [RegistryAuthorization.PrimaryApiKeyConfigKey] = "  primary-control-key  ",
+            [RegistryAuthorization.LegacyApiKeyConfigKey] = "legacy-control-key"
+        })
+        .Build();
+    RegistryAuthorization.ValidateStartupConfiguration(primaryConfiguration);
+    Assert(
+        string.Equals(
+            RegistryAuthorization.GetConfiguredControlCredential(primaryConfiguration),
+            "primary-control-key",
+            StringComparison.Ordinal),
+        "Registry startup must prefer and trim the Chummer-scoped control credential.");
+
+    var legacyConfiguration = new ConfigurationBuilder()
+        .AddInMemoryCollection(new Dictionary<string, string?>
+        {
+            [RegistryAuthorization.LegacyApiKeyConfigKey] = "legacy-control-key"
+        })
+        .Build();
+    RegistryAuthorization.ValidateStartupConfiguration(legacyConfiguration);
+    Assert(
+        string.Equals(
+            RegistryAuthorization.GetConfiguredControlCredential(legacyConfiguration),
+            "legacy-control-key",
+            StringComparison.Ordinal),
+        "Registry startup may retain the legacy control credential only as compatibility input.");
+}
+
 static void VerifyRegistryAuthorizationSurface()
 {
     string programSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "Chummer.Run.Registry", "Program.cs"));
     string authorizationSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "Chummer.Run.Registry", "Services", "RegistryAuthorization.cs"));
     Assert(programSource.Contains(".AddAuthentication(RegistryAuthorization.Scheme)", StringComparison.Ordinal), "Registry startup must configure the control-plane authentication scheme.");
+    Assert(programSource.Contains("RegistryAuthorization.ValidateStartupConfiguration(builder.Configuration);", StringComparison.Ordinal), "Registry startup must validate that a control credential exists before building the app.");
     Assert(programSource.Contains("options.FallbackPolicy = controlPolicy;", StringComparison.Ordinal), "Registry startup must default-deny endpoints without an explicit AllowAnonymous marker.");
     Assert(programSource.Contains("app.UseAuthentication();", StringComparison.Ordinal), "Registry startup must authenticate requests before authorization.");
     Assert(programSource.Contains("AddSingleton<IHubArtifactStore, FileBackedHubArtifactStore>()", StringComparison.Ordinal), "Registry startup must use the durable artifact store, not the raw in-memory store.");
@@ -1110,6 +1450,21 @@ static void VerifyRegistryAuthorizationSurface()
     {
         Assert(!method.GetCustomAttributes<AllowAnonymousAttribute>(inherit: true).Any(), $"Draft control-plane action {method.Name} must not allow anonymous access.");
     }
+}
+
+static void AssertThrows<TException>(Action action, string message)
+    where TException : Exception
+{
+    try
+    {
+        action();
+    }
+    catch (TException)
+    {
+        return;
+    }
+
+    throw new InvalidOperationException(message);
 }
 
 static async Task VerifyRegistryAuthorizationHttpPipeline()

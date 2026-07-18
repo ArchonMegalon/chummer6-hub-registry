@@ -10,7 +10,6 @@ public interface IReleaseChannelManifestStore
 
 public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestStore
 {
-    private const string ManifestPathKey = "CHUMMER_RELEASE_CHANNEL_MANIFEST";
     private readonly IConfiguration _configuration;
 
     public FileReleaseChannelManifestStore(IConfiguration configuration)
@@ -20,17 +19,14 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
 
     public ReleaseChannelHeadProjection? LoadCurrent()
     {
-        string? configured = _configuration[ManifestPathKey]?.Trim();
-        string manifestPath = !string.IsNullOrWhiteSpace(configured)
-            ? configured
-            : Path.Combine(Directory.GetCurrentDirectory(), ".codex-studio", "published", "RELEASE_CHANNEL.generated.json");
-        if (!File.Exists(manifestPath))
+        LoadedReleaseAuthoritySnapshot? authority = ReleaseAuthoritySnapshotStore.LoadCurrent(_configuration);
+        if (authority is null)
         {
             return null;
         }
 
         RegistryReleaseChannelManifest? parsed = JsonSerializer.Deserialize<RegistryReleaseChannelManifest>(
-            File.ReadAllText(manifestPath),
+            authority.ManifestBytes,
             new JsonSerializerOptions(JsonSerializerDefaults.Web)
             {
                 PropertyNameCaseInsensitive = true
@@ -39,6 +35,8 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
         {
             return null;
         }
+
+        ValidateAuthorityConvergence(authority.Snapshot, parsed);
 
         return new ReleaseChannelHeadProjection(
             Product: parsed.Product,
@@ -366,6 +364,110 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
                                 PublicInstallRoute: item.PublicInstallRoute))
                             .ToArray(),
                         Summary: parsed.PublicTrustMetrics.RevocationFacts?.Summary ?? string.Empty)));
+    }
+
+    private static void ValidateAuthorityConvergence(
+        ReleaseAuthoritySnapshot snapshot,
+        RegistryReleaseChannelManifest manifest)
+    {
+        EnsureAuthorityValue(snapshot.ReleaseVersion, manifest.Version, "releaseVersion", "version");
+        EnsureAuthorityValue(snapshot.Channel, manifest.ChannelId, "channel", "channelId");
+        EnsureAuthorityValue(snapshot.Status, manifest.Status, "status", "status");
+        EnsureAuthorityValue(snapshot.RolloutState, manifest.RolloutState, "rolloutState", "rolloutState");
+        EnsureAuthorityValue(
+            snapshot.SupportabilityState,
+            manifest.SupportabilityState,
+            "supportabilityState",
+            "supportabilityState");
+        EnsureAuthorityValue(
+            snapshot.KnownIssueSummary,
+            manifest.KnownIssueSummary,
+            "knownIssueSummary",
+            "knownIssueSummary");
+
+        IReadOnlyList<RegistryReleaseArtifact> manifestArtifacts = manifest.Artifacts ?? [];
+        if (snapshot.ArtifactCount != manifestArtifacts.Count)
+        {
+            throw new InvalidDataException(
+                "SNAPSHOT.json artifactCount must equal RELEASE_CHANNEL.json artifacts.length.");
+        }
+
+        var manifestByArtifactId = new Dictionary<string, RegistryReleaseArtifact>(StringComparer.Ordinal);
+        foreach (RegistryReleaseArtifact artifact in manifestArtifacts)
+        {
+            if (string.IsNullOrWhiteSpace(artifact.ArtifactId)
+                || !manifestByArtifactId.TryAdd(artifact.ArtifactId, artifact))
+            {
+                throw new InvalidDataException(
+                    "RELEASE_CHANNEL.json authority artifacts must have unique, nonempty artifactId values.");
+            }
+        }
+
+        foreach (ReleaseAuthorityArtifactSnapshot artifact in snapshot.Artifacts)
+        {
+            if (!manifestByArtifactId.TryGetValue(artifact.ArtifactId, out RegistryReleaseArtifact? manifestArtifact))
+            {
+                throw new InvalidDataException(
+                    $"SNAPSHOT.json artifact '{artifact.ArtifactId}' is absent from RELEASE_CHANNEL.json.");
+            }
+
+            EnsureAuthorityValue(artifact.Head, manifestArtifact.Head, $"artifact {artifact.ArtifactId} head", "head");
+            EnsureAuthorityValue(artifact.Platform, manifestArtifact.Platform, $"artifact {artifact.ArtifactId} platform", "platform");
+            EnsureAuthorityValue(artifact.Arch, manifestArtifact.Arch, $"artifact {artifact.ArtifactId} arch", "arch");
+            EnsureAuthorityValue(artifact.Kind, manifestArtifact.Kind, $"artifact {artifact.ArtifactId} kind", "kind");
+            EnsureAuthorityValue(artifact.Sha256, manifestArtifact.Sha256, $"artifact {artifact.ArtifactId} sha256", "sha256");
+            EnsureAuthorityValue(
+                artifact.InstallAccessClass,
+                manifestArtifact.InstallAccessClass,
+                $"artifact {artifact.ArtifactId} installAccessClass",
+                "installAccessClass");
+        }
+
+        string[] manifestPlatforms = manifestArtifacts
+            .Select(static artifact => artifact.Platform ?? string.Empty)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        if (!snapshot.AvailablePlatforms.SequenceEqual(manifestPlatforms, StringComparer.Ordinal))
+        {
+            throw new InvalidDataException(
+                "SNAPSHOT.json availablePlatforms must match RELEASE_CHANNEL.json artifact platforms.");
+        }
+
+        string[] accessClasses = manifestArtifacts
+            .Select(static artifact => artifact.InstallAccessClass)
+            .Where(static value => !string.IsNullOrWhiteSpace(value))
+            .Select(static value => value!)
+            .Distinct(StringComparer.Ordinal)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        string expectedDownloadAccessPosture = accessClasses.Length switch
+        {
+            0 => "unavailable",
+            1 => accessClasses[0],
+            _ => "mixed"
+        };
+        if (!string.Equals(
+                snapshot.DownloadAccessPosture,
+                expectedDownloadAccessPosture,
+                StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                $"SNAPSHOT.json downloadAccessPosture '{snapshot.DownloadAccessPosture}' does not match RELEASE_CHANNEL.json artifact access posture '{expectedDownloadAccessPosture}'.");
+        }
+    }
+
+    private static void EnsureAuthorityValue(
+        string snapshotValue,
+        string? manifestValue,
+        string snapshotField,
+        string manifestField)
+    {
+        if (!string.Equals(snapshotValue, manifestValue, StringComparison.Ordinal))
+        {
+            throw new InvalidDataException(
+                $"SNAPSHOT.json {snapshotField} must match RELEASE_CHANNEL.json {manifestField}.");
+        }
     }
 
     private sealed record RegistryReleaseChannelManifest(
