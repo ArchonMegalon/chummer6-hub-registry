@@ -478,9 +478,23 @@ def positive_int_or_none(value: Any) -> int | None:
     return parsed if parsed > 0 else None
 
 
+def canonical_bootstrap_payload_file_name(value: Any) -> str:
+    if not isinstance(value, str) or value in {"", ".", ".."}:
+        return ""
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]*\.zip", value) is None:
+        return ""
+    return value
+
+
+def canonical_bootstrap_payload_sha256(value: Any) -> str:
+    if not isinstance(value, str) or re.fullmatch(r"[0-9a-f]{64}", value) is None:
+        return ""
+    return value
+
+
 def derive_public_payload_download_url(artifact_download_url: Any, payload_file_name: str) -> str:
-    normalized_payload_file_name = Path(str(payload_file_name or "").strip()).name
-    if not normalized_payload_file_name:
+    canonical_payload_file_name = canonical_bootstrap_payload_file_name(payload_file_name)
+    if not canonical_payload_file_name:
         return ""
 
     public_origin = DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS[0].rstrip("/")
@@ -496,9 +510,9 @@ def derive_public_payload_download_url(artifact_download_url: Any, payload_file_
         if parsed.scheme.lower() == "https" and parsed.netloc:
             installer_dir = parsed.path.rsplit("/", 1)[0] if "/" in parsed.path else ""
             payload_path = (
-                f"{installer_dir}/{normalized_payload_file_name}"
+                f"{installer_dir}/{canonical_payload_file_name}"
                 if installer_dir
-                else f"/{normalized_payload_file_name}"
+                else f"/{canonical_payload_file_name}"
             )
             return urllib.parse.urlunparse(
                 ("https", parsed.netloc.lower(), payload_path, "", "", "")
@@ -506,7 +520,7 @@ def derive_public_payload_download_url(artifact_download_url: Any, payload_file_
 
     return urllib.parse.urljoin(
         f"{public_origin}/",
-        f"downloads/files/{normalized_payload_file_name}",
+        f"downloads/files/{canonical_payload_file_name}",
     )
 
 
@@ -516,34 +530,40 @@ def enrich_artifact_from_startup_smoke(
 ) -> dict[str, Any]:
     enriched = dict(artifact)
 
-    bootstrap_receipt = next(
-        (
-            receipt
-            for receipt in matching_receipts
-            if normalize_token(receipt.get("installerMode")) == "bootstrap"
-            and normalize_token(receipt.get("payloadAcquisitionMode")) in {"", "download"}
-        ),
-        None,
-    )
-    if bootstrap_receipt is None:
-        return enriched
+    for bootstrap_receipt in matching_receipts:
+        if normalize_token(bootstrap_receipt.get("installerMode")) != "bootstrap":
+            continue
+        if normalize_token(bootstrap_receipt.get("payloadAcquisitionMode")) not in {"", "download"}:
+            continue
 
-    payload_file_name = Path(str(bootstrap_receipt.get("payloadFileName") or "").strip()).name
-    payload_sha256 = normalize_token(bootstrap_receipt.get("payloadSha256"))
-    payload_size_bytes = positive_int_or_none(bootstrap_receipt.get("payloadSizeBytes"))
-    payload_download_url = derive_public_payload_download_url(
-        enriched.get("downloadUrl"),
-        payload_file_name,
-    )
-    if not payload_file_name or not payload_sha256 or payload_size_bytes is None or not payload_download_url:
-        return enriched
+        payload_file_name = canonical_bootstrap_payload_file_name(
+            bootstrap_receipt.get("payloadFileName")
+        )
+        payload_sha256 = canonical_bootstrap_payload_sha256(
+            bootstrap_receipt.get("payloadSha256")
+        )
+        payload_size_bytes = positive_int_or_none(bootstrap_receipt.get("payloadSizeBytes"))
+        payload_download_url = derive_public_payload_download_url(
+            enriched.get("downloadUrl"),
+            payload_file_name,
+        )
+        parsed_payload_download_url = urllib.parse.urlparse(payload_download_url)
+        if (
+            not payload_file_name
+            or not payload_sha256
+            or payload_size_bytes is None
+            or parsed_payload_download_url.scheme != "https"
+            or not parsed_payload_download_url.netloc
+        ):
+            continue
 
-    enriched["installerMode"] = "bootstrap"
-    enriched["payloadAcquisitionMode"] = "download"
-    enriched["payloadFileName"] = payload_file_name
-    enriched["payloadDownloadUrl"] = payload_download_url
-    enriched["payloadSha256"] = payload_sha256
-    enriched["payloadSizeBytes"] = payload_size_bytes
+        enriched["installerMode"] = "bootstrap"
+        enriched["payloadAcquisitionMode"] = "download"
+        enriched["payloadFileName"] = payload_file_name
+        enriched["payloadDownloadUrl"] = payload_download_url
+        enriched["payloadSha256"] = payload_sha256
+        enriched["payloadSizeBytes"] = payload_size_bytes
+        break
     return enriched
 
 
@@ -1263,28 +1283,29 @@ def load_startup_smoke_receipts(
             loaded.get("bootstrapPayloadAcquisitionMode")
             or loaded.get("bootstrap_payload_acquisition_mode")
         )
-        if payload_acquisition_mode:
-            receipt_entry["payloadAcquisitionMode"] = payload_acquisition_mode
-        payload_file_name = Path(
-            str(
-                loaded.get("bootstrapPayloadFileName")
-                or loaded.get("bootstrap_payload_file_name")
-                or ""
-            ).strip()
-        ).name
-        if payload_file_name:
-            receipt_entry["payloadFileName"] = payload_file_name
-        payload_sha256 = normalize_token(
+        payload_file_name = canonical_bootstrap_payload_file_name(
+            loaded.get("bootstrapPayloadFileName")
+            or loaded.get("bootstrap_payload_file_name")
+        )
+        payload_sha256 = canonical_bootstrap_payload_sha256(
             loaded.get("bootstrapPayloadSha256")
             or loaded.get("bootstrap_payload_sha256")
         )
-        if payload_sha256:
-            receipt_entry["payloadSha256"] = payload_sha256
         payload_size_bytes = positive_int_or_none(
             loaded.get("bootstrapPayloadSizeBytes")
             or loaded.get("bootstrap_payload_size_bytes")
         )
-        if payload_size_bytes is not None:
+        if (
+            installer_mode == "bootstrap"
+            and payload_acquisition_mode in {"", "download"}
+            and payload_file_name
+            and payload_sha256
+            and payload_size_bytes is not None
+        ):
+            if payload_acquisition_mode:
+                receipt_entry["payloadAcquisitionMode"] = payload_acquisition_mode
+            receipt_entry["payloadFileName"] = payload_file_name
+            receipt_entry["payloadSha256"] = payload_sha256
             receipt_entry["payloadSizeBytes"] = payload_size_bytes
         return receipt_entry
 
@@ -4836,6 +4857,7 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
                 "compatibilityState": artifact.get("compatibilityState"),
                 "compatibilityReason": artifact.get("compatibilityReason"),
                 "installerMode": artifact.get("installerMode"),
+                "payloadAcquisitionMode": artifact.get("payloadAcquisitionMode"),
                 "payloadFileName": artifact.get("payloadFileName"),
                 "payloadDownloadUrl": artifact.get("payloadDownloadUrl"),
                 "payloadSha256": artifact.get("payloadSha256"),
