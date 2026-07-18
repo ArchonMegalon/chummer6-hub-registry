@@ -1131,6 +1131,175 @@ def test_load_startup_smoke_receipts_preserves_windows_bootstrap_metadata() -> N
     ]
 
 
+def test_load_startup_smoke_receipts_rejects_noncanonical_bootstrap_metadata_before_filter() -> None:
+    now = MODULE.dt.datetime(2026, 7, 4, 18, 0, tzinfo=timezone.utc)
+    artifact = {
+        "artifactId": "avalonia-win-x64-installer",
+        "head": "avalonia",
+        "platform": "windows",
+        "arch": "x64",
+        "kind": "installer",
+        "fileName": "chummer-avalonia-win-x64-installer.exe",
+        "downloadUrl": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
+        "sha256": "80655fd79a096cd7714910d7b38f7741eea01f82ada96dc6a2a097951997d91a",
+    }
+    receipt = {
+        "status": "pass",
+        "readyCheckpoint": "pre_ui_event_loop",
+        "recordedAtUtc": "2026-07-04T17:59:45Z",
+        "headId": "avalonia",
+        "platform": "windows",
+        "arch": "x64",
+        "rid": "win-x64",
+        "hostClass": "windows-host",
+        "operatingSystem": "Windows 11",
+        "channelId": "preview",
+        "artifactDigest": "sha256:80655fd79a096cd7714910d7b38f7741eea01f82ada96dc6a2a097951997d91a",
+        "artifactId": "avalonia-win-x64-installer",
+        "artifactPath": "/tmp/chummer-avalonia-win-x64-installer.exe",
+        "artifactInstallMode": "nsis_bootstrap_installer",
+        "bootstrapPayloadAcquisitionMode": "download",
+        "bootstrapPayloadFileName": "chummer-avalonia-win-x64-payload.zip",
+        "bootstrapPayloadSha256": "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2",
+        "bootstrapPayloadSizeBytes": 51124044,
+    }
+    invalid_values = [
+        ("bootstrapPayloadSha256", "not-a-sha256"),
+        ("bootstrapPayloadSha256", "CB5110834703163E35F33902319029C65D575E98A1092C8D71E58AE1CD440BB2"),
+        ("bootstrapPayloadSha256", " cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2"),
+        ("bootstrapPayloadSha256", "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2 "),
+        ("bootstrapPayloadSizeBytes", True),
+        ("bootstrapPayloadSizeBytes", 1.9),
+        ("bootstrapPayloadAcquisitionMode", " download "),
+        ("bootstrapPayloadAcquisitionMode", "DOWNLOAD"),
+        ("bootstrapPayloadAcquisitionMode", " "),
+        ("bootstrapPayloadAcquisitionMode", None),
+        ("bootstrapPayloadFileName", "."),
+        ("bootstrapPayloadFileName", ".."),
+        ("bootstrapPayloadFileName", "./chummer-avalonia-win-x64-payload.zip"),
+        ("bootstrapPayloadFileName", "../chummer-avalonia-win-x64-payload.zip"),
+        ("bootstrapPayloadFileName", "/tmp/chummer-avalonia-win-x64-payload.zip"),
+        ("bootstrapPayloadFileName", "nested/chummer-avalonia-win-x64-payload.zip"),
+        ("bootstrapPayloadFileName", r"C:\temp\chummer-avalonia-win-x64-payload.zip"),
+        ("bootstrapPayloadFileName", r"nested\chummer-avalonia-win-x64-payload.zip"),
+        ("bootstrapPayloadFileName", "chummer avalonia payload.zip"),
+        ("bootstrapPayloadFileName", "chummer-avalonia\x00-payload.zip"),
+    ]
+
+    with tempfile.TemporaryDirectory() as tmp:
+        receipt_path = Path(tmp) / "startup-smoke-avalonia-win-x64.receipt.json"
+        for field, invalid_value in invalid_values:
+            malformed_receipt = dict(receipt)
+            malformed_receipt[field] = invalid_value
+            receipt_path.write_text(json.dumps(malformed_receipt), encoding="utf-8")
+
+            loaded_receipts = MODULE.load_startup_smoke_receipts(
+                Path(tmp),
+                max_age_seconds=86400,
+                max_future_skew_seconds=60,
+                expected_channel="preview",
+                now=now,
+            )
+
+            assert loaded_receipts is not None and len(loaded_receipts) == 1
+            for payload_key in (
+                "payloadAcquisitionMode",
+                "payloadFileName",
+                "payloadSha256",
+                "payloadSizeBytes",
+            ):
+                assert payload_key not in loaded_receipts[0], (field, invalid_value)
+            filtered = MODULE.filter_unproven_installers([artifact], loaded_receipts)
+            assert filtered == [artifact], (field, invalid_value)
+
+        alias_conflicts_and_falsey_primaries = [
+            {
+                "artifactInstallMode": "nsis_bootstrap_installer",
+                "artifact_install_mode": "bundled",
+            },
+            {
+                "bootstrapPayloadAcquisitionMode": "download",
+                "bootstrap_payload_acquisition_mode": "",
+            },
+            {
+                "bootstrapPayloadFileName": "chummer-avalonia-win-x64-payload.zip",
+                "bootstrap_payload_file_name": "other-avalonia-win-x64-payload.zip",
+            },
+            {
+                "bootstrapPayloadSha256": "c" * 64,
+                "bootstrap_payload_sha256": "d" * 64,
+            },
+            {
+                "bootstrapPayloadSizeBytes": 51124044,
+                "bootstrap_payload_size_bytes": 51124045,
+            },
+            {"artifactInstallMode": "", "artifact_install_mode": "nsis_bootstrap_installer"},
+            {
+                "bootstrapPayloadAcquisitionMode": None,
+                "bootstrap_payload_acquisition_mode": "download",
+            },
+            {
+                "bootstrapPayloadFileName": "",
+                "bootstrap_payload_file_name": "chummer-avalonia-win-x64-payload.zip",
+            },
+            {
+                "bootstrapPayloadSha256": "",
+                "bootstrap_payload_sha256": "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2",
+            },
+            {"bootstrapPayloadSizeBytes": 0, "bootstrap_payload_size_bytes": 51124044},
+        ]
+        for overrides in alias_conflicts_and_falsey_primaries:
+            malformed_receipt = dict(receipt)
+            malformed_receipt.update(overrides)
+            receipt_path.write_text(json.dumps(malformed_receipt), encoding="utf-8")
+
+            loaded_receipts = MODULE.load_startup_smoke_receipts(
+                Path(tmp),
+                max_age_seconds=86400,
+                max_future_skew_seconds=60,
+                expected_channel="preview",
+                now=now,
+            )
+
+            assert loaded_receipts is not None and len(loaded_receipts) == 1
+            for payload_key in (
+                "payloadAcquisitionMode",
+                "payloadFileName",
+                "payloadSha256",
+                "payloadSizeBytes",
+            ):
+                assert payload_key not in loaded_receipts[0], overrides
+            filtered = MODULE.filter_unproven_installers([artifact], loaded_receipts)
+            assert filtered == [artifact], overrides
+
+        agreeing_aliases_receipt = dict(receipt)
+        agreeing_aliases_receipt.update(
+            {
+                "artifact_install_mode": receipt["artifactInstallMode"],
+                "bootstrap_payload_acquisition_mode": receipt[
+                    "bootstrapPayloadAcquisitionMode"
+                ],
+                "bootstrap_payload_file_name": receipt["bootstrapPayloadFileName"],
+                "bootstrap_payload_sha256": receipt["bootstrapPayloadSha256"],
+                "bootstrap_payload_size_bytes": receipt["bootstrapPayloadSizeBytes"],
+            }
+        )
+        receipt_path.write_text(json.dumps(agreeing_aliases_receipt), encoding="utf-8")
+        loaded_receipts = MODULE.load_startup_smoke_receipts(
+            Path(tmp),
+            max_age_seconds=86400,
+            max_future_skew_seconds=60,
+            expected_channel="preview",
+            now=now,
+        )
+
+        assert loaded_receipts is not None
+        assert loaded_receipts[0]["installerMode"] == "bootstrap"
+        assert loaded_receipts[0]["payloadAcquisitionMode"] == "download"
+        filtered = MODULE.filter_unproven_installers([artifact], loaded_receipts)
+        assert filtered[0]["payloadAcquisitionMode"] == "download"
+
+
 def test_load_startup_smoke_receipts_accepts_public_stable_channel_when_expected_channel_is_docker() -> None:
     now = MODULE.dt.datetime(2026, 4, 4, 22, 0, tzinfo=timezone.utc)
     with tempfile.TemporaryDirectory() as tmp:
@@ -1328,6 +1497,15 @@ def test_compatibility_payload_emits_canonical_artifact_identity_aliases() -> No
                     ),
                     "sha256": "a" * 64,
                     "sizeBytes": 42,
+                    "installerMode": "bootstrap",
+                    "payloadAcquisitionMode": "download",
+                    "payloadFileName": "chummer-avalonia-win-x64-payload.zip",
+                    "payloadDownloadUrl": (
+                        "https://chummer.run/downloads/files/"
+                        "chummer-avalonia-win-x64-payload.zip"
+                    ),
+                    "payloadSha256": "b" * 64,
+                    "payloadSizeBytes": 51124044,
                     "installAccessClass": "open_public",
                     "compatibilityState": "compatible",
                     "compatibilityReason": None,
@@ -1346,6 +1524,14 @@ def test_compatibility_payload_emits_canonical_artifact_identity_aliases() -> No
     assert row["arch"] == "x64"
     assert row["kind"] == "installer"
     assert row["channel"] == row["channelId"] == "preview"
+    assert row["installerMode"] == "bootstrap"
+    assert row["payloadAcquisitionMode"] == "download"
+    assert row["payloadFileName"] == "chummer-avalonia-win-x64-payload.zip"
+    assert row["payloadDownloadUrl"] == (
+        "https://chummer.run/downloads/files/chummer-avalonia-win-x64-payload.zip"
+    )
+    assert row["payloadSha256"] == "b" * 64
+    assert row["payloadSizeBytes"] == 51124044
 
 
 def test_compatibility_payload_preserves_download_compatibility_state_for_boundary_coverage() -> None:
@@ -1923,10 +2109,258 @@ def test_filter_unproven_installers_enriches_windows_installer_with_bootstrap_pa
     assert len(filtered) == 1
     assert filtered[0]["artifactId"] == "avalonia-win-x64-installer"
     assert filtered[0]["installerMode"] == "bootstrap"
+    assert filtered[0]["payloadAcquisitionMode"] == "download"
     assert filtered[0]["payloadFileName"] == "chummer-avalonia-win-x64-payload.zip"
     assert filtered[0]["payloadDownloadUrl"] == "https://chummer.run/downloads/files/chummer-avalonia-win-x64-payload.zip"
     assert filtered[0]["payloadSha256"] == "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2"
     assert filtered[0]["payloadSizeBytes"] == 51124044
+
+    startup_smoke_receipts[0]["payloadAcquisitionMode"] = ""
+    legacy_filtered = MODULE.filter_unproven_installers(artifacts, startup_smoke_receipts)
+    assert legacy_filtered[0]["payloadAcquisitionMode"] == "download"
+
+    startup_smoke_receipts[0].pop("payloadAcquisitionMode")
+    absent_mode_filtered = MODULE.filter_unproven_installers(artifacts, startup_smoke_receipts)
+    assert absent_mode_filtered[0]["payloadAcquisitionMode"] == "download"
+
+
+def test_enrich_artifact_from_startup_smoke_scrubs_stale_payload_authority() -> None:
+    artifact = {
+        "artifactId": "avalonia-win-x64-installer",
+        "downloadUrl": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
+        "releaseNotes": "preserve unrelated artifact metadata",
+        "uninstallMode": "guided",
+        "preinstallMode": "validate",
+        "applicationInstallMode": "per-user",
+        "installerMode": "bootstrap",
+        "artifact_install_mode": "stale-bootstrap",
+        "bootstrapInstallerMode": "stale-bootstrap-alias",
+        "payloadAcquisitionMode": "download",
+        "payloadFileName": "stale-evil-payload.zip",
+        "payloadDownloadUrl": "https://evil.invalid/stale-evil-payload.zip",
+        "payloadSha256": "e" * 64,
+        "payloadSizeBytes": 666,
+        "bootstrap_payload_file_name": "stale-alias-payload.zip",
+    }
+    expected = {
+        "artifactId": "avalonia-win-x64-installer",
+        "downloadUrl": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
+        "releaseNotes": "preserve unrelated artifact metadata",
+        "uninstallMode": "guided",
+        "preinstallMode": "validate",
+        "applicationInstallMode": "per-user",
+    }
+    malformed_receipt = {
+        "installerMode": "bootstrap",
+        "payloadAcquisitionMode": "download",
+        "payloadFileName": "chummer-avalonia-win-x64-payload.zip",
+        "payloadSha256": "not-a-sha256",
+        "payloadSizeBytes": 51124044,
+    }
+
+    assert MODULE.enrich_artifact_from_startup_smoke(artifact, []) == expected
+    assert MODULE.enrich_artifact_from_startup_smoke(artifact, [malformed_receipt]) == expected
+
+
+def test_enrich_artifact_from_startup_smoke_preserves_matching_bundled_mode() -> None:
+    artifact = {
+        "artifactId": "avalonia-win-x64-installer",
+        "head": "avalonia",
+        "platform": "windows",
+        "arch": "x64",
+        "kind": "installer",
+        "fileName": "chummer-avalonia-win-x64-installer.exe",
+        "downloadUrl": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
+        "sha256": "80655fd79a096cd7714910d7b38f7741eea01f82ada96dc6a2a097951997d91a",
+        "installerMode": "bundled",
+        "payloadFileName": "stale-evil-payload.zip",
+        "uninstallMode": "guided",
+    }
+    receipt = {
+        "head": "avalonia",
+        "platform": "windows",
+        "arch": "x64",
+        "artifactDigest": "sha256:80655fd79a096cd7714910d7b38f7741eea01f82ada96dc6a2a097951997d91a",
+        "channelId": "preview",
+        "artifactId": "avalonia-win-x64-installer",
+        "artifactFileName": "chummer-avalonia-win-x64-installer.exe",
+        "installerMode": "bundled",
+    }
+    expected = dict(artifact)
+    expected.pop("payloadFileName")
+
+    assert MODULE.enrich_artifact_from_startup_smoke(artifact, [receipt]) == expected
+    assert MODULE.filter_unproven_installers([artifact], [receipt]) == [expected]
+
+    raw_receipt = {
+        "status": "pass",
+        "readyCheckpoint": "pre_ui_event_loop",
+        "recordedAtUtc": "2026-07-04T17:59:45Z",
+        "headId": "avalonia",
+        "platform": "windows",
+        "arch": "x64",
+        "rid": "win-x64",
+        "hostClass": "windows-host",
+        "operatingSystem": "Windows 11",
+        "channelId": "preview",
+        "artifactDigest": receipt["artifactDigest"],
+        "artifactId": receipt["artifactId"],
+        "artifactPath": "/tmp/chummer-avalonia-win-x64-installer.exe",
+        "artifactInstallMode": "bundled",
+    }
+    with tempfile.TemporaryDirectory() as tmp:
+        receipt_path = Path(tmp) / "startup-smoke-avalonia-win-x64.receipt.json"
+        receipt_path.write_text(json.dumps(raw_receipt), encoding="utf-8")
+        loaded_receipts = MODULE.load_startup_smoke_receipts(
+            Path(tmp),
+            expected_channel="preview",
+            now=MODULE.dt.datetime(2026, 7, 4, 18, 0, tzinfo=timezone.utc),
+        )
+
+    assert loaded_receipts is not None
+    assert loaded_receipts[0]["installerMode"] == "bundled"
+    assert MODULE.filter_unproven_installers([artifact], loaded_receipts) == [expected]
+
+
+def test_filter_unproven_installers_does_not_enrich_noncanonical_bootstrap_metadata() -> None:
+    artifact = {
+        "artifactId": "avalonia-win-x64-installer",
+        "head": "avalonia",
+        "platform": "windows",
+        "arch": "x64",
+        "kind": "installer",
+        "fileName": "chummer-avalonia-win-x64-installer.exe",
+        "downloadUrl": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
+        "sha256": "80655fd79a096cd7714910d7b38f7741eea01f82ada96dc6a2a097951997d91a",
+    }
+    receipt = {
+        "head": "avalonia",
+        "platform": "windows",
+        "arch": "x64",
+        "artifactDigest": "sha256:80655fd79a096cd7714910d7b38f7741eea01f82ada96dc6a2a097951997d91a",
+        "channelId": "preview",
+        "artifactId": "avalonia-win-x64-installer",
+        "artifactFileName": "chummer-avalonia-win-x64-installer.exe",
+        "installerMode": "bootstrap",
+        "payloadAcquisitionMode": "download",
+        "payloadFileName": "chummer-avalonia-win-x64-payload.zip",
+        "payloadSha256": "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2",
+        "payloadSizeBytes": 51124044,
+    }
+    invalid_values = [
+        ("payloadSha256", "not-a-sha256"),
+        ("payloadSha256", "CB5110834703163E35F33902319029C65D575E98A1092C8D71E58AE1CD440BB2"),
+        ("payloadSha256", " cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2"),
+        ("payloadSha256", "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2 "),
+        ("payloadSizeBytes", True),
+        ("payloadSizeBytes", 1.9),
+        ("payloadAcquisitionMode", " download "),
+        ("payloadAcquisitionMode", "DOWNLOAD"),
+        ("payloadAcquisitionMode", " "),
+        ("payloadAcquisitionMode", None),
+        ("payloadFileName", "."),
+        ("payloadFileName", ".."),
+        ("payloadFileName", "./chummer-avalonia-win-x64-payload.zip"),
+        ("payloadFileName", "../chummer-avalonia-win-x64-payload.zip"),
+        ("payloadFileName", "/tmp/chummer-avalonia-win-x64-payload.zip"),
+        ("payloadFileName", "nested/chummer-avalonia-win-x64-payload.zip"),
+        ("payloadFileName", r"C:\temp\chummer-avalonia-win-x64-payload.zip"),
+        ("payloadFileName", r"nested\chummer-avalonia-win-x64-payload.zip"),
+        ("payloadFileName", "chummer avalonia payload.zip"),
+        ("payloadFileName", "chummer-avalonia\x00-payload.zip"),
+        ("payloadSizeBytes", 0),
+        ("payloadSizeBytes", -1),
+    ]
+
+    for field, invalid_value in invalid_values:
+        malformed_receipt = dict(receipt)
+        malformed_receipt[field] = invalid_value
+        enriched = MODULE.enrich_artifact_from_startup_smoke(artifact, [malformed_receipt])
+        assert enriched == artifact, (field, invalid_value)
+        filtered = MODULE.filter_unproven_installers([artifact], [malformed_receipt])
+        assert filtered == [artifact], (field, invalid_value)
+
+
+def test_enrich_artifact_from_startup_smoke_rejects_alias_conflicts_and_falsey_fallbacks() -> None:
+    artifact = {
+        "artifactId": "avalonia-win-x64-installer",
+        "downloadUrl": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
+        "installerMode": "bootstrap",
+        "payloadAcquisitionMode": "download",
+        "payloadFileName": "stale-evil-payload.zip",
+        "payloadDownloadUrl": "https://evil.invalid/stale-evil-payload.zip",
+        "payloadSha256": "e" * 64,
+        "payloadSizeBytes": 666,
+        "uninstallMode": "guided",
+        "preinstallMode": "validate",
+        "applicationInstallMode": "per-user",
+    }
+    expected = {
+        "artifactId": "avalonia-win-x64-installer",
+        "downloadUrl": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
+        "uninstallMode": "guided",
+        "preinstallMode": "validate",
+        "applicationInstallMode": "per-user",
+    }
+    receipt = {
+        "installerMode": "bootstrap",
+        "payloadAcquisitionMode": "download",
+        "payloadFileName": "chummer-avalonia-win-x64-payload.zip",
+        "payloadSha256": "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2",
+        "payloadSizeBytes": 51124044,
+    }
+    alias_conflicts_and_falsey_primaries = [
+        {"installerMode": "bootstrap", "installer_mode": "bundled"},
+        {"payloadAcquisitionMode": "download", "payload_acquisition_mode": ""},
+        {
+            "payloadFileName": "chummer-avalonia-win-x64-payload.zip",
+            "payload_file_name": "other-avalonia-win-x64-payload.zip",
+        },
+        {"payloadSha256": "c" * 64, "payload_sha256": "d" * 64},
+        {"payloadSizeBytes": 51124044, "payload_size_bytes": 51124045},
+        {"installerMode": "", "installer_mode": "bootstrap"},
+        {"payloadAcquisitionMode": None, "payload_acquisition_mode": "download"},
+        {"payloadFileName": "", "payload_file_name": "chummer-avalonia-win-x64-payload.zip"},
+        {
+            "payloadSha256": "",
+            "payload_sha256": "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2",
+        },
+        {"payloadSizeBytes": 0, "payload_size_bytes": 51124044},
+    ]
+
+    for overrides in alias_conflicts_and_falsey_primaries:
+        malformed_receipt = dict(receipt)
+        malformed_receipt.update(overrides)
+        enriched = MODULE.enrich_artifact_from_startup_smoke(artifact, [malformed_receipt])
+        assert enriched == expected, overrides
+
+    agreeing_aliases_receipt = dict(receipt)
+    agreeing_aliases_receipt.update(
+        {
+            "installer_mode": "bootstrap",
+            "payload_acquisition_mode": "download",
+            "payload_file_name": receipt["payloadFileName"],
+            "payload_sha256": receipt["payloadSha256"],
+            "payload_size_bytes": receipt["payloadSizeBytes"],
+        }
+    )
+    expected_enriched = dict(expected)
+    expected_enriched.update(
+        {
+            "installerMode": "bootstrap",
+            "payloadAcquisitionMode": "download",
+            "payloadFileName": receipt["payloadFileName"],
+            "payloadDownloadUrl": (
+                "https://chummer.run/downloads/files/chummer-avalonia-win-x64-payload.zip"
+            ),
+            "payloadSha256": receipt["payloadSha256"],
+            "payloadSizeBytes": receipt["payloadSizeBytes"],
+        }
+    )
+    assert (
+        MODULE.enrich_artifact_from_startup_smoke(artifact, [agreeing_aliases_receipt])
+        == expected_enriched
+    )
 
 
 def test_desktop_tuple_coverage_emits_explicit_complete_flag() -> None:
