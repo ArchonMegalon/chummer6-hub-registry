@@ -10,6 +10,8 @@ import sys
 
 import pytest
 
+from scripts.release_authority_snapshot import AuthorityError, _validate_scorecard
+
 
 ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
@@ -422,34 +424,249 @@ def test_protected_artifact_rejects_distinct_public_route(tmp_path: Path) -> Non
     assert "must equal" in completed.stderr
 
 
-def passing_scorecard() -> dict[str, object]:
-    surfaces = ["runner_workbench", "gm_cockpit", "campaign_memory", "living_city", "publishing_studio", "admin_proof"]
-    dimensions = ["route_clarity", "continuity", "recovery", "explainability", "supportability", "workflow"]
+def passing_scorecard(
+    *,
+    stable: bool = False,
+    duplicate_evidence_values: bool = False,
+) -> dict[str, object]:
+    surfaces = [
+        "desktop_workbench",
+        "public_front_door_and_support",
+        "install_claim_restore_continue",
+        "build_explain_publish",
+        "run_and_rejoin",
+        "improve_and_close_the_loop",
+    ]
+    dimensions = [
+        "route_clarity",
+        "rules_and_continuity_truth",
+        "recovery_confidence",
+        "closure_honesty",
+        "responsiveness",
+        "design_authorship",
+    ]
+    score = 3 if stable else 2
+    cells: list[dict[str, object]] = []
+    for surface in surfaces:
+        for dimension in dimensions:
+            owner = "owner_%s" % surface
+            journey_id = "journey_%s_%s" % (surface, dimension)
+            evidence_id = "receipt_%s_%s" % (surface, dimension)
+            shared_action = "Close the shared bounded preview action."
+            shared_gap = "Shared evidence has not reached the stable bar"
+            if duplicate_evidence_values:
+                actions = [shared_action]
+                gaps = [shared_gap, shared_gap]
+            else:
+                actions = [
+                    "Close the bounded preview action for %s." % journey_id,
+                    "Close the bounded preview action for %s." % evidence_id,
+                ]
+                gaps = [
+                    "%s has not reached the stable bar" % journey_id,
+                    "%s has not reached the stable bar" % evidence_id,
+                ]
+
+            def evidence_row(item_id: str, *, include_verdict: bool) -> dict[str, object]:
+                row: dict[str, object] = {
+                    "id": item_id,
+                    "path": "evidence/%s.json" % item_id,
+                    "source_status": "pass",
+                    "generated_at": "2026-07-20T22:04:00Z",
+                    "score": score,
+                    "status": "pass" if stable else "preview",
+                    "bounded_owner": "" if stable else owner,
+                    "next_actions": [] if stable else (
+                        [shared_action, shared_action]
+                        if duplicate_evidence_values
+                        else ["Close the bounded preview action for %s." % item_id]
+                    ),
+                    "failure": "" if stable else (
+                        shared_gap
+                        if duplicate_evidence_values
+                        else "%s has not reached the stable bar" % item_id
+                    ),
+                    "preview_failure": "",
+                }
+                if include_verdict:
+                    row["source_verdict"] = "SOURCE_PASS"
+                return row
+
+            rows = [
+                evidence_row(journey_id, include_verdict=False),
+                evidence_row(evidence_id, include_verdict=True),
+            ]
+            cells.append(
+                {
+                    "surface_id": surface,
+                    "dimension_id": dimension,
+                    "score": score,
+                    "preview_status": "pass",
+                    "stable_status": "pass" if stable else "fail",
+                    "owners": ["chummer6-release"],
+                    "preview_owners": [] if stable else [owner],
+                    "next_actions": [] if stable else actions,
+                    "journey_ids": [journey_id],
+                    "evidence_ids": [evidence_id],
+                    "evidence": rows,
+                    "preview_blockers": [],
+                    "flagship_gaps": [] if stable else gaps,
+                    "failures": [] if stable else gaps,
+                }
+            )
+    score_2_count = 0 if stable else 36
+    score_3_count = 36 if stable else 0
+    flagship_gaps = [
+        "%s.%s: %s"
+        % (cell["surface_id"], cell["dimension_id"], ", ".join(cell["failures"]))
+        for cell in cells
+        if cell["failures"]
+    ]
+    stable_status = "pass" if stable else "fail"
+    stable_verdict = (
+        "CAMPAIGN_OPERABILITY_READY"
+        if stable
+        else "CAMPAIGN_OPERABILITY_NOT_READY"
+    )
     return {
         "contract_name": "chummer.campaign_operability_scorecard",
-        "contract_version": 1,
+        "contract_version": 2,
         "generated_at_utc": "2026-07-20T22:06:00Z",
-        "status": "pass",
-        "verdict": "CAMPAIGN_OPERABILITY_PREVIEW_READY",
-        "rubric_path": "$DESIGN_WORKSPACE/rubric.yaml",
+        "status": stable_status,
+        "verdict": stable_verdict,
+        "preview_status": "pass",
+        "preview_verdict": "CAMPAIGN_OPERABILITY_PREVIEW_READY",
+        "stable_status": stable_status,
+        "stable_verdict": stable_verdict,
+        "rubric_path": "products/chummer/CAMPAIGN_OPERABILITY_SCORING_RUBRIC.yaml",
         "journey_gate_path": "$FLEET_WORKSPACE/journeys.json",
         "required_surfaces": surfaces,
         "required_dimensions": dimensions,
-        "cells": [
-            {"surface_id": surface, "dimension_id": dimension, "score": 2}
-            for surface in surfaces
-            for dimension in dimensions
-        ],
+        "cells": cells,
         "summary": {
             "surface_count": 6,
             "dimension_count": 6,
             "cell_count": 36,
-            "score_3_count": 0,
-            "below_3_count": 36,
-            "minimum_score": 2,
+            "score_0_count": 0,
+            "score_1_count": 0,
+            "score_2_count": score_2_count,
+            "score_3_count": score_3_count,
+            "at_least_2_count": 36,
+            "below_2_count": 0,
+            "below_3_count": score_2_count,
+            "minimum_score": score,
         },
-        "failures": [],
+        "preview_failures": [],
+        "flagship_gaps": flagship_gaps,
+        "failures": flagship_gaps,
     }
+
+
+def test_scorecard_v2_accepts_evidence_backed_preview_and_stable_postures() -> None:
+    _validate_scorecard(passing_scorecard())
+    _validate_scorecard(passing_scorecard(stable=True))
+
+
+def test_scorecard_v2_accepts_design_generated_ordered_duplicate_values() -> None:
+    scorecard = passing_scorecard(duplicate_evidence_values=True)
+    first_cell = scorecard["cells"][0]
+    assert first_cell["evidence"][0]["next_actions"] == [
+        "Close the shared bounded preview action.",
+        "Close the shared bounded preview action.",
+    ]
+    assert first_cell["next_actions"] == [
+        "Close the shared bounded preview action."
+    ]
+    assert first_cell["flagship_gaps"] == [
+        "Shared evidence has not reached the stable bar",
+        "Shared evidence has not reached the stable bar",
+    ]
+    _validate_scorecard(scorecard)
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "legacy_contract",
+        "unknown_top_field",
+        "bare_cell",
+        "arbitrary_matrix",
+        "cell_score_drift",
+        "unknown_evidence_field",
+        "missing_bounded_owner",
+        "unresolved_bounded_owner",
+        "missing_next_action",
+        "preview_failure",
+        "missing_stable_failure",
+        "evidence_id_drift",
+        "preview_owner_drift",
+        "summary_drift",
+        "stable_alias_lie",
+        "top_gap_drift",
+        "unresolved_source_status",
+        "nonportable_evidence_path",
+        "score_three_preview_state",
+        "score_three_preview_failure",
+    ],
+)
+def test_scorecard_v2_rejects_hand_shaped_or_contradictory_evidence(case: str) -> None:
+    scorecard = passing_scorecard(stable=case.startswith("score_three_"))
+    first_cell = scorecard["cells"][0]
+    first_row = first_cell["evidence"][0]
+
+    if case == "legacy_contract":
+        scorecard["contract_version"] = 1
+    elif case == "unknown_top_field":
+        scorecard["claimed_ready"] = True
+    elif case == "bare_cell":
+        scorecard["cells"][0] = {
+            "surface_id": first_cell["surface_id"],
+            "dimension_id": first_cell["dimension_id"],
+            "score": 2,
+        }
+    elif case == "arbitrary_matrix":
+        scorecard["required_surfaces"][0] = "invented_surface"
+    elif case == "cell_score_drift":
+        first_cell["score"] = 3
+    elif case == "unknown_evidence_field":
+        first_row["claimed_valid"] = True
+    elif case == "missing_bounded_owner":
+        first_row["bounded_owner"] = ""
+    elif case == "unresolved_bounded_owner":
+        first_row["bounded_owner"] = "todo"
+    elif case == "missing_next_action":
+        first_row["next_actions"] = []
+    elif case == "preview_failure":
+        first_row["preview_failure"] = "Preview proof is still blocked."
+    elif case == "missing_stable_failure":
+        first_row["failure"] = ""
+    elif case == "evidence_id_drift":
+        first_row["id"] = "unbound_evidence"
+    elif case == "preview_owner_drift":
+        first_cell["preview_owners"] = ["different_owner"]
+    elif case == "summary_drift":
+        scorecard["summary"]["score_2_count"] = 35
+    elif case == "stable_alias_lie":
+        scorecard["status"] = "pass"
+        scorecard["stable_status"] = "pass"
+        scorecard["verdict"] = "CAMPAIGN_OPERABILITY_READY"
+        scorecard["stable_verdict"] = "CAMPAIGN_OPERABILITY_READY"
+    elif case == "top_gap_drift":
+        scorecard["flagship_gaps"] = []
+        scorecard["failures"] = []
+    elif case == "unresolved_source_status":
+        first_row["source_status"] = "missing_or_blocked"
+    elif case == "nonportable_evidence_path":
+        first_row["path"] = "/tmp/hand-shaped.json"
+    elif case == "score_three_preview_state":
+        first_row["bounded_owner"] = "invented_owner"
+    elif case == "score_three_preview_failure":
+        first_row["preview_failure"] = "Preview proof is still blocked."
+    else:  # pragma: no cover - guards the test table itself
+        raise AssertionError(case)
+
+    with pytest.raises(AuthorityError):
+        _validate_scorecard(scorecard)
 
 
 def convergence_receipt(manifest_path: Path, seed: Path) -> dict[str, object]:

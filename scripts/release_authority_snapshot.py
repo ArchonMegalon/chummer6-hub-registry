@@ -150,20 +150,85 @@ SCORECARD_FIELDS = {
     "generated_at_utc",
     "status",
     "verdict",
+    "preview_status",
+    "preview_verdict",
+    "stable_status",
+    "stable_verdict",
     "rubric_path",
     "journey_gate_path",
     "required_surfaces",
     "required_dimensions",
     "cells",
     "summary",
+    "preview_failures",
+    "flagship_gaps",
     "failures",
 }
+SCORECARD_CELL_FIELDS = {
+    "surface_id",
+    "dimension_id",
+    "score",
+    "preview_status",
+    "stable_status",
+    "owners",
+    "preview_owners",
+    "next_actions",
+    "journey_ids",
+    "evidence_ids",
+    "evidence",
+    "preview_blockers",
+    "flagship_gaps",
+    "failures",
+}
+SCORECARD_EVIDENCE_FIELDS = {
+    "id",
+    "path",
+    "source_status",
+    "generated_at",
+    "score",
+    "status",
+    "bounded_owner",
+    "next_actions",
+    "failure",
+    "preview_failure",
+}
+SCORECARD_EVIDENCE_OPTIONAL_FIELDS = {"source_verdict"}
+SCORECARD_SUMMARY_FIELDS = {
+    "surface_count",
+    "dimension_count",
+    "cell_count",
+    "score_0_count",
+    "score_1_count",
+    "score_2_count",
+    "score_3_count",
+    "at_least_2_count",
+    "below_2_count",
+    "below_3_count",
+    "minimum_score",
+}
+SCORECARD_SURFACES = (
+    "desktop_workbench",
+    "public_front_door_and_support",
+    "install_claim_restore_continue",
+    "build_explain_publish",
+    "run_and_rejoin",
+    "improve_and_close_the_loop",
+)
+SCORECARD_DIMENSIONS = (
+    "route_clarity",
+    "rules_and_continuity_truth",
+    "recovery_confidence",
+    "closure_honesty",
+    "responsiveness",
+    "design_authorship",
+)
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
 PORTABLE_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+\-]{0,127}$")
 TOKEN_RE = re.compile(r"^[a-z0-9][a-z0-9._\-]{0,127}$")
 SENTINELS = {"unknown", "missing", "invalid"}
+UNRESOLVED_VALUES = SENTINELS | {"", "none", "null", "tbd", "todo", "unassigned"}
 ACCESS_CLASSES = {"open_public", "account_recommended", "account_required"}
 DECISION_STATUSES = {"review_required", "preview_ready"}
 LOCAL_PATH_MARKERS = (
@@ -341,6 +406,82 @@ def _text_array(value: Any, label: str, *, allow_empty: bool, maximum_count: int
     if len(result) != len(set(result)):
         raise AuthorityError("%s entries must be unique" % label)
     return result
+
+
+def _exact_object_with_optional(
+    value: Any,
+    required_fields: set[str],
+    optional_fields: set[str],
+    label: str,
+) -> dict[str, Any]:
+    if not isinstance(value, dict):
+        raise AuthorityError("%s must be an object" % label)
+    observed = set(value)
+    missing = required_fields - observed
+    unknown = observed - required_fields - optional_fields
+    if missing or unknown:
+        raise AuthorityError(
+            "%s has missing %s or unknown %s fields"
+            % (label, sorted(missing), sorted(unknown))
+        )
+    return value
+
+
+def _token_array(
+    value: Any,
+    label: str,
+    *,
+    allow_empty: bool,
+    maximum_count: int = 32,
+) -> list[str]:
+    if not isinstance(value, list) or len(value) > maximum_count or (not allow_empty and not value):
+        raise AuthorityError("%s must be a bounded token array" % label)
+    result = [_token(item, "%s item" % label) for item in value]
+    if len(result) != len(set(result)):
+        raise AuthorityError("%s entries must be unique" % label)
+    if any(item in UNRESOLVED_VALUES for item in result):
+        raise AuthorityError("%s contains an unresolved value" % label)
+    return result
+
+
+def _concrete_text_array(
+    value: Any,
+    label: str,
+    *,
+    allow_empty: bool,
+    maximum_count: int = 32,
+) -> list[str]:
+    if not isinstance(value, list) or len(value) > maximum_count or (not allow_empty and not value):
+        raise AuthorityError("%s must be a bounded array" % label)
+    result = [_string(item, "%s item" % label, 512) for item in value]
+    if any(item.casefold() in UNRESOLVED_VALUES for item in result):
+        raise AuthorityError("%s contains an unresolved value" % label)
+    return result
+
+
+def _ordered_text_array(
+    value: Any,
+    label: str,
+    *,
+    allow_empty: bool,
+    maximum_count: int = 32,
+) -> list[str]:
+    if not isinstance(value, list) or len(value) > maximum_count or (not allow_empty and not value):
+        raise AuthorityError("%s must be a bounded array" % label)
+    return [_string(item, "%s item" % label, 512) for item in value]
+
+
+def _portable_evidence_path(value: Any, label: str) -> str:
+    path = _string(value, label, 2048)
+    _reject_nonportable_output(path, label)
+    if (
+        path.startswith("/")
+        or "\\" in path
+        or re.match(r"(?i)^[a-z]:", path)
+        or any(segment in {".", ".."} for segment in path.split("/"))
+    ):
+        raise AuthorityError("%s must be a portable non-traversing path" % label)
+    return path
 
 
 def _reject_nonportable_output(value: Any, label: str = "output") -> None:
@@ -646,53 +787,254 @@ def _validate_scorecard(payload: Any) -> None:
     scorecard = _exact_object(payload, SCORECARD_FIELDS, "scorecard")
     if scorecard["contract_name"] != "chummer.campaign_operability_scorecard":
         raise AuthorityError("scorecard contract_name is invalid")
-    if _nonnegative_int(scorecard["contract_version"], "scorecard contract_version") != 1:
-        raise AuthorityError("scorecard contract_version must be 1")
+    if _nonnegative_int(scorecard["contract_version"], "scorecard contract_version") != 2:
+        raise AuthorityError("scorecard contract_version must be 2")
     _timestamp(scorecard["generated_at_utc"], "scorecard generated_at_utc")
-    if scorecard["status"] != "pass":
-        raise AuthorityError("scorecard status must be pass")
-    _string(scorecard["verdict"], "scorecard verdict", 128)
-    if scorecard["failures"] != []:
-        raise AuthorityError("scorecard must contain no failures")
-    surfaces = _unique_tokens(
-        scorecard["required_surfaces"], "scorecard required_surfaces", expected_count=6
+    if (
+        scorecard["preview_status"] != "pass"
+        or scorecard["preview_verdict"] != "CAMPAIGN_OPERABILITY_PREVIEW_READY"
+    ):
+        raise AuthorityError("scorecard preview posture must be the exact preview-ready verdict")
+    _portable_evidence_path(scorecard["rubric_path"], "scorecard rubric_path")
+    _portable_evidence_path(scorecard["journey_gate_path"], "scorecard journey_gate_path")
+
+    surfaces = _token_array(
+        scorecard["required_surfaces"],
+        "scorecard required_surfaces",
+        allow_empty=False,
     )
-    dimensions = _unique_tokens(
-        scorecard["required_dimensions"], "scorecard required_dimensions", expected_count=6
+    dimensions = _token_array(
+        scorecard["required_dimensions"],
+        "scorecard required_dimensions",
+        allow_empty=False,
     )
+    if surfaces != list(SCORECARD_SURFACES):
+        raise AuthorityError("scorecard required_surfaces is not the exact v2 surface set")
+    if dimensions != list(SCORECARD_DIMENSIONS):
+        raise AuthorityError("scorecard required_dimensions is not the exact v2 dimension set")
+
     cells = scorecard["cells"]
     if not isinstance(cells, list) or len(cells) != 36:
         raise AuthorityError("scorecard must contain exactly 36 cells")
     observed: set[tuple[str, str]] = set()
     scores: list[int] = []
-    for cell in cells:
-        if not isinstance(cell, dict):
-            raise AuthorityError("scorecard cells must be objects")
-        surface = _token(cell.get("surface_id"), "scorecard cell surface_id")
-        dimension = _token(cell.get("dimension_id"), "scorecard cell dimension_id")
-        score = _nonnegative_int(cell.get("score"), "scorecard cell score", 3)
+    expected_top_gaps: list[str] = []
+    for index, value in enumerate(cells):
+        label = "scorecard cell %d" % index
+        cell = _exact_object(value, SCORECARD_CELL_FIELDS, label)
+        surface = _token(cell["surface_id"], "%s surface_id" % label)
+        dimension = _token(cell["dimension_id"], "%s dimension_id" % label)
+        score = _nonnegative_int(cell["score"], "%s score" % label, 3)
         if surface not in surfaces or dimension not in dimensions or score < 2:
             raise AuthorityError("every scorecard cell must cover the declared matrix at score 2 or 3")
         if (surface, dimension) in observed:
             raise AuthorityError("scorecard contains a duplicate matrix cell")
         observed.add((surface, dimension))
+
+        owners = _token_array(cell["owners"], "%s owners" % label, allow_empty=False)
+        if not owners:
+            raise AuthorityError("%s must contain at least one resolved owner" % label)
+        journey_ids = _token_array(
+            cell["journey_ids"], "%s journey_ids" % label, allow_empty=False
+        )
+        evidence_ids = _token_array(
+            cell["evidence_ids"], "%s evidence_ids" % label, allow_empty=False
+        )
+        declared_ids = journey_ids + evidence_ids
+        if len(declared_ids) != len(set(declared_ids)):
+            raise AuthorityError("%s journey and evidence ids must be disjoint" % label)
+
+        raw_evidence = cell["evidence"]
+        if (
+            not isinstance(raw_evidence, list)
+            or not raw_evidence
+            or len(raw_evidence) != len(declared_ids)
+            or len(raw_evidence) > 64
+        ):
+            raise AuthorityError("%s evidence must exactly cover its declared ids" % label)
+        evidence_scores: list[int] = []
+        score_two_owners: list[str] = []
+        score_two_actions: list[str] = []
+        stable_gaps: list[str] = []
+        observed_evidence_ids: list[str] = []
+        for evidence_index, raw_row in enumerate(raw_evidence):
+            row_label = "%s evidence %d" % (label, evidence_index)
+            row = _exact_object_with_optional(
+                raw_row,
+                SCORECARD_EVIDENCE_FIELDS,
+                SCORECARD_EVIDENCE_OPTIONAL_FIELDS,
+                row_label,
+            )
+            evidence_id = _token(row["id"], "%s id" % row_label)
+            observed_evidence_ids.append(evidence_id)
+            _portable_evidence_path(row["path"], "%s path" % row_label)
+            source_status = _token(row["source_status"], "%s source_status" % row_label)
+            if source_status in UNRESOLVED_VALUES or set(re.findall(r"[a-z0-9]+", source_status)) & SENTINELS:
+                raise AuthorityError("%s source_status is unresolved" % row_label)
+            _timestamp(row["generated_at"], "%s generated_at" % row_label)
+            if "source_verdict" in row:
+                source_verdict = _string(
+                    row["source_verdict"],
+                    "%s source_verdict" % row_label,
+                    256,
+                    allow_empty=True,
+                )
+                if source_verdict.casefold() in UNRESOLVED_VALUES - {""}:
+                    raise AuthorityError("%s source_verdict is unresolved" % row_label)
+
+            evidence_score = _nonnegative_int(
+                row["score"], "%s score" % row_label, 3
+            )
+            if evidence_score not in {2, 3}:
+                raise AuthorityError("scorecard evidence must be at score 2 or 3")
+            evidence_scores.append(evidence_score)
+            bounded_owner = _string(
+                row["bounded_owner"],
+                "%s bounded_owner" % row_label,
+                128,
+                allow_empty=True,
+            )
+            actions = _concrete_text_array(
+                row["next_actions"],
+                "%s next_actions" % row_label,
+                allow_empty=True,
+            )
+            failure = _string(
+                row["failure"], "%s failure" % row_label, 512, allow_empty=True
+            )
+            preview_failure = _string(
+                row["preview_failure"],
+                "%s preview_failure" % row_label,
+                512,
+                allow_empty=True,
+            )
+            if evidence_score == 2:
+                owner = _token(bounded_owner, "%s bounded_owner" % row_label)
+                if owner in UNRESOLVED_VALUES:
+                    raise AuthorityError("score-2 evidence requires a concrete bounded owner")
+                if row["status"] != "preview":
+                    raise AuthorityError("score-2 evidence status must be preview")
+                if not actions:
+                    raise AuthorityError("score-2 evidence requires concrete next actions")
+                if preview_failure:
+                    raise AuthorityError("score-2 evidence cannot contain a preview failure")
+                if not failure or failure.casefold() in UNRESOLVED_VALUES:
+                    raise AuthorityError("score-2 evidence requires a concrete stable failure")
+                score_two_owners.append(owner)
+                score_two_actions.extend(actions)
+                stable_gaps.append(failure)
+            else:
+                if row["status"] != "pass":
+                    raise AuthorityError("score-3 evidence status must be pass")
+                if bounded_owner or actions or failure or preview_failure:
+                    raise AuthorityError(
+                        "score-3 evidence cannot contain preview ownership, actions, or failures"
+                    )
+
+        if observed_evidence_ids != declared_ids:
+            raise AuthorityError("%s evidence ids do not exactly match their declarations" % label)
+        if score != min(evidence_scores):
+            raise AuthorityError("scorecard cell score must equal its minimum evidence score")
+        if cell["preview_status"] != "pass":
+            raise AuthorityError("every scorecard cell preview_status must be pass")
+        if cell["preview_blockers"] != []:
+            raise AuthorityError("preview-ready scorecard cells cannot contain preview blockers")
+
+        preview_owners = _token_array(
+            cell["preview_owners"], "%s preview_owners" % label, allow_empty=True
+        )
+        expected_preview_owners = sorted(set(score_two_owners))
+        if preview_owners != expected_preview_owners:
+            raise AuthorityError("%s preview_owners contradict score-2 evidence" % label)
+        next_actions = _concrete_text_array(
+            cell["next_actions"], "%s next_actions" % label, allow_empty=True
+        )
+        expected_next_actions = list(dict.fromkeys(score_two_actions))
+        if next_actions != expected_next_actions:
+            raise AuthorityError("%s next_actions contradict score-2 evidence" % label)
+        flagship_gaps = _ordered_text_array(
+            cell["flagship_gaps"],
+            "%s flagship_gaps" % label,
+            allow_empty=True,
+            maximum_count=64,
+        )
+        failures = _ordered_text_array(
+            cell["failures"],
+            "%s failures" % label,
+            allow_empty=True,
+            maximum_count=64,
+        )
+        if flagship_gaps != stable_gaps or failures != stable_gaps:
+            raise AuthorityError("%s stable gaps contradict its evidence" % label)
+        expected_stable_status = "pass" if score == 3 else "fail"
+        if cell["stable_status"] != expected_stable_status:
+            raise AuthorityError("%s stable_status contradicts its score" % label)
+        if score == 2 and (not preview_owners or not next_actions or not stable_gaps):
+            raise AuthorityError("score-2 cells require bounded preview ownership and stable gaps")
+        if score == 3 and (preview_owners or next_actions or flagship_gaps or failures):
+            raise AuthorityError("score-3 cells cannot contain preview-only state")
+
+        if stable_gaps:
+            expected_top_gaps.append(
+                "%s.%s: %s" % (surface, dimension, ", ".join(stable_gaps))
+            )
         scores.append(score)
+
     expected = {(surface, dimension) for surface in surfaces for dimension in dimensions}
     if observed != expected:
         raise AuthorityError("scorecard does not cover the exact 6x6 matrix")
-    summary = scorecard["summary"]
-    if not isinstance(summary, dict):
-        raise AuthorityError("scorecard summary must be an object")
+
+    summary = _exact_object(scorecard["summary"], SCORECARD_SUMMARY_FIELDS, "scorecard summary")
+    observed_summary = {
+        key: _nonnegative_int(value, "scorecard summary %s" % key, 36)
+        for key, value in summary.items()
+    }
     expected_summary = {
         "surface_count": 6,
         "dimension_count": 6,
         "cell_count": 36,
+        "score_0_count": 0,
+        "score_1_count": 0,
+        "score_2_count": sum(score == 2 for score in scores),
         "score_3_count": sum(score == 3 for score in scores),
-        "below_3_count": sum(score < 3 for score in scores),
+        "at_least_2_count": 36,
+        "below_2_count": 0,
+        "below_3_count": sum(score == 2 for score in scores),
         "minimum_score": min(scores),
     }
-    if summary != expected_summary:
+    if observed_summary != expected_summary:
         raise AuthorityError("scorecard summary contradicts its 36 cells")
+
+    stable_ready = expected_summary["score_3_count"] == 36
+    expected_stable_status = "pass" if stable_ready else "fail"
+    expected_stable_verdict = (
+        "CAMPAIGN_OPERABILITY_READY"
+        if stable_ready
+        else "CAMPAIGN_OPERABILITY_NOT_READY"
+    )
+    if (
+        scorecard["stable_status"] != expected_stable_status
+        or scorecard["stable_verdict"] != expected_stable_verdict
+        or scorecard["status"] != expected_stable_status
+        or scorecard["verdict"] != expected_stable_verdict
+    ):
+        raise AuthorityError("scorecard stable posture and top aliases contradict its scores")
+    if scorecard["preview_failures"] != []:
+        raise AuthorityError("preview-ready scorecard cannot contain preview_failures")
+    top_gaps = _text_array(
+        scorecard["flagship_gaps"],
+        "scorecard flagship_gaps",
+        allow_empty=True,
+        maximum_count=64,
+    )
+    top_failures = _text_array(
+        scorecard["failures"],
+        "scorecard failures",
+        allow_empty=True,
+        maximum_count=64,
+    )
+    if top_gaps != expected_top_gaps or top_failures != expected_top_gaps:
+        raise AuthorityError("scorecard whole-product stable gaps contradict its cells")
 
 
 def _validate_convergence(
