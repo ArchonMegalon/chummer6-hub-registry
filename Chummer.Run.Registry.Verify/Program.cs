@@ -2139,14 +2139,34 @@ static byte[] BuildPreviewDecisionBytes(
     string candidateDecisionStatus = "",
     string candidateDecisionSha256 = "",
     IReadOnlyDictionary<string, IReadOnlyList<string>>? fallbackHeadsByPlatform = null)
-    => JsonSerializer.SerializeToUtf8Bytes(
+{
+    using JsonDocument manifestDocument = JsonDocument.Parse(manifestBytes);
+    string manifestGeneratedAt = manifestDocument.RootElement.TryGetProperty("generatedAt", out JsonElement generatedAt)
+        ? generatedAt.GetString() ?? "1970-01-01T00:00:00Z"
+        : "1970-01-01T00:00:00Z";
+    bool previewReady = string.Equals(releaseDecisionStatus, "preview_ready", StringComparison.Ordinal);
+    object[] blockingFindings = previewReady
+        ? []
+        :
+        [
+            new
+            {
+                id = "preview_1",
+                severity = "release_truth",
+                summary = "Immutable release authority still requires review."
+            }
+        ];
+
+    return JsonSerializer.SerializeToUtf8Bytes(
         new
         {
             contractName = ReleaseAuthoritySnapshotStore.PreviewDecisionContract,
+            generatedAt = manifestGeneratedAt,
             releaseVersion = metadata.ReleaseVersion,
             channel = metadata.Channel,
             releaseDecisionStatus,
             status = releaseDecisionStatus,
+            verdict = previewReady ? "PREVIEW_READY" : "PREVIEW_RELEASE_REVIEW_REQUIRED",
             manifestSha256 = manifestSha256 ?? ReleaseAuthoritySnapshotStore.ComputeSha256(manifestBytes),
             registryCommit = metadata.RegistryCommit,
             platforms = metadata.AvailablePlatforms,
@@ -2154,14 +2174,20 @@ static byte[] BuildPreviewDecisionBytes(
             fallbackHeadsByPlatform = fallbackHeadsByPlatform
                 ?? new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal),
             supportOwner = metadata.SupportOwner,
+            nextActions = metadata.NextActions,
             artifactAccessClass = releaseDecisionStatus == "review_required" && metadata.ArtifactCount == 0
                 ? "review_required"
                 : metadata.DownloadAccessPosture,
             authoritySnapshotSha256,
             candidateDecisionStatus,
-            candidateDecisionSha256
+            candidateDecisionSha256,
+            manifestGeneratedAt,
+            scorecardSha256 = previewReady ? new string('c', 64) : string.Empty,
+            convergenceSha256 = previewReady ? new string('d', 64) : string.Empty,
+            blockingFindings
         },
         new JsonSerializerOptions(JsonSerializerDefaults.Web));
+}
 
 static byte[] BuildStableDecisionBytes(
     byte[] manifestBytes,
