@@ -26,7 +26,7 @@ def artifact() -> dict[str, object]:
         "rid": "linux-x64",
         "arch": "x64",
         "kind": "installer",
-        "downloadUrl": "https://downloads.chummer.run/downloads/g/generation-a/files/installer.bin",
+        "downloadUrl": "/downloads/g/generation-a/files/installer.bin",
         "sha256": SHA256,
         "sizeBytes": 4096,
         "compatibilityState": "compatible",
@@ -68,20 +68,33 @@ def snapshot(*, empty: bool = False, decision_status: str = "review_required") -
 def preview_decision(*, ready: bool = False) -> dict[str, object]:
     return {
         "contractName": "chummer.preview-release-decision/v1",
+        "generatedAt": "2026-07-18T12:00:00Z",
         "releaseVersion": "preview-2026.07.18",
         "channel": "preview",
         "releaseDecisionStatus": "preview_ready" if ready else "review_required",
         "status": "preview_ready" if ready else "review_required",
+        "verdict": "PREVIEW_READY" if ready else "PREVIEW_RELEASE_REVIEW_REQUIRED",
         "manifestSha256": SHA256,
         "registryCommit": COMMIT,
         "platforms": ["linux"],
         "primaryHeadByPlatform": {"linux": "avalonia"},
         "fallbackHeadsByPlatform": {},
         "supportOwner": "registry-operations",
+        "nextActions": ["Monitor bounded preview support."],
         "artifactAccessClass": "open_public",
         "authoritySnapshotSha256": SHA256 if ready else "",
         "candidateDecisionStatus": "review_required" if ready else "",
         "candidateDecisionSha256": SHA256 if ready else "",
+        "manifestGeneratedAt": "2026-07-18T11:59:00Z",
+        "scorecardSha256": SHA256 if ready else "",
+        "convergenceSha256": SHA256 if ready else "",
+        "blockingFindings": [] if ready else [
+            {
+                "id": "preview_1",
+                "severity": "release_truth",
+                "summary": "Immutable release authority still requires review.",
+            }
+        ],
     }
 
 
@@ -131,6 +144,11 @@ def test_release_authority_schema_is_valid_and_pins_exact_shapes() -> None:
     )
     assert definitions["snapshot"]["additionalProperties"] is False
     assert definitions["artifact"]["additionalProperties"] is False
+    assert len(definitions["previewDecision"]["required"]) == 22
+    assert set(definitions["previewDecision"]["required"]) == set(
+        definitions["previewDecision"]["properties"]
+    )
+    assert definitions["previewDecision"]["additionalProperties"] is False
     assert {
         "artifacts",
         "primaryHeadByPlatform",
@@ -189,10 +207,21 @@ def test_release_authority_schema_rejects_unknown_fields_and_invalid_shelf_state
         jsonschema.validate(inferred_primary, schema)
 
 
+def test_release_authority_schema_accepts_protected_generation_install_routes() -> None:
+    payload = snapshot()
+    row = payload["artifacts"][0]
+    row["installAccessClass"] = "account_required"
+    row["downloadUrl"] = "/downloads/g/generation-a/install/avalonia-linux-x64-installer"
+    row["publicInstallRoute"] = row["downloadUrl"]
+    payload["downloadAccessPosture"] = "account_required"
+
+    jsonschema.validate(payload, load_schema())
+
+
 @pytest.mark.parametrize(
     "download_url",
     [
-        "/downloads/g/generation-a/files/installer.bin",
+        "https://downloads.chummer.run/downloads/g/generation-a/files/installer.bin",
         "http://downloads.chummer.run/downloads/g/generation-a/files/installer.bin",
         "https://user:secret@downloads.chummer.run/downloads/g/generation-a/files/installer.bin",
         "https://downloads.chummer.run/downloads/g/generation-a/files/installer.bin?latest=1",

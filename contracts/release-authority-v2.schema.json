@@ -98,8 +98,7 @@
         "downloadUrl": {
           "type": "string",
           "minLength": 1,
-          "format": "uri",
-          "pattern": "^https://[^/?#@\\s]+/(?![^?#]*%(?:2[eEfF]|5[cC]))downloads/g/(?!\\.{1,2}(?:/|$))[^/?#\\\\]+/files/(?!\\.{1,2}$)[^/?#\\\\]+$"
+          "pattern": "^/downloads/g/(?!\\.{1,2}(?:/|$))(?!(?:[^/]*%(?:2[eEfF]|5[cC])))[^/?#\\\\\\s]+/(?:files|install)/(?!\\.{1,2}$)(?!(?:[^/]*%(?:2[eEfF]|5[cC])))[^/?#\\\\\\s]+$"
         },
         "sha256": { "$ref": "#/$defs/sha256" },
         "sizeBytes": { "type": "integer", "minimum": 1 },
@@ -109,10 +108,35 @@
         "revokeState": { "const": "not_revoked" },
         "publicInstallRoute": {
           "type": "string",
-          "pattern": "^/downloads/install/(?!\\.{1,2}$)(?!.*%(?:2[eEfF]|5[cC]))[^/?#\\\\\\x00-\\x1f\\x7f]+$"
+          "pattern": "^/downloads/(?:install/|g/(?!\\.{1,2}(?:/|$))[^/?#\\\\]+/install/)(?!\\.{1,2}$)(?!.*%(?:2[eEfF]|5[cC]))[^/?#\\\\\\x00-\\x1f\\x7f]+$"
         },
         "installAccessClass": { "$ref": "#/$defs/installAccessClass" }
-      }
+      },
+      "allOf": [
+        {
+          "if": {
+            "properties": { "installAccessClass": { "const": "open_public" } },
+            "required": ["installAccessClass"]
+          },
+          "then": {
+            "properties": {
+              "downloadUrl": {
+                "pattern": "^/downloads/g/[^/?#\\\\]+/files/[^/?#\\\\]+$"
+              }
+            }
+          },
+          "else": {
+            "properties": {
+              "downloadUrl": {
+                "pattern": "^/downloads/g/[^/?#\\\\]+/install/[^/?#\\\\]+$"
+              },
+              "publicInstallRoute": {
+                "pattern": "^/downloads/g/[^/?#\\\\]+/install/[^/?#\\\\]+$"
+              }
+            }
+          }
+        }
+      ]
     },
     "snapshot": {
       "type": "object",
@@ -247,79 +271,78 @@
         "availablePlatforms": "Must equal the sorted distinct platform values from eligible artifacts.",
         "primaryHeadByPlatform": "Must be derived only from eligible desktopRouteTruth rows with routeRole=primary, exactly one per eligible platform; never inferred from artifact presence or order.",
         "downloadAccessPosture": "Must be unavailable for an empty shelf, the single recognized installAccessClass when all eligible artifacts share one, or mixed when multiple recognized classes occur.",
-        "immutableArtifact": "downloadUrl must be absolute HTTPS without credentials and bind /downloads/g/{generationId}/files/{fileName} without query, fragment, or traversal; sha256 and positive sizeBytes are pinned from the same exact manifest row."
+        "immutableArtifact": "open_public downloadUrl must be the exact root-relative Hub generation file projection /downloads/g/{generationId}/files/{fileName} and remain distinct from publicInstallRoute. account_recommended/account_required downloadUrl must equal the protected /downloads/g/{generationId}/install/{artifactId} route. All routes reject query, fragment, credentials, and traversal; sha256 and positive sizeBytes are pinned from the same exact manifest row."
+      }
+    },
+    "previewFinding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["id", "severity", "summary"],
+      "properties": {
+        "id": { "type": "string", "pattern": "^preview_[1-9][0-9]*$" },
+        "severity": { "const": "release_truth" },
+        "summary": { "type": "string", "minLength": 1, "maxLength": 512 }
       }
     },
     "previewDecision": {
       "type": "object",
+      "additionalProperties": false,
       "required": [
         "contractName",
+        "generatedAt",
+        "status",
+        "releaseDecisionStatus",
+        "verdict",
         "releaseVersion",
         "channel",
-        "releaseDecisionStatus",
-        "status",
-        "manifestSha256",
-        "registryCommit",
         "platforms",
         "primaryHeadByPlatform",
         "fallbackHeadsByPlatform",
-        "supportOwner",
         "artifactAccessClass",
+        "supportOwner",
+        "nextActions",
+        "registryCommit",
+        "manifestSha256",
         "authoritySnapshotSha256",
         "candidateDecisionStatus",
-        "candidateDecisionSha256"
+        "candidateDecisionSha256",
+        "manifestGeneratedAt",
+        "scorecardSha256",
+        "convergenceSha256",
+        "blockingFindings"
       ],
       "properties": {
         "contractName": { "const": "chummer.preview-release-decision/v1" },
+        "generatedAt": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "status": { "enum": ["review_required", "preview_ready"] },
+        "releaseDecisionStatus": { "enum": ["review_required", "preview_ready"] },
+        "verdict": {
+          "enum": ["PREVIEW_RELEASE_REVIEW_REQUIRED", "PREVIEW_READY"]
+        },
         "releaseVersion": { "$ref": "#/$defs/releaseVersion" },
-        "channel": {
-          "type": "string",
-          "pattern": "^[a-z0-9][a-z0-9._+-]*$"
-        },
-        "releaseDecisionStatus": {
-          "enum": ["review_required", "preview_ready"]
-        },
-        "status": {
-          "enum": ["review_required", "preview_ready"]
-        },
-        "manifestSha256": { "$ref": "#/$defs/sha256" },
-        "registryCommit": {
-          "type": "string",
-          "pattern": "^[0-9a-f]{40}$"
-        },
+        "channel": { "$ref": "#/$defs/normalizedToken" },
         "platforms": {
           "type": "array",
-          "items": {
-            "type": "string",
-            "pattern": "^(?!unknown$|missing$|invalid$)[a-z0-9][a-z0-9._+-]*$"
-          },
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/normalizedIdentifier" },
           "uniqueItems": true
         },
         "primaryHeadByPlatform": {
           "type": "object",
-          "propertyNames": {
-            "pattern": "^(?!unknown$|missing$|invalid$)[a-z0-9][a-z0-9._+-]*$"
-          },
-          "additionalProperties": {
-            "type": "string",
-            "pattern": "^(?!unknown$|missing$|invalid$)[a-z0-9][a-z0-9._+-]*$"
-          }
+          "maxProperties": 16,
+          "propertyNames": { "$ref": "#/$defs/normalizedIdentifier" },
+          "additionalProperties": { "$ref": "#/$defs/normalizedIdentifier" }
         },
         "fallbackHeadsByPlatform": {
           "type": "object",
-          "propertyNames": {
-            "pattern": "^(?!unknown$|missing$|invalid$)[a-z0-9][a-z0-9._+-]*$"
-          },
+          "maxProperties": 16,
+          "propertyNames": { "$ref": "#/$defs/normalizedIdentifier" },
           "additionalProperties": {
             "type": "array",
-            "items": {
-              "type": "string",
-              "pattern": "^(?!unknown$|missing$|invalid$)[a-z0-9][a-z0-9._+-]*$"
-            },
+            "items": { "$ref": "#/$defs/normalizedIdentifier" },
             "uniqueItems": true
           }
         },
-        "supportOwner": { "type": "string", "minLength": 1 },
         "artifactAccessClass": {
           "enum": [
             "review_required",
@@ -329,6 +352,16 @@
             "mixed"
           ]
         },
+        "supportOwner": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "nextActions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+        },
+        "registryCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "manifestSha256": { "$ref": "#/$defs/sha256" },
         "authoritySnapshotSha256": {
           "type": "string",
           "pattern": "^$|^[0-9a-f]{64}$"
@@ -339,6 +372,20 @@
         "candidateDecisionSha256": {
           "type": "string",
           "pattern": "^$|^[0-9a-f]{64}$"
+        },
+        "manifestGeneratedAt": { "type": "string", "minLength": 1, "maxLength": 128 },
+        "scorecardSha256": {
+          "type": "string",
+          "pattern": "^$|^[0-9a-f]{64}$"
+        },
+        "convergenceSha256": {
+          "type": "string",
+          "pattern": "^$|^[0-9a-f]{64}$"
+        },
+        "blockingFindings": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/previewFinding" }
         }
       },
       "allOf": [
@@ -346,33 +393,46 @@
           "if": {
             "properties": {
               "releaseDecisionStatus": { "const": "review_required" }
-            }
+            },
+            "required": ["releaseDecisionStatus"]
           },
           "then": {
-            "properties": { "status": { "const": "review_required" } },
-            "anyOf": [
-              {
-                "properties": {
-                  "authoritySnapshotSha256": { "const": "" },
-                  "candidateDecisionStatus": { "const": "" },
-                  "candidateDecisionSha256": { "const": "" }
-                }
-              },
-              {
-                "properties": {
-                  "authoritySnapshotSha256": { "$ref": "#/$defs/sha256" },
-                  "candidateDecisionStatus": {
-                    "enum": ["review_required", "preview_ready"]
-                  },
-                  "candidateDecisionSha256": { "$ref": "#/$defs/sha256" }
-                }
-              }
-            ]
+            "properties": {
+              "status": { "const": "review_required" },
+              "verdict": { "const": "PREVIEW_RELEASE_REVIEW_REQUIRED" },
+              "blockingFindings": { "minItems": 1 }
+            }
           },
           "else": {
             "properties": {
               "status": { "const": "preview_ready" },
+              "verdict": { "const": "PREVIEW_READY" },
               "authoritySnapshotSha256": { "$ref": "#/$defs/sha256" },
+              "candidateDecisionStatus": {
+                "enum": ["review_required", "preview_ready"]
+              },
+              "candidateDecisionSha256": { "$ref": "#/$defs/sha256" },
+              "scorecardSha256": { "$ref": "#/$defs/sha256" },
+              "convergenceSha256": { "$ref": "#/$defs/sha256" },
+              "blockingFindings": { "maxItems": 0 }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "authoritySnapshotSha256": { "const": "" }
+            },
+            "required": ["authoritySnapshotSha256"]
+          },
+          "then": {
+            "properties": {
+              "candidateDecisionStatus": { "const": "" },
+              "candidateDecisionSha256": { "const": "" }
+            }
+          },
+          "else": {
+            "properties": {
               "candidateDecisionStatus": {
                 "enum": ["review_required", "preview_ready"]
               },
@@ -381,16 +441,8 @@
           }
         }
       ],
-      "not": {
-        "anyOf": [
-          { "required": ["contract_name"] },
-          { "required": ["contract_version"] },
-          { "required": ["release_authority"] }
-        ]
-      },
-      "x-chummer-candidate-seed-invariant": "review_required may seed from exact manifest bytes with all three candidate fields empty. Any nonempty candidate closure, and every preview_ready decision, must carry a complete digest/status/digest triple; Registry compares preview_ready values to the exact prior CURRENT candidate.",
-      "x-chummer-scope-binding-invariant": "channel, registryCommit, platforms, primaryHeadByPlatform, canonical manifest-derived fallbackHeadsByPlatform, supportOwner, and artifactAccessClass must exactly bind the derived SNAPSHOT.json projection.",
-      "additionalProperties": true
+      "x-chummer-candidate-seed-invariant": "review_required may seed from exact manifest bytes with the candidate triple and proof digests empty. preview_ready requires exact predecessor CURRENT/SNAPSHOT/RELEASE_DECISION bytes plus passing scorecard and generation-bound convergence proof bytes.",
+      "x-chummer-scope-binding-invariant": "channel, registryCommit, platforms, primaryHeadByPlatform, canonical manifest-derived fallbackHeadsByPlatform, supportOwner, nextActions, artifactAccessClass, manifest timestamp, and proof digests must exactly bind SNAPSHOT.json and immutable proof bytes."
     },
     "stableDecision": {
       "type": "object",
