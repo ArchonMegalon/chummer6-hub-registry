@@ -138,11 +138,24 @@ DESKTOP_ROUTE_ROLES = {
     "avalonia": "primary",
     "blazor-desktop": "fallback",
 }
-DEFAULT_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
+# Mutable current-release scope.  Keep this distinct from
+# CANONICAL_DESKTOP_PLATFORM_ORDER below: macOS remains a supported/buildable
+# platform, but it is not part of the current Windows/Linux preview candidate.
+DEFAULT_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows")
 DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS = {
     "linux": ("linux-x64",),
     "windows": ("win-x64",),
     "macos": ("osx-arm64",),
+}
+CURRENT_PREVIEW_DESKTOP_ARTIFACTS = {
+    ("avalonia", "linux", "linux-x64", "installer"): (
+        "avalonia-linux-x64-installer",
+        "chummer-avalonia-linux-x64-installer.deb",
+    ),
+    ("avalonia", "windows", "win-x64", "installer"): (
+        "avalonia-win-x64-installer",
+        "chummer-avalonia-win-x64-installer.exe",
+    ),
 }
 CANONICAL_DESKTOP_PLATFORM_ORDER = ("linux", "windows", "macos")
 REQUIRED_RELEASE_PROOF_JOURNEYS = (
@@ -1652,9 +1665,13 @@ def filter_unproven_installers(
     return filtered
 
 
-def parse_download_row(item: dict[str, Any]) -> dict[str, Any]:
+def parse_download_row(
+    item: dict[str, Any],
+    *,
+    compatibility_row: bool = False,
+) -> dict[str, Any]:
     raw_url = str(item.get("url") or item.get("downloadUrl") or "").strip()
-    file_name = Path(raw_url).name
+    file_name = str(item.get("fileName") or Path(raw_url).name).strip()
     match = ARTIFACT_PATTERN.match(file_name)
     head = "desktop"
     rid = "unknown"
@@ -1666,6 +1683,28 @@ def parse_download_row(item: dict[str, Any]) -> dict[str, Any]:
         rid = match.group("rid")
         platform, arch = RID_TO_PLATFORM_ARCH.get(rid, ("unknown", "unknown"))
         kind = artifact_kind(match.group("ext"), bool(match.group("installer")))
+        explicit_head = normalize_token(item.get("head"))
+        explicit_rid = normalize_token(item.get("rid"))
+        explicit_platform = (
+            ""
+            if compatibility_row
+            else normalize_platform_token(item.get("platform"))
+        )
+        raw_platform_id = normalize_token(item.get("platformId"))
+        explicit_platform_id = normalize_platform_token(raw_platform_id.split("-", 1)[0])
+        explicit_kind = normalize_token(item.get("kind") or item.get("flavor"))
+        for field_name, explicit_value, expected_value in (
+            ("head", explicit_head, head),
+            ("rid", explicit_rid, rid),
+            ("platform", explicit_platform, platform),
+            ("platformId", explicit_platform_id, platform),
+            ("kind", explicit_kind, kind),
+        ):
+            if explicit_value and explicit_value != expected_value:
+                raise ValueError(
+                    f"artifact {file_name!r} {field_name} {explicit_value!r} "
+                    f"does not match file-name tuple value {expected_value!r}"
+                )
     row = {
         "artifactId": str(item.get("id") or item.get("artifactId") or file_name).strip() or file_name,
         "head": head,
@@ -2399,19 +2438,59 @@ def materialization_required_platforms(
     artifacts: list[dict[str, Any]],
     configured_required_platforms: Any,
 ) -> list[str]:
-    # Chummer6's public desktop support floor is a policy boundary, not a
-    # projection of whichever artifacts happened to reach a staging bundle.
-    # In particular, a macOS-only publish must remain visibly incomplete for
-    # Linux and Windows instead of silently redefining the required platform
-    # set to macOS.  A configured value is retained only when it represents
-    # the complete canonical floor; required_desktop_platforms() also restores
-    # canonical ordering for that validated set.
-    del artifacts
-    canonical_floor = list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS)
-    configured_platforms = required_desktop_platforms(configured_required_platforms)
-    if set(canonical_floor).issubset(configured_platforms):
-        return configured_platforms
-    return canonical_floor
+    # Current release scope is an authority boundary, not a projection of
+    # whichever artifacts or stale configuration happened to reach a staging
+    # bundle.  The active preview is exactly Linux + Windows.  macOS remains
+    # recognized by the platform model and can be selected by a future policy
+    # change, but neither incoming bytes nor an older three-platform manifest
+    # may widen this release transaction.
+    del artifacts, configured_required_platforms
+    return list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS)
+
+
+def verify_current_release_desktop_artifact_scope(
+    artifacts: list[dict[str, Any]],
+    *,
+    product: Any,
+) -> None:
+    product_token = normalized_token(product)
+    chummer_identity_present = any(
+        ARTIFACT_PATTERN.match(str(artifact.get("fileName") or "").strip())
+        for artifact in artifacts
+    )
+    if chummer_identity_present and product_token not in {"", "chummer", "chummer6"}:
+        raise ValueError(
+            "Chummer desktop artifact identities cannot be relabeled as product "
+            f"{product_token!r} to bypass current release scope"
+        )
+    if product_token not in {"", "chummer", "chummer6"}:
+        return
+    seen_tuples: set[tuple[str, str, str, str]] = set()
+    for index, artifact in enumerate(artifacts):
+        scope_tuple = (
+            normalized_token(artifact.get("head")),
+            normalize_platform_token(artifact.get("platform")),
+            normalized_token(artifact.get("rid")),
+            normalized_token(artifact.get("kind")),
+        )
+        expected_identity = CURRENT_PREVIEW_DESKTOP_ARTIFACTS.get(scope_tuple)
+        artifact_id = normalized_token(artifact.get("artifactId") or artifact.get("id"))
+        file_name = str(artifact.get("fileName") or "").strip()
+        if expected_identity is None:
+            raise ValueError(
+                "Chummer6 current release artifact row "
+                f"{index} is outside the exact Avalonia Linux/Windows preview scope: {scope_tuple}"
+            )
+        if (artifact_id, file_name) != expected_identity:
+            raise ValueError(
+                "Chummer6 current release artifact row "
+                f"{index} identity must be exactly {expected_identity}, got {(artifact_id, file_name)}"
+            )
+        if scope_tuple in seen_tuples:
+            raise ValueError(
+                f"Chummer6 current release artifact tuple is duplicated: {scope_tuple}"
+            )
+        seen_tuples.add(scope_tuple)
 
 
 def verify_required_desktop_heads(required_heads: list[str], *, source: str) -> None:
@@ -4595,13 +4674,28 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     if isinstance(loaded.get("artifacts"), list):
         artifacts = [parse_download_row(item) for item in loaded.get("artifacts") or [] if isinstance(item, dict)]
     elif isinstance(loaded.get("downloads"), list):
-        artifacts = [parse_download_row(item) for item in loaded.get("downloads") or [] if isinstance(item, dict)]
+        artifacts = [
+            parse_download_row(item, compatibility_row=True)
+            for item in loaded.get("downloads") or []
+            if isinstance(item, dict)
+        ]
     else:
         artifacts = artifacts_from_downloads_dir(args.downloads_dir or Path("."), downloads_prefix=args.downloads_prefix)
+    verify_current_release_desktop_artifact_scope(
+        artifacts,
+        product=args.product,
+    )
     artifacts = refresh_artifacts_from_downloads_dir(
         artifacts,
         args.downloads_dir,
         downloads_prefix=args.downloads_prefix,
+    )
+    # Validate the refreshed raw inventory before platform pruning or startup-
+    # proof filtering. Out-of-scope bytes must fail closed, not disappear from
+    # the projection because their platform is unknown or their proof is stale.
+    verify_current_release_desktop_artifact_scope(
+        artifacts,
+        product=args.product,
     )
     artifacts = [
         artifact

@@ -74,7 +74,7 @@ def complete_primary_desktop_tuple_payload() -> dict:
         "channelId": "docker",
         "version": "run-20260414-1836",
         "desktopTupleCoverage": {
-            "requiredDesktopPlatforms": ["linux", "windows", "macos"],
+            "requiredDesktopPlatforms": ["linux", "windows"],
             "requiredDesktopHeads": ["avalonia"],
             "promotedInstallerTuples": [
                 {
@@ -95,26 +95,15 @@ def complete_primary_desktop_tuple_payload() -> dict:
                     "kind": "installer",
                     "artifactId": "avalonia-win-x64-installer",
                 },
-                {
-                    "tupleId": "avalonia:macos:osx-arm64",
-                    "head": "avalonia",
-                    "platform": "macos",
-                    "rid": "osx-arm64",
-                    "arch": "arm64",
-                    "kind": "installer",
-                    "artifactId": "avalonia-osx-arm64-installer",
-                },
             ],
-            "promotedPlatformHeads": {"linux": ["avalonia"], "windows": ["avalonia"], "macos": ["avalonia"]},
+            "promotedPlatformHeads": {"linux": ["avalonia"], "windows": ["avalonia"]},
             "requiredDesktopPlatformHeadRidTuples": [
                 "avalonia:linux-x64:linux",
                 "avalonia:win-x64:windows",
-                "avalonia:osx-arm64:macos",
             ],
             "promotedPlatformHeadRidTuples": [
                 "avalonia:linux-x64:linux",
                 "avalonia:win-x64:windows",
-                "avalonia:osx-arm64:macos",
             ],
             "missingRequiredPlatforms": [],
             "missingRequiredHeads": [],
@@ -127,6 +116,7 @@ def complete_primary_desktop_tuple_payload() -> dict:
         "artifacts": [
             {
                 "artifactId": "avalonia-linux-x64-installer",
+                "fileName": "chummer-avalonia-linux-x64-installer.deb",
                 "head": "avalonia",
                 "rid": "linux-x64",
                 "platform": "linux",
@@ -135,26 +125,141 @@ def complete_primary_desktop_tuple_payload() -> dict:
             },
             {
                 "artifactId": "avalonia-win-x64-installer",
+                "fileName": "chummer-avalonia-win-x64-installer.exe",
                 "head": "avalonia",
                 "rid": "win-x64",
                 "platform": "windows",
                 "arch": "x64",
                 "kind": "installer",
             },
-            {
-                "artifactId": "avalonia-osx-arm64-installer",
-                "head": "avalonia",
-                "rid": "osx-arm64",
-                "platform": "macos",
-                "arch": "arm64",
-                "kind": "installer",
-            },
         ],
     }
 
 
-def windows_only_primary_desktop_tuple_payload() -> dict:
+def test_verify_desktop_tuple_coverage_rejects_artifact_outside_current_chummer_scope() -> None:
     payload = complete_primary_desktop_tuple_payload()
+    payload["artifacts"].append(
+        {
+            "artifactId": "avalonia-osx-arm64-installer",
+            "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
+            "head": "avalonia",
+            "rid": "osx-arm64",
+            "platform": "macos",
+            "arch": "arm64",
+            "kind": "installer",
+        }
+    )
+    payload["desktopTupleCoverage"]["desktopRouteTruth"] = MODULE.expected_desktop_route_truth_rows(
+        payload
+    )
+
+    with pytest.raises(
+        SystemExit,
+        match="outside the exact Avalonia Linux/Windows preview scope.*macos",
+    ):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
+@pytest.mark.parametrize(
+    "artifact",
+    [
+        {
+            "artifactId": "avalonia-osx-arm64-installer",
+            "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
+            "head": "avalonia",
+            "rid": "osx-arm64",
+            "platform": "macos",
+            "arch": "arm64",
+            "kind": "installer",
+        },
+        {
+            "artifactId": "avalonia-freebsd-x64-installer",
+            "fileName": "chummer-avalonia-freebsd-x64-installer.zip",
+            "head": "avalonia",
+            "rid": "freebsd-x64",
+            "platform": "",
+            "arch": "x64",
+            "kind": "installer",
+        },
+        {
+            "artifactId": "blazor-desktop-win-x64-installer",
+            "fileName": "chummer-blazor-desktop-win-x64-installer.exe",
+            "head": "blazor-desktop",
+            "rid": "win-x64",
+            "platform": "windows",
+            "arch": "x64",
+            "kind": "installer",
+        },
+        {
+            "artifactId": "avalonia-win-arm64-installer",
+            "fileName": "chummer-avalonia-win-arm64-installer.exe",
+            "head": "avalonia",
+            "rid": "win-arm64",
+            "platform": "windows",
+            "arch": "arm64",
+            "kind": "installer",
+        },
+        {
+            "artifactId": "avalonia-win-x64-msix",
+            "fileName": "chummer-avalonia-win-x64.msix",
+            "head": "avalonia",
+            "rid": "win-x64",
+            "platform": "windows",
+            "arch": "x64",
+            "kind": "installer",
+        },
+    ],
+    ids=["macos", "unknown-platform", "fallback-head", "extra-rid", "extra-media"],
+)
+def test_current_preview_scope_rejects_all_extra_desktop_artifact_shapes(artifact: dict) -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["artifacts"].append(artifact)
+
+    with pytest.raises(
+        SystemExit,
+        match="outside the exact|identity must be exactly|not supported|does not match file-name tuple kind",
+    ):
+        MODULE.verify_current_preview_desktop_artifact_scope(payload, "release-channel.json")
+
+
+def test_current_preview_scope_rejects_duplicate_product_spoof_and_platform_alias_conflict() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["artifacts"].append(dict(payload["artifacts"][1]))
+    with pytest.raises(SystemExit, match="duplicated"):
+        MODULE.verify_current_preview_desktop_artifact_scope(payload, "release-channel.json")
+
+    payload = complete_primary_desktop_tuple_payload()
+    payload["product"] = "shared-verifier-test-product"
+    with pytest.raises(SystemExit, match="cannot be relabeled as product"):
+        MODULE.verify_current_preview_desktop_artifact_scope(payload, "release-channel.json")
+
+    payload = complete_primary_desktop_tuple_payload()
+    payload["artifacts"][1]["platform"] = "macos"
+    payload["artifacts"][1]["platformId"] = "windows-x64"
+    with pytest.raises(SystemExit, match="platform 'macos' disagrees with platformId"):
+        MODULE.verify_current_preview_desktop_artifact_scope(payload, "release-channel.json")
+
+
+def test_verify_artifact_metadata_accepts_compatibility_platform_display_label() -> None:
+    MODULE.verify_artifact_row_tuple_metadata(
+        {
+            "artifactId": "avalonia-linux-x64-installer",
+            "fileName": "chummer-avalonia-linux-x64-installer.deb",
+            "head": "avalonia",
+            "rid": "linux-x64",
+            "platform": "Avalonia Desktop Linux X64 Installer",
+            "platformId": "linux",
+            "arch": "x64",
+            "kind": "installer",
+        },
+        index=0,
+        source="releases.json",
+        entry_name="downloads",
+    )
+
+
+def windows_only_primary_desktop_tuple_payload() -> dict:
+    payload = shared_primary_desktop_tuple_payload()
     payload["product"] = "shared-verifier-test-product"
     payload["desktopTupleCoverage"]["requiredDesktopPlatforms"] = ["windows"]
     payload["desktopTupleCoverage"]["promotedInstallerTuples"] = [
@@ -171,6 +276,14 @@ def windows_only_primary_desktop_tuple_payload() -> dict:
     payload["desktopTupleCoverage"]["complete"] = True
     payload["artifacts"] = [item for item in payload["artifacts"] if item["platform"] == "windows"]
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = MODULE.expected_desktop_route_truth_rows(payload)
+    return payload
+
+
+def shared_primary_desktop_tuple_payload() -> dict:
+    payload = complete_primary_desktop_tuple_payload()
+    payload["product"] = "shared-verifier-test-product"
+    for artifact in payload["artifacts"]:
+        artifact.pop("fileName", None)
     return payload
 
 
@@ -1373,7 +1486,7 @@ def test_verify_desktop_tuple_coverage_accepts_explicit_non_chummer_windows_only
     assert coverage["missing_platform_head_rid_tuples"] == []
 
 
-def test_verify_desktop_tuple_coverage_rejects_chummer_product_aliases_with_mac_only_floor() -> None:
+def test_verify_desktop_tuple_coverage_rejects_chummer_product_aliases_outside_current_target() -> None:
     for product in ("chummer", "chummer6"):
         payload = complete_primary_desktop_tuple_payload()
         payload["product"] = product
@@ -1381,10 +1494,10 @@ def test_verify_desktop_tuple_coverage_rejects_chummer_product_aliases_with_mac_
 
         with pytest.raises(
             SystemExit,
-            match=(
-                "Chummer6 desktopTupleCoverage.requiredDesktopPlatforms must be exactly "
-                "the canonical platform floor"
-            ),
+                match=(
+                    "Chummer6 desktopTupleCoverage.requiredDesktopPlatforms must be exactly "
+                    "the current preview platform target"
+                ),
         ):
             MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
@@ -2109,6 +2222,7 @@ def test_expected_external_proof_capture_commands_include_linux_operating_system
 
 def test_verify_desktop_tuple_coverage_accepts_external_proof_request_shape_with_release_version() -> None:
     payload = {
+        "product": "shared-verifier-test-product",
         "channelId": "docker",
         "version": "run-20260414-1836",
         "desktopTupleCoverage": {
@@ -2215,6 +2329,7 @@ def test_verify_desktop_tuple_coverage_accepts_external_proof_request_shape_with
 
 def test_verify_desktop_tuple_coverage_rejects_missing_route_truth_rationale() -> None:
     payload = {
+        "product": "shared-verifier-test-product",
         "channelId": "docker",
         "version": "run-20260414-1836",
         "desktopTupleCoverage": {
@@ -2305,6 +2420,7 @@ def test_verify_desktop_tuple_coverage_rejects_missing_route_truth_rationale() -
 
 def test_verify_desktop_tuple_coverage_rejects_missing_route_truth_reason_code() -> None:
     payload = {
+        "product": "shared-verifier-test-product",
         "channelId": "docker",
         "version": "run-20260414-1836",
         "desktopTupleCoverage": {
@@ -2395,6 +2511,7 @@ def test_verify_desktop_tuple_coverage_rejects_missing_route_truth_reason_code()
 
 def test_verify_desktop_tuple_coverage_rejects_generic_route_truth_rationale() -> None:
     payload = {
+        "product": "shared-verifier-test-product",
         "channelId": "docker",
         "version": "run-20260414-1836",
         "desktopTupleCoverage": {
@@ -2526,7 +2643,7 @@ def test_verify_desktop_tuple_coverage_rejects_canonical_route_truth_copy_drift(
 
 
 def test_verify_desktop_tuple_coverage_rejects_promoted_fallback_promotion_rationale_without_recovery_reason() -> None:
-    payload = complete_primary_desktop_tuple_payload()
+    payload = shared_primary_desktop_tuple_payload()
     payload["artifacts"].append(
         {
             "artifactId": "blazor-desktop-linux-x64-installer",
@@ -2665,6 +2782,7 @@ def test_verify_desktop_tuple_coverage_rejects_missing_sibling_fallback_route_tr
 
 def test_verify_desktop_tuple_coverage_rejects_route_role_reason_drift() -> None:
     payload = {
+        "product": "shared-verifier-test-product",
         "channelId": "docker",
         "version": "run-20260414-1836",
         "desktopTupleCoverage": {
@@ -2826,7 +2944,7 @@ def test_verify_desktop_tuple_coverage_rejects_primary_missing_proof_rollback_re
 
 
 def test_verify_desktop_tuple_coverage_rejects_primary_manual_rollback_when_fallback_row_is_promoted() -> None:
-    payload = complete_primary_desktop_tuple_payload()
+    payload = shared_primary_desktop_tuple_payload()
     payload["artifacts"].append(
         {
             "artifactId": "blazor-desktop-linux-x64-installer",
@@ -2859,7 +2977,7 @@ def test_verify_desktop_tuple_coverage_rejects_primary_manual_rollback_when_fall
 
 
 def test_verify_desktop_tuple_coverage_rejects_primary_rollback_without_embedded_fallback_revoke_reason() -> None:
-    payload = complete_primary_desktop_tuple_payload()
+    payload = shared_primary_desktop_tuple_payload()
     payload["artifacts"].append(
         {
             "artifactId": "blazor-desktop-linux-x64-installer",
@@ -2887,7 +3005,7 @@ def test_verify_desktop_tuple_coverage_rejects_primary_rollback_without_embedded
 
 
 def test_verify_desktop_tuple_coverage_rejects_primary_revoked_fallback_rollback_reason_code_drift() -> None:
-    payload = complete_primary_desktop_tuple_payload()
+    payload = shared_primary_desktop_tuple_payload()
     payload["artifacts"].append(
         {
             "artifactId": "blazor-desktop-linux-x64-installer",
@@ -2916,6 +3034,7 @@ def test_verify_desktop_tuple_coverage_rejects_primary_revoked_fallback_rollback
 
 def test_verify_desktop_tuple_coverage_rejects_non_revoked_row_with_revoked_reason_code() -> None:
     payload = {
+        "product": "shared-verifier-test-product",
         "channelId": "docker",
         "version": "run-20260414-1836",
         "desktopTupleCoverage": {
@@ -3037,7 +3156,7 @@ def test_verify_desktop_tuple_coverage_rejects_fallback_missing_proof_install_po
 
 
 def test_verify_desktop_tuple_coverage_rejects_promoted_fallback_automatic_update_rationale() -> None:
-    payload = complete_primary_desktop_tuple_payload()
+    payload = shared_primary_desktop_tuple_payload()
     payload["artifacts"].append(
         {
             "artifactId": "blazor-desktop-linux-x64-installer",
@@ -3082,7 +3201,7 @@ def test_verify_desktop_tuple_coverage_rejects_proof_required_fallback_update_ra
 def test_verify_desktop_tuple_coverage_rejects_fallback_missing_proof_rollback_reason_drift() -> None:
     payload = complete_primary_desktop_tuple_payload()
     rows = MODULE.expected_desktop_route_truth_rows(payload)
-    fallback = next(row for row in rows if row["tupleId"] == "blazor-desktop:macos:osx-arm64")
+    fallback = next(row for row in rows if row["tupleId"] == "blazor-desktop:windows:win-x64")
     fallback["rollbackReasonCode"] = "fallback_promoted_for_recovery"
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = rows
 
@@ -3095,6 +3214,7 @@ def test_verify_desktop_tuple_coverage_rejects_fallback_missing_proof_rollback_r
 
 def test_verify_desktop_tuple_coverage_rejects_duplicate_route_truth_tuple_ids() -> None:
     payload = {
+        "product": "shared-verifier-test-product",
         "channelId": "docker",
         "version": "run-20260414-1836",
         "desktopTupleCoverage": {
@@ -3233,6 +3353,7 @@ def test_expected_desktop_route_truth_rows_marks_revoked_channel_routes() -> Non
 
 def test_verify_desktop_tuple_coverage_rejects_revoked_rows_without_embedded_revoke_reason() -> None:
     payload = {
+        "product": "shared-verifier-test-product",
         "channelId": "docker",
         "version": "run-20260414-1836",
         "status": "revoked",
@@ -3341,6 +3462,7 @@ def test_verify_desktop_tuple_coverage_rejects_revoked_promotion_reason_without_
 
 def test_verify_desktop_tuple_coverage_rejects_revoked_update_reason_without_embedded_revoke_reason() -> None:
     payload = {
+        "product": "shared-verifier-test-product",
         "channelId": "docker",
         "version": "run-20260414-1836",
         "status": "revoked",
@@ -3433,6 +3555,7 @@ def test_verify_desktop_tuple_coverage_rejects_revoked_update_reason_without_emb
 
 def test_verify_desktop_tuple_coverage_rejects_revoked_rollback_reason_without_embedded_revoke_reason() -> None:
     payload = {
+        "product": "shared-verifier-test-product",
         "channelId": "docker",
         "version": "run-20260414-1836",
         "status": "revoked",
@@ -3525,6 +3648,7 @@ def test_verify_desktop_tuple_coverage_rejects_revoked_rollback_reason_without_e
 
 def test_verify_desktop_tuple_coverage_rejects_revoked_install_posture_reason_without_embedded_revoke_reason() -> None:
     payload = {
+        "product": "shared-verifier-test-product",
         "channelId": "docker",
         "version": "run-20260414-1836",
         "status": "revoked",
@@ -3639,6 +3763,7 @@ def test_verify_desktop_tuple_coverage_rejects_non_revoked_revoke_reason_without
 
 def test_verify_desktop_tuple_coverage_rejects_revoked_row_reason_code_drift() -> None:
     payload = {
+        "product": "shared-verifier-test-product",
         "channelId": "docker",
         "version": "run-20260414-1836",
         "status": "revoked",
@@ -3860,7 +3985,7 @@ def test_expected_desktop_route_truth_rows_prefers_non_revoked_tuple_artifact() 
     assert fallback["revokeReason"] == "No registry revoke marker is active for blazor-desktop:linux:linux-x64."
 
 
-def test_verify_desktop_tuple_coverage_dedupes_multiple_macos_install_media_per_tuple() -> None:
+def test_verify_desktop_tuple_coverage_rejects_relabelled_macos_artifact_identity() -> None:
     payload = {
         "product": "shared-verifier-test-product",
         "channelId": "preview",
@@ -3913,7 +4038,8 @@ def test_verify_desktop_tuple_coverage_dedupes_multiple_macos_install_media_per_
     }
     payload["desktopTupleCoverage"]["desktopRouteTruth"] = MODULE.expected_desktop_route_truth_rows(payload)
 
-    MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+    with pytest.raises(SystemExit, match="cannot be relabeled as product"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
 
 
 def test_expected_desktop_route_truth_rows_treat_artifact_rollout_state_as_tuple_revoke() -> None:

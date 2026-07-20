@@ -341,7 +341,6 @@ def materialize_flagship_readiness_fixture(
     for file_name, contents in (
         ("chummer-avalonia-linux-x64-installer.deb", b"linux-installer-bytes"),
         ("chummer-avalonia-win-x64-installer.exe", b"windows-installer-bytes"),
-        ("chummer-avalonia-osx-arm64-installer.dmg", b"macos-installer-bytes"),
     ):
         (downloads_dir / file_name).write_bytes(contents)
     proof_path = root / "release-proof.json"
@@ -375,7 +374,7 @@ def materialize_flagship_readiness_fixture(
             artifact_source="ui_desktop_bundle",
             downloads_prefix="/downloads/files",
             required_desktop_heads="avalonia",
-            required_desktop_platforms="linux",
+            required_desktop_platforms="linux,windows",
         )
     )
 
@@ -416,7 +415,6 @@ def test_canonical_payload_fails_closed_when_flagship_gate_is_absent_or_malforme
         for file_name in (
             "chummer-avalonia-linux-x64-installer.deb",
             "chummer-avalonia-win-x64-installer.exe",
-            "chummer-avalonia-osx-arm64-installer.dmg",
         ):
             (downloads_dir / file_name).write_bytes(file_name.encode("utf-8"))
         proof_path = root / "release-proof.json"
@@ -455,7 +453,7 @@ def test_canonical_payload_fails_closed_when_flagship_gate_is_absent_or_malforme
                 artifact_source="ui_desktop_bundle",
                 downloads_prefix="/downloads/files",
                 required_desktop_heads="avalonia",
-                required_desktop_platforms="linux,windows,macos",
+                required_desktop_platforms="linux,windows",
             )
         )
 
@@ -2499,7 +2497,7 @@ def test_desktop_tuple_coverage_emits_explicit_complete_flag() -> None:
     assert "missingRequiredPlatformHeadRidTuples" in coverage
 
 
-def test_materialization_required_platforms_enforces_canonical_floor_over_partial_artifacts_or_config() -> None:
+def test_materialization_required_platforms_enforces_current_preview_scope_over_artifacts_or_config() -> None:
     artifacts = [
         {
             "artifactId": "avalonia-linux-x64-installer",
@@ -2514,23 +2512,134 @@ def test_materialization_required_platforms_enforces_canonical_floor_over_partia
     assert MODULE.materialization_required_platforms(
         artifacts,
         ["linux", "windows", "macos"],
-    ) == ["linux", "windows", "macos"]
+    ) == ["linux", "windows"]
     assert MODULE.materialization_required_platforms(
         artifacts,
         "linux,windows,macos",
-    ) == ["linux", "windows", "macos"]
+    ) == ["linux", "windows"]
     assert MODULE.materialization_required_platforms(
         artifacts,
         None,
-    ) == ["linux", "windows", "macos"]
+    ) == ["linux", "windows"]
     assert MODULE.materialization_required_platforms(
         artifacts,
         "linux",
-    ) == ["linux", "windows", "macos"]
+    ) == ["linux", "windows"]
     assert MODULE.materialization_required_platforms(
         artifacts,
         ["macos"],
-    ) == ["linux", "windows", "macos"]
+    ) == ["linux", "windows"]
+
+
+def current_preview_artifact(
+    *,
+    head: str = "avalonia",
+    platform: str = "windows",
+    rid: str = "win-x64",
+    kind: str = "installer",
+    artifact_id: str = "avalonia-win-x64-installer",
+    file_name: str = "chummer-avalonia-win-x64-installer.exe",
+) -> dict[str, object]:
+    return {
+        "artifactId": artifact_id,
+        "head": head,
+        "platform": platform,
+        "rid": rid,
+        "arch": "x64",
+        "kind": kind,
+        "fileName": file_name,
+    }
+
+
+@pytest.mark.parametrize(
+    "artifact",
+    [
+        current_preview_artifact(
+            platform="macos",
+            rid="osx-arm64",
+            artifact_id="avalonia-osx-arm64-installer",
+            file_name="chummer-avalonia-osx-arm64-installer.dmg",
+        ),
+        current_preview_artifact(
+            platform="unknown",
+            rid="freebsd-x64",
+            artifact_id="avalonia-freebsd-x64-installer",
+            file_name="chummer-avalonia-freebsd-x64-installer.zip",
+        ),
+        current_preview_artifact(
+            head="blazor-desktop",
+            artifact_id="blazor-desktop-win-x64-installer",
+            file_name="chummer-blazor-desktop-win-x64-installer.exe",
+        ),
+        current_preview_artifact(
+            rid="win-arm64",
+            artifact_id="avalonia-win-arm64-installer",
+            file_name="chummer-avalonia-win-arm64-installer.exe",
+        ),
+        current_preview_artifact(
+            artifact_id="avalonia-win-x64-msix",
+            file_name="chummer-avalonia-win-x64.msix",
+        ),
+    ],
+    ids=["macos", "unknown-platform", "fallback-head", "extra-rid", "extra-media"],
+)
+def test_current_release_artifact_scope_rejects_every_out_of_scope_desktop_row(
+    artifact: dict[str, object],
+) -> None:
+    with pytest.raises(ValueError, match="outside the exact|identity must be exactly"):
+        MODULE.verify_current_release_desktop_artifact_scope(
+            [artifact],
+            product="chummer6",
+        )
+
+
+def test_current_release_artifact_scope_rejects_duplicates_and_product_spoofing() -> None:
+    artifact = current_preview_artifact()
+    with pytest.raises(ValueError, match="duplicated"):
+        MODULE.verify_current_release_desktop_artifact_scope(
+            [artifact, dict(artifact)],
+            product="chummer6",
+        )
+    with pytest.raises(ValueError, match="cannot be relabeled as product"):
+        MODULE.verify_current_release_desktop_artifact_scope(
+            [artifact],
+            product="shared-verifier-test-product",
+        )
+
+
+def test_parse_download_row_rejects_supported_platform_alias_disagreement() -> None:
+    with pytest.raises(ValueError, match="platform 'macos'.*file-name tuple value 'windows'"):
+        MODULE.parse_download_row(
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "fileName": "chummer-avalonia-win-x64-installer.exe",
+                "downloadUrl": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
+                "head": "avalonia",
+                "rid": "win-x64",
+                "platform": "macos",
+                "platformId": "windows-x64",
+                "kind": "installer",
+            }
+        )
+
+
+def test_parse_download_row_accepts_compatibility_platform_display_label() -> None:
+    row = MODULE.parse_download_row(
+        {
+            "artifactId": "avalonia-linux-x64-installer",
+            "fileName": "chummer-avalonia-linux-x64-installer.deb",
+            "downloadUrl": "/downloads/files/chummer-avalonia-linux-x64-installer.deb",
+            "head": "avalonia",
+            "rid": "linux-x64",
+            "platform": "Avalonia Desktop Linux X64 Installer",
+            "platformId": "linux",
+            "kind": "installer",
+        },
+        compatibility_row=True,
+    )
+
+    assert row["platform"] == "linux"
+    assert row["platformLabel"] == "Avalonia Desktop Linux X64 Installer"
 
 
 def test_desktop_tuple_coverage_emits_route_truth_for_primary_and_fallback_heads() -> None:
@@ -2824,7 +2933,7 @@ def test_desktop_tuple_coverage_dedupes_multiple_macos_install_media_per_tuple()
     ]
 
 
-def test_canonical_payload_keeps_mac_only_preview_review_gated_against_canonical_platform_floor() -> None:
+def test_canonical_payload_rejects_mac_only_artifacts_outside_current_preview_scope() -> None:
     localization_domains = (
         "app_chrome",
         "install_update_support",
@@ -2836,6 +2945,8 @@ def test_canonical_payload_keeps_mac_only_preview_review_gated_against_canonical
         root = Path(tmp)
         downloads_dir = root / "dist"
         downloads_dir.mkdir(parents=True, exist_ok=True)
+        startup_smoke_dir = root / "startup-smoke"
+        startup_smoke_dir.mkdir(parents=True, exist_ok=True)
         for file_name, payload in (
             ("chummer-avalonia-osx-arm64-installer.dmg", b"avalonia-installer"),
             ("chummer-blazor-desktop-osx-arm64-installer.dmg", b"blazor-installer"),
@@ -2894,14 +3005,16 @@ def test_canonical_payload_keeps_mac_only_preview_review_gated_against_canonical
             encoding="utf-8",
         )
 
-        payload = MODULE.canonical_payload(
+        exc_info = pytest.raises(
+            ValueError,
+            MODULE.canonical_payload,
             materializer_args(
                 manifest=None,
                 downloads_dir=downloads_dir,
-                startup_smoke_dir=None,
+                    startup_smoke_dir=startup_smoke_dir,
                 startup_smoke_max_age_seconds=MODULE.STARTUP_SMOKE_MAX_AGE_SECONDS,
                 startup_smoke_max_future_skew_seconds=MODULE.STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
-                skip_startup_smoke_filter=True,
+                    skip_startup_smoke_filter=False,
                 output=root / "RELEASE_CHANNEL.generated.json",
                 compat_output=None,
                 runtime_bundles=None,
@@ -2915,49 +3028,15 @@ def test_canonical_payload_keeps_mac_only_preview_review_gated_against_canonical
                 artifact_source="ui_desktop_bundle",
                 downloads_prefix="/downloads/files",
                 required_desktop_heads="avalonia",
-            )
+            ),
         )
 
-    assert {artifact["platform"] for artifact in payload["artifacts"]} == {"macos"}
-    assert payload["desktopTupleCoverage"]["requiredDesktopPlatforms"] == ["linux", "windows", "macos"]
-    assert {row["platform"] for row in payload["desktopTupleCoverage"]["desktopRouteTruth"]} == {
-        "linux",
-        "windows",
-        "macos",
-    }
-    assert {row["platform"] for row in payload["artifactIdentityRegistry"]} == {"macos"}
-    assert {row["platform"] for row in payload["desktopSurfaceRefs"]} == {"macos"}
-    assert {row["artifactId"] for row in payload["artifactIdentityRegistry"]} == {
-        "avalonia-osx-arm64-installer",
-        "blazor-desktop-osx-arm64-installer",
-    }
-    assert payload["desktopTupleCoverage"]["missingRequiredPlatforms"] == ["linux", "windows"]
-    assert payload["desktopTupleCoverage"]["missingRequiredPlatformHeadRidTuples"] == [
-        "avalonia:linux-x64:linux",
-        "avalonia:win-x64:windows",
-    ]
-    assert payload["desktopTupleCoverage"]["complete"] is False
-    assert payload["channel"] == "preview"
-    assert payload["rolloutState"] == "coverage_incomplete"
-    assert payload["supportabilityState"] == "review_required"
-    assert payload["publicTrustMetrics"]["releaseChannel"]["supportabilityState"] == "review_required"
-    assert payload["registryBoundaryCoverage"]["releaseChannel"]["supportabilityState"] == "review_required"
-    assert "required desktop tuple coverage is incomplete" in payload["supportabilitySummary"]
-    with pytest.raises(
-        SystemExit,
-        match=(
-            "mac-only-canonical.json is missing required desktop tuple coverage for public release "
-            "\\(missing platforms: linux, windows"
-        ),
-    ):
-        VERIFY_MODULE.verify_artifacts(
-            payload,
-            "mac-only-canonical.json",
-            require_complete_desktop_coverage=True,
-        )
+    assert "outside the exact Avalonia Linux/Windows preview scope" in str(
+        exc_info.value
+    )
 
 
-def test_canonical_payload_rewrites_stale_mac_tuple_gap_to_canonical_platform_gaps() -> None:
+def test_canonical_payload_rejects_stale_mac_scope_and_artifacts() -> None:
     localization_domains = (
         "app_chrome",
         "install_update_support",
@@ -3041,7 +3120,9 @@ def test_canonical_payload_rewrites_stale_mac_tuple_gap_to_canonical_platform_ga
             encoding="utf-8",
         )
 
-        payload = MODULE.canonical_payload(
+        exc_info = pytest.raises(
+            ValueError,
+            MODULE.canonical_payload,
             materializer_args(
                 manifest=manifest_path,
                 downloads_dir=downloads_dir,
@@ -3062,21 +3143,12 @@ def test_canonical_payload_rewrites_stale_mac_tuple_gap_to_canonical_platform_ga
                 artifact_source="ui_desktop_bundle",
                 downloads_prefix="/downloads/files",
                 required_desktop_heads="avalonia",
-            )
+            ),
         )
 
-    assert payload["desktopTupleCoverage"]["requiredDesktopPlatforms"] == ["linux", "windows", "macos"]
-    assert payload["desktopTupleCoverage"]["missingRequiredPlatforms"] == ["linux", "windows"]
-    assert payload["desktopTupleCoverage"]["missingRequiredPlatformHeadRidTuples"] == [
-        "avalonia:linux-x64:linux",
-        "avalonia:win-x64:windows",
-    ]
-    assert payload["desktopTupleCoverage"]["complete"] is False
-    assert payload["rolloutState"] == "coverage_incomplete"
-    assert payload["supportabilityState"] == "review_required"
-    assert "required desktop tuple coverage is incomplete" in payload["knownIssueSummary"]
-    assert "platforms: linux, windows" in payload["knownIssueSummary"]
-    assert "avalonia:osx-arm64:macos" not in payload["knownIssueSummary"]
+    assert "outside the exact Avalonia Linux/Windows preview scope" in str(
+        exc_info.value
+    )
 
 
 def test_canonical_payload_preserves_public_version_and_sets_release_alias() -> None:
@@ -3224,7 +3296,6 @@ def test_canonical_payload_demotes_public_stable_posture_when_flagship_readiness
         downloads_dir.mkdir(parents=True, exist_ok=True)
         (downloads_dir / "chummer-avalonia-linux-x64-installer.deb").write_bytes(b"linux-installer-bytes")
         (downloads_dir / "chummer-avalonia-win-x64-installer.exe").write_bytes(b"windows-installer-bytes")
-        (downloads_dir / "chummer-avalonia-osx-arm64-installer.dmg").write_bytes(b"macos-installer-bytes")
 
         proof_path = root / "release-proof.json"
         proof_path.write_text(
@@ -3353,9 +3424,6 @@ def test_canonical_payload_demotes_supported_posture_when_green_flagship_receipt
         (downloads_dir / "chummer-avalonia-win-x64-installer.exe").write_bytes(
             b"windows-installer-bytes"
         )
-        (downloads_dir / "chummer-avalonia-osx-arm64-installer.dmg").write_bytes(
-            b"macos-installer-bytes"
-        )
 
         proof_path = root / "release-proof.json"
         proof_path.write_text(
@@ -3453,7 +3521,6 @@ def test_canonical_payload_fails_closed_when_flagship_gate_only_echoes_release_p
         downloads_dir.mkdir(parents=True, exist_ok=True)
         (downloads_dir / "chummer-avalonia-linux-x64-installer.deb").write_bytes(b"linux-installer-bytes")
         (downloads_dir / "chummer-avalonia-win-x64-installer.exe").write_bytes(b"windows-installer-bytes")
-        (downloads_dir / "chummer-avalonia-osx-arm64-installer.dmg").write_bytes(b"macos-installer-bytes")
 
         proof_path = root / "release-proof.json"
         proof_path.write_text(
@@ -3579,7 +3646,6 @@ def test_canonical_payload_preserves_review_gate_when_flagship_gate_only_echoes_
         downloads_dir.mkdir(parents=True, exist_ok=True)
         (downloads_dir / "chummer-avalonia-linux-x64-installer.deb").write_bytes(b"linux-installer-bytes")
         (downloads_dir / "chummer-avalonia-win-x64-installer.exe").write_bytes(b"windows-installer-bytes")
-        (downloads_dir / "chummer-avalonia-osx-arm64-installer.dmg").write_bytes(b"macos-installer-bytes")
 
         manifest_path = root / "release-channel-stale.json"
         manifest_path.write_text(
@@ -4107,6 +4173,7 @@ def test_desktop_tuple_coverage_external_proof_requests_match_verifier_contract(
         )
 
     payload = {
+        "product": "shared-verifier-test-product",
         "channelId": "docker",
         "version": "run-20260519-180048",
         "desktopTupleCoverage": coverage,

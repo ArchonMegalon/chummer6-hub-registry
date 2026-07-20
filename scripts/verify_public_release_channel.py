@@ -108,8 +108,21 @@ def summarize_registry_row_mismatch(
         tuple_id = actual_row.get("tupleId") or expected_row.get("tupleId") or f"index={index}"
         return f"first_diff tupleId={tuple_id} row_content_mismatch"
     return "rows differ but no first-diff summary was derived"
-REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
+SUPPORTED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
+# Mutable current-release scope. macOS remains supported/buildable but is not
+# a required platform in the active Windows/Linux preview transaction.
+REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows")
 REQUIRED_DESKTOP_HEADS = ("avalonia",)
+CURRENT_PREVIEW_DESKTOP_ARTIFACTS = {
+    ("avalonia", "linux", "linux-x64", "installer"): (
+        "avalonia-linux-x64-installer",
+        "chummer-avalonia-linux-x64-installer.deb",
+    ),
+    ("avalonia", "windows", "win-x64", "installer"): (
+        "avalonia-win-x64-installer",
+        "chummer-avalonia-win-x64-installer.exe",
+    ),
+}
 DESKTOP_ROUTE_TRUTH_HEADS = ("avalonia", "blazor-desktop")
 DESKTOP_ROUTE_ROLES = {
     "avalonia": "primary",
@@ -1215,7 +1228,57 @@ def requires_chummer6_desktop_platform_floor(payload: dict[str, Any]) -> bool:
     """
 
     product = normalized_token(payload.get("product"))
-    return product in {"", "chummer", "chummer6"}
+    if product in {"", "chummer", "chummer6"}:
+        return True
+    return any(
+        MANIFEST_ARTIFACT_RE.match(normalize_file_name(item))
+        for item in iter_manifest_download_entries(payload)
+    )
+
+
+def verify_current_preview_desktop_artifact_scope(payload: dict[str, Any], source: str) -> None:
+    artifacts = list(iter_manifest_download_entries(payload))
+    entry_name = "artifacts" if isinstance(payload.get("artifacts"), list) else "downloads"
+    product = normalized_token(payload.get("product"))
+    chummer_identity_present = any(
+        MANIFEST_ARTIFACT_RE.match(normalize_file_name(item))
+        for item in artifacts
+    )
+    if chummer_identity_present and product not in {"", "chummer", "chummer6"}:
+        raise SystemExit(
+            f"{source} Chummer desktop artifact identities cannot be relabeled as product "
+            f"{product!r} to bypass current release scope"
+        )
+    if not requires_chummer6_desktop_platform_floor(payload):
+        return
+
+    seen_tuples: set[tuple[str, str, str, str]] = set()
+    for index, artifact in enumerate(artifacts):
+        verify_artifact_row_tuple_metadata(
+            artifact,
+            index=index,
+            source=source,
+            entry_name=entry_name,
+        )
+        scope_tuple = parse_manifest_tuple_fields(artifact)
+        expected_identity = CURRENT_PREVIEW_DESKTOP_ARTIFACTS.get(scope_tuple)
+        artifact_id = normalized_token(artifact.get("artifactId") or artifact.get("id"))
+        file_name = normalize_file_name(artifact)
+        if expected_identity is None:
+            raise SystemExit(
+                f"{source} Chummer6 current release artifact row {index} is outside the exact "
+                f"Avalonia Linux/Windows preview scope: {scope_tuple}"
+            )
+        if (artifact_id, file_name) != expected_identity:
+            raise SystemExit(
+                f"{source} Chummer6 current release artifact row {index} identity must be exactly "
+                f"{expected_identity}, got {(artifact_id, file_name)}"
+            )
+        if scope_tuple in seen_tuples:
+            raise SystemExit(
+                f"{source} Chummer6 current release artifact tuple is duplicated: {scope_tuple}"
+            )
+        seen_tuples.add(scope_tuple)
 
 
 def startup_smoke_channel_matches_expected(expected_channel: str, actual_channel: str) -> bool:
@@ -2279,8 +2342,13 @@ def parse_manifest_tuple_fields(item: dict) -> tuple[str, str, str, str]:
         if not kind:
             kind = "installer" if match.group("installer") else "artifact"
 
-    if (not platform or platform not in REQUIRED_DESKTOP_PLATFORMS) and platform_id:
-        platform = normalized_platform_token(platform_id.split("-", 1)[0])
+    platform_id_platform = normalized_platform_token(platform_id.split("-", 1)[0])
+    if platform not in SUPPORTED_DESKTOP_PLATFORMS:
+        platform = ""
+    if platform_id_platform not in SUPPORTED_DESKTOP_PLATFORMS:
+        platform_id_platform = ""
+    if not platform and platform_id_platform:
+        platform = platform_id_platform
     if not platform and rid:
         platform = RID_TO_PLATFORM.get(rid, "")
 
@@ -2328,13 +2396,33 @@ def verify_artifact_row_tuple_metadata(item: dict, *, index: int, source: str, e
 
     head = normalized_token(item.get("head"))
     rid = normalized_token(item.get("rid"))
-    platform = normalized_platform_token(item.get("platform"))
-    if platform not in REQUIRED_DESKTOP_PLATFORMS:
-        platform = ""
-    platform_id = normalized_platform_token(item.get("platformId"))
-    if platform_id and platform_id not in REQUIRED_DESKTOP_PLATFORMS and "-" in platform_id:
-        platform_id = platform_id.split("-", 1)[0]
-    if not platform and platform_id in REQUIRED_DESKTOP_PLATFORMS:
+    compatibility_row = entry_name == "downloads"
+    raw_platform = (
+        ""
+        if compatibility_row
+        else normalized_platform_token(item.get("platform"))
+    )
+    if raw_platform and raw_platform not in SUPPORTED_DESKTOP_PLATFORMS:
+        raise SystemExit(
+            f"{entry_name}[{index}] platform '{raw_platform}' is not supported in {source}"
+        )
+    platform = raw_platform
+    raw_platform_id = normalized_platform_token(item.get("platformId"))
+    platform_id = normalized_platform_token(raw_platform_id.split("-", 1)[0])
+    if compatibility_row and not platform_id:
+        raise SystemExit(
+            f"{entry_name}[{index}] platformId is required for compatibility download rows in {source}"
+        )
+    if platform_id and platform_id not in SUPPORTED_DESKTOP_PLATFORMS:
+        raise SystemExit(
+            f"{entry_name}[{index}] platformId '{raw_platform_id}' is not supported in {source}"
+        )
+    if platform and platform_id and platform != platform_id:
+        raise SystemExit(
+            f"{entry_name}[{index}] platform '{platform}' disagrees with platformId "
+            f"'{raw_platform_id}' in {source}"
+        )
+    if not platform and platform_id:
         platform = platform_id
     arch = normalized_token(item.get("arch"))
     kind = normalized_token(item.get("kind"))
@@ -2458,20 +2546,21 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
             f"{source} desktopTupleCoverage.requiredDesktopPlatforms must not contain duplicate platform ids"
         )
     unexpected_required_platforms = [
-        platform for platform in normalized_required_platforms if platform not in REQUIRED_DESKTOP_PLATFORMS
+        platform for platform in normalized_required_platforms if platform not in SUPPORTED_DESKTOP_PLATFORMS
     ]
     if unexpected_required_platforms:
         raise SystemExit(
             f"{source} desktopTupleCoverage.requiredDesktopPlatforms contains unsupported platform ids "
-            f"{unexpected_required_platforms}; allowed platforms are {list(REQUIRED_DESKTOP_PLATFORMS)}"
+            f"{unexpected_required_platforms}; allowed platforms are {list(SUPPORTED_DESKTOP_PLATFORMS)}"
         )
+    verify_current_preview_desktop_artifact_scope(payload, source)
     if (
         requires_chummer6_desktop_platform_floor(payload)
         and tuple(normalized_required_platforms) != REQUIRED_DESKTOP_PLATFORMS
     ):
         raise SystemExit(
             f"{source} Chummer6 desktopTupleCoverage.requiredDesktopPlatforms must be exactly "
-            f"the canonical platform floor {list(REQUIRED_DESKTOP_PLATFORMS)}"
+            f"the current preview platform target {list(REQUIRED_DESKTOP_PLATFORMS)}"
         )
     verify_required_desktop_heads(normalized_required_heads, source)
     normalized_channel_id = expected_channel_id(payload)
