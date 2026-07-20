@@ -107,6 +107,8 @@ Registry accepts generated decision bytes directly and never rewrites or wraps t
 
 Both schemas bind the SHA-256 of the exact manifest bytes. Registry computes the decision digest from the exact input bytes and preserves those bytes as `RELEASE_DECISION.json`. The manifest remains unchanged and must not contain a decision digest.
 
+A `preview_ready` successor also fail-closes on the exact current public-edge proof denominator. Its convergence receipt must name `/api/v1/public/release-truth` as authority, cover Registry's canonical copy of every Hub `DEFAULT_ROUTES` current release-facing route, and add exactly one install route whose artifact ID exists in the authority snapshot. Generation-only or hand-shaped route receipts are not successor proof. The scorecard, every scorecard evidence timestamp, convergence receipt, and successor authority timestamp use canonical UTC seconds (`YYYY-MM-DDTHH:MM:SSZ`). Top-level scorecard and convergence proof time is evaluated deterministically against the successor `generatedAt`, never the verifier wall clock: proof may be at most 24 hours old, may lead the successor by at most five minutes for fixed clock skew, and may not predate the manifest or exact review predecessor. The review predecessor itself may not predate the manifest.
+
 ### Curated public shelf
 
 `SNAPSHOT.json.artifacts` is a canonical curated projection re-derived from the exact manifest bytes, not a copy of every manifest artifact and not a caller assertion. An artifact is eligible only when all of these facts converge:

@@ -3,7 +3,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 import hashlib
 import json
 import os
@@ -144,6 +144,50 @@ COMPARED_FIELDS = [
     "releaseDecisionStatus",
     "releaseDecisionSha256",
 ]
+
+# This is the canonical CURRENT-route denominator owned by Registry for release
+# authority validation.  It deliberately mirrors Hub's
+# verify_live_release_convergence.DEFAULT_ROUTES without importing mutable Hub
+# source into the Registry authority plane.  A current convergence receipt also
+# includes exactly one artifact-bound install route when artifacts are present.
+CURRENT_RELEASE_AUTHORITY_ROUTE = "/api/v1/public/release-truth"
+CURRENT_RELEASE_CONVERGENCE_ROUTES = (
+    "/",
+    "/now",
+    "/changelog",
+    "/downloads",
+    "/downloads/concierge",
+    "/status",
+    "/artifacts",
+    "/progress",
+    "/help",
+    "/now/concierge",
+    "/now/concierge/read_notes",
+    "/api/v1/public/progress-report",
+    "/api/public/progress-report",
+    "/api/v1/public/progress-poster.svg",
+    "/api/public/progress-poster.svg",
+    "/api/v1/public/weekly-pulse",
+    "/api/public/weekly-pulse",
+    "/api/public/release-truth",
+    "/api/v1/install-linking/continuation",
+    "/api/v1/install-linking/continuation/support",
+    "/api/v1/install-linking/continuation/update",
+    "/api/v1/install-linking/continuation/rollback",
+    "/downloads/releases.json",
+    "/downloads/RELEASE_CHANNEL.generated.json",
+    "/Now/",
+    "/Help/",
+    "/Downloads/Concierge/",
+    "/Now/Concierge/",
+    "/Now/Concierge/read_notes/",
+)
+
+# Successor proof time is compared only to the explicit successor generatedAt;
+# validators never consult wall-clock time.  Five minutes is the fixed clock
+# skew allowance and 24 hours is the maximum proof age.
+SUCCESSOR_PROOF_MAX_AGE = timedelta(hours=24)
+SUCCESSOR_PROOF_FUTURE_SKEW = timedelta(minutes=5)
 SCORECARD_FIELDS = {
     "contract_name",
     "contract_version",
@@ -225,6 +269,9 @@ SCORECARD_DIMENSIONS = (
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
+CANONICAL_UTC_TIMESTAMP_RE = re.compile(
+    r"^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}Z$"
+)
 PORTABLE_VERSION_RE = re.compile(r"^[A-Za-z0-9][A-Za-z0-9._+\-]{0,127}$")
 TOKEN_RE = re.compile(r"^[a-z0-9][a-z0-9._\-]{0,127}$")
 SENTINELS = {"unknown", "missing", "invalid"}
@@ -355,6 +402,80 @@ def _timestamp(value: Any, label: str) -> str:
     if parsed.tzinfo is None or parsed.utcoffset() is None:
         raise AuthorityError("%s must contain an explicit UTC offset" % label)
     return text
+
+
+def _timestamp_value(value: Any, label: str) -> datetime:
+    text = _timestamp(value, label)
+    return datetime.fromisoformat(text.replace("Z", "+00:00")).astimezone(timezone.utc)
+
+
+def _canonical_utc_timestamp(value: Any, label: str) -> tuple[str, datetime]:
+    text = _string(value, label, 128)
+    if CANONICAL_UTC_TIMESTAMP_RE.fullmatch(text) is None:
+        raise AuthorityError(
+            "%s must be canonical UTC seconds (YYYY-MM-DDTHH:MM:SSZ)" % label
+        )
+    try:
+        parsed = datetime.fromisoformat(text.replace("Z", "+00:00"))
+    except ValueError as error:
+        raise AuthorityError("%s must be a valid canonical UTC timestamp" % label) from error
+    return text, parsed
+
+
+def _validate_successor_proof_chronology(
+    *,
+    successor_generated_at: Any,
+    manifest_generated_at: Any,
+    predecessor_generated_at: Any,
+    scorecard_generated_at: Any,
+    convergence_generated_at: Any,
+) -> None:
+    _, successor_time = _canonical_utc_timestamp(
+        successor_generated_at, "preview successor generatedAt"
+    )
+    manifest_time = _timestamp_value(
+        manifest_generated_at, "preview successor manifestGeneratedAt"
+    )
+    predecessor_time = _timestamp_value(
+        predecessor_generated_at, "review predecessor generatedAt"
+    )
+    if predecessor_time < manifest_time:
+        raise AuthorityError(
+            "review predecessor generatedAt must not predate the manifest"
+        )
+    proof_floor = max(manifest_time, predecessor_time)
+    if successor_time < proof_floor:
+        raise AuthorityError(
+            "preview successor generatedAt must not predate its manifest or review predecessor"
+        )
+
+    proof_times = (
+        (
+            "scorecard generated_at_utc",
+            _canonical_utc_timestamp(
+                scorecard_generated_at, "scorecard generated_at_utc"
+            )[1],
+        ),
+        (
+            "convergence generatedAtUtc",
+            _canonical_utc_timestamp(
+                convergence_generated_at, "convergence generatedAtUtc"
+            )[1],
+        ),
+    )
+    for label, proof_time in proof_times:
+        if proof_time < proof_floor:
+            raise AuthorityError(
+                "%s must not predate the manifest or review predecessor" % label
+            )
+        if proof_time > successor_time + SUCCESSOR_PROOF_FUTURE_SKEW:
+            raise AuthorityError(
+                "%s exceeds the fixed five-minute successor clock-skew allowance" % label
+            )
+        if successor_time - proof_time > SUCCESSOR_PROOF_MAX_AGE:
+            raise AuthorityError(
+                "%s exceeds the fixed 24-hour successor proof age budget" % label
+            )
 
 
 def _nonnegative_int(value: Any, label: str, maximum: int = 4096) -> int:
@@ -789,7 +910,9 @@ def _validate_scorecard(payload: Any) -> None:
         raise AuthorityError("scorecard contract_name is invalid")
     if _nonnegative_int(scorecard["contract_version"], "scorecard contract_version") != 2:
         raise AuthorityError("scorecard contract_version must be 2")
-    _timestamp(scorecard["generated_at_utc"], "scorecard generated_at_utc")
+    _canonical_utc_timestamp(
+        scorecard["generated_at_utc"], "scorecard generated_at_utc"
+    )
     if (
         scorecard["preview_status"] != "pass"
         or scorecard["preview_verdict"] != "CAMPAIGN_OPERABILITY_PREVIEW_READY"
@@ -871,7 +994,9 @@ def _validate_scorecard(payload: Any) -> None:
             source_status = _token(row["source_status"], "%s source_status" % row_label)
             if source_status in UNRESOLVED_VALUES or set(re.findall(r"[a-z0-9]+", source_status)) & SENTINELS:
                 raise AuthorityError("%s source_status is unresolved" % row_label)
-            _timestamp(row["generated_at"], "%s generated_at" % row_label)
+            _canonical_utc_timestamp(
+                row["generated_at"], "%s generated_at" % row_label
+            )
             if "source_verdict" in row:
                 source_verdict = _string(
                     row["source_verdict"],
@@ -1046,7 +1171,9 @@ def _validate_convergence(
     receipt = _exact_object(payload, CONVERGENCE_FIELDS, "convergence receipt")
     if receipt["contractName"] != "chummer.live-release-convergence/v1" or receipt["contractVersion"] != 1:
         raise AuthorityError("convergence receipt contract is invalid")
-    _timestamp(receipt["generatedAtUtc"], "convergence generatedAtUtc")
+    _canonical_utc_timestamp(
+        receipt["generatedAtUtc"], "convergence generatedAtUtc"
+    )
     if (
         receipt["status"] != "pass"
         or receipt["mismatchCount"] != 0
@@ -1056,14 +1183,44 @@ def _validate_convergence(
     ):
         raise AuthorityError("convergence receipt must be a zero-failure pass")
     authority_route = _safe_public_route(receipt["authorityRoute"], "convergence authorityRoute")
-    if "/release-truth" not in authority_route:
-        raise AuthorityError("convergence authorityRoute is not a release-truth route")
+    if authority_route != CURRENT_RELEASE_AUTHORITY_ROUTE:
+        raise AuthorityError(
+            "convergence authorityRoute must be the exact CURRENT release-truth route"
+        )
     routes = receipt["checkedRoutes"]
     if not isinstance(routes, list) or not routes:
         raise AuthorityError("convergence checkedRoutes must be non-empty")
     checked = [_safe_public_route(route, "convergence checked route") for route in routes]
     if checked != sorted(set(checked)) or receipt["checkedRouteCount"] != len(checked):
         raise AuthorityError("convergence checked-route inventory is inconsistent")
+    canonical_routes = set(CURRENT_RELEASE_CONVERGENCE_ROUTES)
+    checked_routes = set(checked)
+    extras = checked_routes - canonical_routes
+    missing = canonical_routes - checked_routes
+    if missing:
+        raise AuthorityError(
+            "convergence checkedRoutes is missing canonical CURRENT routes: %s"
+            % ", ".join(sorted(missing))
+        )
+    artifacts = projection["artifacts"]
+    if artifacts:
+        artifact_install_routes = {
+            "/downloads/install/%s" % artifact["artifactId"]
+            for artifact in artifacts
+        }
+        if len(extras) != 1 or not extras.issubset(artifact_install_routes):
+            raise AuthorityError(
+                "convergence checkedRoutes must add exactly one artifact-bound CURRENT install route"
+            )
+    elif extras:
+        raise AuthorityError(
+            "convergence checkedRoutes contains routes outside the canonical CURRENT denominator"
+        )
+    expected_route_count = len(canonical_routes) + (1 if artifacts else 0)
+    if len(checked_routes) != expected_route_count:
+        raise AuthorityError(
+            "convergence checkedRoutes does not exactly match the CURRENT route denominator"
+        )
     if receipt["comparedFields"] != COMPARED_FIELDS:
         raise AuthorityError("convergence comparedFields is not the exact release-truth field set")
     truth = _exact_object(receipt["releaseTruth"], RELEASE_TRUTH_FIELDS, "convergence releaseTruth")
@@ -1295,6 +1452,13 @@ def verify_envelope_bytes(
             candidate_snapshot,
             candidate_decision,
         )
+        _validate_successor_proof_chronology(
+            successor_generated_at=decision_obj["generatedAt"],
+            manifest_generated_at=derived["manifestGeneratedAt"],
+            predecessor_generated_at=predecessor_decision["generatedAt"],
+            scorecard_generated_at=scorecard["generated_at_utc"],
+            convergence_generated_at=convergence["generatedAtUtc"],
+        )
 
     _reject_nonportable_output(current_obj)
     _reject_nonportable_output(snapshot_obj)
@@ -1386,6 +1550,13 @@ def materialize(
             projection_with_registry,
             candidate_snapshot_sha256,
             candidate_decision_sha256,
+        )
+        _validate_successor_proof_chronology(
+            successor_generated_at=generated_at,
+            manifest_generated_at=derived["manifestGeneratedAt"],
+            predecessor_generated_at=predecessor_decision["generatedAt"],
+            scorecard_generated_at=scorecard["generated_at_utc"],
+            convergence_generated_at=convergence["generatedAtUtc"],
         )
         scorecard_sha256 = sha256_bytes(scorecard_raw)
         convergence_sha256 = sha256_bytes(convergence_raw)

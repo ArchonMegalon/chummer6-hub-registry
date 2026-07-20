@@ -10,7 +10,12 @@ import sys
 
 import pytest
 
-from scripts.release_authority_snapshot import AuthorityError, _validate_scorecard
+from scripts.release_authority_snapshot import (
+    AuthorityError,
+    CURRENT_RELEASE_AUTHORITY_ROUTE,
+    CURRENT_RELEASE_CONVERGENCE_ROUTES,
+    _validate_scorecard,
+)
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -107,6 +112,7 @@ def run_materialize(
     manifest_path: Path,
     output_name: str,
     *extra: str,
+    generated_at: str = "2026-07-20T22:05:00Z",
 ) -> subprocess.CompletedProcess[str]:
     command = [
         sys.executable,
@@ -122,7 +128,7 @@ def run_materialize(
         "--support-owner",
         "registry-operations",
         "--generated-at",
-        "2026-07-20T22:05:00Z",
+        generated_at,
         "--next-action",
         "Verify the generation-bound public route convergence receipt.",
         "--blocking-finding",
@@ -147,10 +153,17 @@ def verifier_command(manifest_path: Path, envelope: Path) -> list[str]:
     ]
 
 
-def materialize_seed(tmp_path: Path, *, ready_posture: bool = False) -> tuple[Path, Path]:
+def materialize_seed(
+    tmp_path: Path,
+    *,
+    ready_posture: bool = False,
+    generated_at: str = "2026-07-20T22:05:00Z",
+) -> tuple[Path, Path]:
     manifest_path = tmp_path / "RELEASE_CHANNEL.generated.json"
     write_json(manifest_path, manifest(ready_posture=ready_posture))
-    completed = run_materialize(tmp_path, manifest_path, "seed")
+    completed = run_materialize(
+        tmp_path, manifest_path, "seed", generated_at=generated_at
+    )
     assert completed.returncode == 0, completed.stderr
     return manifest_path, tmp_path / "seed"
 
@@ -604,6 +617,7 @@ def test_scorecard_v2_accepts_design_generated_ordered_duplicate_values() -> Non
         "stable_alias_lie",
         "top_gap_drift",
         "unresolved_source_status",
+        "noncanonical_evidence_time",
         "nonportable_evidence_path",
         "score_three_preview_state",
         "score_three_preview_failure",
@@ -656,6 +670,8 @@ def test_scorecard_v2_rejects_hand_shaped_or_contradictory_evidence(case: str) -
         scorecard["failures"] = []
     elif case == "unresolved_source_status":
         first_row["source_status"] = "missing_or_blocked"
+    elif case == "noncanonical_evidence_time":
+        first_row["generated_at"] = "2026-07-20T22:04:00+00:00"
     elif case == "nonportable_evidence_path":
         first_row["path"] = "/tmp/hand-shaped.json"
     elif case == "score_three_preview_state":
@@ -714,12 +730,12 @@ def convergence_receipt(manifest_path: Path, seed: Path) -> dict[str, object]:
         "failureCount": 0,
         "mismatches": [],
         "failures": [],
-        "authorityRoute": "/api/v1/public/release-truth/g/run-20260720-220000",
-        "checkedRouteCount": 2,
-        "checkedRoutes": [
-            "/api/public/release-truth/g/run-20260720-220000",
-            "/downloads/g/run-20260720-220000/releases.json",
-        ],
+        "authorityRoute": CURRENT_RELEASE_AUTHORITY_ROUTE,
+        "checkedRouteCount": len(CURRENT_RELEASE_CONVERGENCE_ROUTES) + 1,
+        "checkedRoutes": sorted(
+            CURRENT_RELEASE_CONVERGENCE_ROUTES
+            + ("/downloads/install/avalonia-osx-arm64-installer",)
+        ),
         "comparedFields": compared,
         "releaseTruth": truth,
         "manifestSha256": digest(manifest_path),
@@ -727,6 +743,262 @@ def convergence_receipt(manifest_path: Path, seed: Path) -> dict[str, object]:
         "releaseDecisionSha256": decision_sha,
         "authoritySnapshotSha256": digest(seed / "SNAPSHOT.json"),
     }
+
+
+def preview_materialize_command(
+    *,
+    manifest_path: Path,
+    seed: Path,
+    output: Path,
+    scorecard_path: Path,
+    convergence_path: Path,
+    generated_at: str = "2026-07-20T22:08:00Z",
+) -> list[str]:
+    return [
+        sys.executable,
+        str(MATERIALIZE),
+        "--manifest",
+        str(manifest_path),
+        "--output-dir",
+        str(output),
+        "--registry-commit",
+        COMMIT,
+        "--decision-status",
+        "preview_ready",
+        "--support-owner",
+        "registry-operations",
+        "--generated-at",
+        generated_at,
+        "--next-action",
+        "Monitor bounded preview support.",
+        "--scorecard",
+        str(scorecard_path),
+        "--convergence",
+        str(convergence_path),
+        "--predecessor-current",
+        str(seed / "CURRENT.json"),
+        "--predecessor-snapshot",
+        str(seed / "SNAPSHOT.json"),
+        "--predecessor-decision",
+        str(seed / "RELEASE_DECISION.json"),
+    ]
+
+
+@pytest.mark.parametrize("case", ["missing_default_route", "generation_only_routes"])
+def test_preview_ready_rejects_incomplete_current_route_denominator(
+    tmp_path: Path,
+    case: str,
+) -> None:
+    manifest_path, seed = materialize_seed(tmp_path, ready_posture=True)
+    scorecard_path = tmp_path / "scorecard.json"
+    convergence_path = tmp_path / "convergence.json"
+    write_json(scorecard_path, passing_scorecard())
+    receipt = convergence_receipt(manifest_path, seed)
+    if case == "missing_default_route":
+        receipt["checkedRoutes"].remove("/help")
+    else:
+        receipt["checkedRoutes"] = [
+            "/api/public/release-truth/g/run-20260720-220000",
+            "/downloads/g/run-20260720-220000/releases.json",
+        ]
+    receipt["checkedRouteCount"] = len(receipt["checkedRoutes"])
+    write_json(convergence_path, receipt)
+
+    completed = subprocess.run(
+        preview_materialize_command(
+            manifest_path=manifest_path,
+            seed=seed,
+            output=tmp_path / "ready",
+            scorecard_path=scorecard_path,
+            convergence_path=convergence_path,
+        ),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 1
+    assert "missing canonical CURRENT routes" in completed.stderr
+    assert not (tmp_path / "ready").exists()
+
+
+def test_preview_ready_rejects_non_current_authority_route(tmp_path: Path) -> None:
+    manifest_path, seed = materialize_seed(tmp_path, ready_posture=True)
+    scorecard_path = tmp_path / "scorecard.json"
+    convergence_path = tmp_path / "convergence.json"
+    write_json(scorecard_path, passing_scorecard())
+    receipt = convergence_receipt(manifest_path, seed)
+    receipt["authorityRoute"] = (
+        "/api/v1/public/release-truth/g/run-20260720-220000"
+    )
+    write_json(convergence_path, receipt)
+
+    completed = subprocess.run(
+        preview_materialize_command(
+            manifest_path=manifest_path,
+            seed=seed,
+            output=tmp_path / "ready",
+            scorecard_path=scorecard_path,
+            convergence_path=convergence_path,
+        ),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 1
+    assert "exact CURRENT release-truth route" in completed.stderr
+
+
+@pytest.mark.parametrize("install_route", [None, "/downloads/install/unbound-installer"])
+def test_preview_ready_requires_one_artifact_bound_current_install_route(
+    tmp_path: Path,
+    install_route: str | None,
+) -> None:
+    manifest_path, seed = materialize_seed(tmp_path, ready_posture=True)
+    scorecard_path = tmp_path / "scorecard.json"
+    convergence_path = tmp_path / "convergence.json"
+    write_json(scorecard_path, passing_scorecard())
+    receipt = convergence_receipt(manifest_path, seed)
+    receipt["checkedRoutes"].remove(
+        "/downloads/install/avalonia-osx-arm64-installer"
+    )
+    if install_route is not None:
+        receipt["checkedRoutes"].append(install_route)
+        receipt["checkedRoutes"].sort()
+    receipt["checkedRouteCount"] = len(receipt["checkedRoutes"])
+    write_json(convergence_path, receipt)
+
+    completed = subprocess.run(
+        preview_materialize_command(
+            manifest_path=manifest_path,
+            seed=seed,
+            output=tmp_path / "ready",
+            scorecard_path=scorecard_path,
+            convergence_path=convergence_path,
+        ),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 1
+    assert "exactly one artifact-bound CURRENT install route" in completed.stderr
+
+
+@pytest.mark.parametrize(
+    ("case", "scorecard_time", "convergence_time", "successor_time", "message"),
+    [
+        (
+            "stale",
+            "2026-07-20T22:06:00Z",
+            "2026-07-20T22:07:00Z",
+            "2026-07-21T22:08:00Z",
+            "24-hour successor proof age budget",
+        ),
+        (
+            "future",
+            "2026-07-20T22:13:01Z",
+            "2026-07-20T22:07:00Z",
+            "2026-07-20T22:08:00Z",
+            "five-minute successor clock-skew allowance",
+        ),
+        (
+            "before_predecessor",
+            "2026-07-20T22:04:59Z",
+            "2026-07-20T22:07:00Z",
+            "2026-07-20T22:08:00Z",
+            "must not predate the manifest or review predecessor",
+        ),
+        (
+            "noncanonical_scorecard",
+            "2026-07-20T22:06:00+00:00",
+            "2026-07-20T22:07:00Z",
+            "2026-07-20T22:08:00Z",
+            "canonical UTC seconds",
+        ),
+        (
+            "noncanonical_convergence",
+            "2026-07-20T22:06:00Z",
+            "2026-07-20T22:07:00.000Z",
+            "2026-07-20T22:08:00Z",
+            "canonical UTC seconds",
+        ),
+        (
+            "noncanonical_successor",
+            "2026-07-20T22:06:00Z",
+            "2026-07-20T22:07:00Z",
+            "2026-07-20T22:08:00+00:00",
+            "canonical UTC seconds",
+        ),
+    ],
+)
+def test_preview_ready_rejects_invalid_proof_chronology(
+    tmp_path: Path,
+    case: str,
+    scorecard_time: str,
+    convergence_time: str,
+    successor_time: str,
+    message: str,
+) -> None:
+    del case
+    manifest_path, seed = materialize_seed(tmp_path, ready_posture=True)
+    scorecard_path = tmp_path / "scorecard.json"
+    convergence_path = tmp_path / "convergence.json"
+    scorecard = passing_scorecard()
+    scorecard["generated_at_utc"] = scorecard_time
+    receipt = convergence_receipt(manifest_path, seed)
+    receipt["generatedAtUtc"] = convergence_time
+    write_json(scorecard_path, scorecard)
+    write_json(convergence_path, receipt)
+
+    completed = subprocess.run(
+        preview_materialize_command(
+            manifest_path=manifest_path,
+            seed=seed,
+            output=tmp_path / "ready",
+            scorecard_path=scorecard_path,
+            convergence_path=convergence_path,
+            generated_at=successor_time,
+        ),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 1
+    assert message in completed.stderr
+    assert not (tmp_path / "ready").exists()
+
+
+def test_preview_ready_rejects_review_predecessor_older_than_manifest(
+    tmp_path: Path,
+) -> None:
+    manifest_path, seed = materialize_seed(
+        tmp_path,
+        ready_posture=True,
+        generated_at="2026-07-20T21:59:59Z",
+    )
+    scorecard_path = tmp_path / "scorecard.json"
+    convergence_path = tmp_path / "convergence.json"
+    write_json(scorecard_path, passing_scorecard())
+    write_json(convergence_path, convergence_receipt(manifest_path, seed))
+
+    completed = subprocess.run(
+        preview_materialize_command(
+            manifest_path=manifest_path,
+            seed=seed,
+            output=tmp_path / "ready",
+            scorecard_path=scorecard_path,
+            convergence_path=convergence_path,
+        ),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+
+    assert completed.returncode == 1
+    assert "review predecessor generatedAt must not predate the manifest" in completed.stderr
 
 
 def test_preview_ready_requires_and_verifies_full_predecessor_proof_closure(
