@@ -16,6 +16,7 @@ SCRIPTS = ROOT / "scripts"
 MATERIALIZE = SCRIPTS / "materialize_release_authority_snapshot.py"
 VERIFY = SCRIPTS / "verify_release_authority_snapshot.py"
 PUBLISH_REQUEST = SCRIPTS / "materialize_release_authority_publish_request.py"
+VERIFY_PUBLISH_RESPONSE = SCRIPTS / "verify_release_authority_publish_response.py"
 COMMIT = "b" * 40
 ARTIFACT_SHA = "a" * 64
 
@@ -247,6 +248,67 @@ def test_review_seed_materializes_exact_registry_publish_request(tmp_path: Path)
     )
     assert repeated.returncode == 1
     assert "output already exists" in repeated.stderr
+
+
+def test_registry_publish_response_verifier_binds_exact_response_bytes(
+    tmp_path: Path,
+) -> None:
+    manifest_path, seed = materialize_seed(tmp_path)
+    current = json.loads((seed / "CURRENT.json").read_text(encoding="utf-8"))
+    snapshot = json.loads((seed / "SNAPSHOT.json").read_text(encoding="utf-8"))
+    response_path = tmp_path / "response.json"
+    response = {
+        "current": current,
+        "snapshot": snapshot,
+        "snapshotBytes": base64.b64encode((seed / "SNAPSHOT.json").read_bytes()).decode(
+            "ascii"
+        ),
+        "manifestBytes": base64.b64encode(manifest_path.read_bytes()).decode("ascii"),
+        "releaseDecisionBytes": base64.b64encode(
+            (seed / "RELEASE_DECISION.json").read_bytes()
+        ).decode("ascii"),
+    }
+    write_json(response_path, response)
+    receipt = tmp_path / "publish-response.receipt.json"
+    command = [
+        sys.executable,
+        str(VERIFY_PUBLISH_RESPONSE),
+        "--manifest",
+        str(manifest_path),
+        "--current",
+        str(seed / "CURRENT.json"),
+        "--snapshot",
+        str(seed / "SNAPSHOT.json"),
+        "--decision",
+        str(seed / "RELEASE_DECISION.json"),
+        "--response",
+        str(response_path),
+        "--output",
+        str(receipt),
+    ]
+    completed = subprocess.run(command, text=True, capture_output=True, check=False)
+    assert completed.returncode == 0, completed.stderr
+    assert json.loads(receipt.read_text(encoding="utf-8")) == {
+        "contractName": "chummer.registry-release-authority-publish-response/v1",
+        "decisionSha256": digest(seed / "RELEASE_DECISION.json"),
+        "manifestSha256": digest(manifest_path),
+        "releaseDecisionStatus": "review_required",
+        "releaseVersion": "run-20260720-220000",
+        "snapshotSha256": digest(seed / "SNAPSHOT.json"),
+        "status": "pass",
+    }
+
+    response["releaseDecisionBytes"] = base64.b64encode(b"{}\n").decode("ascii")
+    write_json(tmp_path / "tampered-response.json", response)
+    tampered = command.copy()
+    tampered[tampered.index(str(response_path))] = str(
+        tmp_path / "tampered-response.json"
+    )
+    tampered[tampered.index(str(receipt))] = str(tmp_path / "tampered.receipt.json")
+    rejected = subprocess.run(tampered, text=True, capture_output=True, check=False)
+    assert rejected.returncode == 1
+    assert "differs from exact expected bytes" in rejected.stderr
+    assert not (tmp_path / "tampered.receipt.json").exists()
 
 
 def test_review_seed_rejects_missing_blocker_and_existing_output(tmp_path: Path) -> None:
