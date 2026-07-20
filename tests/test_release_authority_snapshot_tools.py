@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import base64
 import copy
 import hashlib
 import json
@@ -14,6 +15,7 @@ ROOT = Path(__file__).resolve().parents[1]
 SCRIPTS = ROOT / "scripts"
 MATERIALIZE = SCRIPTS / "materialize_release_authority_snapshot.py"
 VERIFY = SCRIPTS / "verify_release_authority_snapshot.py"
+PUBLISH_REQUEST = SCRIPTS / "materialize_release_authority_publish_request.py"
 COMMIT = "b" * 40
 ARTIFACT_SHA = "a" * 64
 
@@ -194,6 +196,57 @@ def test_review_seed_materializes_exact_deterministic_envelope_and_verifies(
     )
     assert verified.returncode == 0, verified.stderr
     assert json.loads(verified.stdout)["status"] == "review_required"
+
+
+def test_review_seed_materializes_exact_registry_publish_request(tmp_path: Path) -> None:
+    manifest_path, seed = materialize_seed(tmp_path)
+    output = tmp_path / "publish-request.json"
+    completed = subprocess.run(
+        [
+            sys.executable,
+            str(PUBLISH_REQUEST),
+            "--manifest",
+            str(manifest_path),
+            "--current",
+            str(seed / "CURRENT.json"),
+            "--snapshot",
+            str(seed / "SNAPSHOT.json"),
+            "--decision",
+            str(seed / "RELEASE_DECISION.json"),
+            "--expected-current-snapshot-sha256",
+            "none",
+            "--output",
+            str(output),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert completed.returncode == 0, completed.stderr
+    receipt = json.loads(completed.stdout)
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert receipt["status"] == "review_required"
+    assert payload["expectedCurrentSnapshotSha256"] is None
+    assert payload["metadata"]["releaseVersion"] == "run-20260720-220000"
+    assert payload["metadata"]["registryCommit"] == COMMIT
+    assert payload["metadata"]["artifacts"][0]["artifactId"] == (
+        "avalonia-osx-arm64-installer"
+    )
+    assert base64.b64decode(payload["manifestBytes"], validate=True) == (
+        manifest_path.read_bytes()
+    )
+    assert base64.b64decode(payload["releaseDecisionBytes"], validate=True) == (
+        seed / "RELEASE_DECISION.json"
+    ).read_bytes()
+
+    repeated = subprocess.run(
+        completed.args,
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert repeated.returncode == 1
+    assert "output already exists" in repeated.stderr
 
 
 def test_review_seed_rejects_missing_blocker_and_existing_output(tmp_path: Path) -> None:
@@ -473,6 +526,97 @@ def test_preview_ready_requires_and_verifies_full_predecessor_proof_closure(
     )
     assert no_proofs.returncode == 1
     assert "requires explicit proof" in no_proofs.stderr
+
+
+def test_preview_ready_publish_request_requires_exact_predecessor_cas(
+    tmp_path: Path,
+) -> None:
+    manifest_path, seed = materialize_seed(tmp_path, ready_posture=True)
+    scorecard_path = tmp_path / "scorecard.json"
+    convergence_path = tmp_path / "convergence.json"
+    write_json(scorecard_path, passing_scorecard())
+    write_json(convergence_path, convergence_receipt(manifest_path, seed))
+    ready = tmp_path / "ready"
+    materialized = subprocess.run(
+        [
+            sys.executable,
+            str(MATERIALIZE),
+            "--manifest",
+            str(manifest_path),
+            "--output-dir",
+            str(ready),
+            "--registry-commit",
+            COMMIT,
+            "--decision-status",
+            "preview_ready",
+            "--support-owner",
+            "registry-operations",
+            "--generated-at",
+            "2026-07-20T22:08:00Z",
+            "--next-action",
+            "Monitor bounded preview support.",
+            "--scorecard",
+            str(scorecard_path),
+            "--convergence",
+            str(convergence_path),
+            "--predecessor-current",
+            str(seed / "CURRENT.json"),
+            "--predecessor-snapshot",
+            str(seed / "SNAPSHOT.json"),
+            "--predecessor-decision",
+            str(seed / "RELEASE_DECISION.json"),
+        ],
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert materialized.returncode == 0, materialized.stderr
+    expected = digest(seed / "SNAPSHOT.json")
+    output = tmp_path / "publish-ready.json"
+    command = [
+        sys.executable,
+        str(PUBLISH_REQUEST),
+        "--manifest",
+        str(manifest_path),
+        "--current",
+        str(ready / "CURRENT.json"),
+        "--snapshot",
+        str(ready / "SNAPSHOT.json"),
+        "--decision",
+        str(ready / "RELEASE_DECISION.json"),
+        "--scorecard",
+        str(scorecard_path),
+        "--convergence",
+        str(convergence_path),
+        "--predecessor-current",
+        str(seed / "CURRENT.json"),
+        "--predecessor-snapshot",
+        str(seed / "SNAPSHOT.json"),
+        "--predecessor-decision",
+        str(seed / "RELEASE_DECISION.json"),
+        "--expected-current-snapshot-sha256",
+        expected,
+        "--output",
+        str(output),
+    ]
+    completed = subprocess.run(command, text=True, capture_output=True, check=False)
+    assert completed.returncode == 0, completed.stderr
+    payload = json.loads(output.read_text(encoding="utf-8"))
+    assert payload["expectedCurrentSnapshotSha256"] == expected
+    assert base64.b64decode(payload["manifestBytes"], validate=True) == (
+        manifest_path.read_bytes()
+    )
+    assert base64.b64decode(payload["releaseDecisionBytes"], validate=True) == (
+        ready / "RELEASE_DECISION.json"
+    ).read_bytes()
+
+    wrong = command.copy()
+    wrong[wrong.index(expected)] = "f" * 64
+    wrong[wrong.index(str(output))] = str(tmp_path / "wrong.json")
+    rejected = subprocess.run(wrong, text=True, capture_output=True, check=False)
+    assert rejected.returncode == 1
+    assert "exact predecessor" in rejected.stderr
+    assert not (tmp_path / "wrong.json").exists()
 
 
 def test_preview_ready_rejects_score_one_and_convergence_drift(tmp_path: Path) -> None:
