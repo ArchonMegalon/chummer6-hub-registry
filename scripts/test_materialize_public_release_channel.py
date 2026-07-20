@@ -2551,6 +2551,205 @@ def current_preview_artifact(
     }
 
 
+def code_deploy_current_shelf_manifest() -> dict[str, object]:
+    artifacts = [
+        {
+            "artifactId": "avalonia-osx-arm64-installer",
+            "id": "avalonia-osx-arm64-installer",
+            "head": "avalonia",
+            "platform": "macos",
+            "rid": "osx-arm64",
+            "arch": "arm64",
+            "kind": "installer",
+            "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
+            "downloadUrl": "/downloads/files/chummer-avalonia-osx-arm64-installer.dmg",
+            "sha256": "1" * 64,
+            "sizeBytes": 101,
+            "channelId": "preview",
+            "channel": "preview",
+            "version": "run-20260715-140426",
+            "releaseVersion": "run-20260715-140426",
+            "compatibilityState": "compatible",
+        },
+        {
+            "artifactId": "blazor-desktop-osx-arm64-installer",
+            "id": "blazor-desktop-osx-arm64-installer",
+            "head": "blazor-desktop",
+            "platform": "macos",
+            "rid": "osx-arm64",
+            "arch": "arm64",
+            "kind": "installer",
+            "fileName": "chummer-blazor-desktop-osx-arm64-installer.dmg",
+            "downloadUrl": "/downloads/files/chummer-blazor-desktop-osx-arm64-installer.dmg",
+            "sha256": "2" * 64,
+            "sizeBytes": 202,
+            "channelId": "preview",
+            "channel": "preview",
+            "version": "run-20260715-140426",
+            "releaseVersion": "run-20260715-140426",
+            "compatibilityState": "compatible",
+        },
+    ]
+    return {
+        "generated_at": "2026-07-15T14:06:48Z",
+        "generatedAt": "2026-07-15T14:06:48Z",
+        "publishedAt": "2026-07-15T14:06:48Z",
+        "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+        "contractName": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+        "product": "chummer6",
+        "channelId": "preview",
+        "channel": "preview",
+        "version": "run-20260715-140426",
+        "releaseVersion": "run-20260715-140426",
+        "status": "published",
+        "rolloutState": "public_release_review_required",
+        "supportabilityState": "review_required",
+        "publicTrustMetrics": {"releaseChannel": {"posture": "blocked"}},
+        "artifacts": artifacts,
+        "desktopTupleCoverage": {
+            "requiredDesktopPlatforms": ["macos"],
+            "requiredDesktopHeads": ["avalonia"],
+        },
+        "installAwareArtifactRegistry": [],
+        "desktopSurfaceRefs": [],
+        "artifactIdentityRegistry": [],
+        "artifactPublicationBindings": [],
+    }
+
+
+def test_code_deploy_current_shelf_reauthorizes_exact_macos_inventory_only() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        manifest_path = root / "RELEASE_CHANNEL.generated.json"
+        source_payload = code_deploy_current_shelf_manifest()
+        source_bytes = (json.dumps(source_payload, indent=2) + "\n").encode("utf-8")
+        manifest_path.write_bytes(source_bytes)
+        args = materializer_args(
+            code_deploy_current_shelf=True,
+            code_deploy_source_manifest_sha256=hashlib.sha256(source_bytes).hexdigest(),
+            code_deploy_authorized_at="2026-07-20T00:00:00Z",
+            code_deploy_scope_options=(),
+            code_deploy_transform_options=(),
+            manifest=manifest_path,
+        )
+        original_metrics = MODULE.expected_public_trust_metrics
+        original_boundary = MODULE.expected_registry_boundary_coverage
+        original_consistency = MODULE.ensure_registry_truth_matches_artifacts
+        MODULE.expected_public_trust_metrics = lambda payload: {"releaseChannel": {"posture": "blocked"}}
+        MODULE.expected_registry_boundary_coverage = lambda payload: {"releaseChannel": {"posture": "blocked"}}
+        MODULE.ensure_registry_truth_matches_artifacts = lambda *args, **kwargs: None
+        try:
+            payload = MODULE.code_deploy_current_shelf_payload(args)
+        finally:
+            MODULE.expected_public_trust_metrics = original_metrics
+            MODULE.expected_registry_boundary_coverage = original_boundary
+            MODULE.ensure_registry_truth_matches_artifacts = original_consistency
+
+    assert payload["artifacts"] == source_payload["artifacts"]
+    assert payload["publishedAt"] == source_payload["publishedAt"]
+    assert payload["generatedAt"] == "2026-07-20T00:00:00Z"
+    assert payload["releaseDecisionStatus"] == "review_required"
+    assert payload["projectionStage"] == "code_deploy_review_required"
+    assert payload["codeDeploymentAuthority"] is True
+    assert payload["releaseUploadAuthority"] is False
+    authority = payload["codeDeployCurrentShelfAuthority"]
+    assert authority["sourceManifestSha256"] == hashlib.sha256(source_bytes).hexdigest()
+    assert authority["sourceArtifactCount"] == 2
+    assert authority["sourceArtifactInventorySha256"] == MODULE.code_deploy_artifact_inventory_sha256(
+        source_payload["artifacts"],
+        source="test source",
+    )
+    compatibility = MODULE.compatibility_payload(payload)
+    assert compatibility["projectionStage"] == "code_deploy_review_required"
+    assert compatibility["releaseUploadAuthority"] is False
+    assert compatibility["codeDeployCurrentShelfAuthority"] == authority
+
+
+def test_code_deploy_current_shelf_rejects_digest_mismatch_and_symlink() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        manifest_path = root / "manifest.json"
+        manifest_path.write_text(json.dumps(code_deploy_current_shelf_manifest()), encoding="utf-8")
+        args = materializer_args(
+            code_deploy_current_shelf=True,
+            code_deploy_source_manifest_sha256="f" * 64,
+            code_deploy_authorized_at="2026-07-20T14:30:00Z",
+            code_deploy_scope_options=(),
+            code_deploy_transform_options=(),
+            manifest=manifest_path,
+        )
+        with pytest.raises(ValueError, match="digest does not match"):
+            MODULE.code_deploy_current_shelf_payload(args)
+        link_path = root / "manifest-link.json"
+        link_path.symlink_to(manifest_path)
+        args.manifest = link_path
+        args.code_deploy_source_manifest_sha256 = hashlib.sha256(manifest_path.read_bytes()).hexdigest()
+        with pytest.raises(ValueError, match="regular file"):
+            MODULE.code_deploy_current_shelf_payload(args)
+
+
+def test_code_deploy_current_shelf_rejects_scope_and_transform_flags() -> None:
+    base = [
+        "--code-deploy-current-shelf",
+        "--code-deploy-source-manifest-sha256",
+        "a" * 64,
+        "--code-deploy-authorized-at",
+        "2026-07-20T14:30:00Z",
+        "--manifest",
+        "manifest.json",
+        "--output",
+        "out.json",
+        "--registry-commit",
+        TEST_REGISTRY_COMMIT,
+    ]
+    scope_args = MODULE.parse_args([*base, "--required-desktop-platforms", "macos"])
+    with pytest.raises(ValueError, match="rejects platform/head scope flags"):
+        MODULE.code_deploy_current_shelf_payload(scope_args)
+    transform_args = MODULE.parse_args([*base, "--skip-startup-smoke-filter"])
+    with pytest.raises(ValueError, match="rejects artifact/proof transform flags"):
+        MODULE.code_deploy_current_shelf_payload(transform_args)
+
+
+@pytest.mark.parametrize(
+    ("field_name", "value"),
+    [
+        ("channel", "public_stable"),
+        ("rolloutState", "promoted_preview"),
+        ("supportabilityState", "preview_supported"),
+        ("releaseUploadAuthority", True),
+    ],
+)
+def test_code_deploy_current_shelf_rejects_optimistic_source_posture(
+    field_name: str,
+    value: object,
+) -> None:
+    payload = code_deploy_current_shelf_manifest()
+    payload[field_name] = value
+    with pytest.raises(ValueError):
+        MODULE.validate_code_deploy_current_shelf_source(payload)
+
+
+def test_code_deploy_current_shelf_rejects_added_removed_or_replaced_artifacts() -> None:
+    source_artifacts = code_deploy_current_shelf_manifest()["artifacts"]
+    assert isinstance(source_artifacts, list)
+    for changed in (
+        source_artifacts[:-1],
+        [
+            *source_artifacts,
+            dict(
+                source_artifacts[0],
+                artifactId="avalonia-osx-arm64-archive",
+                id="avalonia-osx-arm64-archive",
+                fileName="chummer-avalonia-osx-arm64.tar.gz",
+                kind="archive",
+            ),
+        ],
+        [dict(source_artifacts[0], sha256="f" * 64), source_artifacts[1]],
+    ):
+        with pytest.raises(ValueError, match="cannot add, remove, reorder, relabel, resize, or replace"):
+            MODULE.assert_code_deploy_artifact_inventory_preserved(source_artifacts, changed)
+
+
 @pytest.mark.parametrize(
     "artifact",
     [

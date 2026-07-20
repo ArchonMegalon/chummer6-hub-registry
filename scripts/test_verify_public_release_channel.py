@@ -136,6 +136,102 @@ def complete_primary_desktop_tuple_payload() -> dict:
     }
 
 
+def code_deploy_current_shelf_authority_payload() -> dict:
+    payload = {
+        "generated_at": "2026-07-20T14:30:00Z",
+        "generatedAt": "2026-07-20T14:30:00Z",
+        "registry_commit": "0123456789abcdef0123456789abcdef01234567",
+        "registryCommit": "0123456789abcdef0123456789abcdef01234567",
+        "channelId": "preview",
+        "channel": "preview",
+        "version": "run-20260715-140426",
+        "releaseVersion": "run-20260715-140426",
+        "status": "published",
+        "rolloutState": "public_release_review_required",
+        "supportabilityState": "review_required",
+        "releaseDecisionStatus": "review_required",
+        "projectionStage": "code_deploy_review_required",
+        "codeDeploymentAuthority": True,
+        "releaseUploadAuthority": False,
+        "desktopTupleCoverage": {
+            "requiredDesktopPlatforms": ["macos"],
+            "requiredDesktopHeads": ["avalonia"],
+        },
+        "artifacts": [
+            {
+                "artifactId": "avalonia-osx-arm64-installer",
+                "id": "avalonia-osx-arm64-installer",
+                "head": "avalonia",
+                "platform": "macos",
+                "rid": "osx-arm64",
+                "arch": "arm64",
+                "kind": "installer",
+                "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
+                "downloadUrl": "/downloads/files/chummer-avalonia-osx-arm64-installer.dmg",
+                "sha256": "1" * 64,
+                "sizeBytes": 101,
+            },
+            {
+                "artifactId": "blazor-desktop-osx-arm64-installer",
+                "id": "blazor-desktop-osx-arm64-installer",
+                "head": "blazor-desktop",
+                "platform": "macos",
+                "rid": "osx-arm64",
+                "arch": "arm64",
+                "kind": "installer",
+                "fileName": "chummer-blazor-desktop-osx-arm64-installer.dmg",
+                "downloadUrl": "/downloads/files/chummer-blazor-desktop-osx-arm64-installer.dmg",
+                "sha256": "2" * 64,
+                "sizeBytes": 202,
+            },
+        ],
+    }
+    inventory_sha256 = MODULE.code_deploy_artifact_inventory_sha256(payload, "test")
+    payload["codeDeployCurrentShelfAuthority"] = {
+        "contract": "chummer.registry.code-deploy-current-shelf/v1",
+        "sourceManifestSha256": "3" * 64,
+        "sourceArtifactInventorySha256": inventory_sha256,
+        "sourceArtifactCount": 2,
+        "registryCommit": payload["registryCommit"],
+        "authorizedAt": payload["generatedAt"],
+    }
+    return payload
+
+
+def test_verify_code_deploy_current_shelf_accepts_exact_bounded_macos_inventory() -> None:
+    payload = code_deploy_current_shelf_authority_payload()
+    assert MODULE.verify_code_deploy_current_shelf_authority(payload, "test") is True
+    assert {
+        (row["head"], row["platform"], row["rid"])
+        for row in MODULE.expected_desktop_route_truth_rows(payload)
+    } == {
+        ("avalonia", "macos", "osx-arm64"),
+        ("blazor-desktop", "macos", "osx-arm64"),
+    }
+
+
+def test_verify_code_deploy_current_shelf_rejects_partial_or_upload_authority() -> None:
+    payload = code_deploy_current_shelf_authority_payload()
+    payload.pop("codeDeployCurrentShelfAuthority")
+    with pytest.raises(SystemExit, match="authority object is required"):
+        MODULE.verify_code_deploy_current_shelf_authority(payload, "test")
+    payload = code_deploy_current_shelf_authority_payload()
+    payload["releaseUploadAuthority"] = True
+    with pytest.raises(SystemExit, match="must deny release upload"):
+        MODULE.verify_code_deploy_current_shelf_authority(payload, "test")
+
+
+def test_verify_code_deploy_current_shelf_rejects_inventory_drift() -> None:
+    for mutate in ("remove", "replace"):
+        payload = code_deploy_current_shelf_authority_payload()
+        if mutate == "remove":
+            payload["artifacts"].pop()
+        else:
+            payload["artifacts"][0]["sha256"] = "f" * 64
+        with pytest.raises(SystemExit, match="count does not match|inventory digest does not match"):
+            MODULE.verify_code_deploy_current_shelf_authority(payload, "test")
+
+
 def test_verify_desktop_tuple_coverage_rejects_artifact_outside_current_chummer_scope() -> None:
     payload = complete_primary_desktop_tuple_payload()
     payload["artifacts"].append(

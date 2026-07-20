@@ -123,6 +123,22 @@ CURRENT_PREVIEW_DESKTOP_ARTIFACTS = {
         "chummer-avalonia-win-x64-installer.exe",
     ),
 }
+CODE_DEPLOY_CURRENT_SHELF_CONTRACT = "chummer.registry.code-deploy-current-shelf/v1"
+CODE_DEPLOY_CURRENT_SHELF_PROJECTION_STAGE = "code_deploy_review_required"
+CODE_DEPLOY_CURRENT_SHELF_RELEASE_DECISION_STATUS = "review_required"
+CODE_DEPLOY_CURRENT_SHELF_ROLLOUT_STATE = "public_release_review_required"
+CODE_DEPLOY_CURRENT_SHELF_SUPPORTABILITY_STATE = "review_required"
+CODE_DEPLOY_CURRENT_SHELF_AUTHORITY_KEYS = frozenset(
+    {
+        "contract",
+        "sourceManifestSha256",
+        "sourceArtifactInventorySha256",
+        "sourceArtifactCount",
+        "registryCommit",
+        "authorizedAt",
+    }
+)
+RAW_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 DESKTOP_ROUTE_TRUTH_HEADS = ("avalonia", "blazor-desktop")
 DESKTOP_ROUTE_ROLES = {
     "avalonia": "primary",
@@ -1218,6 +1234,167 @@ def normalized_platform_token(value: object) -> str:
     return PLATFORM_ALIASES.get(token, token)
 
 
+def code_deploy_artifact_inventory_rows(payload: dict[str, Any], source: str) -> list[dict[str, Any]]:
+    artifacts = list(iter_manifest_download_entries(payload))
+    if not artifacts:
+        raise SystemExit(f"{source} code-deploy current-shelf authority requires artifact rows")
+    rows: list[dict[str, Any]] = []
+    artifact_ids: set[str] = set()
+    file_names: set[str] = set()
+    for index, artifact in enumerate(artifacts):
+        if not isinstance(artifact, dict):
+            raise SystemExit(f"{source} code-deploy artifact row {index} must be an object")
+        verify_artifact_row_tuple_metadata(
+            artifact,
+            index=index,
+            source=source,
+            entry_name="artifacts" if isinstance(payload.get("artifacts"), list) else "downloads",
+        )
+        head, platform, rid, kind = parse_manifest_tuple_fields(artifact)
+        artifact_id = normalized_token(artifact.get("artifactId") or artifact.get("id"))
+        file_name = normalize_file_name(artifact)
+        arch = normalized_token(artifact.get("arch"))
+        raw_digest = str(artifact.get("sha256") or "").strip()
+        size_bytes = parse_positive_int(artifact.get("sizeBytes"))
+        if RAW_SHA256_RE.fullmatch(raw_digest) is None:
+            raise SystemExit(
+                f"{source} code-deploy artifact row {index} sha256 must be 64 lowercase hexadecimal characters"
+            )
+        if size_bytes is None or size_bytes <= 0:
+            raise SystemExit(f"{source} code-deploy artifact row {index} sizeBytes must be positive")
+        if not artifact_id or artifact_id in artifact_ids:
+            raise SystemExit(f"{source} code-deploy artifactIds must be non-empty and unique")
+        if not file_name or file_name in file_names:
+            raise SystemExit(f"{source} code-deploy artifact fileNames must be non-empty and unique")
+        if head not in DESKTOP_ROUTE_TRUTH_HEADS:
+            raise SystemExit(f"{source} code-deploy artifact row {index} has unsupported head {head!r}")
+        if platform not in SUPPORTED_DESKTOP_PLATFORMS:
+            raise SystemExit(f"{source} code-deploy artifact row {index} has unsupported platform {platform!r}")
+        if rid not in DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS.get(platform, ()):
+            raise SystemExit(
+                f"{source} code-deploy artifact row {index} has unsupported {platform} rid {rid!r}"
+            )
+        artifact_ids.add(artifact_id)
+        file_names.add(file_name)
+        rows.append(
+            {
+                "artifactId": artifact_id,
+                "head": head,
+                "platform": platform,
+                "rid": rid,
+                "arch": arch,
+                "kind": kind,
+                "fileName": file_name,
+                "sha256": raw_digest,
+                "sizeBytes": size_bytes,
+            }
+        )
+    return rows
+
+
+def code_deploy_artifact_inventory_sha256(payload: dict[str, Any], source: str) -> str:
+    rows = code_deploy_artifact_inventory_rows(payload, source)
+    canonical_bytes = json.dumps(
+        rows,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical_bytes).hexdigest()
+
+
+def verify_code_deploy_current_shelf_authority(payload: dict[str, Any], source: str) -> bool:
+    authority = payload.get("codeDeployCurrentShelfAuthority")
+    mode_fields_present = any(
+        field in payload
+        for field in (
+            "releaseDecisionStatus",
+            "projectionStage",
+            "codeDeploymentAuthority",
+            "releaseUploadAuthority",
+            "codeDeployCurrentShelfAuthority",
+        )
+    )
+    if not mode_fields_present:
+        return False
+    if not isinstance(authority, dict):
+        raise SystemExit(f"{source} code-deploy current-shelf authority object is required")
+    unexpected_keys = sorted(set(authority) - CODE_DEPLOY_CURRENT_SHELF_AUTHORITY_KEYS)
+    missing_keys = sorted(CODE_DEPLOY_CURRENT_SHELF_AUTHORITY_KEYS - set(authority))
+    if unexpected_keys or missing_keys:
+        raise SystemExit(
+            f"{source} code-deploy current-shelf authority keys drift "
+            f"(missing={missing_keys}, unexpected={unexpected_keys})"
+        )
+    if authority.get("contract") != CODE_DEPLOY_CURRENT_SHELF_CONTRACT:
+        raise SystemExit(f"{source} code-deploy current-shelf contract is not supported")
+    if payload.get("releaseDecisionStatus") != CODE_DEPLOY_CURRENT_SHELF_RELEASE_DECISION_STATUS:
+        raise SystemExit(f"{source} code-deploy release decision must be review_required")
+    if payload.get("projectionStage") != CODE_DEPLOY_CURRENT_SHELF_PROJECTION_STAGE:
+        raise SystemExit(f"{source} code-deploy projection stage must be code_deploy_review_required")
+    if payload.get("codeDeploymentAuthority") is not True:
+        raise SystemExit(f"{source} code-deploy current-shelf authority must authorize code deployment")
+    if payload.get("releaseUploadAuthority") is not False:
+        raise SystemExit(f"{source} code-deploy current-shelf authority must deny release upload")
+    if normalized_token(payload.get("status")) != "published":
+        raise SystemExit(f"{source} code-deploy current-shelf projection must describe a published incumbent shelf")
+    channel = normalized_token(
+        resolve_alias_value(
+            payload,
+            primary_key="channelId",
+            secondary_key="channel",
+            field_path="channelId",
+            source=source,
+        )
+    )
+    if channel != "preview":
+        raise SystemExit(f"{source} code-deploy current-shelf projection must remain preview")
+    if normalized_token(payload.get("rolloutState")) != CODE_DEPLOY_CURRENT_SHELF_ROLLOUT_STATE:
+        raise SystemExit(f"{source} code-deploy current-shelf rollout must remain review-required")
+    if normalized_token(payload.get("supportabilityState")) != CODE_DEPLOY_CURRENT_SHELF_SUPPORTABILITY_STATE:
+        raise SystemExit(f"{source} code-deploy current-shelf supportability must remain review-required")
+    source_manifest_sha256 = str(authority.get("sourceManifestSha256") or "").strip()
+    source_inventory_sha256 = str(authority.get("sourceArtifactInventorySha256") or "").strip()
+    if RAW_SHA256_RE.fullmatch(source_manifest_sha256) is None:
+        raise SystemExit(f"{source} code-deploy source manifest SHA-256 is malformed")
+    if RAW_SHA256_RE.fullmatch(source_inventory_sha256) is None:
+        raise SystemExit(f"{source} code-deploy source artifact inventory SHA-256 is malformed")
+    registry_commit = str(
+        resolve_alias_value(
+            payload,
+            primary_key="registry_commit",
+            secondary_key="registryCommit",
+            field_path="registry_commit",
+            source=source,
+        )
+        or ""
+    ).strip()
+    if re.fullmatch(r"[0-9a-f]{40}", registry_commit) is None:
+        raise SystemExit(f"{source} code-deploy Registry commit must be a full lowercase SHA")
+    if authority.get("registryCommit") != registry_commit:
+        raise SystemExit(f"{source} code-deploy authority Registry commit does not match top-level aliases")
+    authorized_at = str(authority.get("authorizedAt") or "").strip()
+    generated_at = str(
+        resolve_alias_value(
+            payload,
+            primary_key="generatedAt",
+            secondary_key="generated_at",
+            field_path="generatedAt",
+            source=source,
+        )
+        or ""
+    ).strip()
+    if parse_iso_timestamp(authorized_at) is None or authorized_at != generated_at:
+        raise SystemExit(f"{source} code-deploy authorizedAt must equal generatedAt aliases")
+    inventory_rows = code_deploy_artifact_inventory_rows(payload, source)
+    artifact_count = parse_positive_int(authority.get("sourceArtifactCount"))
+    if artifact_count != len(inventory_rows):
+        raise SystemExit(f"{source} code-deploy source artifact count does not match projection rows")
+    if code_deploy_artifact_inventory_sha256(payload, source) != source_inventory_sha256:
+        raise SystemExit(f"{source} code-deploy artifact inventory digest does not match projected rows")
+    return True
+
+
 def requires_chummer6_desktop_platform_floor(payload: dict[str, Any]) -> bool:
     """Keep the Chummer6 floor strict without imposing it on named shared products.
 
@@ -2009,13 +2186,25 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
     configured_required_platforms = (
         coverage.get("requiredDesktopPlatforms") if isinstance(coverage, dict) else None
     )
-    required_platforms = [
-        platform
-        for platform in REQUIRED_DESKTOP_PLATFORMS
-        if isinstance(configured_required_platforms, list) and platform in configured_required_platforms
-    ]
-    if not required_platforms:
-        required_platforms = list(REQUIRED_DESKTOP_PLATFORMS)
+    code_deploy_current_shelf = (
+        isinstance(payload.get("codeDeployCurrentShelfAuthority"), dict)
+        and payload.get("projectionStage") == CODE_DEPLOY_CURRENT_SHELF_PROJECTION_STAGE
+        and payload.get("releaseUploadAuthority") is False
+    )
+    if code_deploy_current_shelf:
+        required_platforms = [
+            normalized_platform_token(platform)
+            for platform in (configured_required_platforms or [])
+            if normalized_platform_token(platform) in SUPPORTED_DESKTOP_PLATFORMS
+        ]
+    else:
+        required_platforms = [
+            platform
+            for platform in REQUIRED_DESKTOP_PLATFORMS
+            if isinstance(configured_required_platforms, list) and platform in configured_required_platforms
+        ]
+        if not required_platforms:
+            required_platforms = list(REQUIRED_DESKTOP_PLATFORMS)
     required_rids_by_platform: dict[str, set[str]] = {
         platform: set(DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS.get(platform, ()))
         for platform in required_platforms
@@ -2553,9 +2742,12 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
             f"{source} desktopTupleCoverage.requiredDesktopPlatforms contains unsupported platform ids "
             f"{unexpected_required_platforms}; allowed platforms are {list(SUPPORTED_DESKTOP_PLATFORMS)}"
         )
-    verify_current_preview_desktop_artifact_scope(payload, source)
+    code_deploy_current_shelf = verify_code_deploy_current_shelf_authority(payload, source)
+    if not code_deploy_current_shelf:
+        verify_current_preview_desktop_artifact_scope(payload, source)
     if (
         requires_chummer6_desktop_platform_floor(payload)
+        and not code_deploy_current_shelf
         and tuple(normalized_required_platforms) != REQUIRED_DESKTOP_PLATFORMS
     ):
         raise SystemExit(
@@ -6108,6 +6300,7 @@ def verify_artifacts(
 
 
 def verify_release_truth(payload: dict, source: str) -> None:
+    code_deploy_current_shelf = verify_code_deploy_current_shelf_authority(payload, source)
     rollout_state = payload.get("rolloutState")
     if rollout_state not in (None, "") and not isinstance(rollout_state, str):
         raise SystemExit(f"rolloutState must be a string in {source}")
@@ -6173,7 +6366,7 @@ def verify_release_truth(payload: dict, source: str) -> None:
                 f"{source} ({release_proof_future_skew_seconds}s ahead; max {release_proof_max_future_skew_seconds}s)"
             )
         release_proof_age_seconds = 0
-    if release_proof_age_seconds > release_proof_max_age_seconds:
+    if release_proof_age_seconds > release_proof_max_age_seconds and not code_deploy_current_shelf:
         raise SystemExit(
             "releaseProof.generatedAt is stale in "
             f"{source} ({release_proof_age_seconds}s old; max {release_proof_max_age_seconds}s)"
@@ -6354,7 +6547,7 @@ def verify_release_truth(payload: dict, source: str) -> None:
                 f"{source} ({localization_gate_future_skew_seconds}s ahead; max {localization_gate_max_future_skew_seconds}s)"
             )
         localization_gate_age_seconds = 0
-    if localization_gate_age_seconds > localization_gate_max_age_seconds:
+    if localization_gate_age_seconds > localization_gate_max_age_seconds and not code_deploy_current_shelf:
         raise SystemExit(
             "releaseProof.uiLocalizationReleaseGate.generatedAt is stale in "
             f"{source} ({localization_gate_age_seconds}s old; max {localization_gate_max_age_seconds}s)"
@@ -6958,6 +7151,7 @@ def main() -> int:
         raise SystemExit(f"manifest must be a JSON object: {source}")
     verify_generated_timestamp(payload, source)
     verify_contract_identity(payload, source)
+    verify_code_deploy_current_shelf_authority(payload, source)
     coverage = verify_artifacts(
         payload,
         source,

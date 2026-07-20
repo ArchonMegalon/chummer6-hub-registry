@@ -9,7 +9,9 @@ import json
 import os
 import re
 import shlex
+import stat
 import subprocess
+import sys
 import urllib.parse
 from pathlib import Path
 from typing import Any
@@ -33,10 +35,39 @@ ARTIFACT_PATTERN = re.compile(
     r"^chummer-(?P<head>avalonia|blazor-desktop)-(?P<rid>[^.]+?)(?P<installer>-installer)?\.(?P<ext>exe|zip|tar\.gz|deb|dmg|pkg|msix)$"
 )
 REGISTRY_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
 REGISTRY_PRODUCER_PATHS = (
     "scripts/materialize_public_release_channel.py",
     "scripts/verify_public_release_channel.py",
     "scripts/release/refresh_public_desktop_truth.sh",
+)
+CODE_DEPLOY_CURRENT_SHELF_CONTRACT = "chummer.registry.code-deploy-current-shelf/v1"
+CODE_DEPLOY_CURRENT_SHELF_PROJECTION_STAGE = "code_deploy_review_required"
+CODE_DEPLOY_CURRENT_SHELF_RELEASE_DECISION_STATUS = "review_required"
+CODE_DEPLOY_CURRENT_SHELF_ROLLOUT_STATE = "public_release_review_required"
+CODE_DEPLOY_CURRENT_SHELF_SUPPORTABILITY_STATE = "review_required"
+CODE_DEPLOY_CURRENT_SHELF_ALLOWED_CHANNELS = frozenset({"preview"})
+CODE_DEPLOY_CURRENT_SHELF_SCOPE_OPTIONS = (
+    "--required-desktop-heads",
+    "--required-desktop-platforms",
+)
+CODE_DEPLOY_CURRENT_SHELF_TRANSFORM_OPTIONS = (
+    "--downloads-dir",
+    "--startup-smoke-dir",
+    "--startup-smoke-max-age-seconds",
+    "--startup-smoke-max-future-skew-seconds",
+    "--skip-startup-smoke-filter",
+    "--runtime-bundles",
+    "--proof",
+    "--ui-localization-release-gate",
+    "--flagship-readiness",
+    "--product",
+    "--channel",
+    "--version",
+    "--contract-name",
+    "--published-at",
+    "--artifact-source",
+    "--downloads-prefix",
 )
 
 
@@ -946,9 +977,32 @@ def parse_allowed_release_proof_base_urls(raw_value: Any, *, source: str) -> tup
     return tuple(allowed)
 
 
-def parse_args() -> argparse.Namespace:
+def option_was_supplied(raw_args: list[str], option: str) -> bool:
+    return any(argument == option or argument.startswith(f"{option}=") for argument in raw_args)
+
+
+def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
+    raw_args = list(sys.argv[1:] if argv is None else argv)
     parser = argparse.ArgumentParser(description="Materialize registry-owned public release channel projections.")
     parser.add_argument("--manifest", type=Path, help="Optional input compatibility manifest (`releases.json`) or canonical artifact payload.")
+    parser.add_argument(
+        "--code-deploy-current-shelf",
+        action="store_true",
+        help=(
+            "Re-authorize the exact incumbent canonical shelf for a review-required code deployment. "
+            "This mode cannot authorize artifact upload or change platform/head scope."
+        ),
+    )
+    parser.add_argument(
+        "--code-deploy-source-manifest-sha256",
+        default="",
+        help="Operator-reviewed SHA-256 of the exact incumbent canonical manifest bytes.",
+    )
+    parser.add_argument(
+        "--code-deploy-authorized-at",
+        default="",
+        help="Exact UTC authorization timestamp for the code-deploy-only projection.",
+    )
     parser.add_argument("--downloads-dir", type=Path, help="Optional raw downloads/files directory to scan when no manifest exists.")
     parser.add_argument("--startup-smoke-dir", type=Path, help="Optional startup-smoke receipt directory used to keep unproven installers off the public shelf.")
     parser.add_argument(
@@ -1014,11 +1068,165 @@ def parse_args() -> argparse.Namespace:
         default="",
         help="comma-separated required desktop platform ids for tuple coverage proof",
     )
-    return parser.parse_args()
+    parsed = parser.parse_args(raw_args)
+    parsed.code_deploy_scope_options = tuple(
+        option
+        for option in CODE_DEPLOY_CURRENT_SHELF_SCOPE_OPTIONS
+        if option_was_supplied(raw_args, option)
+    )
+    parsed.code_deploy_transform_options = tuple(
+        option
+        for option in CODE_DEPLOY_CURRENT_SHELF_TRANSFORM_OPTIONS
+        if option_was_supplied(raw_args, option)
+    )
+    return parsed
 
 
 def sha256_for(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def normalize_exact_sha256(value: Any, *, source: str) -> str:
+    digest = str(value or "").strip()
+    if SHA256_PATTERN.fullmatch(digest) is None:
+        raise ValueError(f"{source} must be exactly 64 lowercase hexadecimal characters")
+    return digest
+
+
+def read_stable_regular_file_bytes(path: Path, *, source: str) -> bytes:
+    expanded = path.expanduser()
+    canonical = expanded.parent.resolve(strict=False) / expanded.name
+    try:
+        before = os.lstat(canonical)
+    except OSError as exc:
+        raise ValueError(f"{source} is unavailable: {canonical}") from exc
+    if not stat.S_ISREG(before.st_mode):
+        raise ValueError(f"{source} must be a regular file, not a link or special file")
+    flags = os.O_RDONLY
+    if hasattr(os, "O_NOFOLLOW"):
+        flags |= os.O_NOFOLLOW
+    try:
+        descriptor = os.open(canonical, flags)
+    except OSError as exc:
+        raise ValueError(f"{source} could not be opened safely") from exc
+    try:
+        opened = os.fstat(descriptor)
+        if (opened.st_dev, opened.st_ino) != (before.st_dev, before.st_ino):
+            raise ValueError(f"{source} identity changed before read")
+        chunks: list[bytes] = []
+        while True:
+            chunk = os.read(descriptor, 1024 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        after_read = os.fstat(descriptor)
+    finally:
+        os.close(descriptor)
+    try:
+        after_path = os.lstat(canonical)
+    except OSError as exc:
+        raise ValueError(f"{source} disappeared while being read") from exc
+    stable_fields = ("st_dev", "st_ino", "st_mode", "st_size", "st_mtime_ns", "st_ctime_ns")
+    if any(
+        getattr(before, field) != getattr(after_read, field)
+        or getattr(before, field) != getattr(after_path, field)
+        for field in stable_fields
+    ):
+        raise ValueError(f"{source} changed while being read")
+    content = b"".join(chunks)
+    if len(content) != before.st_size:
+        raise ValueError(f"{source} size changed while being read")
+    return content
+
+
+def code_deploy_artifact_inventory_rows(artifacts: Any, *, source: str) -> list[dict[str, Any]]:
+    if not isinstance(artifacts, list) or not artifacts:
+        raise ValueError(f"{source} must contain a non-empty canonical artifacts array")
+    rows: list[dict[str, Any]] = []
+    artifact_ids: set[str] = set()
+    file_names: set[str] = set()
+    for index, item in enumerate(artifacts):
+        if not isinstance(item, dict):
+            raise ValueError(f"{source} artifact row {index} must be an object")
+        parsed = parse_download_row(item)
+        artifact_id = normalize_token(parsed.get("artifactId"))
+        file_name = str(parsed.get("fileName") or "").strip()
+        head = normalize_token(parsed.get("head"))
+        platform = normalize_platform_token(parsed.get("platform"))
+        rid = normalize_token(parsed.get("rid"))
+        arch = normalize_token(parsed.get("arch"))
+        kind = normalize_token(parsed.get("kind"))
+        digest = normalize_exact_sha256(parsed.get("sha256"), source=f"{source} artifact row {index} sha256")
+        try:
+            size_bytes = int(parsed.get("sizeBytes") or 0)
+        except (TypeError, ValueError) as exc:
+            raise ValueError(f"{source} artifact row {index} sizeBytes must be a positive integer") from exc
+        if size_bytes <= 0:
+            raise ValueError(f"{source} artifact row {index} sizeBytes must be a positive integer")
+        if not artifact_id or artifact_id in artifact_ids:
+            raise ValueError(f"{source} artifact rows must have unique non-empty artifactId values")
+        if not file_name or file_name in file_names:
+            raise ValueError(f"{source} artifact rows must have unique non-empty fileName values")
+        if head not in DESKTOP_ROUTE_TRUTH_HEADS:
+            raise ValueError(f"{source} artifact row {index} uses unsupported desktop head {head!r}")
+        if platform not in CANONICAL_DESKTOP_PLATFORM_ORDER:
+            raise ValueError(f"{source} artifact row {index} uses unsupported platform {platform!r}")
+        if rid not in DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS.get(platform, ()):
+            raise ValueError(
+                f"{source} artifact row {index} uses unsupported {platform} runtime identifier {rid!r}"
+            )
+        artifact_ids.add(artifact_id)
+        file_names.add(file_name)
+        rows.append(
+            {
+                "artifactId": artifact_id,
+                "head": head,
+                "platform": platform,
+                "rid": rid,
+                "arch": arch,
+                "kind": kind,
+                "fileName": file_name,
+                "sha256": digest,
+                "sizeBytes": size_bytes,
+            }
+        )
+    return rows
+
+
+def code_deploy_artifact_inventory_sha256(artifacts: Any, *, source: str) -> str:
+    rows = code_deploy_artifact_inventory_rows(artifacts, source=source)
+    canonical_bytes = json.dumps(
+        rows,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical_bytes).hexdigest()
+
+
+def assert_code_deploy_artifact_inventory_preserved(
+    source_artifacts: Any,
+    output_artifacts: Any,
+) -> tuple[str, int]:
+    source_rows = code_deploy_artifact_inventory_rows(
+        source_artifacts,
+        source="code-deploy source manifest",
+    )
+    output_rows = code_deploy_artifact_inventory_rows(
+        output_artifacts,
+        source="code-deploy output",
+    )
+    if output_rows != source_rows:
+        raise ValueError(
+            "code-deploy current-shelf mode cannot add, remove, reorder, relabel, resize, or replace artifact rows"
+        )
+    return (
+        code_deploy_artifact_inventory_sha256(
+            source_artifacts,
+            source="code-deploy source manifest",
+        ),
+        len(source_rows),
+    )
 
 
 def normalized_string_list(value: Any) -> list[str]:
@@ -4643,6 +4851,247 @@ def normalize_effective_channel_id(channel: str, rollout_state: str) -> str:
     return normalized_channel
 
 
+def canonical_code_deploy_authorized_at(value: Any) -> str:
+    raw = str(value or "").strip()
+    parsed = parse_iso(raw)
+    if parsed is None:
+        raise ValueError("--code-deploy-authorized-at must be a canonical UTC ISO timestamp")
+    canonical = parsed.replace(microsecond=0).isoformat().replace("+00:00", "Z")
+    if raw != canonical:
+        raise ValueError(
+            "--code-deploy-authorized-at must use canonical second-precision UTC form ending in Z"
+        )
+    now = utc_now()
+    if parsed > now + dt.timedelta(seconds=STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS):
+        raise ValueError("--code-deploy-authorized-at exceeds the allowed future clock skew")
+    return canonical
+
+
+def validate_code_deploy_current_shelf_source(payload: dict[str, Any]) -> None:
+    contract_name = resolve_alias_value(
+        payload,
+        primary_key="contract_name",
+        secondary_key="contractName",
+        field_name="contract_name",
+        source="code-deploy source manifest",
+    )
+    if contract_name != DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME:
+        raise ValueError(
+            "code-deploy current-shelf mode requires the canonical Registry release-channel contract"
+        )
+    channel = normalize_token(
+        resolve_alias_value(
+            payload,
+            primary_key="channelId",
+            secondary_key="channel",
+            field_name="channelId",
+            source="code-deploy source manifest",
+        )
+    )
+    if channel not in CODE_DEPLOY_CURRENT_SHELF_ALLOWED_CHANNELS:
+        raise ValueError(
+            "code-deploy current-shelf source must remain on the non-stable preview channel"
+        )
+    version = str(
+        resolve_alias_value(
+            payload,
+            primary_key="version",
+            secondary_key="releaseVersion",
+            field_name="version",
+            source="code-deploy source manifest",
+        )
+        or ""
+    ).strip()
+    if not version:
+        raise ValueError("code-deploy current-shelf source must name an exact release version")
+    if normalize_token(payload.get("status")) != "published":
+        raise ValueError("code-deploy current-shelf source must describe the incumbent published shelf")
+    if normalize_token(payload.get("rolloutState")) != CODE_DEPLOY_CURRENT_SHELF_ROLLOUT_STATE:
+        raise ValueError(
+            "code-deploy current-shelf source must already be public_release_review_required"
+        )
+    if normalize_token(payload.get("supportabilityState")) != CODE_DEPLOY_CURRENT_SHELF_SUPPORTABILITY_STATE:
+        raise ValueError("code-deploy current-shelf source must already be review_required")
+    source_release_decision = normalize_token(payload.get("releaseDecisionStatus"))
+    if source_release_decision and source_release_decision != CODE_DEPLOY_CURRENT_SHELF_RELEASE_DECISION_STATUS:
+        raise ValueError("code-deploy current-shelf source cannot carry an optimistic release decision")
+    source_projection_stage = normalize_token(payload.get("projectionStage"))
+    if source_projection_stage and source_projection_stage != CODE_DEPLOY_CURRENT_SHELF_PROJECTION_STAGE:
+        raise ValueError("code-deploy current-shelf source cannot carry a release-upload projection stage")
+    if payload.get("releaseUploadAuthority") not in (None, False):
+        raise ValueError("code-deploy current-shelf source cannot carry release-upload authority")
+    if payload.get("codeDeploymentAuthority") not in (None, True):
+        raise ValueError("code-deploy current-shelf source has contradictory code-deployment authority")
+    release_channel_trust = payload.get("publicTrustMetrics")
+    if isinstance(release_channel_trust, dict):
+        release_channel_trust = release_channel_trust.get("releaseChannel")
+    if isinstance(release_channel_trust, dict):
+        trust_posture = normalize_token(release_channel_trust.get("posture"))
+        if trust_posture and trust_posture not in {"blocked", "review_required"}:
+            raise ValueError("code-deploy current-shelf source carries an optimistic public trust posture")
+    coverage = payload.get("desktopTupleCoverage")
+    if not isinstance(coverage, dict):
+        raise ValueError("code-deploy current-shelf source must retain desktopTupleCoverage")
+    required_platforms = required_desktop_platforms(coverage.get("requiredDesktopPlatforms"))
+    if not required_platforms:
+        raise ValueError("code-deploy current-shelf source must name at least one supported platform")
+    raw_required_platforms = coverage.get("requiredDesktopPlatforms")
+    if not isinstance(raw_required_platforms, list) or len(required_platforms) != len(raw_required_platforms):
+        raise ValueError("code-deploy current-shelf source contains an unsupported platform scope")
+    required_heads = required_desktop_heads(coverage.get("requiredDesktopHeads"))
+    if not required_heads or any(head not in DESKTOP_ROUTE_TRUTH_HEADS for head in required_heads):
+        raise ValueError("code-deploy current-shelf source contains an unsupported desktop-head scope")
+    code_deploy_artifact_inventory_rows(
+        payload.get("artifacts"),
+        source="code-deploy source manifest",
+    )
+
+
+def code_deploy_current_shelf_payload(args: argparse.Namespace) -> dict[str, Any]:
+    if not getattr(args, "code_deploy_current_shelf", False):
+        raise ValueError("code-deploy current-shelf payload requires explicit mode selection")
+    scope_options = tuple(getattr(args, "code_deploy_scope_options", ()) or ())
+    if scope_options:
+        raise ValueError(
+            "code-deploy current-shelf mode rejects platform/head scope flags: "
+            + ", ".join(scope_options)
+        )
+    transform_options = tuple(getattr(args, "code_deploy_transform_options", ()) or ())
+    if transform_options:
+        raise ValueError(
+            "code-deploy current-shelf mode rejects artifact/proof transform flags: "
+            + ", ".join(transform_options)
+        )
+    manifest_path = getattr(args, "manifest", None)
+    if not isinstance(manifest_path, Path):
+        raise ValueError("code-deploy current-shelf mode requires --manifest")
+    expected_source_sha256 = normalize_exact_sha256(
+        getattr(args, "code_deploy_source_manifest_sha256", None),
+        source="--code-deploy-source-manifest-sha256",
+    )
+    source_bytes = read_stable_regular_file_bytes(
+        manifest_path,
+        source="code-deploy source manifest",
+    )
+    actual_source_sha256 = hashlib.sha256(source_bytes).hexdigest()
+    if actual_source_sha256 != expected_source_sha256:
+        raise ValueError(
+            "code-deploy source manifest digest does not match the operator-reviewed SHA-256"
+        )
+    try:
+        loaded = json.loads(source_bytes.decode("utf-8"))
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise ValueError("code-deploy source manifest must be valid UTF-8 JSON") from exc
+    if not isinstance(loaded, dict):
+        raise ValueError("code-deploy source manifest must be a JSON object")
+    validate_code_deploy_current_shelf_source(loaded)
+    registry_commit = normalize_registry_commit(
+        getattr(args, "registry_commit", None),
+        source="--registry-commit",
+    )
+    authorized_at = canonical_code_deploy_authorized_at(
+        getattr(args, "code_deploy_authorized_at", None)
+    )
+    source_artifacts = loaded.get("artifacts")
+    payload = json.loads(json.dumps(loaded))
+    payload["generated_at"] = authorized_at
+    payload["generatedAt"] = authorized_at
+    payload["registry_commit"] = registry_commit
+    payload["registryCommit"] = registry_commit
+    payload["releaseDecisionStatus"] = CODE_DEPLOY_CURRENT_SHELF_RELEASE_DECISION_STATUS
+    payload["projectionStage"] = CODE_DEPLOY_CURRENT_SHELF_PROJECTION_STAGE
+    payload["codeDeploymentAuthority"] = True
+    payload["releaseUploadAuthority"] = False
+    payload["rolloutState"] = CODE_DEPLOY_CURRENT_SHELF_ROLLOUT_STATE
+    payload["supportabilityState"] = CODE_DEPLOY_CURRENT_SHELF_SUPPORTABILITY_STATE
+    payload["rolloutReason"] = (
+        "Only deployment of code that projects the exact incumbent shelf is authorized; "
+        "artifact upload and release promotion remain review-required because stale or incomplete proof receipts "
+        "have not been re-authorized."
+    )
+    payload["supportabilitySummary"] = (
+        "Treat this incumbent shelf as review-required while code-only public projection converges; "
+        "stale or incomplete proof receipts cannot support a release claim."
+    )
+    payload["knownIssueSummary"] = (
+        "Known issue: stale or incomplete proof receipts remain, so this authority permits code deployment only "
+        "and does not authorize artifact upload or promotion."
+    )
+    payload["fixAvailabilitySummary"] = (
+        "Do not send fixed notices or widen availability until stale or incomplete proof receipts are cleared "
+        "and a separate release-upload authority passes."
+    )
+    inventory_sha256, artifact_count = assert_code_deploy_artifact_inventory_preserved(
+        source_artifacts,
+        payload.get("artifacts"),
+    )
+    source_coverage = loaded.get("desktopTupleCoverage") or {}
+    required_heads = required_desktop_heads(source_coverage.get("requiredDesktopHeads"))
+    required_platforms = required_desktop_platforms(
+        source_coverage.get("requiredDesktopPlatforms")
+    )
+    tuple_coverage = desktop_tuple_coverage(
+        payload.get("artifacts") or [],
+        required_heads=required_heads,
+        required_platforms=required_platforms,
+        channel_id="preview",
+        release_version=str(payload.get("version") or "").strip(),
+        channel_status="published",
+        rollout_state=CODE_DEPLOY_CURRENT_SHELF_ROLLOUT_STATE,
+        rollout_reason=str(payload.get("rolloutReason") or ""),
+        known_issue_summary=str(payload.get("knownIssueSummary") or ""),
+        downloads_dir=None,
+    )
+    payload["desktopTupleCoverage"] = tuple_coverage
+    freshness_status = proof_freshness_status(payload)
+    payload["installAwareArtifactRegistry"] = install_aware_artifact_registry(
+        payload.get("artifacts") or [],
+        tuple_coverage,
+        channel_id="preview",
+        release_version=str(payload.get("version") or "").strip(),
+    )
+    payload["desktopSurfaceRefs"] = desktop_surface_refs(
+        payload.get("artifacts") or [],
+        tuple_coverage,
+        channel_id="preview",
+        release_version=str(payload.get("version") or "").strip(),
+    )
+    payload["artifactIdentityRegistry"] = artifact_identity_registry(
+        tuple_coverage,
+        payload.get("artifacts") or [],
+        channel_id="preview",
+        release_version=str(payload.get("version") or "").strip(),
+        proof_freshness_status=freshness_status,
+    )
+    payload["artifactPublicationBindings"] = artifact_publication_bindings(
+        tuple_coverage,
+        payload.get("artifacts") or [],
+        channel_id="preview",
+        release_version=str(payload.get("version") or "").strip(),
+        proof_freshness_status=freshness_status,
+    )
+    payload["codeDeployCurrentShelfAuthority"] = {
+        "contract": CODE_DEPLOY_CURRENT_SHELF_CONTRACT,
+        "sourceManifestSha256": actual_source_sha256,
+        "sourceArtifactInventorySha256": inventory_sha256,
+        "sourceArtifactCount": artifact_count,
+        "registryCommit": registry_commit,
+        "authorizedAt": authorized_at,
+    }
+    payload["publicTrustMetrics"] = expected_public_trust_metrics(payload)
+    payload["registryBoundaryCoverage"] = expected_registry_boundary_coverage(payload)
+    assert_code_deploy_artifact_inventory_preserved(source_artifacts, payload.get("artifacts"))
+    ensure_registry_truth_matches_artifacts(
+        payload.get("artifacts") or [],
+        payload.get("desktopTupleCoverage") or {},
+        payload.get("artifactIdentityRegistry") or [],
+        payload.get("desktopSurfaceRefs") or [],
+        install_aware_registry_rows=payload.get("installAwareArtifactRegistry") or [],
+        artifact_publication_binding_rows=payload.get("artifactPublicationBindings") or [],
+    )
+    return payload
+
+
 def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     registry_commit = normalize_registry_commit(
         getattr(args, "registry_commit", None),
@@ -5211,6 +5660,11 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         "supportabilitySummary": canonical.get("supportabilitySummary"),
         "knownIssueSummary": canonical.get("knownIssueSummary"),
         "fixAvailabilitySummary": canonical.get("fixAvailabilitySummary"),
+        "releaseDecisionStatus": canonical.get("releaseDecisionStatus"),
+        "projectionStage": canonical.get("projectionStage"),
+        "codeDeploymentAuthority": canonical.get("codeDeploymentAuthority"),
+        "releaseUploadAuthority": canonical.get("releaseUploadAuthority"),
+        "codeDeployCurrentShelfAuthority": canonical.get("codeDeployCurrentShelfAuthority"),
         "releaseProof": canonical.get("releaseProof"),
         "desktopTupleCoverage": canonical.get("desktopTupleCoverage"),
         "installAwareArtifactRegistry": canonical.get("installAwareArtifactRegistry"),
@@ -5253,9 +5707,20 @@ def expected_registry_boundary_coverage(payload: dict[str, Any]) -> dict[str, An
 def main() -> int:
     args = parse_args()
     validate_registry_source_checkout(args.registry_commit)
-    if env_flag_is_true(os.environ.get("CHUMMER_MATERIALIZE_SKIP_STARTUP_SMOKE_FILTER")):
+    env_skip_startup_smoke = env_flag_is_true(
+        os.environ.get("CHUMMER_MATERIALIZE_SKIP_STARTUP_SMOKE_FILTER")
+    )
+    if args.code_deploy_current_shelf and env_skip_startup_smoke:
+        raise ValueError(
+            "code-deploy current-shelf mode rejects CHUMMER_MATERIALIZE_SKIP_STARTUP_SMOKE_FILTER"
+        )
+    if env_skip_startup_smoke:
         args.skip_startup_smoke_filter = True
-    canonical = canonical_payload(args)
+    canonical = (
+        code_deploy_current_shelf_payload(args)
+        if args.code_deploy_current_shelf
+        else canonical_payload(args)
+    )
     canonical["publicTrustMetrics"] = expected_public_trust_metrics(canonical)
     canonical["registryBoundaryCoverage"] = expected_registry_boundary_coverage(canonical)
     write_json(args.output, canonical)
