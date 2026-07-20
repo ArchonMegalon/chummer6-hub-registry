@@ -9,6 +9,7 @@ import json
 import os
 import re
 import shlex
+import subprocess
 import urllib.parse
 from pathlib import Path
 from typing import Any
@@ -31,12 +32,94 @@ RID_TO_PLATFORM_ARCH = {
 ARTIFACT_PATTERN = re.compile(
     r"^chummer-(?P<head>avalonia|blazor-desktop)-(?P<rid>[^.]+?)(?P<installer>-installer)?\.(?P<ext>exe|zip|tar\.gz|deb|dmg|pkg|msix)$"
 )
+REGISTRY_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
+REGISTRY_PRODUCER_PATHS = (
+    "scripts/materialize_public_release_channel.py",
+    "scripts/verify_public_release_channel.py",
+    "scripts/release/refresh_public_desktop_truth.sh",
+)
 
 
 def env_flag_is_true(value: Any) -> bool:
     if value is None:
         return False
     return str(value).strip().lower() in {"1", "true", "yes", "on"}
+
+
+def normalize_registry_commit(value: Any, *, source: str) -> str:
+    commit = str(value or "").strip()
+    if not commit:
+        raise ValueError(
+            f"registry source commit is required in {source}; provide a reviewed full 40-character commit"
+        )
+    if not REGISTRY_COMMIT_PATTERN.fullmatch(commit):
+        raise ValueError(
+            f"registry source commit must be exactly 40 lowercase hexadecimal characters in {source}"
+        )
+    return commit
+
+
+def validate_registry_source_checkout(
+    registry_commit: Any,
+    *,
+    repo_root: Path | None = None,
+) -> str:
+    commit = normalize_registry_commit(registry_commit, source="reviewed Registry source checkout")
+    root = (repo_root or Path(__file__).resolve().parents[1]).resolve()
+
+    def git_output(*arguments: str) -> str:
+        try:
+            completed = subprocess.run(
+                ["git", "-C", str(root), *arguments],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+        except (FileNotFoundError, subprocess.CalledProcessError) as exc:
+            raise ValueError(
+                f"unable to verify reviewed Registry source commit {commit} in {root}"
+            ) from exc
+        return completed.stdout.strip()
+
+    resolved_commit = git_output("rev-parse", "--verify", f"{commit}^{{commit}}")
+    if resolved_commit != commit:
+        raise ValueError(
+            f"reviewed Registry source commit must resolve exactly to {commit}, got {resolved_commit or '<missing>'}"
+        )
+
+    checkout_head = git_output("rev-parse", "HEAD")
+    if checkout_head != commit:
+        raise ValueError(
+            "reviewed Registry source commit does not match checkout HEAD: "
+            f"expected {commit}, got {checkout_head or '<missing>'}"
+        )
+
+    diff = subprocess.run(
+        [
+            "git",
+            "-C",
+            str(root),
+            "diff",
+            "--quiet",
+            "--no-ext-diff",
+            commit,
+            "--",
+            *REGISTRY_PRODUCER_PATHS,
+        ],
+        check=False,
+    )
+    if diff.returncode != 0:
+        if diff.returncode == 1:
+            raise ValueError(
+                "Registry producer code differs from the externally reviewed commit; "
+                "use a clean checkout of the reviewed source before materialization"
+            )
+        raise ValueError(
+            f"unable to compare Registry producer code with reviewed commit {commit} in {root}"
+        )
+    return commit
+
+
 WINDOWS_INSTALLER_PAYLOAD_MARKERS = (
     b"ChummerInstaller.Payload.zip",
     b"Samples/Legacy/Soma-Career.chum5",
@@ -899,6 +982,14 @@ def parse_args() -> argparse.Namespace:
     )
     parser.add_argument("--published-at", default="")
     parser.add_argument("--artifact-source", default="ui_desktop_bundle")
+    parser.add_argument(
+        "--registry-commit",
+        required=True,
+        help=(
+            "Externally reviewed full 40-character lowercase commit for the Registry source used "
+            "to generate this projection. This value is never derived from the local checkout."
+        ),
+    )
     parser.add_argument("--downloads-prefix", default="/downloads/files")
     parser.add_argument(
         "--required-desktop-heads",
@@ -4474,6 +4565,10 @@ def normalize_effective_channel_id(channel: str, rollout_state: str) -> str:
 
 
 def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
+    registry_commit = normalize_registry_commit(
+        getattr(args, "registry_commit", None),
+        source="--registry-commit",
+    )
     loaded = load_input_payload(args)
     flagship_readiness = load_flagship_readiness_snapshot(getattr(args, "flagship_readiness", None))
     refresh_flagship_readiness_copy = loaded_flagship_readiness_copy_requires_refresh(
@@ -4871,6 +4966,8 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         "product": str(loaded.get("product") or args.product).strip() or "chummer6",
         "contract_name": contract_name,
         "contractName": contract_name,
+        "registry_commit": registry_commit,
+        "registryCommit": registry_commit,
         "channelId": channel,
         "channel": channel,
         "version": version,
@@ -4932,6 +5029,16 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
             f"{DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME}, got {source_contract_name!r}"
         )
     contract_name = DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
+    registry_commit = normalize_registry_commit(
+        resolve_alias_value(
+            canonical,
+            primary_key="registry_commit",
+            secondary_key="registryCommit",
+            field_name="registry_commit",
+            source="canonical release-channel projection",
+        ),
+        source="canonical release-channel projection",
+    )
     rollout_state = str(canonical.get("rolloutState") or "").strip()
     channel_id = str(canonical.get("channelId") or canonical.get("channel") or "").strip()
     compatibility_channel = (
@@ -4993,6 +5100,8 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         "generatedAt": canonical.get("generatedAt") or canonical.get("generated_at"),
         "contract_name": contract_name,
         "contractName": contract_name,
+        "registry_commit": registry_commit,
+        "registryCommit": registry_commit,
         "version": canonical.get("version") or "unpublished",
         "releaseVersion": canonical.get("releaseVersion") or canonical.get("version") or "unpublished",
         "publicVersion": canonical.get("publicVersion"),
@@ -5049,6 +5158,7 @@ def expected_registry_boundary_coverage(payload: dict[str, Any]) -> dict[str, An
 
 def main() -> int:
     args = parse_args()
+    validate_registry_source_checkout(args.registry_commit)
     if env_flag_is_true(os.environ.get("CHUMMER_MATERIALIZE_SKIP_STARTUP_SMOKE_FILTER")):
         args.skip_startup_smoke_filter = True
     canonical = canonical_payload(args)
@@ -5068,6 +5178,7 @@ def main() -> int:
                 "artifact_count": len(canonical.get("artifacts") or []),
                 "channel": canonical.get("channelId"),
                 "version": canonical.get("version"),
+                "registry_commit": canonical.get("registry_commit"),
             },
             indent=2,
         )

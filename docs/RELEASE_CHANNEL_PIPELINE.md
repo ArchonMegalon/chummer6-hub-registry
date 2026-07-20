@@ -20,6 +20,8 @@ Registry-owned generated artifacts:
 
 `RELEASE_CHANNEL.generated.json` is the canonical materialized projection used as input to an authority decision. It is not mutable runtime authority. `releases.json` is a compatibility export for existing Hub/download consumers.
 
+Both projections carry `registryCommit` and `registry_commit`. The aliases must agree and contain the externally reviewed, full 40-character lowercase commit for the Registry source that generated them. Materialization never derives this authority identity from the current checkout or inherits it from an older manifest.
+
 ## Immutable runtime authority
 
 The registry runtime reads release authority only from the absolute directory configured by `CHUMMER_RELEASE_AUTHORITY_ROOT`. It does not fall back to a repository-local `RELEASE_CHANNEL.generated.json`, and the former direct-manifest input `CHUMMER_RELEASE_CHANNEL_MANIFEST` is rejected.
@@ -458,6 +460,17 @@ They must not mint their own release truth by scanning files and inventing a new
 Install claim tickets, claimed-installation records, installation grants, and download receipts are the same kind of registry truth.
 
 Hub may render or personalize around that truth, but it must not invent a second install-linking schema in hosted UX code.
+
+The sanctioned current-shelf regeneration entry point is the Registry wrapper, with the reviewed source commit supplied explicitly:
+
+```bash
+REGISTRY_SOURCE_COMMIT='<reviewed-40-character-lowercase-registry-commit>' \
+RELEASE_VERSION='<approved-release-version>' \
+PUBLISHED_AT='<approved-UTC-ISO-8601-timestamp>' \
+scripts/release/refresh_public_desktop_truth.sh
+```
+
+Missing, abbreviated, non-canonical, or self-derived commit identity fails before the wrapper stages or replaces release outputs. The supplied commit must exist and equal checkout `HEAD`; the materializer, verifier, and refresh-wrapper bytes must also match that commit, so a dirty producer cannot claim the reviewed identity. Generated release evidence may remain outside that producer-code comparison. Stable promotion and macOS post-smoke wrappers inherit the same required `REGISTRY_SOURCE_COMMIT` handoff.
 
 ## Stable promotion lane
 

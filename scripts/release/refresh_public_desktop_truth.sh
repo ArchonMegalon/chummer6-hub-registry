@@ -81,6 +81,35 @@ PUBLISHED_AT="${PUBLISHED_AT:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
 SYNC_PUBLIC_GUIDE="${SYNC_PUBLIC_GUIDE:-1}"
 SYNC_WORKSPACE_PORTAL_MIRRORS="${SYNC_WORKSPACE_PORTAL_MIRRORS:-1}"
 FORCE_RELEASE_PROOF_MATERIALIZATION="${FORCE_RELEASE_PROOF_MATERIALIZATION:-0}"
+REGISTRY_SOURCE_COMMIT="${REGISTRY_SOURCE_COMMIT:-}"
+
+if [[ ! "$REGISTRY_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "REGISTRY_SOURCE_COMMIT must be an externally reviewed full 40-character lowercase Registry commit" >&2
+  exit 1
+fi
+
+validate_registry_source_checkout() {
+  local resolved_commit=""
+  local checkout_head=""
+  if ! resolved_commit="$(git -C "$REGISTRY_ROOT" rev-parse --verify "${REGISTRY_SOURCE_COMMIT}^{commit}" 2>/dev/null)"; then
+    echo "REGISTRY_SOURCE_COMMIT does not identify a commit available in this Registry checkout" >&2
+    exit 1
+  fi
+  checkout_head="$(git -C "$REGISTRY_ROOT" rev-parse HEAD)"
+  if [[ "$resolved_commit" != "$REGISTRY_SOURCE_COMMIT" || "$checkout_head" != "$REGISTRY_SOURCE_COMMIT" ]]; then
+    echo "REGISTRY_SOURCE_COMMIT must exactly match the Registry checkout HEAD" >&2
+    exit 1
+  fi
+  if ! git -C "$REGISTRY_ROOT" diff --quiet --no-ext-diff "$REGISTRY_SOURCE_COMMIT" -- \
+    scripts/materialize_public_release_channel.py \
+    scripts/verify_public_release_channel.py \
+    scripts/release/refresh_public_desktop_truth.sh; then
+    echo "Registry producer code differs from REGISTRY_SOURCE_COMMIT; use a clean reviewed checkout" >&2
+    exit 1
+  fi
+}
+
+validate_registry_source_checkout
 
 mkdir -p "$PUBLISHED_FILES_DIR" "$PUBLISHED_STARTUP_SMOKE_DIR"
 temp_output_path="$(mktemp)"
@@ -312,6 +341,7 @@ materializer_args=(
   --proof "$RELEASE_PROOF_PATH"
   --ui-localization-release-gate "$UI_LOCALIZATION_RELEASE_GATE_PATH"
   --flagship-readiness "$FLAGSHIP_PRODUCT_READINESS_GATE_PATH"
+  --registry-commit "$REGISTRY_SOURCE_COMMIT"
   --downloads-prefix "$DOWNLOADS_PREFIX"
 )
 

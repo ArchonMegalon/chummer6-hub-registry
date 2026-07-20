@@ -24,6 +24,7 @@ ALLOWED_CHANNEL_PROMOTION_BLOCKERS = (
     "release channel supportability is not gold_supported",
     "release channel rollout is promoted_preview, not public_stable",
 )
+TEST_REGISTRY_SOURCE_COMMIT = "0123456789abcdef0123456789abcdef01234567"
 
 
 def write_json(path: Path, payload: dict) -> None:
@@ -74,6 +75,46 @@ def initialize_test_source_repository(path: Path) -> tuple[str, str]:
         text=True,
     ).stdout.strip()
     return commit, tree
+
+
+def commit_test_registry_producer(registry_root: Path) -> str:
+    producer_paths = (
+        "scripts/materialize_public_release_channel.py",
+        "scripts/verify_public_release_channel.py",
+        "scripts/release/refresh_public_desktop_truth.sh",
+    )
+    for relative_path in producer_paths:
+        path = registry_root / relative_path
+        if not path.exists():
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text("# test producer placeholder\n", encoding="utf-8")
+    subprocess.run(["git", "init", "-q", str(registry_root)], check=True)
+    subprocess.run(
+        ["git", "-C", str(registry_root), "add", *producer_paths],
+        check=True,
+    )
+    subprocess.run(
+        [
+            "git",
+            "-C",
+            str(registry_root),
+            "-c",
+            "user.name=Chummer Test",
+            "-c",
+            "user.email=chummer-test@example.invalid",
+            "commit",
+            "-q",
+            "-m",
+            "reviewed test Registry producer",
+        ],
+        check=True,
+    )
+    return subprocess.run(
+        ["git", "-C", str(registry_root), "rev-parse", "HEAD"],
+        check=True,
+        capture_output=True,
+        text=True,
+    ).stdout.strip()
 
 
 def write_stable_auxiliary_release_receipts(workspace_root: Path) -> None:
@@ -940,6 +981,47 @@ def prepare_guide_promotion_fixture(
 
 
 class RefreshPublicDesktopTruthReleaseHelpersTests(unittest.TestCase):
+    def setUp(self) -> None:
+        self._previous_registry_source_commit = os.environ.get("REGISTRY_SOURCE_COMMIT")
+        os.environ["REGISTRY_SOURCE_COMMIT"] = TEST_REGISTRY_SOURCE_COMMIT
+
+    def tearDown(self) -> None:
+        if self._previous_registry_source_commit is None:
+            os.environ.pop("REGISTRY_SOURCE_COMMIT", None)
+        else:
+            os.environ["REGISTRY_SOURCE_COMMIT"] = self._previous_registry_source_commit
+
+    def test_refresh_script_requires_external_registry_commit_before_mutation(self) -> None:
+        script = (RELEASE_DIR / "refresh_public_desktop_truth.sh").read_text(encoding="utf-8")
+        validation = '[[ ! "$REGISTRY_SOURCE_COMMIT" =~ ^[0-9a-f]{40}$ ]]'
+        first_mutation = 'mkdir -p "$PUBLISHED_FILES_DIR" "$PUBLISHED_STARTUP_SMOKE_DIR"'
+
+        self.assertIn('REGISTRY_SOURCE_COMMIT="${REGISTRY_SOURCE_COMMIT:-}"', script)
+        self.assertIn(validation, script)
+        self.assertIn('git -C "$REGISTRY_ROOT" diff --quiet --no-ext-diff', script)
+        self.assertIn("scripts/materialize_public_release_channel.py", script)
+        self.assertIn("scripts/verify_public_release_channel.py", script)
+        self.assertIn('--registry-commit "$REGISTRY_SOURCE_COMMIT"', script)
+        self.assertLess(script.index(validation), script.index(first_mutation))
+        self.assertLess(
+            script.index("\nvalidate_registry_source_checkout\n"),
+            script.index(first_mutation),
+        )
+        self.assertNotIn('REGISTRY_SOURCE_COMMIT="$(git', script)
+
+        env = os.environ.copy()
+        env.pop("REGISTRY_SOURCE_COMMIT", None)
+        result = subprocess.run(
+            [str(RELEASE_DIR / "refresh_public_desktop_truth.sh")],
+            cwd=REPO_ROOT,
+            env=env,
+            check=False,
+            capture_output=True,
+            text=True,
+        )
+        self.assertNotEqual(result.returncode, 0)
+        self.assertIn("REGISTRY_SOURCE_COMMIT must be", result.stderr + result.stdout)
+
     def test_refresh_script_prefers_canonical_run_services_download_shelf(self) -> None:
         script = (RELEASE_DIR / "refresh_public_desktop_truth.sh").read_text(encoding="utf-8")
         source_files_index = script.index('"$SOURCE_FILES_DIR"')
@@ -1065,6 +1147,7 @@ class RefreshPublicDesktopTruthReleaseHelpersTests(unittest.TestCase):
                 "SYNC_WORKSPACE_PORTAL_MIRRORS": "0",
                 "RELEASE_VERSION": "run-new",
                 "PUBLISHED_AT": "2026-07-17T00:00:00Z",
+                "REGISTRY_SOURCE_COMMIT": commit_test_registry_producer(registry_root),
             }
             result = subprocess.run(
                 [str(refresh_script)],
@@ -2356,6 +2439,7 @@ class RefreshPublicDesktopTruthReleaseHelpersTests(unittest.TestCase):
 
             env = os.environ.copy()
             env["SYNC_PUBLIC_GUIDE"] = "0"
+            env["REGISTRY_SOURCE_COMMIT"] = commit_test_registry_producer(registry_root)
             subprocess.run([str(refresh_script)], cwd=registry_root, env=env, check=True)
 
             published_manifest = registry_root / ".codex-studio" / "published" / "RELEASE_CHANNEL.generated.json"
@@ -2516,6 +2600,7 @@ class RefreshPublicDesktopTruthReleaseHelpersTests(unittest.TestCase):
             env = os.environ.copy()
             env["SYNC_PUBLIC_GUIDE"] = "0"
             env["CAPTURE_PATH"] = str(capture_path)
+            env["REGISTRY_SOURCE_COMMIT"] = commit_test_registry_producer(registry_root)
             subprocess.run([str(promote_script)], cwd=registry_root, env=env, check=True)
 
             payload = json.loads((published_root / "RELEASE_CHANNEL.generated.json").read_text(encoding="utf-8"))
@@ -2890,6 +2975,7 @@ class RefreshPublicDesktopTruthReleaseHelpersTests(unittest.TestCase):
 
             env = os.environ.copy()
             env["SYNC_PUBLIC_GUIDE"] = "0"
+            env["REGISTRY_SOURCE_COMMIT"] = commit_test_registry_producer(registry_root)
             result = subprocess.run([str(promote_script)], cwd=registry_root, env=env, check=False, capture_output=True, text=True)
             self.assertNotEqual(result.returncode, 0)
             self.assertIn("does not match the visual-audit proof", result.stderr + result.stdout)
@@ -3082,6 +3168,7 @@ class RefreshPublicDesktopTruthReleaseHelpersTests(unittest.TestCase):
             verifier_path = registry_root / "scripts" / "verify_public_release_channel.py"
             verifier_path.write_text("#!/usr/bin/env python3\nimport sys\nprint('verified public release manifest:', sys.argv[1])\n", encoding="utf-8")
             verifier_path.chmod(0o755)
+            env["REGISTRY_SOURCE_COMMIT"] = commit_test_registry_producer(registry_root)
             subprocess.run([str(refresh_script)], cwd=registry_root, env=env, check=True)
 
             self.assertEqual(capture_path.read_text(encoding="utf-8"), str(presentation_manifest))
@@ -3173,6 +3260,7 @@ class RefreshPublicDesktopTruthReleaseHelpersTests(unittest.TestCase):
 
             env = os.environ.copy()
             env["SYNC_PUBLIC_GUIDE"] = "0"
+            env["REGISTRY_SOURCE_COMMIT"] = commit_test_registry_producer(registry_root)
             subprocess.run([str(refresh_script)], cwd=registry_root, env=env, check=True)
 
             published_manifest = json.loads(
@@ -3255,6 +3343,7 @@ class RefreshPublicDesktopTruthReleaseHelpersTests(unittest.TestCase):
 
             env = os.environ.copy()
             env["SYNC_PUBLIC_GUIDE"] = "0"
+            env["REGISTRY_SOURCE_COMMIT"] = commit_test_registry_producer(registry_root)
             subprocess.run([str(refresh_script)], cwd=registry_root, env=env, check=True)
 
             published_manifest = json.loads((registry_root / ".codex-studio" / "published" / "RELEASE_CHANNEL.generated.json").read_text(encoding="utf-8"))

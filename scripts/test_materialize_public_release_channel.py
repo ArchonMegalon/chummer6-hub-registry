@@ -4,6 +4,8 @@ import argparse
 import hashlib
 import importlib.util
 import json
+import shutil
+import subprocess
 import tempfile
 from datetime import timezone
 from pathlib import Path
@@ -45,9 +47,130 @@ assert VERIFY_MODULE_SPEC and VERIFY_MODULE_SPEC.loader
 VERIFY_MODULE = importlib.util.module_from_spec(VERIFY_MODULE_SPEC)
 VERIFY_MODULE_SPEC.loader.exec_module(VERIFY_MODULE)
 
+TEST_REGISTRY_COMMIT = "0123456789abcdef0123456789abcdef01234567"
+
+
+def materializer_args(**kwargs) -> argparse.Namespace:
+    kwargs.setdefault("registry_commit", TEST_REGISTRY_COMMIT)
+    return argparse.Namespace(**kwargs)
+
+
+def compatibility_payload(canonical: dict) -> dict:
+    canonical = {
+        "registry_commit": TEST_REGISTRY_COMMIT,
+        "registryCommit": TEST_REGISTRY_COMMIT,
+        **canonical,
+    }
+    return MODULE.compatibility_payload(canonical)
+
 
 def load_tests(loader, tests, pattern):
     return tests
+
+
+def test_registry_commit_requires_external_full_canonical_commit() -> None:
+    assert (
+        MODULE.normalize_registry_commit(TEST_REGISTRY_COMMIT, source="test")
+        == TEST_REGISTRY_COMMIT
+    )
+    for invalid in (None, "", "a" * 39, "a" * 41, "A" * 40, "g" * 40):
+        with pytest.raises(ValueError, match="registry source commit"):
+            MODULE.normalize_registry_commit(invalid, source="test")
+        with pytest.raises(ValueError, match="registry source commit"):
+            MODULE.canonical_payload(argparse.Namespace(registry_commit=invalid))
+
+
+def test_registry_source_checkout_must_match_reviewed_commit_and_producer_bytes() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        for relative_path in MODULE.REGISTRY_PRODUCER_PATHS:
+            source = SCRIPT.parents[1] / relative_path
+            destination = root / relative_path
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(source, destination)
+        subprocess.run(["git", "init", "-q", str(root)], check=True)
+        subprocess.run(["git", "-C", str(root), "add", *MODULE.REGISTRY_PRODUCER_PATHS], check=True)
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "-c",
+                "user.name=Chummer Test",
+                "-c",
+                "user.email=chummer-test@example.invalid",
+                "commit",
+                "-q",
+                "-m",
+                "reviewed producer",
+            ],
+            check=True,
+        )
+        reviewed_commit = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+
+        assert MODULE.validate_registry_source_checkout(reviewed_commit, repo_root=root) == reviewed_commit
+
+        marker = root / "unrelated.txt"
+        marker.write_text("new head\n", encoding="utf-8")
+        subprocess.run(["git", "-C", str(root), "add", marker.name], check=True)
+        subprocess.run(
+            [
+                "git",
+                "-C",
+                str(root),
+                "-c",
+                "user.name=Chummer Test",
+                "-c",
+                "user.email=chummer-test@example.invalid",
+                "commit",
+                "-q",
+                "-m",
+                "different head",
+            ],
+            check=True,
+        )
+        current_commit = subprocess.run(
+            ["git", "-C", str(root), "rev-parse", "HEAD"],
+            check=True,
+            capture_output=True,
+            text=True,
+        ).stdout.strip()
+        with pytest.raises(ValueError, match="does not match checkout HEAD"):
+            MODULE.validate_registry_source_checkout(reviewed_commit, repo_root=root)
+
+        materializer = root / MODULE.REGISTRY_PRODUCER_PATHS[0]
+        materializer.write_text(materializer.read_text(encoding="utf-8") + "\n# dirty producer\n", encoding="utf-8")
+        with pytest.raises(ValueError, match="producer code differs"):
+            MODULE.validate_registry_source_checkout(current_commit, repo_root=root)
+
+
+def test_compatibility_payload_requires_agreeing_registry_commit_aliases() -> None:
+    canonical = {
+        "generatedAt": "2026-07-20T00:00:00Z",
+        "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+        "channelId": "preview",
+        "version": "run-20260720-000000",
+        "publishedAt": "2026-07-20T00:00:00Z",
+        "status": "unpublished",
+        "artifacts": [],
+    }
+    with pytest.raises(ValueError, match="registry source commit is required"):
+        MODULE.compatibility_payload(canonical)
+
+    canonical["registry_commit"] = TEST_REGISTRY_COMMIT
+    canonical["registryCommit"] = "f" * 40
+    with pytest.raises(ValueError, match="alias values drift"):
+        MODULE.compatibility_payload(canonical)
+
+    canonical["registryCommit"] = TEST_REGISTRY_COMMIT
+    payload = MODULE.compatibility_payload(canonical)
+    assert payload["registry_commit"] == TEST_REGISTRY_COMMIT
+    assert payload["registryCommit"] == TEST_REGISTRY_COMMIT
 
 
 def install_aware_payload() -> tuple[list[dict], dict]:
@@ -231,7 +354,7 @@ def materialize_flagship_readiness_fixture(
         manifest_path = root / "release-channel-source.json"
         manifest_path.write_text(json.dumps(manifest_payload), encoding="utf-8")
     return MODULE.canonical_payload(
-        argparse.Namespace(
+        materializer_args(
             manifest=manifest_path,
             downloads_dir=downloads_dir,
             startup_smoke_dir=None,
@@ -311,7 +434,7 @@ def test_canonical_payload_fails_closed_when_flagship_gate_is_absent_or_malforme
             gate_path.write_text("{not-json", encoding="utf-8")
 
         payload = MODULE.canonical_payload(
-            argparse.Namespace(
+            materializer_args(
                 manifest=None,
                 downloads_dir=downloads_dir,
                 startup_smoke_dir=None,
@@ -342,6 +465,8 @@ def test_canonical_payload_fails_closed_when_flagship_gate_is_absent_or_malforme
     assert payload["supportabilityState"] == "review_required"
     assert payload["publicTrustMetrics"]["releaseChannel"]["supportabilityState"] == "review_required"
     assert payload["registryBoundaryCoverage"]["releaseChannel"]["publicTrustPosture"] == "blocked"
+    assert payload["registry_commit"] == TEST_REGISTRY_COMMIT
+    assert payload["registryCommit"] == TEST_REGISTRY_COMMIT
 
 
 def test_compatibility_payload_preserves_flagship_readiness_snapshot() -> None:
@@ -368,7 +493,7 @@ def test_compatibility_payload_preserves_flagship_readiness_snapshot() -> None:
         "contractName": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
         "releaseProof": {"flagshipReadiness": snapshot},
     }
-    compatibility = MODULE.compatibility_payload(canonical)
+    compatibility = compatibility_payload(canonical)
 
     assert compatibility["releaseProof"]["flagshipReadiness"] == snapshot
 
@@ -1418,7 +1543,7 @@ def test_load_startup_smoke_receipts_rejects_missing_artifact_identity() -> None
 
 
 def test_compatibility_payload_canonicalizes_contract_name_aliases() -> None:
-    payload = MODULE.compatibility_payload(
+    payload = compatibility_payload(
         {
             "generatedAt": "2026-04-10T11:24:43Z",
             "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
@@ -1435,7 +1560,7 @@ def test_compatibility_payload_canonicalizes_contract_name_aliases() -> None:
 
 
 def test_compatibility_payload_projects_public_stable_channel() -> None:
-    payload = MODULE.compatibility_payload(
+    payload = compatibility_payload(
         {
             "generatedAt": "2026-05-19T15:43:06Z",
             "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
@@ -1452,7 +1577,7 @@ def test_compatibility_payload_projects_public_stable_channel() -> None:
 
 
 def test_compatibility_payload_preserves_release_aliases_and_public_version() -> None:
-    payload = MODULE.compatibility_payload(
+    payload = compatibility_payload(
         {
             "generatedAt": "2026-06-27T00:54:02Z",
             "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
@@ -1473,7 +1598,7 @@ def test_compatibility_payload_preserves_release_aliases_and_public_version() ->
 
 
 def test_compatibility_payload_emits_canonical_artifact_identity_aliases() -> None:
-    payload = MODULE.compatibility_payload(
+    payload = compatibility_payload(
         {
             "generatedAt": "2026-07-17T00:00:00Z",
             "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
@@ -1597,7 +1722,7 @@ def test_compatibility_payload_preserves_download_compatibility_state_for_bounda
         "artifactPublicationBindings": [],
     }
 
-    payload = MODULE.compatibility_payload(canonical)
+    payload = compatibility_payload(canonical)
     payload["publicTrustMetrics"] = MODULE.expected_public_trust_metrics(payload)
     payload["registryBoundaryCoverage"] = MODULE.expected_registry_boundary_coverage(payload)
 
@@ -2770,7 +2895,7 @@ def test_canonical_payload_keeps_mac_only_preview_review_gated_against_canonical
         )
 
         payload = MODULE.canonical_payload(
-            argparse.Namespace(
+            materializer_args(
                 manifest=None,
                 downloads_dir=downloads_dir,
                 startup_smoke_dir=None,
@@ -2917,7 +3042,7 @@ def test_canonical_payload_rewrites_stale_mac_tuple_gap_to_canonical_platform_ga
         )
 
         payload = MODULE.canonical_payload(
-            argparse.Namespace(
+            materializer_args(
                 manifest=manifest_path,
                 downloads_dir=downloads_dir,
                 startup_smoke_dir=None,
@@ -3055,7 +3180,7 @@ def test_canonical_payload_preserves_public_version_and_sets_release_alias() -> 
         )
 
         payload = MODULE.canonical_payload(
-            argparse.Namespace(
+            materializer_args(
                 manifest=source_manifest,
                 downloads_dir=downloads_dir,
                 startup_smoke_dir=None,
@@ -3173,7 +3298,7 @@ def test_canonical_payload_demotes_public_stable_posture_when_flagship_readiness
         )
 
         payload = MODULE.canonical_payload(
-            argparse.Namespace(
+            materializer_args(
                 manifest=None,
                 downloads_dir=downloads_dir,
                 startup_smoke_dir=None,
@@ -3262,7 +3387,7 @@ def test_canonical_payload_demotes_supported_posture_when_green_flagship_receipt
         )
 
         payload = MODULE.canonical_payload(
-            argparse.Namespace(
+            materializer_args(
                 manifest=None,
                 downloads_dir=downloads_dir,
                 startup_smoke_dir=None,
@@ -3402,7 +3527,7 @@ def test_canonical_payload_fails_closed_when_flagship_gate_only_echoes_release_p
         )
 
         payload = MODULE.canonical_payload(
-            argparse.Namespace(
+            materializer_args(
                 manifest=None,
                 downloads_dir=downloads_dir,
                 startup_smoke_dir=None,
@@ -3547,7 +3672,7 @@ def test_canonical_payload_preserves_review_gate_when_flagship_gate_only_echoes_
         )
 
         payload = MODULE.canonical_payload(
-            argparse.Namespace(
+            materializer_args(
                 manifest=manifest_path,
                 downloads_dir=downloads_dir,
                 startup_smoke_dir=None,

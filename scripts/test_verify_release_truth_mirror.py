@@ -10,6 +10,7 @@ import pytest
 
 SCRIPT = Path(__file__).with_name("verify_release_truth_mirror.py")
 PRODUCER_SCRIPT = Path(__file__).with_name("materialize_public_release_channel.py")
+TEST_REGISTRY_COMMIT = "0123456789abcdef0123456789abcdef01234567"
 
 
 def load_module():
@@ -61,6 +62,8 @@ def payload(*, compatibility: bool = False) -> dict:
     if compatibility:
         artifact.pop("rid", None)
     return {
+        "registry_commit": TEST_REGISTRY_COMMIT,
+        "registryCommit": TEST_REGISTRY_COMMIT,
         "version": "run-1",
         "releaseVersion": "run-1",
         "channel": "preview",
