@@ -131,6 +131,7 @@ public sealed class HubRegistryController : ControllerBase
         if (request is null
             || request.Metadata is null
             || request.ManifestBytes is null
+            || request.ReleaseScopeDecisionBytes is null
             || request.ReleaseDecisionBytes is null)
         {
             return BadRequest("Release-authority publication payload is required.");
@@ -150,6 +151,8 @@ public sealed class HubRegistryController : ControllerBase
                 authorityRoot,
                 request.Metadata,
                 request.ManifestBytes,
+                request.ReleaseScopeDecisionBytes,
+                request.ExpectedReleaseScopeDecisionSha256,
                 request.ReleaseDecisionBytes,
                 request.ExpectedCurrentSnapshotSha256);
             LoadedReleaseAuthoritySnapshot loaded = ReleaseAuthoritySnapshotStore.LoadCurrent(authorityRoot)

@@ -1,13 +1,15 @@
 {
   "$schema": "https://json-schema.org/draft/2020-12/schema",
   "$id": "https://chummer.run/contracts/release-authority-v2.schema.json",
-  "title": "Chummer release authority v2 file contracts",
-  "description": "Portable contract for CURRENT.json, SNAPSHOT.json, and accepted generated release-decision files. Registry remains the derivation owner and persists generated manifest/decision bytes unchanged.",
+  "title": "Chummer release authority v2 and publication contracts",
+  "description": "Portable contract for approved scope, CURRENT.json, SNAPSHOT.json, accepted generated release-decision files, and the exact Registry publication request. Registry remains the derivation owner and persists generated manifest/decision bytes unchanged.",
   "oneOf": [
+    { "$ref": "#/$defs/approvedScopeDecision" },
     { "$ref": "#/$defs/current" },
     { "$ref": "#/$defs/snapshot" },
     { "$ref": "#/$defs/previewDecision" },
-    { "$ref": "#/$defs/stableDecision" }
+    { "$ref": "#/$defs/stableDecision" },
+    { "$ref": "#/$defs/publishRequest" }
   ],
   "$defs": {
     "sha256": {
@@ -274,6 +276,158 @@
         "immutableArtifact": "open_public downloadUrl must be the exact root-relative Hub generation file projection /downloads/g/{generationId}/files/{fileName} and remain distinct from publicInstallRoute. account_recommended/account_required downloadUrl must equal the protected /downloads/g/{generationId}/install/{artifactId} route. All routes reject query, fragment, credentials, and traversal; sha256 and positive sizeBytes are pinned from the same exact manifest row."
       }
     },
+    "approvedScopePlatform": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactAccessClass",
+        "fallbackHeads",
+        "platform",
+        "primaryHead",
+        "rid",
+        "signingRequirement"
+      ],
+      "properties": {
+        "artifactAccessClass": {
+          "enum": ["open_public", "account_required", "support_directed"]
+        },
+        "fallbackHeads": {
+          "type": "array",
+          "maxItems": 15,
+          "uniqueItems": true,
+          "items": { "enum": ["avalonia", "blazor-desktop"] }
+        },
+        "platform": { "enum": ["linux", "macos", "windows"] },
+        "primaryHead": { "enum": ["avalonia", "blazor-desktop"] },
+        "rid": {
+          "enum": [
+            "linux-x64", "linux-arm64", "osx-x64", "osx-arm64",
+            "win-x64", "win-arm64"
+          ]
+        },
+        "signingRequirement": {
+          "enum": ["signed", "preview_unsigned_allowed", "not_applicable"]
+        }
+      }
+    },
+    "approvedScopeDecision": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "approvedAtUtc",
+        "approvedBy",
+        "channel",
+        "contractName",
+        "contractVersion",
+        "decisionId",
+        "platforms",
+        "releaseTarget",
+        "releaseVersion",
+        "status",
+        "supportOwner"
+      ],
+      "properties": {
+        "approvedAtUtc": {
+          "type": "string",
+          "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}T[0-9]{2}:[0-9]{2}:[0-9]{2}Z$"
+        },
+        "approvedBy": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "channel": { "const": "preview" },
+        "contractName": { "const": "chummer.release-scope-decision/v1" },
+        "contractVersion": { "const": 1 },
+        "decisionId": { "$ref": "#/$defs/normalizedIdentifier" },
+        "platforms": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 16,
+          "items": { "$ref": "#/$defs/approvedScopePlatform" }
+        },
+        "releaseTarget": { "const": "preview" },
+        "releaseVersion": { "$ref": "#/$defs/normalizedIdentifier" },
+        "status": { "const": "approved" },
+        "supportOwner": { "$ref": "#/$defs/normalizedIdentifier" }
+      },
+      "x-chummer-canonical-bytes-invariant": "Exact compact recursively-key-sorted UTF-8 JSON plus LF; rows and fallbackHeads are unique ordinally sorted and platform/RID compatible."
+    },
+    "publicationMetadata": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "releaseVersion", "channel", "status", "rolloutState",
+        "supportabilityState", "availablePlatforms", "primaryHeadByPlatform",
+        "artifactCount", "downloadAccessPosture", "knownIssueSummary",
+        "registryRepository", "registryCommit", "supportOwner", "nextActions",
+        "artifacts"
+      ],
+      "properties": {
+        "releaseVersion": { "$ref": "#/$defs/releaseVersion" },
+        "channel": { "$ref": "#/$defs/normalizedIdentifier" },
+        "status": { "$ref": "#/$defs/normalizedIdentifier" },
+        "rolloutState": { "$ref": "#/$defs/normalizedIdentifier" },
+        "supportabilityState": { "$ref": "#/$defs/normalizedIdentifier" },
+        "availablePlatforms": {
+          "type": "array",
+          "maxItems": 16,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/normalizedIdentifier" }
+        },
+        "primaryHeadByPlatform": {
+          "type": "object",
+          "maxProperties": 16,
+          "propertyNames": { "$ref": "#/$defs/normalizedIdentifier" },
+          "additionalProperties": { "$ref": "#/$defs/normalizedIdentifier" }
+        },
+        "artifactCount": { "type": "integer", "minimum": 0, "maximum": 256 },
+        "downloadAccessPosture": { "$ref": "#/$defs/downloadAccessPosture" },
+        "knownIssueSummary": { "type": "string", "minLength": 1, "maxLength": 512 },
+        "registryRepository": { "const": "ArchonMegalon/chummer6-hub-registry" },
+        "registryCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+        "supportOwner": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "nextActions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "uniqueItems": true,
+          "items": { "type": "string", "minLength": 1, "maxLength": 512 }
+        },
+        "artifacts": {
+          "type": "array",
+          "maxItems": 256,
+          "items": { "$ref": "#/$defs/artifact" }
+        }
+      }
+    },
+    "canonicalBase64": {
+      "type": "string",
+      "minLength": 4,
+      "pattern": "^(?:[A-Za-z0-9+/]{4})*(?:[A-Za-z0-9+/]{2}==|[A-Za-z0-9+/]{3}=)?$"
+    },
+    "publishRequest": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "metadata",
+        "manifestBytes",
+        "releaseScopeDecisionBytes",
+        "expectedReleaseScopeDecisionSha256",
+        "releaseDecisionBytes",
+        "expectedCurrentSnapshotSha256"
+      ],
+      "properties": {
+        "metadata": { "$ref": "#/$defs/publicationMetadata" },
+        "manifestBytes": { "$ref": "#/$defs/canonicalBase64" },
+        "releaseScopeDecisionBytes": { "$ref": "#/$defs/canonicalBase64" },
+        "expectedReleaseScopeDecisionSha256": { "$ref": "#/$defs/sha256" },
+        "releaseDecisionBytes": { "$ref": "#/$defs/canonicalBase64" },
+        "expectedCurrentSnapshotSha256": {
+          "oneOf": [
+            { "$ref": "#/$defs/sha256" },
+            { "type": "null" }
+          ]
+        }
+      },
+      "x-chummer-scope-binding-invariant": "Registry validates the exact approved-scope bytes against expectedReleaseScopeDecisionSha256 and derives releaseVersion, availablePlatforms, primaryHeadByPlatform, and supportOwner from that scope."
+    },
     "previewFinding": {
       "type": "object",
       "additionalProperties": false,
@@ -294,6 +448,7 @@
         "releaseDecisionStatus",
         "verdict",
         "releaseVersion",
+        "releaseScopeDecisionSha256",
         "channel",
         "platforms",
         "primaryHeadByPlatform",
@@ -320,6 +475,7 @@
           "enum": ["PREVIEW_RELEASE_REVIEW_REQUIRED", "PREVIEW_READY"]
         },
         "releaseVersion": { "$ref": "#/$defs/releaseVersion" },
+        "releaseScopeDecisionSha256": { "$ref": "#/$defs/sha256" },
         "channel": { "$ref": "#/$defs/normalizedToken" },
         "platforms": {
           "type": "array",

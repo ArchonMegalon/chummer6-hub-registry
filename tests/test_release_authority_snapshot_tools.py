@@ -14,6 +14,11 @@ from scripts.release_authority_snapshot import (
     AuthorityError,
     CURRENT_RELEASE_AUTHORITY_ROUTE,
     CURRENT_RELEASE_CONVERGENCE_ROUTES,
+    SCORECARD_DIMENSIONS,
+    SCORECARD_EVIDENCE_BY_CELL,
+    SCORECARD_JOURNEYS_BY_SURFACE,
+    SCORECARD_OWNERS_BY_SURFACE,
+    SCORECARD_SURFACES,
     _validate_scorecard,
 )
 
@@ -26,6 +31,8 @@ PUBLISH_REQUEST = SCRIPTS / "materialize_release_authority_publish_request.py"
 VERIFY_PUBLISH_RESPONSE = SCRIPTS / "verify_release_authority_publish_response.py"
 COMMIT = "b" * 40
 ARTIFACT_SHA = "a" * 64
+SCOPE_FILE_NAME = "RELEASE_SCOPE_DECISION.approved.json"
+FIXTURES = ROOT / "tests" / "fixtures"
 
 
 def write_json(path: Path, value: object) -> None:
@@ -37,6 +44,53 @@ def write_json(path: Path, value: object) -> None:
 
 def digest(path: Path) -> str:
     return hashlib.sha256(path.read_bytes()).hexdigest()
+
+
+def approved_scope_for_manifest(payload: dict[str, object]) -> dict[str, object]:
+    platforms: dict[str, dict[str, object]] = {}
+    fallback: dict[str, list[str]] = {}
+    for route in payload["desktopTupleCoverage"]["desktopRouteTruth"]:
+        platform = route["platform"]
+        if route["routeRole"] == "primary":
+            artifact = next(
+                row for row in payload["artifacts"] if row["artifactId"] == route["artifactId"]
+            )
+            platforms[platform] = {
+                "artifactAccessClass": (
+                    "open_public"
+                    if artifact["installAccessClass"] == "open_public"
+                    else "account_required"
+                ),
+                "fallbackHeads": [],
+                "platform": platform,
+                "primaryHead": route["head"],
+                "rid": route["rid"],
+                "signingRequirement": "signed",
+            }
+        else:
+            fallback.setdefault(platform, []).append(route["head"])
+    for platform, heads in fallback.items():
+        platforms[platform]["fallbackHeads"] = sorted(heads)
+    return {
+        "approvedAtUtc": "2026-07-20T21:59:00Z",
+        "approvedBy": "Registry release reviewer",
+        "channel": "preview",
+        "contractName": "chummer.release-scope-decision/v1",
+        "contractVersion": 1,
+        "decisionId": "registry-preview-candidate",
+        "platforms": [platforms[name] for name in sorted(platforms)],
+        "releaseTarget": "preview",
+        "releaseVersion": payload["releaseVersion"],
+        "status": "approved",
+        "supportOwner": "registry-operations",
+    }
+
+
+def write_scope_for_manifest(manifest_path: Path) -> Path:
+    scope_path = manifest_path.parent / SCOPE_FILE_NAME
+    payload = json.loads(manifest_path.read_text(encoding="utf-8"))
+    write_json(scope_path, approved_scope_for_manifest(payload))
+    return scope_path
 
 
 def manifest(*, ready_posture: bool = False) -> dict[str, object]:
@@ -114,19 +168,22 @@ def run_materialize(
     *extra: str,
     generated_at: str = "2026-07-20T22:05:00Z",
 ) -> subprocess.CompletedProcess[str]:
+    scope_path = write_scope_for_manifest(manifest_path)
     command = [
         sys.executable,
         str(MATERIALIZE),
         "--manifest",
         str(manifest_path),
+        "--release-scope-decision",
+        str(scope_path),
+        "--expected-release-scope-decision-sha256",
+        digest(scope_path),
         "--output-dir",
         str(tmp_path / output_name),
         "--registry-commit",
         COMMIT,
         "--decision-status",
         "review_required",
-        "--support-owner",
-        "registry-operations",
         "--generated-at",
         generated_at,
         "--next-action",
@@ -139,11 +196,16 @@ def run_materialize(
 
 
 def verifier_command(manifest_path: Path, envelope: Path) -> list[str]:
+    scope_path = manifest_path.parent / SCOPE_FILE_NAME
     return [
         sys.executable,
         str(VERIFY),
         "--manifest",
         str(manifest_path),
+        "--release-scope-decision",
+        str(scope_path),
+        "--expected-release-scope-decision-sha256",
+        digest(scope_path),
         "--current",
         str(envelope / "CURRENT.json"),
         "--snapshot",
@@ -216,6 +278,7 @@ def test_review_seed_materializes_exact_deterministic_envelope_and_verifies(
 
 def test_review_seed_materializes_exact_registry_publish_request(tmp_path: Path) -> None:
     manifest_path, seed = materialize_seed(tmp_path)
+    scope_path = manifest_path.parent / SCOPE_FILE_NAME
     output = tmp_path / "publish-request.json"
     completed = subprocess.run(
         [
@@ -223,6 +286,10 @@ def test_review_seed_materializes_exact_registry_publish_request(tmp_path: Path)
             str(PUBLISH_REQUEST),
             "--manifest",
             str(manifest_path),
+            "--release-scope-decision",
+            str(scope_path),
+            "--expected-release-scope-decision-sha256",
+            digest(scope_path),
             "--current",
             str(seed / "CURRENT.json"),
             "--snapshot",
@@ -251,6 +318,10 @@ def test_review_seed_materializes_exact_registry_publish_request(tmp_path: Path)
     assert base64.b64decode(payload["manifestBytes"], validate=True) == (
         manifest_path.read_bytes()
     )
+    assert payload["expectedReleaseScopeDecisionSha256"] == digest(scope_path)
+    assert base64.b64decode(payload["releaseScopeDecisionBytes"], validate=True) == (
+        scope_path.read_bytes()
+    )
     assert base64.b64decode(payload["releaseDecisionBytes"], validate=True) == (
         seed / "RELEASE_DECISION.json"
     ).read_bytes()
@@ -269,6 +340,7 @@ def test_registry_publish_response_verifier_binds_exact_response_bytes(
     tmp_path: Path,
 ) -> None:
     manifest_path, seed = materialize_seed(tmp_path)
+    scope_path = manifest_path.parent / SCOPE_FILE_NAME
     current = json.loads((seed / "CURRENT.json").read_text(encoding="utf-8"))
     snapshot = json.loads((seed / "SNAPSHOT.json").read_text(encoding="utf-8"))
     response_path = tmp_path / "response.json"
@@ -290,6 +362,10 @@ def test_registry_publish_response_verifier_binds_exact_response_bytes(
         str(VERIFY_PUBLISH_RESPONSE),
         "--manifest",
         str(manifest_path),
+        "--release-scope-decision",
+        str(scope_path),
+        "--expected-release-scope-decision-sha256",
+        digest(scope_path),
         "--current",
         str(seed / "CURRENT.json"),
         "--snapshot",
@@ -329,20 +405,23 @@ def test_registry_publish_response_verifier_binds_exact_response_bytes(
 def test_review_seed_rejects_missing_blocker_and_existing_output(tmp_path: Path) -> None:
     manifest_path = tmp_path / "manifest.json"
     write_json(manifest_path, manifest())
+    scope_path = write_scope_for_manifest(manifest_path)
     no_blocker = subprocess.run(
         [
             sys.executable,
             str(MATERIALIZE),
             "--manifest",
             str(manifest_path),
+            "--release-scope-decision",
+            str(scope_path),
+            "--expected-release-scope-decision-sha256",
+            digest(scope_path),
             "--output-dir",
             str(tmp_path / "missing-blocker"),
             "--registry-commit",
             COMMIT,
             "--decision-status",
             "review_required",
-            "--support-owner",
-            "registry-operations",
             "--generated-at",
             "2026-07-20T22:05:00Z",
             "--next-action",
@@ -360,6 +439,54 @@ def test_review_seed_rejects_missing_blocker_and_existing_output(tmp_path: Path)
     assert first.returncode == 0
     assert second.returncode == 1
     assert "already exists" in second.stderr
+
+
+def test_same_version_wrong_approved_scope_is_rejected(tmp_path: Path) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    write_json(manifest_path, manifest())
+    baseline = run_materialize(tmp_path, manifest_path, "baseline")
+    assert baseline.returncode == 0, baseline.stderr
+    scope_path = manifest_path.parent / SCOPE_FILE_NAME
+    old_digest = digest(scope_path)
+    wrong_scope = json.loads(scope_path.read_text(encoding="utf-8"))
+    assert wrong_scope["releaseVersion"] == "run-20260720-220000"
+    wrong_scope["platforms"][0]["primaryHead"] = "blazor-desktop"
+    write_json(scope_path, wrong_scope)
+    command = list(baseline.args)
+    command[command.index(old_digest)] = digest(scope_path)
+    command[command.index(str(tmp_path / "baseline"))] = str(tmp_path / "wrong-scope")
+
+    rejected = subprocess.run(command, text=True, capture_output=True, check=False)
+
+    assert rejected.returncode == 1
+    assert "does not match the exact manifest candidate scope" in rejected.stderr
+    assert not (tmp_path / "wrong-scope").exists()
+
+
+@pytest.mark.parametrize("shadow_name", ["supportOwner", "SupportOwner"])
+def test_approved_scope_rejects_duplicate_or_case_shadowed_json(
+    tmp_path: Path,
+    shadow_name: str,
+) -> None:
+    manifest_path = tmp_path / "manifest.json"
+    write_json(manifest_path, manifest())
+    baseline = run_materialize(tmp_path, manifest_path, "baseline")
+    assert baseline.returncode == 0, baseline.stderr
+    scope_path = manifest_path.parent / SCOPE_FILE_NAME
+    old_digest = digest(scope_path)
+    raw = scope_path.read_text(encoding="utf-8").rstrip("\n")
+    raw = raw[:-1] + ',"%s":"shadow-owner"}\n' % shadow_name
+    scope_path.write_text(raw, encoding="utf-8")
+    command = list(baseline.args)
+    command[command.index(old_digest)] = digest(scope_path)
+    command[command.index(str(tmp_path / "baseline"))] = str(
+        tmp_path / ("shadow-" + shadow_name)
+    )
+
+    rejected = subprocess.run(command, text=True, capture_output=True, check=False)
+
+    assert rejected.returncode == 1
+    assert "duplicate or case-shadowed property" in rejected.stderr
 
 
 @pytest.mark.parametrize(
@@ -441,74 +568,103 @@ def passing_scorecard(
     *,
     stable: bool = False,
     duplicate_evidence_values: bool = False,
+    release_version: str = "run-20260720-220000",
+    release_scope_decision_sha256: str = "1" * 64,
+    manifest_sha256: str = "2" * 64,
+    authority_snapshot_sha256: str = "3" * 64,
+    release_decision_sha256: str = "4" * 64,
 ) -> dict[str, object]:
-    surfaces = [
-        "desktop_workbench",
-        "public_front_door_and_support",
-        "install_claim_restore_continue",
-        "build_explain_publish",
-        "run_and_rejoin",
-        "improve_and_close_the_loop",
-    ]
-    dimensions = [
-        "route_clarity",
-        "rules_and_continuity_truth",
-        "recovery_confidence",
-        "closure_honesty",
-        "responsiveness",
-        "design_authorship",
-    ]
+    surfaces = list(SCORECARD_SURFACES)
+    dimensions = list(SCORECARD_DIMENSIONS)
     score = 3 if stable else 2
+    shared_action = "Close the shared bounded preview action."
+    shared_gap = "Shared evidence has not reached the stable bar"
+    journey_source_sha256 = hashlib.sha256(b"canonical journey aggregate").hexdigest()
+    row_catalog: dict[str, dict[str, object]] = {}
+
+    def evidence_row(item_id: str, *, journey: bool) -> dict[str, object]:
+        if item_id in row_catalog:
+            return copy.deepcopy(row_catalog[item_id])
+        source_sha256 = (
+            journey_source_sha256
+            if journey
+            else hashlib.sha256(item_id.encode("utf-8")).hexdigest()
+        )
+        owner = "owner_%s" % item_id
+        item_actions = (
+            [shared_action, shared_action]
+            if duplicate_evidence_values
+            else ["Close the bounded preview action for %s." % item_id]
+        )
+        row: dict[str, object] = {
+            "id": item_id,
+            "path": "evidence/journeys.json" if journey else "evidence/%s.json" % item_id,
+            "source_status": "pass",
+            "generated_at": "2026-07-20T22:04:00Z",
+            "score": score,
+            "status": "pass" if stable else "preview",
+            "bounded_owner": "" if stable else owner,
+            "next_actions": [] if stable else item_actions,
+            "failure": "" if stable else (
+                shared_gap
+                if duplicate_evidence_values
+                else "%s has not reached the stable bar" % item_id
+            ),
+            "preview_failure": "",
+            "source_sha256": source_sha256,
+            "preview_evidence": None,
+        }
+        if not journey:
+            row["source_verdict"] = "SOURCE_PASS"
+        if stable:
+            row["source_release_version"] = release_version
+            row["candidate_evidence"] = {
+                "contract_name": "chummer.campaign-operability-candidate-evidence/v1",
+                "contract_version": 1,
+                "release_version": release_version,
+                "release_scope_decision_sha256": release_scope_decision_sha256,
+                "manifest_sha256": manifest_sha256,
+                "authority_snapshot_sha256": authority_snapshot_sha256,
+                "release_decision_sha256": release_decision_sha256,
+                "registry_commit": COMMIT,
+                "source_receipt_sha256": source_sha256,
+            }
+        else:
+            proof = {
+                "contract_name": "chummer.campaign_operability_preview_evidence",
+                "contract_version": 2,
+                "status": "pass",
+                "release_version": release_version,
+                "release_scope_decision_sha256": release_scope_decision_sha256,
+                "bounded_owner": owner,
+                "next_actions": item_actions,
+            }
+            row["preview_evidence"] = {
+                "provenance_kind": "nested_declaration",
+                "source_receipt_sha256": source_sha256,
+                "proof_sha256": hashlib.sha256(
+                    json.dumps(proof, sort_keys=True, separators=(",", ":")).encode(
+                        "utf-8"
+                    )
+                ).hexdigest(),
+                "proof": proof,
+            }
+        row_catalog[item_id] = copy.deepcopy(row)
+        return row
+
     cells: list[dict[str, object]] = []
     for surface in surfaces:
         for dimension in dimensions:
-            owner = "owner_%s" % surface
-            journey_id = "journey_%s_%s" % (surface, dimension)
-            evidence_id = "receipt_%s_%s" % (surface, dimension)
-            shared_action = "Close the shared bounded preview action."
-            shared_gap = "Shared evidence has not reached the stable bar"
-            if duplicate_evidence_values:
-                actions = [shared_action]
-                gaps = [shared_gap, shared_gap]
-            else:
-                actions = [
-                    "Close the bounded preview action for %s." % journey_id,
-                    "Close the bounded preview action for %s." % evidence_id,
-                ]
-                gaps = [
-                    "%s has not reached the stable bar" % journey_id,
-                    "%s has not reached the stable bar" % evidence_id,
-                ]
-
-            def evidence_row(item_id: str, *, include_verdict: bool) -> dict[str, object]:
-                row: dict[str, object] = {
-                    "id": item_id,
-                    "path": "evidence/%s.json" % item_id,
-                    "source_status": "pass",
-                    "generated_at": "2026-07-20T22:04:00Z",
-                    "score": score,
-                    "status": "pass" if stable else "preview",
-                    "bounded_owner": "" if stable else owner,
-                    "next_actions": [] if stable else (
-                        [shared_action, shared_action]
-                        if duplicate_evidence_values
-                        else ["Close the bounded preview action for %s." % item_id]
-                    ),
-                    "failure": "" if stable else (
-                        shared_gap
-                        if duplicate_evidence_values
-                        else "%s has not reached the stable bar" % item_id
-                    ),
-                    "preview_failure": "",
-                }
-                if include_verdict:
-                    row["source_verdict"] = "SOURCE_PASS"
-                return row
-
-            rows = [
-                evidence_row(journey_id, include_verdict=False),
-                evidence_row(evidence_id, include_verdict=True),
-            ]
+            journey_ids = list(SCORECARD_JOURNEYS_BY_SURFACE[surface])
+            evidence_ids = list(SCORECARD_EVIDENCE_BY_CELL[(surface, dimension)])
+            rows = [evidence_row(item_id, journey=True) for item_id in journey_ids]
+            rows += [evidence_row(item_id, journey=False) for item_id in evidence_ids]
+            actions = [] if stable else list(
+                dict.fromkeys(
+                    action for row in rows for action in row["next_actions"]
+                )
+            )
+            gaps = [] if stable else [row["failure"] for row in rows]
             cells.append(
                 {
                     "surface_id": surface,
@@ -516,11 +672,13 @@ def passing_scorecard(
                     "score": score,
                     "preview_status": "pass",
                     "stable_status": "pass" if stable else "fail",
-                    "owners": ["chummer6-release"],
-                    "preview_owners": [] if stable else [owner],
-                    "next_actions": [] if stable else actions,
-                    "journey_ids": [journey_id],
-                    "evidence_ids": [evidence_id],
+                    "owners": list(SCORECARD_OWNERS_BY_SURFACE[surface]),
+                    "preview_owners": [] if stable else sorted(
+                        {row["bounded_owner"] for row in rows}
+                    ),
+                    "next_actions": actions,
+                    "journey_ids": journey_ids,
+                    "evidence_ids": evidence_ids,
                     "evidence": rows,
                     "preview_blockers": [],
                     "flagship_gaps": [] if stable else gaps,
@@ -544,6 +702,13 @@ def passing_scorecard(
     return {
         "contract_name": "chummer.campaign_operability_scorecard",
         "contract_version": 2,
+        "release_version": release_version,
+        "release_scope_decision_sha256": release_scope_decision_sha256,
+        "releaseVersion": release_version,
+        "releaseScopeDecisionSha256": release_scope_decision_sha256,
+        "snapshotSha256": authority_snapshot_sha256,
+        "manifestSha256": manifest_sha256,
+        "releaseDecisionSha256": release_decision_sha256,
         "generated_at_utc": "2026-07-20T22:06:00Z",
         "status": stable_status,
         "verdict": stable_verdict,
@@ -575,9 +740,88 @@ def passing_scorecard(
     }
 
 
+def validate_scorecard(scorecard: dict[str, object]) -> None:
+    _validate_scorecard(
+        scorecard,
+        release_version=scorecard["release_version"],
+        release_scope_decision_sha256=scorecard["release_scope_decision_sha256"],
+        manifest_sha256=scorecard["manifestSha256"],
+        authority_snapshot_sha256=scorecard["snapshotSha256"],
+        release_decision_sha256=scorecard["releaseDecisionSha256"],
+        registry_commit=COMMIT,
+        approved_scope={
+            "sha256": scorecard["release_scope_decision_sha256"],
+            "releaseVersion": scorecard["release_version"],
+            "supportOwner": "registry-operations",
+            "platforms": ["macos"],
+        },
+        predecessor_snapshot={
+            "supportOwner": "registry-operations",
+            "nextActions": ["Monitor bounded preview support."],
+        },
+    )
+
+
+def passing_scorecard_for_authority(
+    manifest_path: Path,
+    seed: Path,
+    *,
+    stable: bool = False,
+) -> dict[str, object]:
+    scope_path = manifest_path.parent / SCOPE_FILE_NAME
+    scope = json.loads(scope_path.read_text(encoding="utf-8"))
+    return passing_scorecard(
+        stable=stable,
+        release_version=scope["releaseVersion"],
+        release_scope_decision_sha256=digest(scope_path),
+        manifest_sha256=digest(manifest_path),
+        authority_snapshot_sha256=digest(seed / "SNAPSHOT.json"),
+        release_decision_sha256=digest(seed / "RELEASE_DECISION.json"),
+    )
+
+
 def test_scorecard_v2_accepts_evidence_backed_preview_and_stable_postures() -> None:
-    _validate_scorecard(passing_scorecard())
-    _validate_scorecard(passing_scorecard(stable=True))
+    validate_scorecard(passing_scorecard())
+    validate_scorecard(passing_scorecard(stable=True))
+
+
+def test_shared_candidate_and_cell_inventory_fixtures_are_byte_exact() -> None:
+    candidate_path = FIXTURES / "campaign_operability_candidate_evidence.json"
+    inventory_path = FIXTURES / "campaign_operability_cell_inventory.json"
+    assert digest(candidate_path) == (
+        "223fbacac6521dc56ea1a750a835bd865a3dbed6b9181ba5688ed889bf666334"
+    )
+    assert digest(inventory_path) == (
+        "f9efeea2b70f120f9a9ad132c1f16b365acc8257e29c71d676606f7ed617d882"
+    )
+    candidate = json.loads(candidate_path.read_text(encoding="utf-8"))
+    assert set(candidate["scorecard_row"]["candidate_evidence"]) == {
+        "contract_name",
+        "contract_version",
+        "release_version",
+        "release_scope_decision_sha256",
+        "manifest_sha256",
+        "authority_snapshot_sha256",
+        "release_decision_sha256",
+        "registry_commit",
+        "source_receipt_sha256",
+    }
+    inventory = json.loads(inventory_path.read_text(encoding="utf-8"))
+    assert inventory["contract_name"] == "chummer.campaign-operability-cell-inventory/v1"
+    assert inventory["contract_version"] == 1
+    assert inventory["surface_order"] == list(SCORECARD_SURFACES)
+    assert inventory["dimension_order"] == list(SCORECARD_DIMENSIONS)
+    assert len(inventory["cells"]) == 36
+    for index, cell in enumerate(inventory["cells"]):
+        surface = SCORECARD_SURFACES[index // 6]
+        dimension = SCORECARD_DIMENSIONS[index % 6]
+        assert cell == {
+            "surface_id": surface,
+            "dimension_id": dimension,
+            "owners": list(SCORECARD_OWNERS_BY_SURFACE[surface]),
+            "journey_ids": list(SCORECARD_JOURNEYS_BY_SURFACE[surface]),
+            "evidence_ids": list(SCORECARD_EVIDENCE_BY_CELL[(surface, dimension)]),
+        }
 
 
 def test_scorecard_v2_accepts_design_generated_ordered_duplicate_values() -> None:
@@ -591,10 +835,9 @@ def test_scorecard_v2_accepts_design_generated_ordered_duplicate_values() -> Non
         "Close the shared bounded preview action."
     ]
     assert first_cell["flagship_gaps"] == [
-        "Shared evidence has not reached the stable bar",
-        "Shared evidence has not reached the stable bar",
-    ]
-    _validate_scorecard(scorecard)
+        "Shared evidence has not reached the stable bar"
+    ] * len(first_cell["evidence"])
+    validate_scorecard(scorecard)
 
 
 @pytest.mark.parametrize(
@@ -604,6 +847,11 @@ def test_scorecard_v2_accepts_design_generated_ordered_duplicate_values() -> Non
         "unknown_top_field",
         "bare_cell",
         "arbitrary_matrix",
+        "cell_sequence_drift",
+        "owner_map_drift",
+        "journey_dependency_drift",
+        "evidence_dependency_drift",
+        "repeated_dependency_row_substitution",
         "cell_score_drift",
         "unknown_evidence_field",
         "missing_bounded_owner",
@@ -619,6 +867,11 @@ def test_scorecard_v2_accepts_design_generated_ordered_duplicate_values() -> Non
         "unresolved_source_status",
         "noncanonical_evidence_time",
         "nonportable_evidence_path",
+        "authority_alias_drift",
+        "missing_preview_evidence",
+        "preview_proof_substitution",
+        "score_three_missing_candidate_evidence",
+        "score_three_source_proof_substitution",
         "score_three_preview_state",
         "score_three_preview_failure",
     ],
@@ -640,6 +893,26 @@ def test_scorecard_v2_rejects_hand_shaped_or_contradictory_evidence(case: str) -
         }
     elif case == "arbitrary_matrix":
         scorecard["required_surfaces"][0] = "invented_surface"
+    elif case == "cell_sequence_drift":
+        scorecard["cells"][0], scorecard["cells"][1] = (
+            scorecard["cells"][1],
+            scorecard["cells"][0],
+        )
+    elif case == "owner_map_drift":
+        first_cell["owners"] = ["chummer6-release"]
+    elif case == "journey_dependency_drift":
+        first_cell["journey_ids"].reverse()
+        first_cell["evidence"][:2] = reversed(first_cell["evidence"][:2])
+    elif case == "evidence_dependency_drift":
+        first_cell["evidence_ids"].reverse()
+        first_cell["evidence"][2:] = reversed(first_cell["evidence"][2:])
+    elif case == "repeated_dependency_row_substitution":
+        repeated = next(
+            cell
+            for cell in scorecard["cells"][1:]
+            if "install_claim_restore_continue" in cell["journey_ids"]
+        )
+        repeated["evidence"][0]["path"] = "evidence/substituted-journeys.json"
     elif case == "cell_score_drift":
         first_cell["score"] = 3
     elif case == "unknown_evidence_field":
@@ -674,6 +947,18 @@ def test_scorecard_v2_rejects_hand_shaped_or_contradictory_evidence(case: str) -
         first_row["generated_at"] = "2026-07-20T22:04:00+00:00"
     elif case == "nonportable_evidence_path":
         first_row["path"] = "/tmp/hand-shaped.json"
+    elif case == "authority_alias_drift":
+        scorecard["releaseVersion"] = "run-same-version-shadow"
+    elif case == "missing_preview_evidence":
+        first_row["preview_evidence"] = None
+    elif case == "preview_proof_substitution":
+        first_row["preview_evidence"]["proof"]["bounded_owner"] = "different_owner"
+    elif case == "score_three_missing_candidate_evidence":
+        del first_row["candidate_evidence"]
+    elif case == "score_three_source_proof_substitution":
+        first_row["candidate_evidence"]["source_receipt_sha256"] = (
+            first_cell["evidence"][len(first_cell["journey_ids"])]["source_sha256"]
+        )
     elif case == "score_three_preview_state":
         first_row["bounded_owner"] = "invented_owner"
     elif case == "score_three_preview_failure":
@@ -682,7 +967,7 @@ def test_scorecard_v2_rejects_hand_shaped_or_contradictory_evidence(case: str) -
         raise AssertionError(case)
 
     with pytest.raises(AuthorityError):
-        _validate_scorecard(scorecard)
+        validate_scorecard(scorecard)
 
 
 def convergence_receipt(manifest_path: Path, seed: Path) -> dict[str, object]:
@@ -754,19 +1039,22 @@ def preview_materialize_command(
     convergence_path: Path,
     generated_at: str = "2026-07-20T22:08:00Z",
 ) -> list[str]:
+    scope_path = manifest_path.parent / SCOPE_FILE_NAME
     return [
         sys.executable,
         str(MATERIALIZE),
         "--manifest",
         str(manifest_path),
+        "--release-scope-decision",
+        str(scope_path),
+        "--expected-release-scope-decision-sha256",
+        digest(scope_path),
         "--output-dir",
         str(output),
         "--registry-commit",
         COMMIT,
         "--decision-status",
         "preview_ready",
-        "--support-owner",
-        "registry-operations",
         "--generated-at",
         generated_at,
         "--next-action",
@@ -792,7 +1080,7 @@ def test_preview_ready_rejects_incomplete_current_route_denominator(
     manifest_path, seed = materialize_seed(tmp_path, ready_posture=True)
     scorecard_path = tmp_path / "scorecard.json"
     convergence_path = tmp_path / "convergence.json"
-    write_json(scorecard_path, passing_scorecard())
+    write_json(scorecard_path, passing_scorecard_for_authority(manifest_path, seed))
     receipt = convergence_receipt(manifest_path, seed)
     if case == "missing_default_route":
         receipt["checkedRoutes"].remove("/help")
@@ -826,7 +1114,7 @@ def test_preview_ready_rejects_non_current_authority_route(tmp_path: Path) -> No
     manifest_path, seed = materialize_seed(tmp_path, ready_posture=True)
     scorecard_path = tmp_path / "scorecard.json"
     convergence_path = tmp_path / "convergence.json"
-    write_json(scorecard_path, passing_scorecard())
+    write_json(scorecard_path, passing_scorecard_for_authority(manifest_path, seed))
     receipt = convergence_receipt(manifest_path, seed)
     receipt["authorityRoute"] = (
         "/api/v1/public/release-truth/g/run-20260720-220000"
@@ -858,7 +1146,7 @@ def test_preview_ready_requires_one_artifact_bound_current_install_route(
     manifest_path, seed = materialize_seed(tmp_path, ready_posture=True)
     scorecard_path = tmp_path / "scorecard.json"
     convergence_path = tmp_path / "convergence.json"
-    write_json(scorecard_path, passing_scorecard())
+    write_json(scorecard_path, passing_scorecard_for_authority(manifest_path, seed))
     receipt = convergence_receipt(manifest_path, seed)
     receipt["checkedRoutes"].remove(
         "/downloads/install/avalonia-osx-arm64-installer"
@@ -945,7 +1233,7 @@ def test_preview_ready_rejects_invalid_proof_chronology(
     manifest_path, seed = materialize_seed(tmp_path, ready_posture=True)
     scorecard_path = tmp_path / "scorecard.json"
     convergence_path = tmp_path / "convergence.json"
-    scorecard = passing_scorecard()
+    scorecard = passing_scorecard_for_authority(manifest_path, seed)
     scorecard["generated_at_utc"] = scorecard_time
     receipt = convergence_receipt(manifest_path, seed)
     receipt["generatedAtUtc"] = convergence_time
@@ -981,7 +1269,7 @@ def test_preview_ready_rejects_review_predecessor_older_than_manifest(
     )
     scorecard_path = tmp_path / "scorecard.json"
     convergence_path = tmp_path / "convergence.json"
-    write_json(scorecard_path, passing_scorecard())
+    write_json(scorecard_path, passing_scorecard_for_authority(manifest_path, seed))
     write_json(convergence_path, convergence_receipt(manifest_path, seed))
 
     completed = subprocess.run(
@@ -1007,7 +1295,7 @@ def test_preview_ready_requires_and_verifies_full_predecessor_proof_closure(
     manifest_path, seed = materialize_seed(tmp_path, ready_posture=True)
     scorecard_path = tmp_path / "scorecard.json"
     convergence_path = tmp_path / "convergence.json"
-    write_json(scorecard_path, passing_scorecard())
+    write_json(scorecard_path, passing_scorecard_for_authority(manifest_path, seed))
     write_json(convergence_path, convergence_receipt(manifest_path, seed))
     ready = tmp_path / "ready"
     command = [
@@ -1015,14 +1303,16 @@ def test_preview_ready_requires_and_verifies_full_predecessor_proof_closure(
         str(MATERIALIZE),
         "--manifest",
         str(manifest_path),
+        "--release-scope-decision",
+        str(manifest_path.parent / SCOPE_FILE_NAME),
+        "--expected-release-scope-decision-sha256",
+        digest(manifest_path.parent / SCOPE_FILE_NAME),
         "--output-dir",
         str(ready),
         "--registry-commit",
         COMMIT,
         "--decision-status",
         "preview_ready",
-        "--support-owner",
-        "registry-operations",
         "--generated-at",
         "2026-07-20T22:08:00Z",
         "--next-action",
@@ -1085,7 +1375,7 @@ def test_preview_ready_publish_request_requires_exact_predecessor_cas(
     manifest_path, seed = materialize_seed(tmp_path, ready_posture=True)
     scorecard_path = tmp_path / "scorecard.json"
     convergence_path = tmp_path / "convergence.json"
-    write_json(scorecard_path, passing_scorecard())
+    write_json(scorecard_path, passing_scorecard_for_authority(manifest_path, seed))
     write_json(convergence_path, convergence_receipt(manifest_path, seed))
     ready = tmp_path / "ready"
     materialized = subprocess.run(
@@ -1094,14 +1384,16 @@ def test_preview_ready_publish_request_requires_exact_predecessor_cas(
             str(MATERIALIZE),
             "--manifest",
             str(manifest_path),
+            "--release-scope-decision",
+            str(manifest_path.parent / SCOPE_FILE_NAME),
+            "--expected-release-scope-decision-sha256",
+            digest(manifest_path.parent / SCOPE_FILE_NAME),
             "--output-dir",
             str(ready),
             "--registry-commit",
             COMMIT,
             "--decision-status",
             "preview_ready",
-            "--support-owner",
-            "registry-operations",
             "--generated-at",
             "2026-07-20T22:08:00Z",
             "--next-action",
@@ -1129,6 +1421,10 @@ def test_preview_ready_publish_request_requires_exact_predecessor_cas(
         str(PUBLISH_REQUEST),
         "--manifest",
         str(manifest_path),
+        "--release-scope-decision",
+        str(manifest_path.parent / SCOPE_FILE_NAME),
+        "--expected-release-scope-decision-sha256",
+        digest(manifest_path.parent / SCOPE_FILE_NAME),
         "--current",
         str(ready / "CURRENT.json"),
         "--snapshot",
@@ -1172,7 +1468,7 @@ def test_preview_ready_publish_request_requires_exact_predecessor_cas(
 
 def test_preview_ready_rejects_score_one_and_convergence_drift(tmp_path: Path) -> None:
     manifest_path, seed = materialize_seed(tmp_path, ready_posture=True)
-    bad_scorecard = passing_scorecard()
+    bad_scorecard = passing_scorecard_for_authority(manifest_path, seed)
     bad_scorecard["cells"][0]["score"] = 1
     bad_scorecard["summary"]["minimum_score"] = 1
     scorecard_path = tmp_path / "scorecard.json"
@@ -1187,14 +1483,16 @@ def test_preview_ready_rejects_score_one_and_convergence_drift(tmp_path: Path) -
             str(MATERIALIZE),
             "--manifest",
             str(manifest_path),
+            "--release-scope-decision",
+            str(manifest_path.parent / SCOPE_FILE_NAME),
+            "--expected-release-scope-decision-sha256",
+            digest(manifest_path.parent / SCOPE_FILE_NAME),
             "--output-dir",
             str(tmp_path / "ready"),
             "--registry-commit",
             COMMIT,
             "--decision-status",
             "preview_ready",
-            "--support-owner",
-            "registry-operations",
             "--generated-at",
             "2026-07-20T22:08:00Z",
             "--next-action",

@@ -70,6 +70,7 @@ def preview_decision(*, ready: bool = False) -> dict[str, object]:
         "contractName": "chummer.preview-release-decision/v1",
         "generatedAt": "2026-07-18T12:00:00Z",
         "releaseVersion": "preview-2026.07.18",
+        "releaseScopeDecisionSha256": SHA256,
         "channel": "preview",
         "releaseDecisionStatus": "preview_ready" if ready else "review_required",
         "status": "preview_ready" if ready else "review_required",
@@ -130,6 +131,60 @@ def stable_decision(*, ready: bool = True) -> dict[str, object]:
     }
 
 
+def approved_scope() -> dict[str, object]:
+    return {
+        "approvedAtUtc": "2026-07-18T11:58:00Z",
+        "approvedBy": "Registry release reviewer",
+        "channel": "preview",
+        "contractName": "chummer.release-scope-decision/v1",
+        "contractVersion": 1,
+        "decisionId": "preview-2026.07.18",
+        "platforms": [
+            {
+                "artifactAccessClass": "open_public",
+                "fallbackHeads": [],
+                "platform": "linux",
+                "primaryHead": "avalonia",
+                "rid": "linux-x64",
+                "signingRequirement": "signed",
+            }
+        ],
+        "releaseTarget": "preview",
+        "releaseVersion": "preview-2026.07.18",
+        "status": "approved",
+        "supportOwner": "registry-operations",
+    }
+
+
+def publish_request() -> dict[str, object]:
+    source = snapshot()
+    metadata_fields = {
+        "releaseVersion",
+        "channel",
+        "status",
+        "rolloutState",
+        "supportabilityState",
+        "availablePlatforms",
+        "primaryHeadByPlatform",
+        "artifactCount",
+        "downloadAccessPosture",
+        "knownIssueSummary",
+        "registryRepository",
+        "registryCommit",
+        "supportOwner",
+        "nextActions",
+        "artifacts",
+    }
+    return {
+        "metadata": {name: source[name] for name in metadata_fields},
+        "manifestBytes": "e30K",
+        "releaseScopeDecisionBytes": "e30K",
+        "expectedReleaseScopeDecisionSha256": SHA256,
+        "releaseDecisionBytes": "e30K",
+        "expectedCurrentSnapshotSha256": None,
+    }
+
+
 def test_release_authority_schema_is_valid_and_pins_exact_shapes() -> None:
     schema = load_schema()
     jsonschema.Draft202012Validator.check_schema(schema)
@@ -144,11 +199,17 @@ def test_release_authority_schema_is_valid_and_pins_exact_shapes() -> None:
     )
     assert definitions["snapshot"]["additionalProperties"] is False
     assert definitions["artifact"]["additionalProperties"] is False
-    assert len(definitions["previewDecision"]["required"]) == 22
+    assert len(definitions["previewDecision"]["required"]) == 23
     assert set(definitions["previewDecision"]["required"]) == set(
         definitions["previewDecision"]["properties"]
     )
     assert definitions["previewDecision"]["additionalProperties"] is False
+    assert set(definitions["approvedScopeDecision"]["required"]) == set(
+        definitions["approvedScopeDecision"]["properties"]
+    )
+    assert set(definitions["publishRequest"]["required"]) == set(
+        definitions["publishRequest"]["properties"]
+    )
     assert {
         "artifacts",
         "primaryHeadByPlatform",
@@ -165,6 +226,8 @@ def test_release_authority_schema_is_valid_and_pins_exact_shapes() -> None:
         preview_decision(),
         preview_decision(ready=True),
         stable_decision(ready=True),
+        approved_scope(),
+        publish_request(),
         {
             "releaseVersion": "preview-2026.07.18",
             "snapshotSha256": SHA256,

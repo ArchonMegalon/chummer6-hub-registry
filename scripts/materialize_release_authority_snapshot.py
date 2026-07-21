@@ -20,12 +20,13 @@ def _args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         description="Materialize one immutable Registry preview release-authority envelope."
     )
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--release-scope-decision", type=Path, required=True)
+    parser.add_argument("--expected-release-scope-decision-sha256", required=True)
     parser.add_argument("--output-dir", type=Path, required=True)
     parser.add_argument("--registry-commit", required=True)
     parser.add_argument(
         "--decision-status", choices=("review_required", "preview_ready"), required=True
     )
-    parser.add_argument("--support-owner", required=True)
     parser.add_argument("--generated-at", required=True)
     parser.add_argument("--next-action", action="append", required=True)
     parser.add_argument("--blocking-finding", action="append", default=[])
@@ -45,6 +46,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = _args(argv)
     try:
         manifest_raw, manifest = load_json_bytes(args.manifest)
+        release_scope_raw, release_scope = load_json_bytes(args.release_scope_decision)
         scorecard_raw, scorecard = _optional_json(args.scorecard)
         convergence_raw, convergence = _optional_json(args.convergence)
         predecessor_paths = (
@@ -71,9 +73,11 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
         current_raw, snapshot_raw, decision_raw, result = materialize(
             manifest_raw=manifest_raw,
             manifest=manifest,
+            release_scope_raw=release_scope_raw,
+            release_scope=release_scope,
+            expected_release_scope_sha256=args.expected_release_scope_decision_sha256,
             registry_commit=args.registry_commit,
             decision_status=args.decision_status,
-            support_owner=args.support_owner,
             next_actions=args.next_action,
             blocking_findings=args.blocking_finding,
             generated_at=args.generated_at,
@@ -95,4 +99,3 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

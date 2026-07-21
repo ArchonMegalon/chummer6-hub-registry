@@ -15,6 +15,8 @@ def _args(argv: Optional[Sequence[str]] = None) -> argparse.Namespace:
         description="Verify exact Registry release-authority envelope bytes."
     )
     parser.add_argument("--manifest", type=Path, required=True)
+    parser.add_argument("--release-scope-decision", type=Path, required=True)
+    parser.add_argument("--expected-release-scope-decision-sha256", required=True)
     parser.add_argument("--current", type=Path, required=True)
     parser.add_argument("--snapshot", type=Path, required=True)
     parser.add_argument("--decision", type=Path, required=True)
@@ -34,6 +36,7 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
     args = _args(argv)
     try:
         manifest_raw, manifest = load_json_bytes(args.manifest)
+        release_scope_raw, release_scope = load_json_bytes(args.release_scope_decision)
         current_raw, current = load_json_bytes(args.current)
         snapshot_raw, snapshot = load_json_bytes(args.snapshot)
         decision_raw, decision = load_json_bytes(args.decision)
@@ -75,6 +78,9 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
             snapshot,
             decision_raw,
             decision,
+            release_scope_raw=release_scope_raw,
+            release_scope=release_scope,
+            expected_release_scope_sha256=args.expected_release_scope_decision_sha256,
             scorecard_raw=scorecard_raw,
             scorecard=scorecard,
             convergence_raw=convergence_raw,
@@ -90,4 +96,3 @@ def main(argv: Optional[Sequence[str]] = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
-

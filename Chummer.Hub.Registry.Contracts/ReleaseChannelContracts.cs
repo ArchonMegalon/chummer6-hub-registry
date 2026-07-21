@@ -528,6 +528,8 @@ public sealed record ReleaseAuthorityPublicationMetadata(
 public sealed record ReleaseAuthorityPublishRequest(
     ReleaseAuthorityPublicationMetadata Metadata,
     byte[] ManifestBytes,
+    byte[] ReleaseScopeDecisionBytes,
+    string ExpectedReleaseScopeDecisionSha256,
     byte[] ReleaseDecisionBytes,
     string? ExpectedCurrentSnapshotSha256);
 

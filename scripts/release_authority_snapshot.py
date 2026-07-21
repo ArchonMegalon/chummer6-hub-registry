@@ -17,6 +17,7 @@ from urllib.parse import unquote
 
 AUTHORITY_CONTRACT = "chummer.release-authority-snapshot/v2"
 PREVIEW_DECISION_CONTRACT = "chummer.preview-release-decision/v1"
+APPROVED_SCOPE_CONTRACT = "chummer.release-scope-decision/v1"
 REGISTRY_REPOSITORY = "ArchonMegalon/chummer6-hub-registry"
 MANIFEST_PATH = "RELEASE_CHANNEL.json"
 DECISION_PATH = "RELEASE_DECISION.json"
@@ -74,6 +75,7 @@ PREVIEW_DECISION_FIELDS = {
     "releaseDecisionStatus",
     "verdict",
     "releaseVersion",
+    "releaseScopeDecisionSha256",
     "channel",
     "platforms",
     "primaryHeadByPlatform",
@@ -191,6 +193,13 @@ SUCCESSOR_PROOF_FUTURE_SKEW = timedelta(minutes=5)
 SCORECARD_FIELDS = {
     "contract_name",
     "contract_version",
+    "release_version",
+    "release_scope_decision_sha256",
+    "releaseVersion",
+    "releaseScopeDecisionSha256",
+    "snapshotSha256",
+    "manifestSha256",
+    "releaseDecisionSha256",
     "generated_at_utc",
     "status",
     "verdict",
@@ -235,8 +244,31 @@ SCORECARD_EVIDENCE_FIELDS = {
     "next_actions",
     "failure",
     "preview_failure",
+    "source_sha256",
+    "preview_evidence",
 }
-SCORECARD_EVIDENCE_OPTIONAL_FIELDS = {"source_verdict"}
+SCORECARD_EVIDENCE_OPTIONAL_FIELDS = {
+    "source_verdict",
+    "source_release_version",
+    "candidate_evidence",
+}
+SCORECARD_PREVIEW_EVIDENCE_FIELDS = {
+    "provenance_kind",
+    "source_receipt_sha256",
+    "proof_sha256",
+    "proof",
+}
+SCORECARD_CANDIDATE_EVIDENCE_FIELDS = {
+    "contract_name",
+    "contract_version",
+    "release_version",
+    "release_scope_decision_sha256",
+    "manifest_sha256",
+    "authority_snapshot_sha256",
+    "release_decision_sha256",
+    "registry_commit",
+    "source_receipt_sha256",
+}
 SCORECARD_SUMMARY_FIELDS = {
     "surface_count",
     "dimension_count",
@@ -266,6 +298,115 @@ SCORECARD_DIMENSIONS = (
     "responsiveness",
     "design_authorship",
 )
+SCORECARD_OWNERS_BY_SURFACE = {
+    "desktop_workbench": ("chummer6-ui", "chummer6-core", "chummer6-ui-kit"),
+    "public_front_door_and_support": ("chummer6-hub", "chummer6-hub-registry", "fleet"),
+    "install_claim_restore_continue": ("chummer6-ui", "chummer6-hub", "chummer6-hub-registry"),
+    "build_explain_publish": ("chummer6-core", "chummer6-ui", "chummer6-media-factory"),
+    "run_and_rejoin": ("chummer6-mobile", "chummer6-hub", "chummer6-core"),
+    "improve_and_close_the_loop": ("chummer6-hub", "fleet", "executive-assistant"),
+}
+SCORECARD_JOURNEYS_BY_SURFACE = {
+    "desktop_workbench": ("install_claim_restore_continue", "build_explain_publish"),
+    "public_front_door_and_support": ("report_cluster_release_notify", "organize_community_and_close_loop"),
+    "install_claim_restore_continue": ("install_claim_restore_continue",),
+    "build_explain_publish": ("build_explain_publish",),
+    "run_and_rejoin": ("campaign_session_recover_recap", "recover_from_sync_conflict"),
+    "improve_and_close_the_loop": ("report_cluster_release_notify", "organize_community_and_close_loop"),
+}
+SCORECARD_EVIDENCE_BY_CELL = {
+    ("desktop_workbench", "route_clarity"): ("fleet_flagship", "desktop_visual", "desktop_workflow"),
+    ("desktop_workbench", "rules_and_continuity_truth"): ("engine_proof", "ruleset_readiness", "localization"),
+    ("desktop_workbench", "recovery_confidence"): ("desktop_executable", "release_ready"),
+    ("desktop_workbench", "closure_honesty"): ("release_ready", "release_channel"),
+    ("desktop_workbench", "responsiveness"): ("engine_proof", "desktop_workflow"),
+    ("desktop_workbench", "design_authorship"): ("desktop_visual", "design_quality", "localization"),
+    ("public_front_door_and_support", "route_clarity"): ("public_route", "public_edge"),
+    ("public_front_door_and_support", "rules_and_continuity_truth"): ("release_channel", "public_copy"),
+    ("public_front_door_and_support", "recovery_confidence"): ("support_packets", "account_handoff"),
+    ("public_front_door_and_support", "closure_honesty"): ("support_packets", "release_ready", "release_channel"),
+    ("public_front_door_and_support", "responsiveness"): ("public_edge", "ui_frame"),
+    ("public_front_door_and_support", "design_authorship"): ("design_quality", "ui_frame", "public_copy"),
+    ("install_claim_restore_continue", "route_clarity"): ("desktop_executable", "public_route"),
+    ("install_claim_restore_continue", "rules_and_continuity_truth"): ("engine_proof", "release_channel"),
+    ("install_claim_restore_continue", "recovery_confidence"): ("desktop_executable", "account_handoff"),
+    ("install_claim_restore_continue", "closure_honesty"): ("release_channel", "windows_visual", "release_ready"),
+    ("install_claim_restore_continue", "responsiveness"): ("desktop_executable", "windows_visual"),
+    ("install_claim_restore_continue", "design_authorship"): ("desktop_visual", "windows_visual", "localization"),
+    ("build_explain_publish", "route_clarity"): ("desktop_workflow", "public_route"),
+    ("build_explain_publish", "rules_and_continuity_truth"): ("engine_proof", "ruleset_readiness"),
+    ("build_explain_publish", "recovery_confidence"): ("desktop_executable", "release_ready"),
+    ("build_explain_publish", "closure_honesty"): ("black_ledger_media", "external_distribution", "release_ready"),
+    ("build_explain_publish", "responsiveness"): ("engine_proof", "desktop_workflow"),
+    ("build_explain_publish", "design_authorship"): ("desktop_visual", "design_quality", "localization"),
+    ("run_and_rejoin", "route_clarity"): ("mobile_proof", "public_route"),
+    ("run_and_rejoin", "rules_and_continuity_truth"): ("mobile_proof", "engine_proof"),
+    ("run_and_rejoin", "recovery_confidence"): ("mobile_proof", "release_ready"),
+    ("run_and_rejoin", "closure_honesty"): ("mobile_proof", "release_ready"),
+    ("run_and_rejoin", "responsiveness"): ("mobile_proof", "public_edge"),
+    ("run_and_rejoin", "design_authorship"): ("mobile_proof", "design_quality", "localization"),
+    ("improve_and_close_the_loop", "route_clarity"): ("support_packets", "public_route"),
+    ("improve_and_close_the_loop", "rules_and_continuity_truth"): ("public_copy", "release_channel"),
+    ("improve_and_close_the_loop", "recovery_confidence"): ("support_packets", "account_handoff"),
+    ("improve_and_close_the_loop", "closure_honesty"): ("support_packets", "release_ready", "google_oauth"),
+    ("improve_and_close_the_loop", "responsiveness"): ("public_edge", "ui_frame"),
+    ("improve_and_close_the_loop", "design_authorship"): ("design_quality", "ui_frame", "localization"),
+}
+APPROVED_SCOPE_FIELDS = {
+    "approvedAtUtc",
+    "approvedBy",
+    "channel",
+    "contractName",
+    "contractVersion",
+    "decisionId",
+    "platforms",
+    "releaseTarget",
+    "releaseVersion",
+    "status",
+    "supportOwner",
+}
+APPROVED_SCOPE_PLATFORM_FIELDS = {
+    "artifactAccessClass",
+    "fallbackHeads",
+    "platform",
+    "primaryHead",
+    "rid",
+    "signingRequirement",
+}
+APPROVED_SCOPE_RIDS = {
+    "linux": {"linux-x64", "linux-arm64"},
+    "macos": {"osx-x64", "osx-arm64"},
+    "windows": {"win-x64", "win-arm64"},
+}
+POSITIVE_EVIDENCE_SOURCE_STATUSES = {
+    "available",
+    "clear",
+    "complete",
+    "completed",
+    "current",
+    "healthy",
+    "ok",
+    "pass",
+    "passed",
+    "published",
+    "ready",
+    "success",
+    "succeeded",
+}
+PREVIEW_EVIDENCE_NEGATIVE_SOURCE_STATUSES = {
+    "attention_required",
+    "blocked",
+    "degraded",
+    "fail",
+    "failed",
+    "failure",
+    "incomplete",
+    "needs_review",
+    "not_ready",
+    "pending",
+    "review_required",
+    "warning",
+}
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -338,6 +479,135 @@ def canonical_bytes(payload: Any) -> bytes:
 
 def sha256_bytes(raw: bytes) -> str:
     return hashlib.sha256(raw).hexdigest()
+
+
+def validate_approved_scope(
+    raw: bytes,
+    payload: Any,
+    expected_sha256: str,
+) -> dict[str, Any]:
+    """Validate and project the exact immutable Design-approved release scope."""
+    expected_digest = _sha256(
+        expected_sha256,
+        "expected release-scope decision SHA-256",
+    )
+    if sha256_bytes(raw) != expected_digest:
+        raise AuthorityError(
+            "approved release-scope decision bytes do not match the expected SHA-256"
+        )
+    scope = _exact_object(payload, APPROVED_SCOPE_FIELDS, "approved release-scope decision")
+    if raw != canonical_bytes(scope):
+        raise AuthorityError(
+            "approved release-scope decision must be canonical compact sorted UTF-8 JSON plus LF"
+        )
+    if (
+        scope["contractName"] != APPROVED_SCOPE_CONTRACT
+        or scope["contractVersion"] != 1
+        or scope["status"] != "approved"
+        or scope["channel"] != "preview"
+        or scope["releaseTarget"] != "preview"
+    ):
+        raise AuthorityError("approved release-scope decision posture is invalid")
+
+    release_version = _token(
+        scope["releaseVersion"], "approved release-scope releaseVersion"
+    )
+    support_owner = _token(
+        scope["supportOwner"], "approved release-scope supportOwner"
+    )
+    _token(scope["decisionId"], "approved release-scope decisionId")
+    _canonical_utc_timestamp(
+        scope["approvedAtUtc"], "approved release-scope approvedAtUtc"
+    )
+    approved_by = _string(
+        scope["approvedBy"], "approved release-scope approvedBy", 256
+    )
+    if approved_by.casefold() in UNRESOLVED_VALUES:
+        raise AuthorityError("approved release-scope approving authority is unresolved")
+
+    rows = scope["platforms"]
+    if not isinstance(rows, list) or not 1 <= len(rows) <= 16:
+        raise AuthorityError(
+            "approved release-scope decision must contain one through sixteen platforms"
+        )
+    platforms: list[str] = []
+    primary_heads: dict[str, str] = {}
+    fallback_heads: dict[str, list[str]] = {}
+    access_classes: dict[str, str] = {}
+    for index, value in enumerate(rows):
+        label = "approved release-scope platform %d" % index
+        row = _exact_object(value, APPROVED_SCOPE_PLATFORM_FIELDS, label)
+        platform = _token(row["platform"], "%s platform" % label)
+        rid = _token(row["rid"], "%s rid" % label)
+        primary = _token(row["primaryHead"], "%s primaryHead" % label)
+        fallbacks = _token_array(
+            row["fallbackHeads"],
+            "%s fallbackHeads" % label,
+            allow_empty=True,
+            maximum_count=15,
+        )
+        access_class = _token(
+            row["artifactAccessClass"], "%s artifactAccessClass" % label
+        )
+        signing = _token(
+            row["signingRequirement"], "%s signingRequirement" % label
+        )
+        if (
+            platform not in APPROVED_SCOPE_RIDS
+            or rid not in APPROVED_SCOPE_RIDS[platform]
+            or primary not in {"avalonia", "blazor-desktop"}
+            or any(head not in {"avalonia", "blazor-desktop"} for head in fallbacks)
+            or primary in fallbacks
+            or fallbacks != sorted(fallbacks)
+            or access_class
+            not in {"open_public", "account_required", "support_directed"}
+            or signing
+            not in {"signed", "preview_unsigned_allowed", "not_applicable"}
+            or (platform in {"macos", "windows"} and signing == "not_applicable")
+        ):
+            raise AuthorityError(
+                "approved release-scope platform inventory is noncanonical or unsupported"
+            )
+        platforms.append(platform)
+        primary_heads[platform] = primary
+        fallback_heads[platform] = fallbacks
+        access_classes[platform] = access_class
+    if platforms != sorted(set(platforms)):
+        raise AuthorityError(
+            "approved release-scope platforms must be unique and ordinally sorted"
+        )
+
+    return {
+        "sha256": expected_digest,
+        "releaseVersion": release_version,
+        "channel": "preview",
+        "platforms": platforms,
+        "primaryHeadByPlatform": primary_heads,
+        "fallbackHeadsByPlatform": fallback_heads,
+        "artifactAccessClassByPlatform": access_classes,
+        "supportOwner": support_owner,
+    }
+
+
+def _validate_scope_manifest_binding(
+    scope: Mapping[str, Any],
+    manifest_projection: Mapping[str, Any],
+) -> None:
+    if (
+        scope["releaseVersion"] != manifest_projection["releaseVersion"]
+        or scope["channel"] != manifest_projection["channel"]
+        or scope["platforms"] != manifest_projection["availablePlatforms"]
+        or scope["primaryHeadByPlatform"] != manifest_projection["primaryHeadByPlatform"]
+        or {
+            platform: heads
+            for platform, heads in scope["fallbackHeadsByPlatform"].items()
+            if heads
+        }
+        != manifest_projection["fallbackHeadsByPlatform"]
+    ):
+        raise AuthorityError(
+            "approved release-scope decision does not match the exact manifest candidate scope"
+        )
 
 
 def _exact_object(value: Any, fields: set[str], label: str) -> dict[str, Any]:
@@ -904,12 +1174,265 @@ def _availability_ready(projection: Mapping[str, Any]) -> bool:
     )
 
 
-def _validate_scorecard(payload: Any) -> None:
+def _canonical_value_sha256(payload: Any) -> str:
+    raw = json.dumps(
+        payload,
+        ensure_ascii=False,
+        sort_keys=True,
+        separators=(",", ":"),
+    ).encode("utf-8")
+    return sha256_bytes(raw)
+
+
+def _validate_score_three_candidate_evidence(
+    row: Mapping[str, Any],
+    row_label: str,
+    *,
+    release_version: str,
+    release_scope_decision_sha256: str,
+    manifest_sha256: str,
+    authority_snapshot_sha256: str,
+    release_decision_sha256: str,
+    registry_commit: str,
+    source_sha256: str,
+) -> None:
+    if "candidate_evidence" not in row or "source_release_version" not in row:
+        raise AuthorityError(
+            "every score-3 evidence row must carry source_release_version and candidate_evidence"
+        )
+    if row["source_release_version"] != release_version:
+        raise AuthorityError("%s source_release_version contradicts the candidate" % row_label)
+    binding = _exact_object(
+        row["candidate_evidence"],
+        SCORECARD_CANDIDATE_EVIDENCE_FIELDS,
+        "%s candidate_evidence" % row_label,
+    )
+    expected = {
+        "contract_name": "chummer.campaign-operability-candidate-evidence/v1",
+        "contract_version": 1,
+        "release_version": release_version,
+        "release_scope_decision_sha256": release_scope_decision_sha256,
+        "manifest_sha256": manifest_sha256,
+        "authority_snapshot_sha256": authority_snapshot_sha256,
+        "release_decision_sha256": release_decision_sha256,
+        "registry_commit": registry_commit,
+        "source_receipt_sha256": source_sha256,
+    }
+    if binding != expected:
+        raise AuthorityError(
+            "%s candidate_evidence does not bind the exact release candidate and source bytes"
+            % row_label
+        )
+    for field in (
+        "release_scope_decision_sha256",
+        "manifest_sha256",
+        "authority_snapshot_sha256",
+        "release_decision_sha256",
+        "source_receipt_sha256",
+    ):
+        _sha256(binding[field], "%s candidate_evidence %s" % (row_label, field))
+    _commit(binding["registry_commit"], "%s candidate_evidence registry_commit" % row_label)
+
+
+def _validate_score_two_preview_evidence(
+    row: Mapping[str, Any],
+    row_label: str,
+    *,
+    evidence_id: str,
+    receipt_row: bool,
+    source_status: str,
+    source_sha256: str,
+    owner: str,
+    actions: Sequence[str],
+    release_version: str,
+    release_scope_decision_sha256: str,
+    authority_snapshot_sha256: str,
+    approved_scope: Mapping[str, Any],
+    predecessor_snapshot: Mapping[str, Any],
+) -> None:
+    preview = _exact_object(
+        row["preview_evidence"],
+        SCORECARD_PREVIEW_EVIDENCE_FIELDS,
+        "%s preview_evidence" % row_label,
+    )
+    provenance = _token(
+        preview["provenance_kind"], "%s preview_evidence provenance_kind" % row_label
+    )
+    bound_source = _sha256(
+        preview["source_receipt_sha256"],
+        "%s preview_evidence source_receipt_sha256" % row_label,
+    )
+    if bound_source != source_sha256:
+        raise AuthorityError("%s preview_evidence substitutes different source bytes" % row_label)
+    proof = preview["proof"]
+    if not isinstance(proof, dict):
+        raise AuthorityError("%s preview_evidence proof must be an object" % row_label)
+    proof_digest = _sha256(
+        preview["proof_sha256"], "%s preview_evidence proof_sha256" % row_label
+    )
+    if proof_digest != _canonical_value_sha256(proof):
+        raise AuthorityError("%s preview_evidence proof digest does not match its proof" % row_label)
+
+    if provenance == "nested_declaration":
+        proof_obj = _exact_object(
+            proof,
+            {
+                "contract_name",
+                "contract_version",
+                "status",
+                "release_version",
+                "release_scope_decision_sha256",
+                "bounded_owner",
+                "next_actions",
+            },
+            "%s nested preview proof" % row_label,
+        )
+        if (
+            proof_obj["contract_name"]
+            != "chummer.campaign_operability_preview_evidence"
+            or proof_obj["contract_version"] != 2
+            or proof_obj["status"] != "pass"
+        ):
+            raise AuthorityError("%s nested preview proof contract is invalid" % row_label)
+    elif provenance == "registry_review_seed":
+        proof_obj = _exact_object(
+            proof,
+            {
+                "contract_name",
+                "contract_version",
+                "status",
+                "channel",
+                "rollout_state",
+                "supportability_state",
+                "release_decision_status",
+                "release_version",
+                "release_scope_decision_sha256",
+                "authority_snapshot_sha256",
+                "bounded_owner",
+                "next_actions",
+            },
+            "%s Registry preview proof" % row_label,
+        )
+        if (
+            not receipt_row
+            or evidence_id != "release_channel"
+            or source_sha256 != authority_snapshot_sha256
+            or source_status != "published"
+            or proof_obj["contract_name"]
+            != "chummer.campaign_operability_registry_review_seed"
+            or proof_obj["contract_version"] != 1
+            or proof_obj["status"] != "published"
+            or proof_obj["channel"] != "preview"
+            or proof_obj["rollout_state"] != "promoted_preview"
+            or proof_obj["supportability_state"] != "preview_supported"
+            or proof_obj["release_decision_status"] != "review_required"
+            or _sha256(
+                proof_obj["authority_snapshot_sha256"],
+                "%s Registry proof authority_snapshot_sha256" % row_label,
+            )
+            != authority_snapshot_sha256
+        ):
+            raise AuthorityError("%s Registry review-seed preview proof is invalid" % row_label)
+        if (
+            proof_obj["bounded_owner"] != predecessor_snapshot["supportOwner"]
+            or proof_obj["bounded_owner"] != approved_scope["supportOwner"]
+            or proof_obj["next_actions"] != predecessor_snapshot["nextActions"]
+        ):
+            raise AuthorityError(
+                "%s Registry review-seed owner/actions contradict the predecessor or scope"
+                % row_label
+            )
+    elif provenance == "approved_scope_exclusion":
+        proof_obj = _exact_object(
+            proof,
+            {
+                "contract_name",
+                "contract_version",
+                "status",
+                "release_version",
+                "release_scope_decision_sha256",
+                "excluded_platform",
+                "evidence_id",
+                "bounded_owner",
+                "next_actions",
+            },
+            "%s approved-scope exclusion proof" % row_label,
+        )
+        if (
+            not receipt_row
+            or evidence_id != "windows_visual"
+            or "windows" in approved_scope["platforms"]
+            or proof_obj["contract_name"]
+            != "chummer.campaign_operability_approved_scope_exclusion"
+            or proof_obj["contract_version"] != 1
+            or proof_obj["status"] != "approved"
+            or proof_obj["excluded_platform"] != "windows"
+            or proof_obj["evidence_id"] != "windows_visual"
+            or proof_obj["bounded_owner"] != approved_scope["supportOwner"]
+        ):
+            raise AuthorityError("%s approved-scope exclusion proof is invalid" % row_label)
+    else:
+        raise AuthorityError("%s preview_evidence provenance is unsupported" % row_label)
+
+    proof_owner = _token(proof_obj["bounded_owner"], "%s proof bounded_owner" % row_label)
+    proof_actions = _concrete_text_array(
+        proof_obj["next_actions"],
+        "%s proof next_actions" % row_label,
+        allow_empty=False,
+    )
+    if (
+        proof_obj["release_version"] != release_version
+        or _sha256(
+            proof_obj["release_scope_decision_sha256"],
+            "%s proof release_scope_decision_sha256" % row_label,
+        )
+        != release_scope_decision_sha256
+        or proof_owner != owner
+        or proof_actions != list(actions)
+    ):
+        raise AuthorityError("%s preview proof does not match its scorecard row" % row_label)
+
+
+def _validate_scorecard(
+    payload: Any,
+    *,
+    release_version: str,
+    release_scope_decision_sha256: str,
+    manifest_sha256: str,
+    authority_snapshot_sha256: str,
+    release_decision_sha256: str,
+    registry_commit: str,
+    approved_scope: Mapping[str, Any],
+    predecessor_snapshot: Mapping[str, Any],
+) -> None:
     scorecard = _exact_object(payload, SCORECARD_FIELDS, "scorecard")
     if scorecard["contract_name"] != "chummer.campaign_operability_scorecard":
         raise AuthorityError("scorecard contract_name is invalid")
     if _nonnegative_int(scorecard["contract_version"], "scorecard contract_version") != 2:
         raise AuthorityError("scorecard contract_version must be 2")
+    expected_bindings = {
+        "release_version": release_version,
+        "release_scope_decision_sha256": release_scope_decision_sha256,
+        "releaseVersion": release_version,
+        "releaseScopeDecisionSha256": release_scope_decision_sha256,
+        "snapshotSha256": authority_snapshot_sha256,
+        "manifestSha256": manifest_sha256,
+        "releaseDecisionSha256": release_decision_sha256,
+    }
+    if any(scorecard[field] != value for field, value in expected_bindings.items()):
+        raise AuthorityError(
+            "scorecard snake/camel authority bindings do not match the exact candidate"
+        )
+    _version(scorecard["release_version"], "scorecard release_version")
+    _version(scorecard["releaseVersion"], "scorecard releaseVersion")
+    for field in (
+        "release_scope_decision_sha256",
+        "releaseScopeDecisionSha256",
+        "snapshotSha256",
+        "manifestSha256",
+        "releaseDecisionSha256",
+    ):
+        _sha256(scorecard[field], "scorecard %s" % field)
     _canonical_utc_timestamp(
         scorecard["generated_at_utc"], "scorecard generated_at_utc"
     )
@@ -942,11 +1465,20 @@ def _validate_scorecard(payload: Any) -> None:
     observed: set[tuple[str, str]] = set()
     scores: list[int] = []
     expected_top_gaps: list[str] = []
+    dependency_rows: dict[str, bytes] = {}
+    journey_source_binding: Optional[tuple[str, str]] = None
+    receipt_id_by_source_sha256: dict[str, str] = {}
     for index, value in enumerate(cells):
         label = "scorecard cell %d" % index
         cell = _exact_object(value, SCORECARD_CELL_FIELDS, label)
         surface = _token(cell["surface_id"], "%s surface_id" % label)
         dimension = _token(cell["dimension_id"], "%s dimension_id" % label)
+        expected_surface = SCORECARD_SURFACES[index // len(SCORECARD_DIMENSIONS)]
+        expected_dimension = SCORECARD_DIMENSIONS[index % len(SCORECARD_DIMENSIONS)]
+        if surface != expected_surface or dimension != expected_dimension:
+            raise AuthorityError(
+                "scorecard cells must use the exact surface-major canonical sequence"
+            )
         score = _nonnegative_int(cell["score"], "%s score" % label, 3)
         if surface not in surfaces or dimension not in dimensions or score < 2:
             raise AuthorityError("every scorecard cell must cover the declared matrix at score 2 or 3")
@@ -955,14 +1487,18 @@ def _validate_scorecard(payload: Any) -> None:
         observed.add((surface, dimension))
 
         owners = _token_array(cell["owners"], "%s owners" % label, allow_empty=False)
-        if not owners:
-            raise AuthorityError("%s must contain at least one resolved owner" % label)
+        if owners != list(SCORECARD_OWNERS_BY_SURFACE[surface]):
+            raise AuthorityError("%s owners do not match the canonical surface owners" % label)
         journey_ids = _token_array(
             cell["journey_ids"], "%s journey_ids" % label, allow_empty=False
         )
         evidence_ids = _token_array(
             cell["evidence_ids"], "%s evidence_ids" % label, allow_empty=False
         )
+        if journey_ids != list(SCORECARD_JOURNEYS_BY_SURFACE[surface]):
+            raise AuthorityError("%s journey_ids do not match the canonical inventory" % label)
+        if evidence_ids != list(SCORECARD_EVIDENCE_BY_CELL[(surface, dimension)]):
+            raise AuthorityError("%s evidence_ids do not match the canonical inventory" % label)
         declared_ids = journey_ids + evidence_ids
         if len(declared_ids) != len(set(declared_ids)):
             raise AuthorityError("%s journey and evidence ids must be disjoint" % label)
@@ -990,13 +1526,25 @@ def _validate_scorecard(payload: Any) -> None:
             )
             evidence_id = _token(row["id"], "%s id" % row_label)
             observed_evidence_ids.append(evidence_id)
-            _portable_evidence_path(row["path"], "%s path" % row_label)
+            evidence_path = _portable_evidence_path(row["path"], "%s path" % row_label)
+            row_bytes = json.dumps(
+                row,
+                ensure_ascii=False,
+                sort_keys=True,
+                separators=(",", ":"),
+            ).encode("utf-8")
+            previous_row = dependency_rows.setdefault(evidence_id, row_bytes)
+            if previous_row != row_bytes:
+                raise AuthorityError(
+                    "repeated scorecard dependency IDs must reuse canonically identical rows"
+                )
             source_status = _token(row["source_status"], "%s source_status" % row_label)
             if source_status in UNRESOLVED_VALUES or set(re.findall(r"[a-z0-9]+", source_status)) & SENTINELS:
                 raise AuthorityError("%s source_status is unresolved" % row_label)
             _canonical_utc_timestamp(
                 row["generated_at"], "%s generated_at" % row_label
             )
+            receipt_row = "source_verdict" in row
             if "source_verdict" in row:
                 source_verdict = _string(
                     row["source_verdict"],
@@ -1006,6 +1554,26 @@ def _validate_scorecard(payload: Any) -> None:
                 )
                 if source_verdict.casefold() in UNRESOLVED_VALUES - {""}:
                     raise AuthorityError("%s source_verdict is unresolved" % row_label)
+            source_digest = _sha256(
+                row["source_sha256"], "%s source_sha256" % row_label
+            )
+            if evidence_id in journey_ids:
+                current_journey_binding = (evidence_path, source_digest)
+                if journey_source_binding is None:
+                    journey_source_binding = current_journey_binding
+                elif journey_source_binding != current_journey_binding:
+                    raise AuthorityError(
+                        "all scorecard journey rows must bind one exact aggregate source receipt"
+                    )
+            else:
+                prior_receipt_id = receipt_id_by_source_sha256.setdefault(
+                    source_digest,
+                    evidence_id,
+                )
+                if prior_receipt_id != evidence_id:
+                    raise AuthorityError(
+                        "distinct scorecard receipt IDs cannot substitute the same raw source proof"
+                    )
 
             evidence_score = _nonnegative_int(
                 row["score"], "%s score" % row_label, 3
@@ -1034,6 +1602,17 @@ def _validate_scorecard(payload: Any) -> None:
                 allow_empty=True,
             )
             if evidence_score == 2:
+                if "candidate_evidence" in row or "source_release_version" in row:
+                    raise AuthorityError(
+                        "score-2 evidence cannot claim a flagship candidate binding"
+                    )
+                if source_status not in (
+                    POSITIVE_EVIDENCE_SOURCE_STATUSES
+                    | PREVIEW_EVIDENCE_NEGATIVE_SOURCE_STATUSES
+                ):
+                    raise AuthorityError(
+                        "score-2 evidence has an unknown raw source posture"
+                    )
                 owner = _token(bounded_owner, "%s bounded_owner" % row_label)
                 if owner in UNRESOLVED_VALUES:
                     raise AuthorityError("score-2 evidence requires a concrete bounded owner")
@@ -1045,16 +1624,52 @@ def _validate_scorecard(payload: Any) -> None:
                     raise AuthorityError("score-2 evidence cannot contain a preview failure")
                 if not failure or failure.casefold() in UNRESOLVED_VALUES:
                     raise AuthorityError("score-2 evidence requires a concrete stable failure")
+                _validate_score_two_preview_evidence(
+                    row,
+                    row_label,
+                    evidence_id=evidence_id,
+                    receipt_row=receipt_row,
+                    source_status=source_status,
+                    source_sha256=source_digest,
+                    owner=owner,
+                    actions=actions,
+                    release_version=release_version,
+                    release_scope_decision_sha256=release_scope_decision_sha256,
+                    authority_snapshot_sha256=authority_snapshot_sha256,
+                    approved_scope=approved_scope,
+                    predecessor_snapshot=predecessor_snapshot,
+                )
                 score_two_owners.append(owner)
                 score_two_actions.extend(actions)
                 stable_gaps.append(failure)
             else:
+                if source_status not in POSITIVE_EVIDENCE_SOURCE_STATUSES:
+                    raise AuthorityError(
+                        "score-3 evidence lacks a positive raw source posture"
+                    )
                 if row["status"] != "pass":
                     raise AuthorityError("score-3 evidence status must be pass")
-                if bounded_owner or actions or failure or preview_failure:
+                if (
+                    bounded_owner
+                    or actions
+                    or failure
+                    or preview_failure
+                    or row["preview_evidence"] is not None
+                ):
                     raise AuthorityError(
                         "score-3 evidence cannot contain preview ownership, actions, or failures"
                     )
+                _validate_score_three_candidate_evidence(
+                    row,
+                    row_label,
+                    release_version=release_version,
+                    release_scope_decision_sha256=release_scope_decision_sha256,
+                    manifest_sha256=manifest_sha256,
+                    authority_snapshot_sha256=authority_snapshot_sha256,
+                    release_decision_sha256=release_decision_sha256,
+                    registry_commit=registry_commit,
+                    source_sha256=source_digest,
+                )
 
         if observed_evidence_ids != declared_ids:
             raise AuthorityError("%s evidence ids do not exactly match their declarations" % label)
@@ -1295,6 +1910,9 @@ def verify_envelope_bytes(
     decision_raw: bytes,
     decision: Any,
     *,
+    release_scope_raw: bytes,
+    release_scope: Any,
+    expected_release_scope_sha256: str,
     scorecard_raw: Optional[bytes] = None,
     scorecard: Any = None,
     convergence_raw: Optional[bytes] = None,
@@ -1303,6 +1921,12 @@ def verify_envelope_bytes(
 ) -> dict[str, Any]:
     manifest_digest = sha256_bytes(manifest_raw)
     derived = derive_manifest_projection(manifest, manifest_digest)
+    approved_scope = validate_approved_scope(
+        release_scope_raw,
+        release_scope,
+        expected_release_scope_sha256,
+    )
+    _validate_scope_manifest_binding(approved_scope, derived)
     current_obj = _exact_object(current, CURRENT_FIELDS, "CURRENT.json")
     snapshot_obj = _exact_object(snapshot, SNAPSHOT_FIELDS, "SNAPSHOT.json")
     decision_obj = _exact_object(decision, PREVIEW_DECISION_FIELDS, "RELEASE_DECISION.json")
@@ -1320,7 +1944,11 @@ def verify_envelope_bytes(
     if snapshot_obj["authorityContract"] != AUTHORITY_CONTRACT:
         raise AuthorityError("SNAPSHOT authorityContract is invalid")
     snapshot_version = _version(snapshot_obj["releaseVersion"], "SNAPSHOT releaseVersion")
-    if release_version != snapshot_version or release_version != derived["releaseVersion"]:
+    if (
+        release_version != snapshot_version
+        or release_version != derived["releaseVersion"]
+        or release_version != approved_scope["releaseVersion"]
+    ):
         raise AuthorityError("releaseVersion binding disagrees across the envelope")
     if snapshot_obj["registryRepository"] != REGISTRY_REPOSITORY:
         raise AuthorityError("SNAPSHOT registryRepository is invalid")
@@ -1344,13 +1972,22 @@ def verify_envelope_bytes(
         raise AuthorityError("SNAPSHOT artifacts are not the exact manifest-derived projection")
     platforms = _ordered_tokens(snapshot_obj["availablePlatforms"], "SNAPSHOT availablePlatforms")
     heads = _ordered_map(snapshot_obj["primaryHeadByPlatform"], "SNAPSHOT primaryHeadByPlatform", platforms)
-    if platforms != derived["availablePlatforms"] or heads != derived["primaryHeadByPlatform"]:
-        raise AuthorityError("SNAPSHOT platform/head scope contradicts the manifest")
+    if (
+        platforms != derived["availablePlatforms"]
+        or platforms != approved_scope["platforms"]
+        or heads != derived["primaryHeadByPlatform"]
+        or heads != approved_scope["primaryHeadByPlatform"]
+    ):
+        raise AuthorityError(
+            "SNAPSHOT platform/head scope contradicts the manifest or approved scope"
+        )
     if snapshot_obj["artifactCount"] != len(artifacts):
         raise AuthorityError("SNAPSHOT artifactCount contradicts artifacts")
     if snapshot_obj["downloadAccessPosture"] != derived["downloadAccessPosture"]:
         raise AuthorityError("SNAPSHOT downloadAccessPosture contradicts artifacts")
     support_owner = _string(snapshot_obj["supportOwner"], "SNAPSHOT supportOwner", 256)
+    if support_owner != approved_scope["supportOwner"]:
+        raise AuthorityError("SNAPSHOT supportOwner contradicts the approved scope")
     next_actions = _text_array(
         snapshot_obj["nextActions"], "SNAPSHOT nextActions", allow_empty=status != "review_required"
     )
@@ -1360,12 +1997,22 @@ def verify_envelope_bytes(
     if decision_obj["status"] != status or decision_obj["releaseDecisionStatus"] != status:
         raise AuthorityError("preview decision status contradicts CURRENT")
     _timestamp(decision_obj["generatedAt"], "preview decision generatedAt")
-    if decision_obj["releaseVersion"] != release_version or decision_obj["channel"] != derived["channel"]:
-        raise AuthorityError("preview decision release identity contradicts the manifest")
+    release_scope_digest = _sha256(
+        decision_obj["releaseScopeDecisionSha256"],
+        "preview decision releaseScopeDecisionSha256",
+    )
+    if (
+        release_scope_digest != approved_scope["sha256"]
+        or decision_obj["releaseVersion"] != release_version
+        or decision_obj["channel"] != derived["channel"]
+    ):
+        raise AuthorityError(
+            "preview decision release identity contradicts the manifest or approved scope"
+        )
     if decision_obj["platforms"] != platforms or decision_obj["primaryHeadByPlatform"] != heads:
         raise AuthorityError("preview decision platform/head scope contradicts SNAPSHOT")
-    if decision_obj["fallbackHeadsByPlatform"] != derived["fallbackHeadsByPlatform"]:
-        raise AuthorityError("preview decision fallback heads contradict the manifest")
+    if decision_obj["fallbackHeadsByPlatform"] != approved_scope["fallbackHeadsByPlatform"]:
+        raise AuthorityError("preview decision fallback heads contradict the approved scope")
     expected_access = "review_required" if status == "review_required" and not artifacts else derived["downloadAccessPosture"]
     if decision_obj["artifactAccessClass"] != expected_access:
         raise AuthorityError("preview decision artifactAccessClass contradicts SNAPSHOT")
@@ -1428,8 +2075,18 @@ def verify_envelope_bytes(
             raise AuthorityError("preview_ready verification requires explicit proof and predecessor files")
         if scorecard_digest != sha256_bytes(scorecard_raw) or convergence_digest != sha256_bytes(convergence_raw):
             raise AuthorityError("preview_ready proof digests do not match exact proof bytes")
-        _validate_scorecard(scorecard)
         predecessor_current_raw, predecessor_current, predecessor_snapshot_raw, predecessor_snapshot, predecessor_decision_raw, predecessor_decision = predecessor
+        _validate_scorecard(
+            scorecard,
+            release_version=release_version,
+            release_scope_decision_sha256=approved_scope["sha256"],
+            manifest_sha256=manifest_digest,
+            authority_snapshot_sha256=sha256_bytes(predecessor_snapshot_raw),
+            release_decision_sha256=sha256_bytes(predecessor_decision_raw),
+            registry_commit=registry_commit,
+            approved_scope=approved_scope,
+            predecessor_snapshot=predecessor_snapshot,
+        )
         predecessor_result = verify_envelope_bytes(
             manifest_raw,
             manifest,
@@ -1439,6 +2096,9 @@ def verify_envelope_bytes(
             predecessor_snapshot,
             predecessor_decision_raw,
             predecessor_decision,
+            release_scope_raw=release_scope_raw,
+            release_scope=release_scope,
+            expected_release_scope_sha256=expected_release_scope_sha256,
         )
         if predecessor_result["status"] != "review_required":
             raise AuthorityError("preview_ready predecessor must be a review-required seed")
@@ -1468,6 +2128,7 @@ def verify_envelope_bytes(
         "releaseVersion": release_version,
         "status": status,
         "manifestSha256": manifest_digest,
+        "releaseScopeDecisionSha256": approved_scope["sha256"],
         "snapshotSha256": sha256_bytes(snapshot_raw),
         "decisionSha256": decision_digest,
         "registryCommit": registry_commit,
@@ -1478,9 +2139,11 @@ def materialize(
     *,
     manifest_raw: bytes,
     manifest: Any,
+    release_scope_raw: bytes,
+    release_scope: Any,
+    expected_release_scope_sha256: str,
     registry_commit: str,
     decision_status: str,
-    support_owner: str,
     next_actions: Sequence[str],
     blocking_findings: Sequence[str],
     generated_at: str,
@@ -1493,7 +2156,6 @@ def materialize(
     registry_commit = _commit(registry_commit, "registry commit")
     if decision_status not in DECISION_STATUSES:
         raise AuthorityError("decision status must be review_required or preview_ready")
-    support_owner = _string(support_owner, "support owner", 256)
     actions = _text_array(list(next_actions), "next actions", allow_empty=False)
     generated_at = _timestamp(generated_at, "generated-at")
     if decision_status == "review_required" and not blocking_findings:
@@ -1509,6 +2171,13 @@ def materialize(
 
     manifest_digest = sha256_bytes(manifest_raw)
     derived = derive_manifest_projection(manifest, manifest_digest)
+    approved_scope = validate_approved_scope(
+        release_scope_raw,
+        release_scope,
+        expected_release_scope_sha256,
+    )
+    _validate_scope_manifest_binding(approved_scope, derived)
+    support_owner = approved_scope["supportOwner"]
     if decision_status == "preview_ready" and (
         scorecard_raw is None or convergence_raw is None or predecessor is None
     ):
@@ -1535,6 +2204,9 @@ def materialize(
             predecessor_snapshot,
             predecessor_decision_raw,
             predecessor_decision,
+            release_scope_raw=release_scope_raw,
+            release_scope=release_scope,
+            expected_release_scope_sha256=expected_release_scope_sha256,
         )
         if predecessor_result["status"] != "review_required":
             raise AuthorityError("preview_ready predecessor must be review_required")
@@ -1542,7 +2214,17 @@ def materialize(
         candidate_decision_status = "review_required"
         candidate_decision_sha256 = sha256_bytes(predecessor_decision_raw)
         assert scorecard_raw is not None and convergence_raw is not None
-        _validate_scorecard(scorecard)
+        _validate_scorecard(
+            scorecard,
+            release_version=approved_scope["releaseVersion"],
+            release_scope_decision_sha256=approved_scope["sha256"],
+            manifest_sha256=manifest_digest,
+            authority_snapshot_sha256=candidate_snapshot_sha256,
+            release_decision_sha256=candidate_decision_sha256,
+            registry_commit=registry_commit,
+            approved_scope=approved_scope,
+            predecessor_snapshot=predecessor_snapshot,
+        )
         projection_with_registry = dict(derived)
         projection_with_registry["registryCommit"] = registry_commit
         _validate_convergence(
@@ -1570,10 +2252,11 @@ def materialize(
         "releaseDecisionStatus": decision_status,
         "verdict": "PREVIEW_READY" if decision_status == "preview_ready" else "PREVIEW_RELEASE_REVIEW_REQUIRED",
         "releaseVersion": derived["releaseVersion"],
+        "releaseScopeDecisionSha256": approved_scope["sha256"],
         "channel": derived["channel"],
-        "platforms": derived["availablePlatforms"],
-        "primaryHeadByPlatform": derived["primaryHeadByPlatform"],
-        "fallbackHeadsByPlatform": derived["fallbackHeadsByPlatform"],
+        "platforms": approved_scope["platforms"],
+        "primaryHeadByPlatform": approved_scope["primaryHeadByPlatform"],
+        "fallbackHeadsByPlatform": approved_scope["fallbackHeadsByPlatform"],
         "artifactAccessClass": (
             "review_required"
             if decision_status == "review_required" and not derived["artifacts"]
@@ -1603,8 +2286,8 @@ def materialize(
         "status": derived["status"],
         "rolloutState": derived["rolloutState"],
         "supportabilityState": derived["supportabilityState"],
-        "availablePlatforms": derived["availablePlatforms"],
-        "primaryHeadByPlatform": derived["primaryHeadByPlatform"],
+        "availablePlatforms": approved_scope["platforms"],
+        "primaryHeadByPlatform": approved_scope["primaryHeadByPlatform"],
         "artifactCount": len(derived["artifacts"]),
         "downloadAccessPosture": derived["downloadAccessPosture"],
         "knownIssueSummary": derived["knownIssueSummary"],
@@ -1636,6 +2319,9 @@ def materialize(
         snapshot,
         decision_raw,
         decision,
+        release_scope_raw=release_scope_raw,
+        release_scope=release_scope,
+        expected_release_scope_sha256=expected_release_scope_sha256,
         scorecard_raw=scorecard_raw,
         scorecard=scorecard,
         convergence_raw=convergence_raw,

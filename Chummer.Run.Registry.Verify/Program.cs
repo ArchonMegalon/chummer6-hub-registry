@@ -383,10 +383,12 @@ File.WriteAllText(
             }
         },
         new JsonSerializerOptions(JsonSerializerDefaults.Web)));
-byte[] releaseManifestBytes = File.ReadAllBytes(releaseManifestPath);
+byte[] releaseManifestBytes = MutateJson(
+    File.ReadAllBytes(releaseManifestPath),
+    static root => ReplaceJsonString(root, "docker", "preview", "channel", "channelId"));
 var releaseAuthorityMetadata = new RegistryOwner.ReleaseAuthorityPublicationMetadata(
     ReleaseVersion: "smoke-2026.03.28-linux-x64",
-    Channel: "docker",
+    Channel: "preview",
     Status: "published",
     RolloutState: RegistryOwner.ReleaseRolloutStates.CoverageIncomplete,
     SupportabilityState: RegistryOwner.ReleaseSupportabilityStates.ReviewRequired,
@@ -425,7 +427,7 @@ byte[] releaseDecisionBytes = BuildPreviewDecisionBytes(
     releaseManifestBytes,
     releaseAuthorityMetadata,
     "review_required");
-ReleaseAuthorityCurrentPointer releaseAuthorityCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+ReleaseAuthorityCurrentPointer releaseAuthorityCurrent = PublishAuthoritySnapshot(
     releaseManifestRoot,
     releaseAuthorityMetadata,
     releaseManifestBytes,
@@ -484,7 +486,7 @@ VerifyRegistryStartupCredentialValidation();
 VerifyRegistryAuthorizationHttpPipeline().GetAwaiter().GetResult();
 
 RegistryReleaseChannelHeadProjection releaseChannel = RequireOk(registryController.GetCurrentReleaseChannel());
-Assert(string.Equals(releaseChannel.ChannelId, "docker", StringComparison.Ordinal), "Release-channel read model should load the current registry manifest.");
+Assert(string.Equals(releaseChannel.ChannelId, "preview", StringComparison.Ordinal), "Release-channel read model should load the current registry manifest.");
 Assert(string.Equals(releaseChannel.RolloutState, RegistryOwner.ReleaseRolloutStates.CoverageIncomplete, StringComparison.Ordinal), "Release-channel read model should retain rollout posture.");
 Assert(string.Equals(releaseChannel.SupportabilityState, RegistryOwner.ReleaseSupportabilityStates.ReviewRequired, StringComparison.Ordinal), "Release-channel read model should retain supportability posture.");
 Assert(string.Equals(releaseChannel.ReleaseProof?.Status, "passed", StringComparison.Ordinal), "Release-channel read model should retain proof posture.");
@@ -1297,7 +1299,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
     {
         Directory.CreateDirectory(strictPointerRoot);
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 strictPointerRoot,
                 metadata,
                 manifestBytes,
@@ -1305,7 +1307,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
                 expectedCurrentSnapshotSha256: null),
             "Release-decision publication must reject legacy or unknown decision status values.");
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 strictPointerRoot,
                 metadata,
                 manifestBytes,
@@ -1317,7 +1319,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
                 expectedCurrentSnapshotSha256: null),
             "Release-decision publication must reject a manifest digest that does not bind the raw manifest bytes.");
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 strictPointerRoot,
                 metadata with { RegistryCommit = new string('a', 64) },
                 manifestBytes,
@@ -1325,7 +1327,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
                 expectedCurrentSnapshotSha256: null),
             "SNAPSHOT.json registryCommit must remain the shared exact 40-lowercase-hex contract.");
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 strictPointerRoot,
                 metadata with { RegistryRepository = "example/other-registry" },
                 manifestBytes,
@@ -1338,7 +1340,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             Channel = "Docker"
         };
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 strictPointerRoot,
                 mixedCaseMetadata,
                 manifestBytes,
@@ -1360,7 +1362,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             Artifacts = [sentinelArtifact]
         };
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 strictPointerRoot,
                 sentinelMetadata,
                 manifestBytes,
@@ -1425,11 +1427,41 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             static root => root.Remove("fallbackHeadsByPlatform"),
             "Preview decision scope fields are mandatory, including an explicit canonical fallback map.");
 
+        byte[] correctScopeBytes = BuildReleaseScopeDecisionBytes(metadata);
+        byte[] sameVersionWrongScopeBytes = BuildReleaseScopeDecisionBytes(
+            metadata with { SupportOwner = "different-registry-owner" });
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                Path.Combine(strictPointerRoot, "same-version-wrong-scope"),
+                metadata,
+                manifestBytes,
+                sameVersionWrongScopeBytes,
+                ReleaseAuthoritySnapshotStore.ComputeSha256(sameVersionWrongScopeBytes),
+                decisionBytes,
+                expectedCurrentSnapshotSha256: null),
+            "A same-version approved scope with different owner/platform truth must fail closed.");
+        foreach (string shadowName in new[] { "supportOwner", "SupportOwner" })
+        {
+            string scopeText = System.Text.Encoding.UTF8.GetString(correctScopeBytes);
+            byte[] shadowScopeBytes = System.Text.Encoding.UTF8.GetBytes(
+                scopeText[..^2] + $",\"{shadowName}\":\"shadow-owner\"}}\n");
+            AssertThrows<InvalidDataException>(
+                () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                    Path.Combine(strictPointerRoot, $"scope-shadow-{shadowName}"),
+                    metadata,
+                    manifestBytes,
+                    shadowScopeBytes,
+                    ReleaseAuthoritySnapshotStore.ComputeSha256(shadowScopeBytes),
+                    decisionBytes,
+                    expectedCurrentSnapshotSha256: null),
+                "Approved release-scope bytes must reject duplicate and case-shadowed properties.");
+        }
+
         string manifestText = System.Text.Encoding.UTF8.GetString(manifestBytes);
         byte[] duplicateManifestBytes = System.Text.Encoding.UTF8.GetBytes(
             "{\"generationId\":\"shadow-generation\"," + manifestText[1..]);
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 eligibilityRoot,
                 metadata,
                 duplicateManifestBytes,
@@ -1452,7 +1484,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             }
             """);
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 eligibilityRoot,
                 metadata,
                 manifestBytes,
@@ -1464,7 +1496,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             manifestBytes,
             static root => root["releaseDecisionSha256"] = new string('a', 64));
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 eligibilityRoot,
                 metadata,
                 embeddedDecisionDigestManifest,
@@ -1479,7 +1511,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             manifestBytes,
             static root => root["artifactPublicationBindings"]!.AsArray()[0]!["publicationScope"] = "signed-in-only");
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 eligibilityRoot,
                 metadata,
                 missingPublicScopeManifest,
@@ -1494,7 +1526,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             manifestBytes,
             static root => root["desktopTupleCoverage"]!["desktopRouteTruth"]!.AsArray()[0]!["routeRole"] = "fallback");
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 eligibilityRoot,
                 metadata,
                 inferredPrimaryManifest,
@@ -1509,7 +1541,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             manifestBytes,
             static root => root["artifacts"]!.AsArray()[0]!["compatibilityState"] = "review_required");
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 eligibilityRoot,
                 metadata,
                 incompatibleManifest,
@@ -1526,7 +1558,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
                 manifestBytes,
                 root => root["artifacts"]!.AsArray()[0]!["status"] = blockedStatus);
             AssertThrows<InvalidDataException>(
-                () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                     Path.Combine(eligibilityRoot, $"blocked-artifact-{blockedStatus}"),
                     metadata,
                     blockedArtifactManifest,
@@ -1542,7 +1574,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             manifestBytes,
             static root => root["publicTrustMetrics"]!["revocationFacts"]!["channelRevoked"] = true);
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 eligibilityRoot,
                 metadata,
                 revokedChannelManifest,
@@ -1578,7 +1610,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
                 ]
             };
             AssertThrows<InvalidDataException>(
-                () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                     Path.Combine(eligibilityRoot, $"unsafe-download-{index}"),
                     unsafeDownloadMetadata,
                     unsafeDownloadManifest,
@@ -1618,7 +1650,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
                 ]
             };
             AssertThrows<InvalidDataException>(
-                () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                     Path.Combine(eligibilityRoot, $"unsafe-route-{index}"),
                     unsafeRouteMetadata,
                     unsafeRouteManifest,
@@ -1631,7 +1663,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
         }
 
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 stableRoot,
                 metadata,
                 manifestBytes,
@@ -1643,7 +1675,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
                 expectedCurrentSnapshotSha256: null),
             "Stable decision status must be pass iff releaseDecisionStatus is stable_ready.");
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 stableRoot,
                 metadata,
                 manifestBytes,
@@ -1655,7 +1687,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
                 expectedCurrentSnapshotSha256: null),
             "Stable decision publication must pin contract_version 2.");
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 stableRoot,
                 metadata,
                 manifestBytes,
@@ -1670,7 +1702,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             manifestBytes,
             metadata,
             "review_required");
-        ReleaseAuthorityCurrentPointer stableReviewCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+        ReleaseAuthorityCurrentPointer stableReviewCurrent = PublishAuthoritySnapshot(
             stableRoot,
             metadata,
             manifestBytes,
@@ -1715,7 +1747,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             stableReadyDecisionBytes,
             static root => root["live_release"]!.AsObject().Remove("known_issue_summary"),
             "Stable live_release must carry every settled snapshot binding field.");
-        ReleaseAuthorityCurrentPointer stableReadyCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+        ReleaseAuthorityCurrentPointer stableReadyCurrent = PublishAuthoritySnapshot(
             stableRoot,
             metadata,
             manifestBytes,
@@ -1743,23 +1775,16 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             emptyManifestBytes,
             emptyMetadata,
             "review_required");
-        ReleaseAuthorityCurrentPointer emptyCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
-            emptyRoot,
-            emptyMetadata,
-            emptyManifestBytes,
-            emptyDecisionBytes,
-            expectedCurrentSnapshotSha256: null);
-        LoadedReleaseAuthoritySnapshot emptyLoaded = ReleaseAuthoritySnapshotStore.LoadCurrent(emptyRoot)
-            ?? throw new InvalidOperationException("The empty review-required candidate must load.");
-        Assert(
-            emptyCurrent.Status == "review_required"
-            && emptyLoaded.Snapshot.ArtifactCount == 0
-            && emptyLoaded.Snapshot.AvailablePlatforms.Count == 0
-            && emptyLoaded.Snapshot.PrimaryHeadByPlatform.Count == 0
-            && emptyLoaded.Snapshot.DownloadAccessPosture == "unavailable",
-            "Only the exact review_required empty-shelf invariant is publishable.");
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
+                emptyRoot,
+                emptyMetadata,
+                emptyManifestBytes,
+                emptyDecisionBytes,
+                expectedCurrentSnapshotSha256: null),
+            "An approved release scope must name at least one platform even for review_required.");
+        AssertThrows<InvalidDataException>(
+            () => _ = PublishAuthoritySnapshot(
                 Path.Combine(emptyRoot, "ready-invalid"),
                 emptyMetadata,
                 emptyManifestBytes,
@@ -1783,9 +1808,12 @@ static void VerifyReleaseAuthoritySnapshotFiles(
         var apiManifestStore = new FileReleaseChannelManifestStore(apiConfiguration);
         HubRegistryController apiController = CreateController(
             new HubRegistryController(new HubArtifactStore(), apiManifestStore, configuration: apiConfiguration));
+        byte[] apiScopeBytes = BuildReleaseScopeDecisionBytes(metadata);
         var publishRequest = new RegistryOwner.ReleaseAuthorityPublishRequest(
             metadata,
             manifestBytes,
+            apiScopeBytes,
+            ReleaseAuthoritySnapshotStore.ComputeSha256(apiScopeBytes),
             decisionBytes,
             ExpectedCurrentSnapshotSha256: null);
         RegistryOwner.ReleaseAuthorityEnvelopeProjection publishedEnvelope = RequireOk(
@@ -1848,7 +1876,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent(strictPointerRoot),
             "CURRENT.json releaseVersion must not escape the content-addressed authority root.");
 
-        ReleaseAuthorityCurrentPointer tamperCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+        ReleaseAuthorityCurrentPointer tamperCurrent = PublishAuthoritySnapshot(
             tamperRoot,
             metadata,
             manifestBytes,
@@ -1859,7 +1887,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent(tamperRoot),
             "Loading CURRENT.json must reject a snapshot whose raw bytes no longer match snapshotSha256.");
 
-        ReleaseAuthorityCurrentPointer unknownCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+        ReleaseAuthorityCurrentPointer unknownCurrent = PublishAuthoritySnapshot(
             unknownSnapshotRoot,
             metadata,
             manifestBytes,
@@ -1902,7 +1930,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             () => _ = ReleaseAuthoritySnapshotStore.LoadCurrent(unknownSnapshotRoot),
             "SNAPSHOT.json must reject unknown properties even when CURRENT.json carries the matching raw-byte digest.");
 
-        ReleaseAuthorityCurrentPointer decisionCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+        ReleaseAuthorityCurrentPointer decisionCurrent = PublishAuthoritySnapshot(
             decisionMismatchRoot,
             metadata,
             manifestBytes,
@@ -1924,7 +1952,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             "CURRENT.json decision digest and status must match SNAPSHOT.json exactly.");
 
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 convergenceRoot,
                 metadata with { Channel = "conflicting-channel" },
                 manifestBytes,
@@ -1932,7 +1960,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
                 expectedCurrentSnapshotSha256: null),
             "Publication must reject snapshot metadata that diverges from the exact immutable release manifest.");
 
-        ReleaseAuthorityCurrentPointer firstCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+        ReleaseAuthorityCurrentPointer firstCurrent = PublishAuthoritySnapshot(
             atomicRoot,
             metadata,
             manifestBytes,
@@ -1941,7 +1969,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
         string firstSnapshotPath = ReleaseAuthoritySnapshotStore.GetSnapshotPath(atomicRoot, firstCurrent);
         byte[] firstSnapshotBytes = File.ReadAllBytes(firstSnapshotPath);
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 atomicRoot,
                 metadata,
                 manifestBytes,
@@ -1961,14 +1989,14 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             authoritySnapshotSha256: firstCurrent.SnapshotSha256,
             candidateDecisionStatus: firstCurrent.Status,
             candidateDecisionSha256: firstCurrent.DecisionSha256);
-        ReleaseAuthorityCurrentPointer secondCurrent = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+        ReleaseAuthorityCurrentPointer secondCurrent = PublishAuthoritySnapshot(
             atomicRoot,
             metadata,
             manifestBytes,
             readyDecisionBytes,
             expectedCurrentSnapshotSha256: firstCurrent.SnapshotSha256);
         AssertThrows<ReleaseAuthorityConcurrencyException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 atomicRoot,
                 metadata,
                 manifestBytes,
@@ -1976,7 +2004,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
                 expectedCurrentSnapshotSha256: firstCurrent.SnapshotSha256),
             "A stale expected CURRENT digest must not regress release authority.");
         AssertThrows<ReleaseAuthorityConcurrencyException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 atomicRoot,
                 metadata,
                 manifestBytes,
@@ -2004,7 +2032,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             Path.Combine(Path.GetDirectoryName(firstSnapshotPath)!, "unexpected.txt"),
             "conflict");
         AssertThrows<InvalidDataException>(
-            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
                 atomicRoot,
                 metadata,
                 manifestBytes,
@@ -2130,6 +2158,106 @@ static void AssertSchemaPropertySet(JsonElement schema, JsonElement instance, st
         $"Emitted {contractName} must have exactly the required property set in the portable schema.");
 }
 
+static ReleaseAuthorityCurrentPointer PublishAuthoritySnapshot(
+    string authorityRoot,
+    RegistryOwner.ReleaseAuthorityPublicationMetadata metadata,
+    byte[] manifestBytes,
+    byte[] releaseDecisionBytes,
+    string? expectedCurrentSnapshotSha256)
+{
+    IReadOnlyDictionary<string, IReadOnlyList<string>> fallbackHeads =
+        new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+    using (JsonDocument decision = JsonDocument.Parse(releaseDecisionBytes))
+    {
+        if (decision.RootElement.TryGetProperty(
+                "fallbackHeadsByPlatform",
+                out JsonElement fallbackElement)
+            && fallbackElement.ValueKind == JsonValueKind.Object)
+        {
+            fallbackHeads = fallbackElement.EnumerateObject().ToDictionary(
+                static row => row.Name,
+                static row => (IReadOnlyList<string>)row.Value.EnumerateArray()
+                    .Select(static item => item.GetString() ?? string.Empty)
+                    .ToArray(),
+                StringComparer.Ordinal);
+        }
+    }
+    byte[] scopeBytes = BuildReleaseScopeDecisionBytes(metadata, fallbackHeads);
+    return ReleaseAuthoritySnapshotStore.PublishSnapshot(
+        authorityRoot,
+        metadata,
+        manifestBytes,
+        scopeBytes,
+        ReleaseAuthoritySnapshotStore.ComputeSha256(scopeBytes),
+        releaseDecisionBytes,
+        expectedCurrentSnapshotSha256);
+}
+
+static byte[] BuildReleaseScopeDecisionBytes(
+    RegistryOwner.ReleaseAuthorityPublicationMetadata metadata,
+    IReadOnlyDictionary<string, IReadOnlyList<string>>? fallbackHeadsByPlatform = null)
+{
+    var platformRows = new JsonArray();
+    foreach (string platform in metadata.AvailablePlatforms.Order(StringComparer.Ordinal))
+    {
+        string primaryHead = metadata.PrimaryHeadByPlatform[platform];
+        RegistryOwner.ReleaseAuthorityArtifactProjection? primaryArtifact = metadata.Artifacts
+            .FirstOrDefault(artifact => artifact.Platform == platform && artifact.Head == primaryHead);
+        string rid = primaryArtifact?.Rid ?? platform switch
+        {
+            "linux" => "linux-x64",
+            "macos" => "osx-x64",
+            "windows" => "win-x64",
+            _ => "unsupported-rid"
+        };
+        string accessClass = primaryArtifact?.InstallAccessClass switch
+        {
+            "account_required" => "account_required",
+            "open_public" => "open_public",
+            _ => "support_directed"
+        };
+        var fallbacks = new JsonArray();
+        foreach (string head in (fallbackHeadsByPlatform is not null
+                     && fallbackHeadsByPlatform.TryGetValue(platform, out IReadOnlyList<string>? heads)
+                ? heads
+                : []).Order(StringComparer.Ordinal))
+        {
+            fallbacks.Add(head);
+        }
+        platformRows.Add(
+            new JsonObject
+            {
+                ["artifactAccessClass"] = accessClass,
+                ["fallbackHeads"] = fallbacks,
+                ["platform"] = platform,
+                ["primaryHead"] = primaryHead,
+                ["rid"] = rid,
+                ["signingRequirement"] = "signed"
+            });
+    }
+    var scope = new JsonObject
+    {
+        ["approvedAtUtc"] = "2026-07-18T00:00:00Z",
+        ["approvedBy"] = "Registry verifier",
+        ["channel"] = "preview",
+        ["contractName"] = "chummer.release-scope-decision/v1",
+        ["contractVersion"] = 1,
+        ["decisionId"] = "registry-preview-candidate",
+        ["platforms"] = platformRows,
+        ["releaseTarget"] = "preview",
+        ["releaseVersion"] = metadata.ReleaseVersion,
+        ["status"] = "approved",
+        ["supportOwner"] = metadata.SupportOwner
+    };
+    byte[] json = JsonSerializer.SerializeToUtf8Bytes(
+        scope,
+        new JsonSerializerOptions(JsonSerializerDefaults.Web));
+    byte[] canonical = new byte[json.Length + 1];
+    json.CopyTo(canonical, 0);
+    canonical[^1] = (byte)'\n';
+    return canonical;
+}
+
 static byte[] BuildPreviewDecisionBytes(
     byte[] manifestBytes,
     RegistryOwner.ReleaseAuthorityPublicationMetadata metadata,
@@ -2145,6 +2273,9 @@ static byte[] BuildPreviewDecisionBytes(
         ? generatedAt.GetString() ?? "1970-01-01T00:00:00Z"
         : "1970-01-01T00:00:00Z";
     bool previewReady = string.Equals(releaseDecisionStatus, "preview_ready", StringComparison.Ordinal);
+    byte[] releaseScopeDecisionBytes = BuildReleaseScopeDecisionBytes(
+        metadata,
+        fallbackHeadsByPlatform);
     object[] blockingFindings = previewReady
         ? []
         :
@@ -2163,6 +2294,8 @@ static byte[] BuildPreviewDecisionBytes(
             contractName = ReleaseAuthoritySnapshotStore.PreviewDecisionContract,
             generatedAt = manifestGeneratedAt,
             releaseVersion = metadata.ReleaseVersion,
+            releaseScopeDecisionSha256 = ReleaseAuthoritySnapshotStore.ComputeSha256(
+                releaseScopeDecisionBytes),
             channel = metadata.Channel,
             releaseDecisionStatus,
             status = releaseDecisionStatus,
@@ -2242,6 +2375,38 @@ static byte[] MutateJson(byte[] source, Action<JsonObject> mutation)
     return JsonSerializer.SerializeToUtf8Bytes(root, new JsonSerializerOptions(JsonSerializerDefaults.Web));
 }
 
+static void ReplaceJsonString(
+    JsonNode? node,
+    string oldValue,
+    string newValue,
+    params string[] propertyNames)
+{
+    if (node is JsonObject jsonObject)
+    {
+        foreach (KeyValuePair<string, JsonNode?> pair in jsonObject.ToArray())
+        {
+            if (propertyNames.Contains(pair.Key, StringComparer.Ordinal)
+                && pair.Value is JsonValue value
+                && value.TryGetValue(out string? text)
+                && string.Equals(text, oldValue, StringComparison.Ordinal))
+            {
+                jsonObject[pair.Key] = newValue;
+            }
+            else
+            {
+                ReplaceJsonString(pair.Value, oldValue, newValue, propertyNames);
+            }
+        }
+    }
+    else if (node is JsonArray jsonArray)
+    {
+        foreach (JsonNode? item in jsonArray)
+        {
+            ReplaceJsonString(item, oldValue, newValue, propertyNames);
+        }
+    }
+}
+
 static void AssertDecisionMutationRejected(
     string authorityRoot,
     RegistryOwner.ReleaseAuthorityPublicationMetadata metadata,
@@ -2252,7 +2417,7 @@ static void AssertDecisionMutationRejected(
 {
     byte[] mutatedDecisionBytes = MutateJson(decisionBytes, mutation);
     AssertThrows<InvalidDataException>(
-        () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            () => _ = PublishAuthoritySnapshot(
             authorityRoot,
             metadata,
             manifestBytes,

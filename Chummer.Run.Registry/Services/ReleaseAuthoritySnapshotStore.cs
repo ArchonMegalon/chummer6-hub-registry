@@ -1,6 +1,8 @@
 using System.ComponentModel;
+using System.Globalization;
 using System.Runtime.InteropServices;
 using System.Security.Cryptography;
+using System.Text.Encodings.Web;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using Chummer.Hub.Registry.Contracts;
@@ -79,10 +81,19 @@ internal sealed record ValidatedReleaseDecision(
     string ReleaseVersion,
     string ReleaseDecisionStatus,
     string ManifestSha256,
+    string ReleaseScopeDecisionSha256,
     string AuthoritySnapshotSha256,
     string CandidateDecisionStatus,
     string CandidateDecisionSha256,
     JsonElement Payload);
+
+internal sealed record ApprovedReleaseScopeBinding(
+    string Sha256,
+    string ReleaseVersion,
+    string SupportOwner,
+    IReadOnlyList<string> Platforms,
+    IReadOnlyDictionary<string, string> PrimaryHeadByPlatform,
+    IReadOnlyDictionary<string, IReadOnlyList<string>> FallbackHeadsByPlatform);
 
 public static class ReleaseAuthoritySnapshotStore
 {
@@ -236,11 +247,14 @@ public static class ReleaseAuthoritySnapshotStore
         string authorityRoot,
         ReleaseAuthorityPublicationMetadata metadata,
         byte[] manifestBytes,
+        byte[] releaseScopeDecisionBytes,
+        string expectedReleaseScopeDecisionSha256,
         byte[] releaseDecisionBytes,
         string? expectedCurrentSnapshotSha256)
     {
         ArgumentNullException.ThrowIfNull(metadata);
         ArgumentNullException.ThrowIfNull(manifestBytes);
+        ArgumentNullException.ThrowIfNull(releaseScopeDecisionBytes);
         ArgumentNullException.ThrowIfNull(releaseDecisionBytes);
 
         if (manifestBytes.Length == 0)
@@ -253,6 +267,11 @@ public static class ReleaseAuthoritySnapshotStore
             throw new InvalidDataException("Exact release-decision bytes are required.");
         }
 
+        if (releaseScopeDecisionBytes.Length == 0)
+        {
+            throw new InvalidDataException("Exact approved release-scope decision bytes are required.");
+        }
+
         if (expectedCurrentSnapshotSha256 is not null)
         {
             ValidateSha256(expectedCurrentSnapshotSha256, "expectedCurrentSnapshotSha256");
@@ -260,21 +279,34 @@ public static class ReleaseAuthoritySnapshotStore
 
         string normalizedRoot = NormalizeAuthorityRoot(authorityRoot);
         string manifestSha256 = ComputeSha256(manifestBytes);
+        ApprovedReleaseScopeBinding approvedScope = ValidateApprovedReleaseScope(
+            releaseScopeDecisionBytes,
+            expectedReleaseScopeDecisionSha256);
         ValidatedReleaseDecision decision = ValidateReleaseDecision(releaseDecisionBytes, manifestBytes);
-        if (!string.Equals(metadata.ReleaseVersion, decision.ReleaseVersion, StringComparison.Ordinal))
+        if (!string.Equals(metadata.ReleaseVersion, approvedScope.ReleaseVersion, StringComparison.Ordinal)
+            || !string.Equals(decision.ReleaseVersion, approvedScope.ReleaseVersion, StringComparison.Ordinal)
+            || decision.ContractName == PreviewDecisionContract
+               && !string.Equals(
+                   decision.ReleaseScopeDecisionSha256,
+                   approvedScope.Sha256,
+                   StringComparison.Ordinal))
         {
             throw new InvalidDataException(
-                "Publication metadata releaseVersion must match the exact release-decision bytes.");
+                "Publication metadata, release-decision bytes, and approved scope must bind the same exact release version and scope digest.");
         }
+
+        EnsurePublicationMetadataMatchesApprovedScope(metadata, approvedScope);
 
         ReleaseAuthoritySnapshot snapshot = CreateSnapshot(
             metadata,
+            approvedScope,
             manifestSha256,
             decision.ReleaseDecisionStatus,
             ComputeSha256(releaseDecisionBytes));
         ValidateSnapshot(snapshot);
         ReleaseAuthorityManifestDecisionScope manifestScope =
             FileReleaseChannelManifestStore.ValidatePublishableAuthority(snapshot, manifestBytes);
+        EnsureApprovedScopeMatchesManifest(approvedScope, snapshot, manifestScope);
         EnsureDecisionMatchesSnapshot(decision, snapshot, manifestScope);
 
         PrepareAuthorityRoot(normalizedRoot);
@@ -382,6 +414,7 @@ public static class ReleaseAuthoritySnapshotStore
 
     private static ReleaseAuthoritySnapshot CreateSnapshot(
         ReleaseAuthorityPublicationMetadata metadata,
+        ApprovedReleaseScopeBinding approvedScope,
         string manifestSha256,
         string decisionStatus,
         string decisionSha256)
@@ -408,20 +441,19 @@ public static class ReleaseAuthoritySnapshotStore
                     artifact.InstallAccessClass))
             .ToArray();
         var primaryHeads = new SortedDictionary<string, string>(StringComparer.Ordinal);
-        foreach (KeyValuePair<string, string> pair in metadata.PrimaryHeadByPlatform
-                     ?? throw new InvalidDataException("Publication metadata primaryHeadByPlatform is required."))
+        foreach (KeyValuePair<string, string> pair in approvedScope.PrimaryHeadByPlatform)
         {
             primaryHeads.Add(pair.Key, pair.Value);
         }
 
         return new ReleaseAuthoritySnapshot(
             AuthorityContract: AuthorityContract,
-            ReleaseVersion: metadata.ReleaseVersion,
+            ReleaseVersion: approvedScope.ReleaseVersion,
             Channel: metadata.Channel,
             Status: metadata.Status,
             RolloutState: metadata.RolloutState,
             SupportabilityState: metadata.SupportabilityState,
-            AvailablePlatforms: metadata.AvailablePlatforms,
+            AvailablePlatforms: approvedScope.Platforms,
             PrimaryHeadByPlatform: primaryHeads,
             ArtifactCount: metadata.ArtifactCount,
             DownloadAccessPosture: metadata.DownloadAccessPosture,
@@ -432,7 +464,7 @@ public static class ReleaseAuthoritySnapshotStore
             ReleaseDecisionStatus: decisionStatus,
             ReleaseDecisionSha256: decisionSha256,
             ReleaseDecisionPath: ReleaseDecisionFileName,
-            SupportOwner: metadata.SupportOwner,
+            SupportOwner: approvedScope.SupportOwner,
             NextActions: metadata.NextActions,
             Artifacts: artifacts,
             ManifestPath: ManifestFileName);
@@ -455,6 +487,299 @@ public static class ReleaseAuthoritySnapshotStore
             artifact.RevokeState,
             artifact.PublicInstallRoute,
             artifact.InstallAccessClass);
+
+    private static ApprovedReleaseScopeBinding ValidateApprovedReleaseScope(
+        byte[] bytes,
+        string expectedSha256)
+    {
+        if (bytes.Length is < 1 or > 8 * 1024 * 1024)
+        {
+            throw new InvalidDataException(
+                "Approved release-scope decision has an invalid byte length.");
+        }
+        EnsureDigest(bytes, expectedSha256, "approved release-scope decision digest");
+        try
+        {
+            using JsonDocument document = JsonDocument.Parse(
+                bytes,
+                new JsonDocumentOptions
+                {
+                    AllowTrailingCommas = false,
+                    CommentHandling = JsonCommentHandling.Disallow
+                });
+            JsonElement root = document.RootElement;
+            if (root.ValueKind != JsonValueKind.Object)
+            {
+                throw new InvalidDataException(
+                    "Approved release-scope decision must be a JSON object.");
+            }
+            ValidateNoDuplicateOrCaseShadowProperties(root, "approved release-scope decision");
+            byte[] canonical = CanonicalJsonBytes(root);
+            if (bytes.Length != canonical.Length + 1
+                || bytes[^1] != (byte)'\n'
+                || !bytes.AsSpan(0, bytes.Length - 1).SequenceEqual(canonical))
+            {
+                throw new InvalidDataException(
+                    "Approved release-scope decision must use exact compact sorted UTF-8 JSON plus LF bytes.");
+            }
+            RequireExactProperties(
+                root,
+                [
+                    "approvedAtUtc", "approvedBy", "channel", "contractName",
+                    "contractVersion", "decisionId", "platforms", "releaseTarget",
+                    "releaseVersion", "status", "supportOwner"
+                ],
+                "approved release-scope decision");
+            if (GetRequiredString(root, "contractName", "approved release-scope decision")
+                    != "chummer.release-scope-decision/v1"
+                || GetRequiredInt32(root, "contractVersion", "approved release-scope decision") != 1
+                || GetRequiredString(root, "status", "approved release-scope decision") != "approved"
+                || GetRequiredString(root, "channel", "approved release-scope decision") != "preview"
+                || GetRequiredString(root, "releaseTarget", "approved release-scope decision") != "preview")
+            {
+                throw new InvalidDataException(
+                    "Approved release-scope decision contract posture is invalid.");
+            }
+
+            string releaseVersion = GetRequiredString(
+                root,
+                "releaseVersion",
+                "approved release-scope decision");
+            ValidateReleaseVersion(releaseVersion);
+            string supportOwner = GetRequiredString(
+                root,
+                "supportOwner",
+                "approved release-scope decision");
+            ValidateNormalizedIdentifier(
+                supportOwner,
+                "approved release-scope decision supportOwner");
+            string decisionId = GetRequiredString(
+                root,
+                "decisionId",
+                "approved release-scope decision");
+            ValidateNormalizedIdentifier(decisionId, "approved release-scope decision decisionId");
+            string approvedAt = GetRequiredString(
+                root,
+                "approvedAtUtc",
+                "approved release-scope decision");
+            if (!DateTimeOffset.TryParseExact(
+                    approvedAt,
+                    "yyyy-MM-dd'T'HH:mm:ss'Z'",
+                    CultureInfo.InvariantCulture,
+                    DateTimeStyles.AssumeUniversal | DateTimeStyles.AdjustToUniversal,
+                    out _))
+            {
+                throw new InvalidDataException(
+                    "Approved release-scope decision approvedAtUtc must be canonical UTC seconds.");
+            }
+            string approvedBy = GetRequiredString(
+                root,
+                "approvedBy",
+                "approved release-scope decision");
+            if (approvedBy.Length > 256
+                || approvedBy is "unknown" or "missing" or "invalid" or "pending" or "tbd")
+            {
+                throw new InvalidDataException(
+                    "Approved release-scope decision approving authority is unresolved.");
+            }
+
+            if (!root.TryGetProperty("platforms", out JsonElement platformRows)
+                || platformRows.ValueKind != JsonValueKind.Array
+                || platformRows.GetArrayLength() is < 1 or > 16)
+            {
+                throw new InvalidDataException(
+                    "Approved release-scope decision must contain one through sixteen platforms.");
+            }
+            var platforms = new List<string>();
+            var primaryHeads = new SortedDictionary<string, string>(StringComparer.Ordinal);
+            var fallbackHeads = new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+            foreach (JsonElement row in platformRows.EnumerateArray())
+            {
+                RequireExactProperties(
+                    row,
+                    [
+                        "artifactAccessClass", "fallbackHeads", "platform", "primaryHead",
+                        "rid", "signingRequirement"
+                    ],
+                    "approved release-scope platform");
+                string platform = GetRequiredString(
+                    row,
+                    "platform",
+                    "approved release-scope platform");
+                string rid = GetRequiredString(row, "rid", "approved release-scope platform");
+                string primaryHead = GetRequiredString(
+                    row,
+                    "primaryHead",
+                    "approved release-scope platform");
+                string accessClass = GetRequiredString(
+                    row,
+                    "artifactAccessClass",
+                    "approved release-scope platform");
+                string signingRequirement = GetRequiredString(
+                    row,
+                    "signingRequirement",
+                    "approved release-scope platform");
+                ValidateNormalizedIdentifier(platform, "approved release-scope platform");
+                ValidateNormalizedIdentifier(rid, "approved release-scope RID");
+                ValidateNormalizedIdentifier(primaryHead, "approved release-scope primary head");
+                string[] fallbacks = GetRequiredOrderedStringList(
+                    row,
+                    "fallbackHeads",
+                    "approved release-scope platform",
+                    allowEmpty: true);
+                bool validRid = platform switch
+                {
+                    "linux" => rid is "linux-x64" or "linux-arm64",
+                    "macos" => rid is "osx-x64" or "osx-arm64",
+                    "windows" => rid is "win-x64" or "win-arm64",
+                    _ => false
+                };
+                if (!validRid
+                    || primaryHead is not ("avalonia" or "blazor-desktop")
+                    || fallbacks.Length > 15
+                    || fallbacks.Any(static head => head is not ("avalonia" or "blazor-desktop"))
+                    || fallbacks.Contains(primaryHead, StringComparer.Ordinal)
+                    || accessClass is not ("open_public" or "account_required" or "support_directed")
+                    || signingRequirement is not ("signed" or "preview_unsigned_allowed" or "not_applicable")
+                    || (platform is "macos" or "windows") && signingRequirement == "not_applicable"
+                    || platforms.Count != 0
+                       && string.CompareOrdinal(platforms[^1], platform) >= 0)
+                {
+                    throw new InvalidDataException(
+                        "Approved release-scope platform inventory is noncanonical or unsupported.");
+                }
+                platforms.Add(platform);
+                primaryHeads.Add(platform, primaryHead);
+                fallbackHeads.Add(platform, fallbacks);
+            }
+            EnsureSortedUnique(platforms, "approved release-scope platforms");
+            return new ApprovedReleaseScopeBinding(
+                expectedSha256,
+                releaseVersion,
+                supportOwner,
+                platforms,
+                primaryHeads,
+                fallbackHeads);
+        }
+        catch (JsonException exception)
+        {
+            throw new InvalidDataException(
+                "Approved release-scope decision is not valid strict JSON.",
+                exception);
+        }
+    }
+
+    private static void EnsurePublicationMetadataMatchesApprovedScope(
+        ReleaseAuthorityPublicationMetadata metadata,
+        ApprovedReleaseScopeBinding approvedScope)
+    {
+        if (!string.Equals(metadata.Channel, "preview", StringComparison.Ordinal)
+            || !string.Equals(metadata.SupportOwner, approvedScope.SupportOwner, StringComparison.Ordinal)
+            || metadata.AvailablePlatforms is null
+            || !metadata.AvailablePlatforms.SequenceEqual(approvedScope.Platforms, StringComparer.Ordinal)
+            || metadata.PrimaryHeadByPlatform is null
+            || !StringMapEquals(metadata.PrimaryHeadByPlatform, approvedScope.PrimaryHeadByPlatform))
+        {
+            throw new InvalidDataException(
+                "Publication metadata release version, platforms, primary heads, and support owner must match the exact approved scope.");
+        }
+    }
+
+    private static void EnsureApprovedScopeMatchesManifest(
+        ApprovedReleaseScopeBinding approvedScope,
+        ReleaseAuthoritySnapshot snapshot,
+        ReleaseAuthorityManifestDecisionScope manifestScope)
+    {
+        var nonemptyFallbacks = approvedScope.FallbackHeadsByPlatform
+            .Where(static pair => pair.Value.Count != 0)
+            .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal);
+        if (!string.Equals(snapshot.ReleaseVersion, approvedScope.ReleaseVersion, StringComparison.Ordinal)
+            || !snapshot.AvailablePlatforms.SequenceEqual(approvedScope.Platforms, StringComparer.Ordinal)
+            || !StringMapEquals(snapshot.PrimaryHeadByPlatform, approvedScope.PrimaryHeadByPlatform)
+            || !FallbackMapEquals(nonemptyFallbacks, manifestScope.FallbackHeadsByPlatform))
+        {
+            throw new InvalidDataException(
+                "Approved release-scope decision does not match the exact manifest candidate scope.");
+        }
+    }
+
+    private static void RequireExactProperties(
+        JsonElement value,
+        IReadOnlyCollection<string> expected,
+        string label)
+    {
+        if (value.ValueKind != JsonValueKind.Object)
+        {
+            throw new InvalidDataException($"{label} must be an object.");
+        }
+        string[] actual = value.EnumerateObject()
+            .Select(static property => property.Name)
+            .Order(StringComparer.Ordinal)
+            .ToArray();
+        string[] required = expected.Order(StringComparer.Ordinal).ToArray();
+        if (!actual.SequenceEqual(required, StringComparer.Ordinal))
+        {
+            throw new InvalidDataException($"{label} has an invalid exact property set.");
+        }
+    }
+
+    private static byte[] CanonicalJsonBytes(JsonElement element)
+    {
+        using var stream = new MemoryStream();
+        using (var writer = new Utf8JsonWriter(
+                   stream,
+                   new JsonWriterOptions
+                   {
+                       Encoder = JavaScriptEncoder.UnsafeRelaxedJsonEscaping,
+                       Indented = false
+                   }))
+        {
+            WriteCanonicalJson(writer, element);
+        }
+        return stream.ToArray();
+    }
+
+    private static void WriteCanonicalJson(Utf8JsonWriter writer, JsonElement element)
+    {
+        switch (element.ValueKind)
+        {
+            case JsonValueKind.Object:
+                writer.WriteStartObject();
+                foreach (JsonProperty property in element.EnumerateObject()
+                             .OrderBy(static property => property.Name, StringComparer.Ordinal))
+                {
+                    writer.WritePropertyName(property.Name);
+                    WriteCanonicalJson(writer, property.Value);
+                }
+                writer.WriteEndObject();
+                break;
+            case JsonValueKind.Array:
+                writer.WriteStartArray();
+                foreach (JsonElement item in element.EnumerateArray())
+                {
+                    WriteCanonicalJson(writer, item);
+                }
+                writer.WriteEndArray();
+                break;
+            case JsonValueKind.String:
+                writer.WriteStringValue(element.GetString());
+                break;
+            case JsonValueKind.Number:
+                element.WriteTo(writer);
+                break;
+            case JsonValueKind.True:
+                writer.WriteBooleanValue(true);
+                break;
+            case JsonValueKind.False:
+                writer.WriteBooleanValue(false);
+                break;
+            case JsonValueKind.Null:
+                writer.WriteNullValue();
+                break;
+            default:
+                throw new InvalidDataException("Approved release-scope decision contains unsupported JSON.");
+        }
+    }
 
     private static byte[] ReadRequiredAuthorityFile(string path, string description)
     {
@@ -817,6 +1142,18 @@ public static class ReleaseAuthoritySnapshotStore
             ValidatedReleaseDecision decision;
             if (root.TryGetProperty("contractName", out JsonElement previewContract))
             {
+                RequireExactProperties(
+                    root,
+                    [
+                        "contractName", "generatedAt", "status", "releaseDecisionStatus",
+                        "verdict", "releaseVersion", "releaseScopeDecisionSha256", "channel",
+                        "platforms", "primaryHeadByPlatform", "fallbackHeadsByPlatform",
+                        "artifactAccessClass", "supportOwner", "nextActions", "registryCommit",
+                        "manifestSha256", "authoritySnapshotSha256", "candidateDecisionStatus",
+                        "candidateDecisionSha256", "manifestGeneratedAt", "scorecardSha256",
+                        "convergenceSha256", "blockingFindings"
+                    ],
+                    ReleaseDecisionFileName);
                 if (previewContract.ValueKind != JsonValueKind.String
                     || !string.Equals(previewContract.GetString(), PreviewDecisionContract, StringComparison.Ordinal)
                     || root.TryGetProperty("contract_name", out _)
@@ -843,6 +1180,13 @@ public static class ReleaseAuthoritySnapshotStore
                 }
 
                 string manifestSha256 = GetRequiredString(root, "manifestSha256", ReleaseDecisionFileName);
+                string releaseScopeDecisionSha256 = GetRequiredString(
+                    root,
+                    "releaseScopeDecisionSha256",
+                    ReleaseDecisionFileName);
+                ValidateSha256(
+                    releaseScopeDecisionSha256,
+                    $"{ReleaseDecisionFileName} releaseScopeDecisionSha256");
                 string authoritySnapshotSha256 = GetRequiredStringAllowEmpty(
                     root,
                     "authoritySnapshotSha256",
@@ -866,6 +1210,7 @@ public static class ReleaseAuthoritySnapshotStore
                     releaseVersion,
                     decisionStatus,
                     manifestSha256,
+                    releaseScopeDecisionSha256,
                     authoritySnapshotSha256,
                     candidateDecisionStatus,
                     candidateDecisionSha256,
@@ -918,6 +1263,7 @@ public static class ReleaseAuthoritySnapshotStore
                     releaseVersion,
                     decisionStatus,
                     manifestSha256,
+                    string.Empty,
                     string.Empty,
                     string.Empty,
                     string.Empty,
