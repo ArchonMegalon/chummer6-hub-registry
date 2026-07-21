@@ -1,0 +1,635 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chummer.run/contracts/preview-publication-delta-v1.schema.json",
+  "title": "Chummer preview publication delta v1 contracts",
+  "description": "Fail-closed two-phase contracts for preparing and independently approving a preview-only shelf delta while retaining every incumbent public byte. These contracts never grant upload or deploy authority.",
+  "oneOf": [
+    { "$ref": "#/$defs/composition" },
+    { "$ref": "#/$defs/candidateReceipt" },
+    { "$ref": "#/$defs/authority" },
+    { "$ref": "#/$defs/finalizeReceipt" }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "gitCommit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "releaseVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]*$",
+      "not": { "enum": [".", ".."] }
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\)[A-Za-z0-9._+@/-]+$"
+    },
+    "fileName": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 255,
+      "pattern": "^(?!\\.{1,2}$)[A-Za-z0-9][A-Za-z0-9._+-]*$"
+    },
+    "byteReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "sizeBytes"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "sizeBytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "sourceReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["contractName", "contractVersion", "path", "sha256"],
+      "properties": {
+        "contractName": { "type": "string", "minLength": 1, "maxLength": 256 },
+        "contractVersion": { "type": "integer", "minimum": 1, "maximum": 2147483647 },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "desktopTuple": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactRole", "consumerCommit", "fileName", "head",
+        "manifestRowSha256", "path", "platform", "rid", "sha256",
+        "sizeBytes", "sourceReceipt"
+      ],
+      "properties": {
+        "artifactRole": { "enum": ["installer", "payload"] },
+        "consumerCommit": { "$ref": "#/$defs/gitCommit" },
+        "fileName": { "$ref": "#/$defs/fileName" },
+        "head": { "const": "avalonia" },
+        "manifestRowSha256": { "$ref": "#/$defs/sha256" },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "platform": { "enum": ["linux", "macos", "windows"] },
+        "rid": { "enum": ["linux-x64", "osx-arm64", "osx-x64", "win-x64"] },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "sizeBytes": { "type": "integer", "minimum": 1 },
+        "sourceReceipt": { "$ref": "#/$defs/sourceReceipt" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "platform": { "const": "windows" } }, "required": ["platform"] },
+          "then": { "properties": { "rid": { "const": "win-x64" } } }
+        },
+        {
+          "if": {
+            "properties": {
+              "platform": { "const": "windows" },
+              "artifactRole": { "const": "installer" }
+            },
+            "required": ["platform", "artifactRole"]
+          },
+          "then": {
+            "properties": {
+              "fileName": { "const": "chummer-avalonia-win-x64-installer.exe" },
+              "path": { "const": "files/chummer-avalonia-win-x64-installer.exe" }
+            }
+          }
+        },
+        {
+          "if": {
+            "properties": {
+              "platform": { "const": "windows" },
+              "artifactRole": { "const": "payload" }
+            },
+            "required": ["platform", "artifactRole"]
+          },
+          "then": {
+            "properties": {
+              "fileName": { "const": "chummer-avalonia-win-x64-payload.zip" },
+              "path": { "const": "files/chummer-avalonia-win-x64-payload.zip" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "platform": { "const": "linux" } }, "required": ["platform"] },
+          "then": {
+            "properties": {
+              "rid": { "const": "linux-x64" },
+              "artifactRole": { "const": "installer" }
+            }
+          }
+        },
+        {
+          "if": { "properties": { "platform": { "const": "macos" } }, "required": ["platform"] },
+          "then": {
+            "properties": {
+              "rid": { "enum": ["osx-arm64", "osx-x64"] },
+              "artifactRole": { "const": "installer" }
+            }
+          }
+        }
+      ]
+    },
+    "inventoryRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "path", "sha256", "sizeBytes"],
+      "properties": {
+        "mode": { "type": "string", "pattern": "^[0-7]{4}$" },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "sizeBytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "platformArray": {
+      "type": "array",
+      "minItems": 1,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": { "enum": ["linux", "macos", "windows"] }
+    },
+    "platformArrayAllowEmpty": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 3,
+      "uniqueItems": true,
+      "items": { "enum": ["linux", "macos", "windows"] }
+    },
+    "retainedPlatformArray": {
+      "type": "array",
+      "minItems": 0,
+      "maxItems": 2,
+      "uniqueItems": true,
+      "items": { "enum": ["linux", "macos"] }
+    },
+    "producerCommits": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["desktop", "registry", "ui"],
+      "properties": {
+        "desktop": { "$ref": "#/$defs/gitCommit" },
+        "registry": { "$ref": "#/$defs/gitCommit" },
+        "ui": { "$ref": "#/$defs/gitCommit" }
+      }
+    },
+    "registryProjectionInputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["materializer", "releaseChannelMaterializer", "schema", "verifier"],
+      "properties": {
+        "materializer": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "scripts/materialize_preview_publication_delta.py" } } }
+          ]
+        },
+        "releaseChannelMaterializer": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "scripts/materialize_public_release_channel.py" } } }
+          ]
+        },
+        "schema": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "contracts/preview-publication-delta-v1.schema.json" } } }
+          ]
+        },
+        "verifier": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "scripts/verify_public_release_channel.py" } } }
+          ]
+        }
+      }
+    },
+    "incumbentSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalManifest", "compatibilityManifest", "desktopTuples",
+        "desktopTupleSetSha256", "fullInventory", "fullInventorySha256",
+        "managedPaths", "platforms", "snapshotSha256"
+      ],
+      "properties": {
+        "canonicalManifest": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "RELEASE_CHANNEL.generated.json" } } }
+          ]
+        },
+        "compatibilityManifest": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "releases.json" } } }
+          ]
+        },
+        "desktopTuples": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/desktopTuple" }
+        },
+        "desktopTupleSetSha256": { "$ref": "#/$defs/sha256" },
+        "fullInventory": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "items": { "$ref": "#/$defs/inventoryRow" }
+        },
+        "fullInventorySha256": { "$ref": "#/$defs/sha256" },
+        "managedPaths": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "uniqueItems": true,
+          "items": { "$ref": "#/$defs/relativePath" }
+        },
+        "platforms": { "$ref": "#/$defs/platformArray" },
+        "snapshotSha256": { "$ref": "#/$defs/sha256" }
+      },
+      "x-chummer-snapshot-sha256-invariant": "snapshotSha256 is SHA-256 over the recursively key-sorted compact UTF-8 JSON object without a trailing LF whose exact fields are canonicalManifestSha256, compatibilityManifestSha256, desktopTupleSetSha256, desktopTuples, inventory, inventorySha256, managedPaths, and platforms."
+    },
+    "policy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "allowIncumbentRemoval", "deltaPlatforms", "evidencePlatforms",
+        "producerDeployAuthority", "producerReleaseUploadAuthority",
+        "retainAllIncumbent", "scope"
+      ],
+      "properties": {
+        "allowIncumbentRemoval": { "const": false },
+        "deltaPlatforms": {
+          "type": "array",
+          "prefixItems": [{ "const": "windows" }],
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "evidencePlatforms": {
+          "type": "array",
+          "prefixItems": [{ "const": "linux" }],
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "producerDeployAuthority": { "const": false },
+        "producerReleaseUploadAuthority": { "const": false },
+        "retainAllIncumbent": { "const": true },
+        "scope": { "const": "windows_only" }
+      }
+    },
+    "composition": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "channel", "contractName", "contractVersion", "incumbentSnapshot",
+        "nonPublishedEvidenceTupleSetSha256", "nonPublishedEvidenceTuples",
+        "policy", "producerCommits", "publicationDeltaTupleSetSha256",
+        "publicationDeltaTuples", "releaseVersion"
+      ],
+      "properties": {
+        "channel": { "const": "preview" },
+        "contractName": { "const": "chummer.registry.preview-publication-delta-composition" },
+        "contractVersion": { "const": 1 },
+        "incumbentSnapshot": { "$ref": "#/$defs/incumbentSnapshot" },
+        "nonPublishedEvidenceTupleSetSha256": { "$ref": "#/$defs/sha256" },
+        "nonPublishedEvidenceTuples": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "allOf": [
+                { "$ref": "#/$defs/desktopTuple" },
+                {
+                  "properties": {
+                    "artifactRole": { "const": "installer" },
+                    "fileName": { "const": "chummer-avalonia-linux-x64-installer.deb" },
+                    "path": { "const": "files/chummer-avalonia-linux-x64-installer.deb" },
+                    "platform": { "const": "linux" },
+                    "rid": { "const": "linux-x64" }
+                  }
+                }
+              ]
+            }
+          ],
+          "minItems": 1,
+          "maxItems": 1
+        },
+        "policy": { "$ref": "#/$defs/policy" },
+        "producerCommits": { "$ref": "#/$defs/producerCommits" },
+        "publicationDeltaTupleSetSha256": { "$ref": "#/$defs/sha256" },
+        "publicationDeltaTuples": {
+          "type": "array",
+          "prefixItems": [
+            {
+              "allOf": [
+                { "$ref": "#/$defs/desktopTuple" },
+                {
+                  "properties": {
+                    "artifactRole": { "const": "installer" },
+                    "platform": { "const": "windows" },
+                    "rid": { "const": "win-x64" }
+                  }
+                }
+              ]
+            },
+            {
+              "allOf": [
+                { "$ref": "#/$defs/desktopTuple" },
+                {
+                  "properties": {
+                    "artifactRole": { "const": "payload" },
+                    "platform": { "const": "windows" },
+                    "rid": { "const": "win-x64" }
+                  }
+                }
+              ]
+            }
+          ],
+          "minItems": 2,
+          "maxItems": 2
+        },
+        "releaseVersion": { "$ref": "#/$defs/releaseVersion" }
+      },
+      "x-chummer-canonical-bytes-invariant": "The composition document, tuple arrays, and inventory arrays use recursively key-sorted compact UTF-8 JSON plus LF. snapshotSha256 alone follows the incumbentSnapshot normalized-object invariant and excludes the LF. Tuple and inventory arrays are ordinally sorted and duplicate-free; every digest is computed over canonical JSON bytes for the named array. The delta is exactly the canonical Avalonia win-x64 installer and bound payload sidecar. Evidence is exactly the canonical Avalonia linux-x64 installer and is never a shelf or upload row."
+    },
+    "candidateReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalManifest", "channel", "compatibilityManifest",
+        "compositionInput", "compositionInputDocument", "contractName", "contractVersion", "deltaPlatforms",
+        "deployAuthority", "evidencePlatforms", "fullShelfInventory",
+        "fullShelfInventorySha256", "incumbentDesktopTupleSetSha256",
+        "incumbentCanonicalManifestBytesBase64", "incumbentSnapshotSha256",
+        "nonPublishedEvidenceTupleSetSha256",
+        "postPublicationTupleSetSha256", "publicationDeltaTupleSetSha256",
+        "publicationEligible", "publicationStatus", "releaseUploadAuthority",
+        "registryProjectionInputs", "routeAuthority",
+        "releaseVersion", "retainedPlatforms", "retainedTupleSetSha256",
+        "shelfPlatforms"
+      ],
+      "properties": {
+        "canonicalManifest": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "RELEASE_CHANNEL.generated.json" } } }
+          ]
+        },
+        "channel": { "const": "preview" },
+        "compatibilityManifest": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "releases.json" } } }
+          ]
+        },
+        "compositionInput": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            {
+              "properties": {
+                "path": {
+                  "type": "string",
+                  "pattern": "^[A-Za-z0-9][A-Za-z0-9._+@-]*$"
+                }
+              }
+            }
+          ]
+        },
+        "compositionInputDocument": { "$ref": "#/$defs/composition" },
+        "contractName": { "const": "chummer.registry.preview-publication-delta-candidate" },
+        "contractVersion": { "const": 1 },
+        "deltaPlatforms": { "const": ["windows"] },
+        "deployAuthority": { "const": false },
+        "evidencePlatforms": { "const": ["linux"] },
+        "fullShelfInventory": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 4096,
+          "items": { "$ref": "#/$defs/inventoryRow" }
+        },
+        "fullShelfInventorySha256": { "$ref": "#/$defs/sha256" },
+        "incumbentDesktopTupleSetSha256": { "$ref": "#/$defs/sha256" },
+        "incumbentCanonicalManifestBytesBase64": {
+          "type": "string",
+          "minLength": 4,
+          "maxLength": 2796204,
+          "pattern": "^[A-Za-z0-9+/]*={0,2}$",
+          "contentEncoding": "base64"
+        },
+        "incumbentSnapshotSha256": { "$ref": "#/$defs/sha256" },
+        "nonPublishedEvidenceTupleSetSha256": { "$ref": "#/$defs/sha256" },
+        "postPublicationTupleSetSha256": { "$ref": "#/$defs/sha256" },
+        "publicationDeltaTupleSetSha256": { "$ref": "#/$defs/sha256" },
+        "publicationEligible": { "const": false },
+        "publicationStatus": { "const": "review_required" },
+        "registryProjectionInputs": { "$ref": "#/$defs/registryProjectionInputs" },
+        "releaseUploadAuthority": { "const": false },
+        "routeAuthority": { "const": false },
+        "releaseVersion": { "$ref": "#/$defs/releaseVersion" },
+        "retainedPlatforms": { "$ref": "#/$defs/retainedPlatformArray" },
+        "retainedTupleSetSha256": { "$ref": "#/$defs/sha256" },
+        "shelfPlatforms": { "$ref": "#/$defs/platformArray" }
+      },
+      "x-chummer-invariant": "Candidate manifests and inventory are deterministic projections of the exact composition input. The bounded incumbentCanonicalManifestBytesBase64 field holds the exact public incumbent canonical-manifest bytes and must match the size and SHA-256 reference inside the embedded composition; retained rows are derived from those strictly parsed held bytes. The composition input path is one NFC-normalized portable ASCII basename, is not Windows-reserved, and does not casefold-collide with any candidate output name. No candidate field grants publication, upload, or deploy authority."
+    },
+    "dispositionRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactId", "disposition", "head", "platform", "rid", "sha256",
+        "sizeBytes", "sourceManifestSha256", "sourceReleaseVersion",
+        "sourceSnapshotSha256"
+      ],
+      "properties": {
+        "artifactId": { "type": "string", "pattern": "^[a-z0-9][a-z0-9._+-]*$" },
+        "disposition": { "enum": ["delta", "retained_incumbent"] },
+        "head": { "const": "avalonia" },
+        "platform": { "enum": ["linux", "macos", "windows"] },
+        "rid": { "enum": ["linux-x64", "osx-arm64", "osx-x64", "win-x64"] },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "sizeBytes": { "type": "integer", "minimum": 1 },
+        "sourceManifestSha256": { "$ref": "#/$defs/sha256" },
+        "sourceReleaseVersion": { "$ref": "#/$defs/releaseVersion" },
+        "sourceSnapshotSha256": { "$ref": "#/$defs/sha256" }
+      },
+      "allOf": [
+        {
+          "if": { "properties": { "disposition": { "const": "delta" } }, "required": ["disposition"] },
+          "then": { "properties": { "platform": { "const": "windows" }, "rid": { "const": "win-x64" } } }
+        },
+        {
+          "if": { "properties": { "disposition": { "const": "retained_incumbent" } }, "required": ["disposition"] },
+          "then": { "properties": { "platform": { "enum": ["linux", "macos"] } } }
+        },
+        {
+          "if": { "properties": { "platform": { "const": "linux" } }, "required": ["platform"] },
+          "then": { "properties": { "rid": { "const": "linux-x64" } } }
+        },
+        {
+          "if": { "properties": { "platform": { "const": "macos" } }, "required": ["platform"] },
+          "then": { "properties": { "rid": { "enum": ["osx-arm64", "osx-x64"] } } }
+        },
+        {
+          "if": { "properties": { "platform": { "const": "windows" } }, "required": ["platform"] },
+          "then": { "properties": { "rid": { "const": "win-x64" } } }
+        }
+      ]
+    },
+    "evidenceSet": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["approval", "nativeEvidence", "signingReceipt", "visualEvidence"],
+      "properties": {
+        "approval": { "$ref": "#/$defs/byteReference" },
+        "nativeEvidence": { "$ref": "#/$defs/byteReference" },
+        "signingReceipt": { "$ref": "#/$defs/byteReference" },
+        "visualEvidence": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/byteReference" }
+        }
+      }
+    },
+    "authority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidateReceipt", "canonicalManifest", "channel", "compatibilityManifest",
+        "compositionInputSha256", "contractName", "contractVersion", "deltaPlatforms",
+        "deployAuthority", "dispositions", "evidence", "evidencePlatforms",
+        "fullShelfInventorySha256", "incumbentSnapshotSha256",
+        "nonPublishedEvidenceTupleSetSha256", "postPublicationTupleSetSha256",
+        "publicationDeltaTupleSetSha256", "publicationEligible",
+        "releaseUploadAuthority", "releaseVersion", "retainedPlatforms",
+        "retainedTupleSetSha256", "scope", "shelfPlatforms", "sourceScope"
+      ],
+      "properties": {
+        "candidateReceipt": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "PREVIEW_PUBLICATION_DELTA_CANDIDATE.json" } } }
+          ]
+        },
+        "canonicalManifest": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "RELEASE_CHANNEL.generated.json" } } }
+          ]
+        },
+        "channel": { "const": "preview" },
+        "compatibilityManifest": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "releases.json" } } }
+          ]
+        },
+        "compositionInputSha256": { "$ref": "#/$defs/sha256" },
+        "contractName": { "const": "chummer.registry.preview-publication-delta-authority" },
+        "contractVersion": { "const": 1 },
+        "deltaPlatforms": { "const": ["windows"] },
+        "deployAuthority": { "const": false },
+        "dispositions": {
+          "type": "array",
+          "minItems": 1,
+          "maxItems": 32,
+          "items": { "$ref": "#/$defs/dispositionRow" },
+          "contains": {
+            "properties": { "disposition": { "const": "delta" } },
+            "required": ["disposition"]
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        "evidence": { "$ref": "#/$defs/evidenceSet" },
+        "evidencePlatforms": { "const": ["linux"] },
+        "fullShelfInventorySha256": { "$ref": "#/$defs/sha256" },
+        "incumbentSnapshotSha256": { "$ref": "#/$defs/sha256" },
+        "nonPublishedEvidenceTupleSetSha256": { "$ref": "#/$defs/sha256" },
+        "postPublicationTupleSetSha256": { "$ref": "#/$defs/sha256" },
+        "publicationDeltaTupleSetSha256": { "$ref": "#/$defs/sha256" },
+        "publicationEligible": { "const": true },
+        "releaseUploadAuthority": { "const": false },
+        "releaseVersion": { "$ref": "#/$defs/releaseVersion" },
+        "retainedPlatforms": { "$ref": "#/$defs/retainedPlatformArray" },
+        "retainedTupleSetSha256": { "$ref": "#/$defs/sha256" },
+        "scope": { "const": "windows_only" },
+        "shelfPlatforms": { "$ref": "#/$defs/platformArray" },
+        "sourceScope": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            {
+              "type": "object",
+              "properties": {
+                "path": { "const": "PREVIEW_NIGHTLY_PUBLICATION_SCOPE.generated.json" }
+              }
+            }
+          ]
+        }
+      },
+      "x-chummer-invariant": "Authority proves independent eligibility for exact prepared bytes only. It never proves that upload or convergence occurred. Every public artifact has one disposition row; delta rows are Windows-only and every non-replaced incumbent row is retained_incumbent."
+    },
+    "finalizeReceipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority", "candidateBytesMutated", "candidateReceipt",
+        "canonicalManifest", "channel", "compatibilityManifest", "contractName",
+        "contractVersion", "deployAuthority", "fullShelfInventorySha256",
+        "publicationEligible", "releaseUploadAuthority", "releaseVersion",
+        "sourceScope", "verificationStatus"
+      ],
+      "properties": {
+        "authority": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "PREVIEW_PUBLICATION_DELTA_AUTHORITY.json" } } }
+          ]
+        },
+        "candidateBytesMutated": { "const": false },
+        "candidateReceipt": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "PREVIEW_PUBLICATION_DELTA_CANDIDATE.json" } } }
+          ]
+        },
+        "canonicalManifest": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "RELEASE_CHANNEL.generated.json" } } }
+          ]
+        },
+        "channel": { "const": "preview" },
+        "compatibilityManifest": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "releases.json" } } }
+          ]
+        },
+        "contractName": { "const": "chummer.registry.preview-publication-delta-finalize" },
+        "contractVersion": { "const": 1 },
+        "deployAuthority": { "const": false },
+        "fullShelfInventorySha256": { "$ref": "#/$defs/sha256" },
+        "publicationEligible": { "const": true },
+        "releaseUploadAuthority": { "const": false },
+        "releaseVersion": { "$ref": "#/$defs/releaseVersion" },
+        "sourceScope": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            {
+              "properties": {
+                "path": { "const": "PREVIEW_NIGHTLY_PUBLICATION_SCOPE.generated.json" }
+              }
+            }
+          ]
+        },
+        "verificationStatus": { "const": "finalized" }
+      },
+      "x-chummer-invariant": "Finalization revalidates exact prepared bytes and emits a separate authority graph. It does not mutate candidate manifest bytes and cannot authorize upload without a Run handoff, complete live convergence receipt, and predecessor CAS at the Registry publish boundary."
+    }
+  }
+}

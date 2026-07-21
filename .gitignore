@@ -7,6 +7,7 @@ obj/
 # Binary payloads are published out-of-band; never commit generated binaries.
 *.bin
 *.exe
+!/tests/fixtures/preview_publication_delta_v1/delta/files/chummer-avalonia-win-x64-installer.exe
 
 # Local agent and worker artifacts
 .agent-memory.md

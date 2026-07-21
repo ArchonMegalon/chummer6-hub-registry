@@ -2,18 +2,23 @@
 from __future__ import annotations
 
 import argparse
+import base64
+import binascii
 import difflib
-import json
 import hashlib
+import importlib.util
+import json
 import os
 import re
 import shlex
 import shutil
+import stat
 import subprocess
 import sys
 import urllib.error
 import urllib.parse
 import urllib.request
+import unicodedata
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
@@ -49,6 +54,48 @@ DEFAULT_HTTP_HEADERS = {
     "Cache-Control": "no-cache",
     "Pragma": "no-cache",
 }
+MAX_MANIFEST_BYTES = 8 * 1024 * 1024
+MAX_EMBEDDED_INCUMBENT_MANIFEST_BYTES = 2 * 1024 * 1024
+_RELEASE_CHANNEL_MATERIALIZER_MODULE: Any | None = None
+
+
+class DuplicateJsonKeyError(ValueError):
+    pass
+
+
+class NonFiniteJsonNumberError(ValueError):
+    pass
+
+
+def reject_duplicate_json_keys(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise DuplicateJsonKeyError(key)
+        result[key] = value
+    return result
+
+
+def reject_non_finite_json_number(value: str) -> None:
+    raise NonFiniteJsonNumberError(value)
+
+
+def strict_json_loads(raw: str | bytes, *, source: str) -> Any:
+    size_bytes = len(raw.encode("utf-8")) if isinstance(raw, str) else len(raw)
+    if not (0 < size_bytes <= MAX_MANIFEST_BYTES):
+        raise SystemExit(f"manifest has an invalid size: {source}")
+    try:
+        return json.loads(
+            raw,
+            object_pairs_hook=reject_duplicate_json_keys,
+            parse_constant=reject_non_finite_json_number,
+        )
+    except DuplicateJsonKeyError as exc:
+        raise SystemExit(f"manifest contains duplicate JSON key {exc.args[0]!r}: {source}") from exc
+    except NonFiniteJsonNumberError as exc:
+        raise SystemExit(f"manifest contains non-finite JSON number {exc.args[0]}: {source}") from exc
+    except (UnicodeDecodeError, json.JSONDecodeError) as exc:
+        raise SystemExit(f"manifest is not valid UTF-8 JSON: {source}") from exc
 
 
 def write_registry_mismatch_audit(
@@ -827,7 +874,8 @@ def expected_external_proof_capture_commands(
 def open_json_url_via_urllib(raw_target: str) -> dict:
     request = urllib.request.Request(raw_target, headers=DEFAULT_HTTP_HEADERS)
     with urllib.request.urlopen(request, timeout=30) as response:
-        return json.load(response)
+        raw = response.read(MAX_MANIFEST_BYTES + 1)
+    return strict_json_loads(raw, source=raw_target)
 
 
 def open_json_url_via_curl(raw_target: str) -> dict:
@@ -857,7 +905,7 @@ def open_json_url_via_curl(raw_target: str) -> dict:
         capture_output=True,
         text=True,
     )
-    return json.loads(completed.stdout)
+    return strict_json_loads(completed.stdout, source=raw_target)
 
 
 def open_json_url(raw_target: str) -> dict:
@@ -906,14 +954,14 @@ def load_payload(raw_target: str) -> tuple[dict, str, Path | None]:
             path = path / "RELEASE_CHANNEL.generated.json"
         else:
             path = path / "releases.json"
-        return json.loads(path.read_text(encoding="utf-8")), str(path), root
+        return strict_json_loads(path.read_bytes(), source=str(path)), str(path), root
     if not path.exists():
         raise SystemExit(f"Manifest file not found: {path}")
     # Keep repo-local manifest paths anchored to their own shelf.  The
     # authoritative run-services fallback is only for bare manifest files that
     # do not carry a sibling files/ directory.
     local_root = path.parent if (path.parent / "files").is_dir() else (resolve_authoritative_local_root(path) or path.parent)
-    return json.loads(path.read_text(encoding="utf-8")), str(path), local_root
+    return strict_json_loads(path.read_bytes(), source=str(path)), str(path), local_root
 
 
 def route_truth_alignment_floor(payload: dict) -> list[dict[str, str]]:
@@ -4257,6 +4305,11 @@ def embedded_flagship_readiness_snapshot(payload: dict[str, Any]) -> dict[str, A
 
 
 def proof_freshness_status(payload: dict[str, Any]) -> str:
+    if is_prepared_preview_publication_delta(payload):
+        # PREPARE deliberately carries no publication proof.  Retained bytes
+        # remain authenticated by the incumbent snapshot, but the composed
+        # shelf cannot claim fresh proof until independent finalization.
+        return "missing"
     projection_generated_at = parse_iso_timestamp(payload.get("generatedAt") or payload.get("generated_at"))
     release_proof = payload.get("releaseProof") if isinstance(payload.get("releaseProof"), dict) else {}
     ui_localization = (
@@ -4477,7 +4530,9 @@ def expected_artifact_identity_registry_rows(payload: dict[str, Any]) -> list[di
         return []
     channel_id = expected_channel_id(payload)
     release_version = release_version_for_registry(payload, source="artifact identity registry derivation")
-    freshness_status = proof_freshness_status(payload)
+    freshness_status = (
+        "fresh" if is_prepared_preview_publication_delta(payload) else proof_freshness_status(payload)
+    )
     artifact_ids = {
         normalized_token(artifact.get("artifactId") or artifact.get("id"))
         for artifact in iter_manifest_download_entries(payload)
@@ -4557,7 +4612,9 @@ def expected_artifact_publication_binding_rows(payload: dict[str, Any]) -> list[
         return []
     channel_id = expected_channel_id(payload)
     release_version = release_version_for_registry(payload, source="artifact publication binding derivation")
-    freshness_status = proof_freshness_status(payload)
+    freshness_status = (
+        "fresh" if is_prepared_preview_publication_delta(payload) else proof_freshness_status(payload)
+    )
     artifact_ids = {
         normalized_token(artifact.get("artifactId") or artifact.get("id"))
         for artifact in iter_manifest_download_entries(payload)
@@ -7099,6 +7156,1196 @@ def verify_contract_identity(payload: dict, source: str) -> None:
         )
 
 
+def is_prepared_preview_publication_delta(payload: dict[str, Any]) -> bool:
+    envelope = payload.get("previewPublicationDelta")
+    return (
+        isinstance(envelope, dict)
+        and envelope.get("contractName") == "chummer.registry.preview-publication-delta-projection"
+        and envelope.get("contractVersion") == 1
+    )
+
+
+def is_lower_sha256(value: Any) -> bool:
+    return isinstance(value, str) and re.fullmatch(r"[0-9a-f]{64}", value) is not None
+
+
+def verify_registry_projection_inputs(payload: dict[str, Any], source: str) -> None:
+    inputs = payload.get("registryProjectionInputs")
+    expected_paths = {
+        "materializer": "scripts/materialize_preview_publication_delta.py",
+        "releaseChannelMaterializer": "scripts/materialize_public_release_channel.py",
+        "schema": "contracts/preview-publication-delta-v1.schema.json",
+        "verifier": "scripts/verify_public_release_channel.py",
+    }
+    if not isinstance(inputs, dict) or set(inputs) != set(expected_paths):
+        raise SystemExit(f"{source} registryProjectionInputs shape is invalid")
+    repository_root = Path(__file__).resolve().parents[1]
+    for name, expected_relative in expected_paths.items():
+        reference = inputs.get(name)
+        if not isinstance(reference, dict) or set(reference) != {"path", "sha256", "sizeBytes"}:
+            raise SystemExit(f"{source} registryProjectionInputs.{name} is invalid")
+        if reference.get("path") != expected_relative or not is_lower_sha256(reference.get("sha256")):
+            raise SystemExit(f"{source} registryProjectionInputs.{name} identity is invalid")
+        size_bytes = reference.get("sizeBytes")
+        if isinstance(size_bytes, bool) or not isinstance(size_bytes, int) or size_bytes <= 0:
+            raise SystemExit(f"{source} registryProjectionInputs.{name} size is invalid")
+        local_path = repository_root / expected_relative
+        if local_path.is_symlink() or not local_path.is_file():
+            raise SystemExit(f"{source} registryProjectionInputs.{name} local input is unavailable")
+        raw = local_path.read_bytes()
+        if len(raw) != size_bytes or hashlib.sha256(raw).hexdigest() != reference.get("sha256"):
+            raise SystemExit(f"{source} registryProjectionInputs.{name} does not match verifier checkout")
+
+
+def verify_prepared_artifact_byte_fields(
+    row: dict[str, Any],
+    source: str,
+    *,
+    label: str,
+) -> None:
+    artifact_id = str(row.get("artifactId") or row.get("id") or "").strip()
+    if not artifact_id or re.fullmatch(r"[a-z0-9][a-z0-9._+-]*", artifact_id) is None:
+        raise SystemExit(f"{source} {label} has an invalid artifactId")
+    if row.get("artifactId") != row.get("id"):
+        raise SystemExit(f"{source} {label} artifactId/id aliases disagree")
+    if row.get("channel") != "preview" or row.get("channelId") != "preview":
+        raise SystemExit(f"{source} {label} channel aliases must both be preview")
+    if row.get("head") != "avalonia":
+        raise SystemExit(f"{source} {label} head must be avalonia")
+    file_name = str(row.get("fileName") or "").strip()
+    if (
+        not file_name
+        or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]*", file_name) is None
+        or not PUBLIC_DESKTOP_ARTIFACT_RE.fullmatch(file_name)
+    ):
+        raise SystemExit(f"{source} {label} has an invalid fileName")
+    if not is_lower_sha256(row.get("sha256")):
+        raise SystemExit(f"{source} {label} has an invalid sha256")
+    size_bytes = row.get("sizeBytes")
+    if isinstance(size_bytes, bool) or not isinstance(size_bytes, int) or size_bytes <= 0:
+        raise SystemExit(f"{source} {label} has an invalid sizeBytes")
+    expected_url = f"https://chummer.run/downloads/files/{file_name}"
+    if row.get("downloadUrl") != expected_url:
+        raise SystemExit(f"{source} {label} downloadUrl does not bind fileName")
+    if "url" in row and row.get("url") != expected_url:
+        raise SystemExit(f"{source} {label} url does not bind fileName")
+
+    payload_fields = (
+        row.get("payloadFileName"),
+        row.get("payloadDownloadUrl"),
+        row.get("payloadSha256"),
+        row.get("payloadSizeBytes"),
+    )
+    if not any(value not in (None, "") for value in payload_fields):
+        return
+    if any(value in (None, "") for value in payload_fields):
+        raise SystemExit(f"{source} {label} has partial payload-sidecar metadata")
+    payload_name = str(row.get("payloadFileName") or "").strip()
+    if re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]*", payload_name) is None:
+        raise SystemExit(f"{source} {label} has an invalid payloadFileName")
+    if not is_lower_sha256(row.get("payloadSha256")):
+        raise SystemExit(f"{source} {label} has an invalid payloadSha256")
+    payload_size = row.get("payloadSizeBytes")
+    if isinstance(payload_size, bool) or not isinstance(payload_size, int) or payload_size <= 0:
+        raise SystemExit(f"{source} {label} has an invalid payloadSizeBytes")
+    expected_payload_url = f"https://chummer.run/downloads/files/{payload_name}"
+    if row.get("payloadDownloadUrl") != expected_payload_url:
+        raise SystemExit(f"{source} {label} payloadDownloadUrl does not bind payloadFileName")
+
+
+def verify_prepared_registry_projections(payload: dict[str, Any], source: str) -> None:
+    expected_install_aware = [
+        row
+        for row in expected_install_aware_artifact_registry_rows(payload)
+        if row.get("platform") != "windows"
+    ]
+    if payload.get("installAwareArtifactRegistry") != expected_install_aware:
+        raise SystemExit(f"{source} prepared installAwareArtifactRegistry is not canonical")
+
+    expected_identities = expected_artifact_identity_registry_rows(payload)
+    for row in expected_identities:
+        if row.get("platform") == "windows":
+            row["publicInstallRoute"] = None
+            row["publicShelfRef"] = None
+    if payload.get("artifactIdentityRegistry") != expected_identities:
+        raise SystemExit(f"{source} prepared artifactIdentityRegistry is not canonical")
+
+    expected_bindings = expected_artifact_publication_binding_rows(payload)
+    for row in expected_bindings:
+        if row.get("platform") == "windows":
+            row["publicInstallRoute"] = None
+            row["publicShelfRef"] = None
+            row["publicationScope"] = "signed-in"
+            row["rationale"] = (
+                "The prepared Windows tuple remains signed-in preview-only until independent "
+                "Registry finalization grants route authority."
+            )
+    if payload.get("artifactPublicationBindings") != expected_bindings:
+        raise SystemExit(f"{source} prepared artifactPublicationBindings is not canonical")
+
+
+def verify_prepared_preview_publication_delta(payload: dict[str, Any], source: str) -> None:
+    envelope = payload.get("previewPublicationDelta")
+    if not isinstance(envelope, dict):
+        raise SystemExit(f"{source} previewPublicationDelta must be an object")
+    verify_registry_projection_inputs(payload, source)
+    if payload.get("schemaVersion") != 1:
+        raise SystemExit(f"{source} prepared preview delta schemaVersion must be 1")
+    channel = resolve_alias_value(
+        payload,
+        primary_key="channelId",
+        secondary_key="channel",
+        field_path="channelId",
+        source=source,
+    )
+    if channel != "preview":
+        raise SystemExit(f"{source} prepared preview delta channel must be preview")
+    release_version = str(
+        resolve_alias_value(
+            payload,
+            primary_key="version",
+            secondary_key="releaseVersion",
+            field_path="version",
+            source=source,
+        )
+        or ""
+    ).strip()
+    if not release_version:
+        raise SystemExit(f"{source} prepared preview delta release version is missing")
+    registry_commit = str(
+        resolve_alias_value(
+            payload,
+            primary_key="registryCommit",
+            secondary_key="registry_commit",
+            field_path="registryCommit",
+            source=source,
+        )
+        or ""
+    ).strip()
+    if re.fullmatch(r"[0-9a-f]{40}", registry_commit) is None:
+        raise SystemExit(f"{source} prepared preview delta registry commit is invalid")
+    expected_envelope_keys = {
+        "compositionInputSha256",
+        "contractName",
+        "contractVersion",
+        "deltaPlatforms",
+        "deployAuthority",
+        "evidencePlatforms",
+        "incumbentSnapshotSha256",
+        "nonPublishedEvidenceTupleSetSha256",
+        "postPublicationTupleSetSha256",
+        "publicationDeltaTupleSetSha256",
+        "publicationEligible",
+        "publicationStatus",
+        "releaseUploadAuthority",
+        "retainedPlatforms",
+        "retainedTupleSetSha256",
+        "routeAuthority",
+        "shelfPlatforms",
+    }
+    if set(envelope) != expected_envelope_keys:
+        raise SystemExit(f"{source} prepared preview delta envelope shape is invalid")
+    if (
+        envelope.get("contractName") != "chummer.registry.preview-publication-delta-projection"
+        or envelope.get("contractVersion") != 1
+        or envelope.get("publicationStatus") != "review_required"
+    ):
+        raise SystemExit(f"{source} prepared preview delta envelope identity is invalid")
+    for field in (
+        "compositionInputSha256",
+        "incumbentSnapshotSha256",
+        "nonPublishedEvidenceTupleSetSha256",
+        "postPublicationTupleSetSha256",
+        "publicationDeltaTupleSetSha256",
+        "retainedTupleSetSha256",
+    ):
+        if not is_lower_sha256(envelope.get(field)):
+            raise SystemExit(f"{source} prepared preview delta envelope has invalid {field}")
+    for field in ("retainedPlatforms", "shelfPlatforms"):
+        value = envelope.get(field)
+        if (
+            not isinstance(value, list)
+            or value != sorted(value)
+            or len(value) != len(set(value))
+            or any(platform not in {"linux", "macos", "windows"} for platform in value)
+        ):
+            raise SystemExit(f"{source} prepared preview delta envelope has invalid {field}")
+    for field in ("publicationEligible", "releaseUploadAuthority", "deployAuthority", "routeAuthority"):
+        if payload.get(field) is not False or envelope.get(field) is not False:
+            raise SystemExit(f"{source} prepared preview delta must set {field}=false")
+    for field in ("codeDeploymentAuthority", "codeDeployCurrentShelfAuthority"):
+        if payload.get(field) not in (None, False):
+            raise SystemExit(f"{source} prepared preview delta must not carry {field}")
+    if payload.get("status") != "review_required":
+        raise SystemExit(f"{source} prepared preview delta status must be review_required")
+    if payload.get("releaseDecisionStatus") != "review_required":
+        raise SystemExit(
+            f"{source} prepared preview delta releaseDecisionStatus must be review_required"
+        )
+    if payload.get("projectionStage") != "prepared_candidate":
+        raise SystemExit(f"{source} prepared preview delta projectionStage must be prepared_candidate")
+    generated_at = resolve_alias_value(
+        payload,
+        primary_key="generatedAt",
+        secondary_key="generated_at",
+        field_path="generatedAt",
+        source=source,
+    )
+    expected_release_proof = {
+        "baseUrl": "https://chummer.run",
+        "generatedAt": generated_at,
+        "journeysPassed": [],
+        "proofRoutes": [],
+        "status": "review_required",
+    }
+    if payload.get("releaseProof") != expected_release_proof:
+        raise SystemExit(f"{source} prepared preview delta releaseProof must remain review-required")
+    if envelope.get("deltaPlatforms") != ["windows"] or envelope.get("evidencePlatforms") != ["linux"]:
+        raise SystemExit(f"{source} prepared preview delta platform scope is invalid")
+    coverage = payload.get("desktopTupleCoverage")
+    if not isinstance(coverage, dict) or coverage.get("routeAuthority") is not False:
+        raise SystemExit(f"{source} prepared desktop tuple coverage must deny route authority")
+    route_rows = coverage.get("desktopRouteTruth")
+    if not isinstance(route_rows, list) or any(
+        isinstance(row, dict) and row.get("routeAuthority") is True for row in route_rows
+    ):
+        raise SystemExit(f"{source} prepared desktop route truth overstates route authority")
+    windows_routes = [
+        row
+        for row in route_rows
+        if isinstance(row, dict) and row.get("artifactId") == "avalonia-win-x64-installer"
+    ]
+    if len(windows_routes) != 1:
+        raise SystemExit(f"{source} prepared desktop route truth has invalid Windows identity")
+    windows_route = windows_routes[0]
+    if (
+        windows_route.get("promotionState") != "proof_required"
+        or windows_route.get("publicationState") != "preview"
+        or windows_route.get("visibility") != "private"
+        or windows_route.get("publicInstallRoute") is not None
+        or windows_route.get("routeAuthority") is not False
+    ):
+        raise SystemExit(f"{source} prepared Windows route must remain private and proof-required")
+    promoted = coverage.get("promotedInstallerTuples")
+    if not isinstance(promoted, list) or any(
+        isinstance(row, dict) and normalized_platform_token(row.get("platform")) == "windows"
+        for row in promoted
+    ):
+        raise SystemExit(f"{source} prepared Windows tuple must not be promoted")
+    if coverage.get("complete") is not False or "windows" not in (coverage.get("missingRequiredPlatforms") or []):
+        raise SystemExit(f"{source} prepared coverage must report Windows proof as incomplete")
+    has_artifacts = "artifacts" in payload
+    has_downloads = "downloads" in payload
+    if has_artifacts == has_downloads:
+        raise SystemExit(
+            f"{source} prepared preview delta must contain exactly one artifacts/downloads projection"
+        )
+    if has_artifacts:
+        artifacts = payload.get("artifacts")
+        if not isinstance(artifacts, list) or not artifacts:
+            raise SystemExit(f"{source} prepared preview delta artifacts must be a non-empty list")
+        if any(not isinstance(row, dict) or row.get("kind") != "installer" for row in artifacts):
+            raise SystemExit(f"{source} prepared preview delta may expose installer artifact rows only")
+        artifact_ids = [str(row.get("artifactId") or row.get("id") or "") for row in artifacts]
+        if len(set(artifact_ids)) != len(artifact_ids):
+            raise SystemExit(f"{source} prepared preview delta has duplicate artifact ids")
+        for index, row in enumerate(artifacts):
+            verify_prepared_artifact_byte_fields(row, source, label=f"artifacts[{index}]")
+        windows = [row for row in artifacts if normalized_platform_token(row.get("platform")) == "windows"]
+        if len(windows) != 1:
+            raise SystemExit(f"{source} prepared preview delta must expose exactly one Windows installer")
+        windows_row = windows[0]
+        expected_windows = {
+            "arch": "x64",
+            "artifactId": "avalonia-win-x64-installer",
+            "channel": "preview",
+            "channelId": "preview",
+            "compatibilityState": "compatible",
+            "fileName": "chummer-avalonia-win-x64-installer.exe",
+            "head": "avalonia",
+            "installerMode": "bootstrap",
+            "payloadFileName": "chummer-avalonia-win-x64-payload.zip",
+            "platform": "windows",
+            "publicationDisposition": "delta",
+            "rid": "win-x64",
+        }
+        for key, expected in expected_windows.items():
+            if windows_row.get(key) != expected:
+                raise SystemExit(f"{source} prepared Windows artifact has invalid {key}")
+        for key in ("sha256", "payloadSha256"):
+            if not is_lower_sha256(windows_row.get(key)):
+                raise SystemExit(f"{source} prepared Windows artifact has invalid {key}")
+        if windows_row.get("installerMode") != "bootstrap":
+            raise SystemExit(f"{source} prepared Windows artifact must use bootstrap installer mode")
+        if windows_row.get("payloadAcquisitionMode") != "bound_sidecar":
+            raise SystemExit(f"{source} prepared Windows payload must be a bound sidecar")
+        if windows_row.get("releaseVersion") != payload.get("releaseVersion"):
+            raise SystemExit(f"{source} prepared Windows artifact release version is invalid")
+        retained = [row for row in artifacts if row is not windows_row]
+        for row in retained:
+            if row.get("publicationDisposition") != "retained_incumbent":
+                raise SystemExit(f"{source} non-Windows artifacts must be retained incumbents")
+            for key in ("sourceManifestSha256", "sourceSnapshotSha256"):
+                if not is_lower_sha256(row.get(key)):
+                    raise SystemExit(f"{source} retained artifact has invalid {key}")
+            if not str(row.get("sourceReleaseVersion") or "").strip():
+                raise SystemExit(f"{source} retained artifact is missing sourceReleaseVersion")
+            if row.get("releaseVersion") != row.get("sourceReleaseVersion"):
+                raise SystemExit(f"{source} retained artifact must preserve its source release version")
+        shelf_platforms = sorted({normalized_platform_token(row.get("platform")) for row in artifacts})
+        if shelf_platforms != envelope.get("shelfPlatforms"):
+            raise SystemExit(f"{source} prepared artifact platforms disagree with shelfPlatforms")
+        retained_platforms = sorted(
+            {normalized_platform_token(row.get("platform")) for row in retained}
+        )
+        if retained_platforms != envelope.get("retainedPlatforms"):
+            raise SystemExit(f"{source} prepared retained artifacts disagree with retainedPlatforms")
+        if coverage.get("requiredDesktopPlatforms") != shelf_platforms:
+            raise SystemExit(f"{source} prepared desktop tuple coverage platform set is invalid")
+        bindings = payload.get("artifactPublicationBindings")
+        if not isinstance(bindings, list):
+            raise SystemExit(f"{source} prepared artifact publication bindings must be a list")
+        binding_ids = [str(row.get("artifactId") or "") for row in bindings if isinstance(row, dict)]
+        artifact_ids = [str(row.get("artifactId") or "") for row in artifacts]
+        if sorted(binding_ids) != sorted(artifact_ids):
+            raise SystemExit(f"{source} prepared artifact publication bindings are not artifact-bijective")
+        artifacts_by_id = {str(row.get("artifactId") or ""): row for row in artifacts}
+        for row in bindings:
+            if not isinstance(row, dict):
+                raise SystemExit(f"{source} prepared artifact publication bindings contain a non-object")
+            artifact = artifacts_by_id[str(row.get("artifactId") or "")]
+            expected_state = (
+                "retained"
+                if artifact.get("publicationDisposition") == "retained_incumbent"
+                else "preview"
+            )
+            if row.get("publicationState") != expected_state:
+                raise SystemExit(f"{source} prepared bindings overstate publication authority")
+        verify_desktop_surface_refs(payload, source)
+        verify_prepared_registry_projections(payload, source)
+        verify_exchange_lineage_registry(payload, source)
+        verify_public_trust_metrics(payload, source)
+        verify_registry_boundary_coverage(payload, source)
+        verify_release_projection_consistency(payload, source)
+    elif has_downloads:
+        downloads = payload.get("downloads")
+        if not isinstance(downloads, list) or not downloads:
+            raise SystemExit(f"{source} prepared compatibility downloads must be a non-empty list")
+        if any(not isinstance(row, dict) for row in downloads):
+            raise SystemExit(f"{source} prepared compatibility projection contains a non-object row")
+        artifact_ids = [str(row.get("artifactId") or row.get("id") or "") for row in downloads]
+        if len(set(artifact_ids)) != len(artifact_ids):
+            raise SystemExit(f"{source} prepared compatibility projection has duplicate artifact ids")
+        for index, row in enumerate(downloads):
+            verify_prepared_artifact_byte_fields(row, source, label=f"downloads[{index}]")
+        windows = [row for row in downloads if normalized_platform_token(row.get("platform")) == "windows"]
+        if len(windows) != 1:
+            raise SystemExit(f"{source} prepared compatibility projection has invalid Windows sidecar")
+        windows_row = windows[0]
+        expected_windows = {
+            "arch": "x64",
+            "artifactId": "avalonia-win-x64-installer",
+            "channel": "preview",
+            "channelId": "preview",
+            "compatibilityState": "compatible",
+            "fileName": "chummer-avalonia-win-x64-installer.exe",
+            "head": "avalonia",
+            "installerMode": "bootstrap",
+            "kind": "installer",
+            "payloadAcquisitionMode": "bound_sidecar",
+            "payloadFileName": "chummer-avalonia-win-x64-payload.zip",
+            "platform": "windows",
+            "publicationDisposition": "delta",
+            "releaseVersion": payload.get("releaseVersion"),
+            "rid": "win-x64",
+        }
+        if any(windows_row.get(key) != expected for key, expected in expected_windows.items()):
+            raise SystemExit(f"{source} prepared compatibility projection has invalid Windows sidecar")
+        for key in ("sha256", "payloadSha256"):
+            if not is_lower_sha256(windows_row.get(key)):
+                raise SystemExit(f"{source} prepared compatibility projection has invalid {key}")
+        retained = [row for row in downloads if row is not windows_row]
+        for row in retained:
+            if row.get("publicationDisposition") != "retained_incumbent":
+                raise SystemExit(f"{source} compatibility non-Windows rows must be retained incumbents")
+            for key in ("sourceManifestSha256", "sourceSnapshotSha256"):
+                if not is_lower_sha256(row.get(key)):
+                    raise SystemExit(f"{source} compatibility retained row has invalid {key}")
+            if row.get("releaseVersion") != row.get("sourceReleaseVersion"):
+                raise SystemExit(
+                    f"{source} compatibility retained row must preserve its source release version"
+                )
+        shelf_platforms = sorted({normalized_platform_token(row.get("platform")) for row in downloads})
+        if shelf_platforms != envelope.get("shelfPlatforms"):
+            raise SystemExit(f"{source} prepared compatibility platforms disagree with shelfPlatforms")
+        retained_platforms = sorted(
+            {normalized_platform_token(row.get("platform")) for row in retained}
+        )
+        if retained_platforms != envelope.get("retainedPlatforms"):
+            raise SystemExit(
+                f"{source} compatibility retained rows disagree with retainedPlatforms"
+            )
+        if any(row.get("kind") != "installer" for row in downloads if isinstance(row, dict)):
+            raise SystemExit(f"{source} prepared compatibility projection may expose installer rows only")
+        verify_desktop_surface_refs(payload, source)
+        verify_prepared_registry_projections(payload, source)
+    else:
+        raise SystemExit(f"{source} prepared preview delta is missing artifacts/downloads")
+
+
+def canonical_compact_json_bytes(value: Any) -> bytes:
+    return (json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True) + "\n").encode(
+        "utf-8"
+    )
+
+
+def canonical_compact_object_sha256(value: Any) -> str:
+    raw = json.dumps(value, ensure_ascii=False, separators=(",", ":"), sort_keys=True).encode(
+        "utf-8"
+    )
+    return hashlib.sha256(raw).hexdigest()
+
+
+def release_channel_materializer_module() -> Any:
+    global _RELEASE_CHANNEL_MATERIALIZER_MODULE
+    if _RELEASE_CHANNEL_MATERIALIZER_MODULE is not None:
+        return _RELEASE_CHANNEL_MATERIALIZER_MODULE
+    path = Path(__file__).resolve().parent / "materialize_public_release_channel.py"
+    if path.is_symlink() or not path.is_file():
+        raise SystemExit(f"release-channel materializer is unavailable: {path}")
+    spec = importlib.util.spec_from_file_location(
+        "chummer_release_channel_materializer_for_verifier",
+        path,
+    )
+    if spec is None or spec.loader is None:
+        raise SystemExit(f"cannot load release-channel materializer: {path}")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    _RELEASE_CHANNEL_MATERIALIZER_MODULE = module
+    return module
+
+
+def verify_preview_delta_schema_document(payload: dict[str, Any], source: str) -> None:
+    try:
+        from jsonschema import Draft202012Validator
+    except ImportError as exc:
+        raise SystemExit("jsonschema is required to verify a prepared delta bundle") from exc
+    schema_path = Path(__file__).resolve().parents[1] / "contracts" / "preview-publication-delta-v1.schema.json"
+    if schema_path.is_symlink() or not schema_path.is_file():
+        raise SystemExit(f"prepared delta schema is unavailable: {schema_path}")
+    schema = strict_json_loads(schema_path.read_bytes(), source=str(schema_path))
+    if not isinstance(schema, dict):
+        raise SystemExit(f"prepared delta schema must be a JSON object: {schema_path}")
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(payload),
+        key=lambda error: [str(item) for item in error.absolute_path],
+    )
+    if errors:
+        error = errors[0]
+        location = "/".join(str(item) for item in error.absolute_path) or "<root>"
+        raise SystemExit(
+            f"prepared delta schema validation failed at {location} in {source}: {error.message}"
+        )
+
+
+def verify_prepared_portable_relative_path(value: Any, source: str) -> str:
+    reserved_names = {
+        "AUX",
+        "CON",
+        "NUL",
+        "PRN",
+        *(f"COM{index}" for index in range(1, 10)),
+        *(f"LPT{index}" for index in range(1, 10)),
+    }
+    if (
+        not isinstance(value, str)
+        or not value
+        or len(value) > 512
+        or value.startswith("/")
+        or value.endswith("/")
+        or "//" in value
+        or "\\" in value
+        or unicodedata.normalize("NFC", value) != value
+        or re.fullmatch(r"[A-Za-z0-9._+@/-]+", value) is None
+    ):
+        raise SystemExit(f"{source} is not a canonical portable relative path")
+    segments = value.split("/")
+    if any(
+        segment in {"", ".", ".."}
+        or segment.endswith((".", " "))
+        or segment.split(".", 1)[0].upper() in reserved_names
+        for segment in segments
+    ):
+        raise SystemExit(f"{source} is not portable across supported filesystems")
+    return value
+
+
+def verify_prepared_inventory_rows(rows: list[Any], source: str) -> list[dict[str, Any]]:
+    normalized: list[dict[str, Any]] = []
+    seen: dict[str, str] = {}
+    for index, row in enumerate(rows):
+        if not isinstance(row, dict) or set(row) != {"mode", "path", "sha256", "sizeBytes"}:
+            raise SystemExit(f"{source} inventory[{index}] has an invalid shape")
+        path = verify_prepared_portable_relative_path(
+            row.get("path"),
+            f"{source} inventory[{index}].path",
+        )
+        folded = path.casefold()
+        if folded in seen:
+            raise SystemExit(f"{source} inventory contains duplicate or case-colliding paths")
+        seen[folded] = path
+        mode = row.get("mode")
+        if not isinstance(mode, str) or re.fullmatch(r"[0-7]{4}", mode) is None:
+            raise SystemExit(f"{source} inventory[{index}] has an invalid mode")
+        if not is_lower_sha256(row.get("sha256")):
+            raise SystemExit(f"{source} inventory[{index}] has an invalid sha256")
+        size_bytes = row.get("sizeBytes")
+        if isinstance(size_bytes, bool) or not isinstance(size_bytes, int) or size_bytes < 0:
+            raise SystemExit(f"{source} inventory[{index}] has an invalid sizeBytes")
+        normalized.append(dict(row))
+    if [row["path"] for row in normalized] != sorted(row["path"] for row in normalized):
+        raise SystemExit(f"{source} inventory paths are not canonically ordered")
+    folded_paths = sorted(seen)
+    if any(
+        folded_paths[index + 1].startswith(path + "/")
+        for index, path in enumerate(folded_paths[:-1])
+    ):
+        raise SystemExit(f"{source} inventory contains an ancestor/descendant file collision")
+    return normalized
+
+
+def expected_prepared_inventory_from_composition(
+    composition: dict[str, Any],
+    *,
+    canonical_raw: bytes,
+    compatibility_raw: bytes,
+    source: str,
+) -> list[dict[str, Any]]:
+    incumbent = composition.get("incumbentSnapshot")
+    if not isinstance(incumbent, dict):
+        raise SystemExit(f"{source} embedded composition is missing incumbentSnapshot")
+    desktop_tuples = incumbent.get("desktopTuples")
+    full_inventory = incumbent.get("fullInventory")
+    delta_tuples = composition.get("publicationDeltaTuples")
+    evidence_tuples = composition.get("nonPublishedEvidenceTuples")
+    if not all(isinstance(rows, list) for rows in (desktop_tuples, full_inventory, delta_tuples, evidence_tuples)):
+        raise SystemExit(f"{source} embedded composition tuple/inventory arrays are invalid")
+    if hashlib.sha256(canonical_compact_json_bytes(desktop_tuples)).hexdigest() != incumbent.get(
+        "desktopTupleSetSha256"
+    ):
+        raise SystemExit(f"{source} embedded incumbent desktop tuple digest is invalid")
+    if hashlib.sha256(canonical_compact_json_bytes(full_inventory)).hexdigest() != incumbent.get(
+        "fullInventorySha256"
+    ):
+        raise SystemExit(f"{source} embedded incumbent inventory digest is invalid")
+    if hashlib.sha256(canonical_compact_json_bytes(delta_tuples)).hexdigest() != composition.get(
+        "publicationDeltaTupleSetSha256"
+    ):
+        raise SystemExit(f"{source} embedded Windows delta tuple digest is invalid")
+    if hashlib.sha256(canonical_compact_json_bytes(evidence_tuples)).hexdigest() != composition.get(
+        "nonPublishedEvidenceTupleSetSha256"
+    ):
+        raise SystemExit(f"{source} embedded evidence tuple digest is invalid")
+    snapshot_projection = {
+        "canonicalManifestSha256": incumbent["canonicalManifest"]["sha256"],
+        "compatibilityManifestSha256": incumbent["compatibilityManifest"]["sha256"],
+        "desktopTupleSetSha256": incumbent["desktopTupleSetSha256"],
+        "desktopTuples": desktop_tuples,
+        "inventory": full_inventory,
+        "inventorySha256": incumbent["fullInventorySha256"],
+        "managedPaths": incumbent["managedPaths"],
+        "platforms": incumbent["platforms"],
+    }
+    if canonical_compact_object_sha256(snapshot_projection) != incumbent.get("snapshotSha256"):
+        raise SystemExit(f"{source} embedded incumbent snapshot digest is invalid")
+    validated_incumbent = verify_prepared_inventory_rows(full_inventory, f"{source} incumbent")
+    if incumbent.get("managedPaths") != [row["path"] for row in validated_incumbent]:
+        raise SystemExit(f"{source} embedded incumbent managed paths are invalid")
+
+    old_windows_paths = {
+        str(row.get("path") or "")
+        for row in desktop_tuples
+        if isinstance(row, dict) and normalized_platform_token(row.get("platform")) == "windows"
+    }
+    replaced_paths = {
+        incumbent["canonicalManifest"]["path"],
+        incumbent["compatibilityManifest"]["path"],
+        *old_windows_paths,
+    }
+    overlay = {
+        row["path"]: dict(row)
+        for row in validated_incumbent
+        if row["path"] not in replaced_paths
+    }
+    overlay["RELEASE_CHANNEL.generated.json"] = {
+        "mode": "0644",
+        "path": "RELEASE_CHANNEL.generated.json",
+        "sha256": hashlib.sha256(canonical_raw).hexdigest(),
+        "sizeBytes": len(canonical_raw),
+    }
+    overlay["releases.json"] = {
+        "mode": "0644",
+        "path": "releases.json",
+        "sha256": hashlib.sha256(compatibility_raw).hexdigest(),
+        "sizeBytes": len(compatibility_raw),
+    }
+    for index, row in enumerate(delta_tuples):
+        if not isinstance(row, dict):
+            raise SystemExit(f"{source} embedded Windows delta tuple[{index}] is invalid")
+        path = row.get("path")
+        overlay[str(path)] = {
+            "mode": "0644",
+            "path": path,
+            "sha256": row.get("sha256"),
+            "sizeBytes": row.get("sizeBytes"),
+        }
+    expected = sorted(overlay.values(), key=lambda row: str(row.get("path") or ""))
+    return verify_prepared_inventory_rows(expected, f"{source} expected full shelf")
+
+
+def prepared_tuple_key(row: dict[str, Any]) -> tuple[str, str, str, str, str]:
+    return (
+        str(row.get("platform") or ""),
+        str(row.get("rid") or ""),
+        str(row.get("head") or ""),
+        str(row.get("artifactRole") or ""),
+        str(row.get("path") or ""),
+    )
+
+
+def verify_prepared_artifacts_against_composition(
+    canonical: dict[str, Any],
+    composition: dict[str, Any],
+    incumbent_manifest: dict[str, Any],
+    source: str,
+) -> dict[str, Any]:
+    incumbent = composition["incumbentSnapshot"]
+    desktop_tuples = incumbent["desktopTuples"]
+    delta_tuples = composition["publicationDeltaTuples"]
+    evidence_tuples = composition["nonPublishedEvidenceTuples"]
+    for label, rows in (
+        ("incumbent desktop", desktop_tuples),
+        ("Windows delta", delta_tuples),
+        ("non-published evidence", evidence_tuples),
+    ):
+        keys = [prepared_tuple_key(row) for row in rows]
+        if rows != sorted(rows, key=prepared_tuple_key) or len(keys) != len(set(keys)):
+            raise SystemExit(f"{source} embedded {label} tuples are not sorted and unique")
+
+    retained_tuples = [
+        dict(row)
+        for row in desktop_tuples
+        if normalized_platform_token(row.get("platform")) != "windows"
+    ]
+    retained_tuples.sort(key=prepared_tuple_key)
+    post_tuples = [*retained_tuples, *(dict(row) for row in delta_tuples)]
+    post_tuples.sort(key=prepared_tuple_key)
+    derived = {
+        "postPublicationTupleSetSha256": hashlib.sha256(
+            canonical_compact_json_bytes(post_tuples)
+        ).hexdigest(),
+        "retainedPlatforms": sorted(
+            {normalized_platform_token(row.get("platform")) for row in retained_tuples}
+        ),
+        "retainedTupleSetSha256": hashlib.sha256(
+            canonical_compact_json_bytes(retained_tuples)
+        ).hexdigest(),
+        "shelfPlatforms": sorted(
+            {normalized_platform_token(row.get("platform")) for row in post_tuples}
+        ),
+    }
+
+    source_artifacts = incumbent_manifest.get("artifacts")
+    if not isinstance(source_artifacts, list) or any(
+        not isinstance(row, dict) for row in source_artifacts
+    ):
+        raise SystemExit(f"{source} held incumbent artifacts are invalid")
+    retained_source_artifacts = [
+        row
+        for row in source_artifacts
+        if normalized_platform_token(row.get("platform")) != "windows"
+    ]
+    retained_installers = [
+        row for row in retained_tuples if str(row.get("artifactRole") or "") == "installer"
+    ]
+    if len(retained_source_artifacts) != len(retained_installers):
+        raise SystemExit(f"{source} held incumbent artifacts are not installer-tuple-bijective")
+
+    def source_artifact_matches_tuple(
+        artifact: dict[str, Any],
+        tuple_row: dict[str, Any],
+    ) -> bool:
+        if tuple_row.get("artifactRole") == "installer":
+            file_name = artifact.get("fileName")
+            digest = artifact.get("sha256")
+            size_bytes = artifact.get("sizeBytes")
+        else:
+            file_name = artifact.get("payloadFileName")
+            digest = artifact.get("payloadSha256")
+            size_bytes = artifact.get("payloadSizeBytes")
+        return (
+            artifact.get("kind") == "installer"
+            and artifact.get("head") == tuple_row.get("head")
+            and artifact.get("platform") == tuple_row.get("platform")
+            and artifact.get("rid") == tuple_row.get("rid")
+            and file_name == tuple_row.get("fileName")
+            and digest == tuple_row.get("sha256")
+            and size_bytes == tuple_row.get("sizeBytes")
+            and canonical_compact_object_sha256(artifact)
+            == tuple_row.get("manifestRowSha256")
+        )
+
+    for tuple_row in retained_tuples:
+        matches = [
+            artifact
+            for artifact in retained_source_artifacts
+            if source_artifact_matches_tuple(artifact, tuple_row)
+        ]
+        if len(matches) != 1:
+            raise SystemExit(f"{source} held incumbent artifact does not bind its tuple")
+
+    incumbent_release_version = str(
+        incumbent_manifest.get("releaseVersion") or incumbent_manifest.get("version") or ""
+    ).strip()
+    expected_artifacts: list[dict[str, Any]] = []
+    for source_artifact in retained_source_artifacts:
+        retained = dict(source_artifact)
+        retained["publicationDisposition"] = "retained_incumbent"
+        retained["sourceReleaseVersion"] = str(
+            retained.get("releaseVersion")
+            or retained.get("version")
+            or incumbent_release_version
+            or ""
+        ).strip()
+        retained["sourceManifestSha256"] = incumbent["canonicalManifest"]["sha256"]
+        retained["sourceSnapshotSha256"] = incumbent["snapshotSha256"]
+        expected_artifacts.append(retained)
+
+    installer_tuple = next(
+        row for row in delta_tuples if str(row.get("artifactRole") or "") == "installer"
+    )
+    payload_tuple = next(
+        row for row in delta_tuples if str(row.get("artifactRole") or "") == "payload"
+    )
+    release_version = composition["releaseVersion"]
+    expected_windows = {
+        "arch": "x64",
+        "artifactId": "avalonia-win-x64-installer",
+        "channel": "preview",
+        "channelId": "preview",
+        "compatibilityState": "compatible",
+        "downloadUrl": f"https://chummer.run/downloads/{installer_tuple['path']}",
+        "fileName": installer_tuple["fileName"],
+        "head": "avalonia",
+        "id": "avalonia-win-x64-installer",
+        "installAccessClass": "open_public",
+        "installerMode": "bootstrap",
+        "kind": "installer",
+        "payloadAcquisitionMode": "bound_sidecar",
+        "payloadDownloadUrl": f"https://chummer.run/downloads/{payload_tuple['path']}",
+        "payloadFileName": payload_tuple["fileName"],
+        "payloadSha256": payload_tuple["sha256"],
+        "payloadSizeBytes": payload_tuple["sizeBytes"],
+        "platform": "windows",
+        "publicationDisposition": "delta",
+        "releaseVersion": release_version,
+        "rid": "win-x64",
+        "sha256": installer_tuple["sha256"],
+        "sizeBytes": installer_tuple["sizeBytes"],
+        "sourceManifestRowSha256": installer_tuple["manifestRowSha256"],
+        "sourceReceiptSha256": installer_tuple["sourceReceipt"]["sha256"],
+        "version": release_version,
+    }
+    expected_artifacts.append(expected_windows)
+    expected_artifacts.sort(
+        key=lambda row: (
+            str(row.get("platform") or ""),
+            str(row.get("rid") or ""),
+            str(row.get("artifactId") or row.get("id") or ""),
+        )
+    )
+    if canonical.get("artifacts") != expected_artifacts:
+        raise SystemExit(f"{source} artifacts are not the exact held-source composition projection")
+    if canonical.get("runtimeBundleHeads") != list(incumbent_manifest.get("runtimeBundleHeads") or []):
+        raise SystemExit(f"{source} runtime bundle heads disagree with held incumbent bytes")
+    return derived
+
+
+def verify_prepared_directory_bundle(
+    root: Path,
+    canonical: dict[str, Any],
+    canonical_source: str,
+) -> None:
+    if root.is_symlink() or not root.is_dir():
+        raise SystemExit(f"prepared delta bundle root is invalid: {root}")
+    expected_names = {
+        "RELEASE_CHANNEL.generated.json",
+        "releases.json",
+        "PREVIEW_PUBLICATION_DELTA_CANDIDATE.json",
+    }
+    entries = list(root.iterdir())
+    if (
+        {entry.name for entry in entries} != expected_names
+        or any(entry.is_symlink() or not entry.is_file() for entry in entries)
+        or any(stat.S_IMODE(entry.stat(follow_symlinks=False).st_mode) != 0o644 for entry in entries)
+    ):
+        raise SystemExit(
+            f"prepared delta bundle must contain exactly three mode-0644 plain files: {root}"
+        )
+
+    canonical_path = root / "RELEASE_CHANNEL.generated.json"
+    compatibility_path = root / "releases.json"
+    candidate_path = root / "PREVIEW_PUBLICATION_DELTA_CANDIDATE.json"
+    canonical_raw = canonical_path.read_bytes()
+    compatibility_raw = compatibility_path.read_bytes()
+    candidate_raw = candidate_path.read_bytes()
+    if canonical_raw != canonical_compact_json_bytes(canonical):
+        raise SystemExit(f"prepared canonical manifest is not canonical JSON: {canonical_source}")
+    compatibility = strict_json_loads(compatibility_raw, source=str(compatibility_path))
+    candidate = strict_json_loads(candidate_raw, source=str(candidate_path))
+    if not isinstance(compatibility, dict) or not isinstance(candidate, dict):
+        raise SystemExit(f"prepared delta bundle documents must be JSON objects: {root}")
+    if compatibility_raw != canonical_compact_json_bytes(compatibility):
+        raise SystemExit(f"prepared compatibility manifest is not canonical JSON: {compatibility_path}")
+    if candidate_raw != canonical_compact_json_bytes(candidate):
+        raise SystemExit(f"prepared candidate receipt is not canonical JSON: {candidate_path}")
+    verify_preview_delta_schema_document(candidate, str(candidate_path))
+    verify_generated_timestamp(compatibility, str(compatibility_path))
+    verify_contract_identity(compatibility, str(compatibility_path))
+    verify_prepared_preview_publication_delta(compatibility, str(compatibility_path))
+    expected_common_manifest_keys = {
+        "artifactIdentityRegistry",
+        "artifactPublicationBindings",
+        "channel",
+        "channelId",
+        "contractName",
+        "contract_name",
+        "deployAuthority",
+        "desktopSurfaceRefs",
+        "desktopTupleCoverage",
+        "fixAvailabilitySummary",
+        "generatedAt",
+        "generated_at",
+        "installAwareArtifactRegistry",
+        "knownIssueSummary",
+        "message",
+        "previewPublicationDelta",
+        "projectionStage",
+        "publicationEligible",
+        "publishedAt",
+        "registryCommit",
+        "registryProjectionInputs",
+        "registry_commit",
+        "releaseDecisionStatus",
+        "releaseProof",
+        "releaseUploadAuthority",
+        "releaseVersion",
+        "rolloutReason",
+        "rolloutState",
+        "routeAuthority",
+        "schemaVersion",
+        "status",
+        "supportabilityState",
+        "supportabilitySummary",
+        "version",
+    }
+    expected_canonical_only_keys = {
+        "artifactSource",
+        "artifacts",
+        "product",
+        "publicTrustMetrics",
+        "registryBoundaryCoverage",
+        "runtimeBundleHeads",
+    }
+    expected_compatibility_only_keys = {
+        "codeDeployCurrentShelfAuthority",
+        "codeDeploymentAuthority",
+        "downloads",
+        "publicVersion",
+        "source",
+    }
+    if (
+        set(canonical) != expected_common_manifest_keys | expected_canonical_only_keys
+        or set(compatibility)
+        != expected_common_manifest_keys | expected_compatibility_only_keys
+        or any(canonical[field] != compatibility[field] for field in expected_common_manifest_keys)
+    ):
+        raise SystemExit(f"prepared bundle manifest projections are not an exact pair: {root}")
+    if (
+        compatibility.get("codeDeployCurrentShelfAuthority") is not None
+        or compatibility.get("codeDeploymentAuthority") is not None
+        or compatibility.get("publicVersion") is not None
+        or compatibility.get("source") != "registry"
+    ):
+        raise SystemExit(f"prepared compatibility-only metadata is invalid: {compatibility_path}")
+
+    expected_candidate_keys = {
+        "canonicalManifest",
+        "channel",
+        "compatibilityManifest",
+        "compositionInput",
+        "compositionInputDocument",
+        "contractName",
+        "contractVersion",
+        "deltaPlatforms",
+        "deployAuthority",
+        "evidencePlatforms",
+        "fullShelfInventory",
+        "fullShelfInventorySha256",
+        "incumbentCanonicalManifestBytesBase64",
+        "incumbentDesktopTupleSetSha256",
+        "incumbentSnapshotSha256",
+        "nonPublishedEvidenceTupleSetSha256",
+        "postPublicationTupleSetSha256",
+        "publicationDeltaTupleSetSha256",
+        "publicationEligible",
+        "publicationStatus",
+        "registryProjectionInputs",
+        "releaseUploadAuthority",
+        "releaseVersion",
+        "retainedPlatforms",
+        "retainedTupleSetSha256",
+        "routeAuthority",
+        "shelfPlatforms",
+    }
+    if set(candidate) != expected_candidate_keys:
+        raise SystemExit(f"prepared candidate receipt shape is invalid: {candidate_path}")
+    if (
+        candidate.get("contractName") != "chummer.registry.preview-publication-delta-candidate"
+        or candidate.get("contractVersion") != 1
+        or candidate.get("channel") != "preview"
+        or candidate.get("publicationStatus") != "review_required"
+        or candidate.get("deltaPlatforms") != ["windows"]
+        or candidate.get("evidencePlatforms") != ["linux"]
+    ):
+        raise SystemExit(f"prepared candidate receipt identity is invalid: {candidate_path}")
+    for field in ("publicationEligible", "releaseUploadAuthority", "deployAuthority", "routeAuthority"):
+        if candidate.get(field) is not False:
+            raise SystemExit(f"prepared candidate receipt must set {field}=false: {candidate_path}")
+    for field in (
+        "fullShelfInventorySha256",
+        "incumbentDesktopTupleSetSha256",
+        "incumbentSnapshotSha256",
+        "nonPublishedEvidenceTupleSetSha256",
+        "postPublicationTupleSetSha256",
+        "publicationDeltaTupleSetSha256",
+        "retainedTupleSetSha256",
+    ):
+        if not is_lower_sha256(candidate.get(field)):
+            raise SystemExit(f"prepared candidate receipt has invalid {field}: {candidate_path}")
+
+    def verify_reference(field: str, expected_path: str, raw: bytes) -> None:
+        reference = candidate.get(field)
+        if not isinstance(reference, dict) or set(reference) != {"path", "sha256", "sizeBytes"}:
+            raise SystemExit(f"prepared candidate receipt has invalid {field}: {candidate_path}")
+        if (
+            reference.get("path") != expected_path
+            or reference.get("sizeBytes") != len(raw)
+            or reference.get("sha256") != hashlib.sha256(raw).hexdigest()
+        ):
+            raise SystemExit(f"prepared candidate receipt {field} byte binding is invalid: {candidate_path}")
+
+    verify_reference("canonicalManifest", canonical_path.name, canonical_raw)
+    verify_reference("compatibilityManifest", compatibility_path.name, compatibility_raw)
+    envelope = canonical["previewPublicationDelta"]
+    composition_reference = candidate.get("compositionInput")
+    if (
+        not isinstance(composition_reference, dict)
+        or set(composition_reference) != {"path", "sha256", "sizeBytes"}
+        or not is_lower_sha256(composition_reference.get("sha256"))
+        or isinstance(composition_reference.get("sizeBytes"), bool)
+        or not isinstance(composition_reference.get("sizeBytes"), int)
+        or composition_reference.get("sizeBytes") <= 0
+    ):
+        raise SystemExit(f"prepared candidate receipt compositionInput is invalid: {candidate_path}")
+    composition_input_path = verify_prepared_portable_relative_path(
+        composition_reference.get("path"),
+        f"{candidate_path} compositionInput.path",
+    )
+    if (
+        "/" in composition_input_path
+        or composition_input_path.casefold() in {name.casefold() for name in expected_names}
+    ):
+        raise SystemExit(
+            f"prepared candidate receipt compositionInput basename is invalid: {candidate_path}"
+        )
+    if composition_reference.get("sha256") != envelope.get("compositionInputSha256"):
+        raise SystemExit(
+            f"prepared candidate receipt compositionInput digest disagrees: {candidate_path}"
+        )
+    composition_document = candidate.get("compositionInputDocument")
+    if not isinstance(composition_document, dict):
+        raise SystemExit(f"prepared candidate receipt composition document is invalid: {candidate_path}")
+    composition_raw = canonical_compact_json_bytes(composition_document)
+    if (
+        composition_reference.get("sha256") != hashlib.sha256(composition_raw).hexdigest()
+        or composition_reference.get("sizeBytes") != len(composition_raw)
+    ):
+        raise SystemExit(
+            f"prepared candidate receipt does not bind its composition document: {candidate_path}"
+        )
+    if candidate.get("registryProjectionInputs") != canonical.get("registryProjectionInputs"):
+        raise SystemExit(f"prepared candidate receipt producer inputs disagree: {candidate_path}")
+    verify_registry_projection_inputs(candidate, str(candidate_path))
+
+    if compatibility.get("previewPublicationDelta") != envelope:
+        raise SystemExit(f"prepared manifest envelopes disagree: {root}")
+    for candidate_field, envelope_field in (
+        ("incumbentSnapshotSha256", "incumbentSnapshotSha256"),
+        ("nonPublishedEvidenceTupleSetSha256", "nonPublishedEvidenceTupleSetSha256"),
+        ("postPublicationTupleSetSha256", "postPublicationTupleSetSha256"),
+        ("publicationDeltaTupleSetSha256", "publicationDeltaTupleSetSha256"),
+        ("retainedTupleSetSha256", "retainedTupleSetSha256"),
+        ("retainedPlatforms", "retainedPlatforms"),
+        ("shelfPlatforms", "shelfPlatforms"),
+    ):
+        if candidate.get(candidate_field) != envelope.get(envelope_field):
+            raise SystemExit(f"prepared candidate receipt disagrees on {candidate_field}: {candidate_path}")
+    if candidate.get("releaseVersion") != canonical.get("releaseVersion"):
+        raise SystemExit(f"prepared candidate receipt release version disagrees: {candidate_path}")
+    incumbent = composition_document["incumbentSnapshot"]
+    for candidate_field, composition_value in (
+        ("incumbentDesktopTupleSetSha256", incumbent["desktopTupleSetSha256"]),
+        ("incumbentSnapshotSha256", incumbent["snapshotSha256"]),
+        (
+            "nonPublishedEvidenceTupleSetSha256",
+            composition_document["nonPublishedEvidenceTupleSetSha256"],
+        ),
+        (
+            "publicationDeltaTupleSetSha256",
+            composition_document["publicationDeltaTupleSetSha256"],
+        ),
+        ("releaseVersion", composition_document["releaseVersion"]),
+    ):
+        if candidate.get(candidate_field) != composition_value:
+            raise SystemExit(
+                f"prepared candidate receipt disagrees with composition on {candidate_field}: "
+                f"{candidate_path}"
+            )
+    registry_commit = composition_document["producerCommits"]["registry"]
+    if canonical.get("registryCommit") != registry_commit:
+        raise SystemExit(f"prepared canonical registry commit disagrees with composition: {root}")
+    incumbent_manifest_base64 = candidate.get("incumbentCanonicalManifestBytesBase64")
+    if not isinstance(incumbent_manifest_base64, str):
+        raise SystemExit(f"prepared candidate held incumbent bytes are invalid: {candidate_path}")
+    try:
+        incumbent_manifest_raw = base64.b64decode(
+            incumbent_manifest_base64.encode("ascii"),
+            validate=True,
+        )
+    except (UnicodeEncodeError, ValueError, binascii.Error) as exc:
+        raise SystemExit(
+            f"prepared candidate held incumbent bytes are not canonical base64: {candidate_path}"
+        ) from exc
+    if base64.b64encode(incumbent_manifest_raw).decode("ascii") != incumbent_manifest_base64:
+        raise SystemExit(
+            f"prepared candidate held incumbent bytes are not canonical base64: {candidate_path}"
+        )
+    if not (0 < len(incumbent_manifest_raw) <= MAX_EMBEDDED_INCUMBENT_MANIFEST_BYTES):
+        raise SystemExit(f"prepared candidate held incumbent bytes exceed the bound: {candidate_path}")
+    incumbent_manifest_reference = composition_document["incumbentSnapshot"][
+        "canonicalManifest"
+    ]
+    if (
+        len(incumbent_manifest_raw) != incumbent_manifest_reference["sizeBytes"]
+        or hashlib.sha256(incumbent_manifest_raw).hexdigest()
+        != incumbent_manifest_reference["sha256"]
+    ):
+        raise SystemExit(
+            f"prepared candidate held incumbent bytes disagree with composition: {candidate_path}"
+        )
+    incumbent_manifest = strict_json_loads(
+        incumbent_manifest_raw,
+        source=f"{candidate_path} held incumbent canonical manifest",
+    )
+    if not isinstance(incumbent_manifest, dict):
+        raise SystemExit(f"prepared candidate held incumbent manifest is not an object: {candidate_path}")
+    derived_projection = verify_prepared_artifacts_against_composition(
+        canonical,
+        composition_document,
+        incumbent_manifest,
+        str(candidate_path),
+    )
+    for field, expected in derived_projection.items():
+        if candidate.get(field) != expected or envelope.get(field) != expected:
+            raise SystemExit(
+                f"prepared candidate projection is not composition-derived on {field}: {root}"
+            )
+
+    for field in (
+        "generatedAt",
+        "generated_at",
+        "publishedAt",
+        "registryCommit",
+        "registry_commit",
+    ):
+        if canonical.get(field) != compatibility.get(field):
+            raise SystemExit(f"prepared bundle manifests disagree on {field}: {root}")
+
+    canonical_rows = canonical.get("artifacts")
+    compatibility_rows = compatibility.get("downloads")
+    if not isinstance(canonical_rows, list) or not isinstance(compatibility_rows, list):
+        raise SystemExit(f"prepared bundle projections are missing artifact rows: {root}")
+    canonical_by_id = {
+        str(row.get("artifactId") or row.get("id") or ""): row
+        for row in canonical_rows
+        if isinstance(row, dict)
+    }
+    compatibility_by_id = {
+        str(row.get("artifactId") or row.get("id") or ""): row
+        for row in compatibility_rows
+        if isinstance(row, dict)
+    }
+    if (
+        len(canonical_by_id) != len(canonical_rows)
+        or len(compatibility_by_id) != len(compatibility_rows)
+        or set(canonical_by_id) != set(compatibility_by_id)
+    ):
+        raise SystemExit(f"prepared bundle artifact ids are not bijective: {root}")
+    release_materializer = release_channel_materializer_module()
+    for artifact_id, artifact in canonical_by_id.items():
+        download = compatibility_by_id[artifact_id]
+        expected_download = release_materializer.compatibility_artifact_row(
+            artifact,
+            channel_id=str(canonical.get("channelId") or canonical.get("channel") or ""),
+            canonical_version=canonical.get("version"),
+        )
+        expected_download["publicationDisposition"] = artifact["publicationDisposition"]
+        for field in (
+            "sourceManifestRowSha256",
+            "sourceManifestSha256",
+            "sourceReceiptSha256",
+            "sourceReleaseVersion",
+            "sourceSnapshotSha256",
+        ):
+            if field in artifact:
+                expected_download[field] = artifact[field]
+        if download != expected_download:
+            raise SystemExit(
+                f"prepared bundle artifact {artifact_id} is not the canonical compatibility row: {root}"
+            )
+
+    inventory = candidate.get("fullShelfInventory")
+    if not isinstance(inventory, list) or not inventory:
+        raise SystemExit(f"prepared candidate receipt inventory is invalid: {candidate_path}")
+    inventory = verify_prepared_inventory_rows(inventory, str(candidate_path))
+    if hashlib.sha256(canonical_compact_json_bytes(inventory)).hexdigest() != candidate.get(
+        "fullShelfInventorySha256"
+    ):
+        raise SystemExit(f"prepared candidate receipt inventory digest is invalid: {candidate_path}")
+    expected_inventory = expected_prepared_inventory_from_composition(
+        composition_document,
+        canonical_raw=canonical_raw,
+        compatibility_raw=compatibility_raw,
+        source=str(candidate_path),
+    )
+    if inventory != expected_inventory:
+        raise SystemExit(
+            f"prepared candidate receipt inventory is not the complete composition projection: "
+            f"{candidate_path}"
+        )
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Verify release-channel and downloads manifest truth.")
     parser.add_argument(
@@ -7151,6 +8398,19 @@ def main() -> int:
         raise SystemExit(f"manifest must be a JSON object: {source}")
     verify_generated_timestamp(payload, source)
     verify_contract_identity(payload, source)
+    if is_prepared_preview_publication_delta(payload):
+        verify_prepared_preview_publication_delta(payload, source)
+        target_is_directory = not target.startswith(("http://", "https://")) and Path(
+            target
+        ).expanduser().is_dir()
+        if target_is_directory:
+            if local_root is None:
+                raise SystemExit(f"prepared delta bundle root is unavailable: {target}")
+            verify_prepared_directory_bundle(local_root, payload, source)
+            print(f"verified prepared preview publication delta bundle: {local_root}")
+        else:
+            print(f"verified prepared preview publication delta: {source}")
+        return 0
     verify_code_deploy_current_shelf_authority(payload, source)
     coverage = verify_artifacts(
         payload,
