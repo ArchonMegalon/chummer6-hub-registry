@@ -5564,6 +5564,63 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     return payload
 
 
+def compatibility_artifact_row(
+    artifact: dict[str, Any],
+    *,
+    channel_id: str,
+    canonical_version: Any = None,
+) -> dict[str, Any]:
+    artifact_id = str(artifact.get("artifactId") or artifact.get("id") or "").strip()
+    file_name = str(artifact.get("fileName") or "")
+    file_format = (
+        "tar.gz" if file_name.endswith(".tar.gz") else Path(file_name).suffix.lower().lstrip(".")
+    )
+    platform = str(artifact.get("platform") or "").strip()
+    platform_label = str(artifact.get("platformLabel") or platform).strip()
+    arch = str(artifact.get("arch") or "").strip()
+    rid = str(artifact.get("rid") or "").strip()
+    kind = str(artifact.get("kind") or "").strip()
+    download_url = artifact.get("downloadUrl") or artifact.get("url")
+    return {
+        "id": artifact_id,
+        "artifactId": artifact_id,
+        "platform": platform,
+        "platformLabel": platform_label,
+        "url": download_url,
+        "downloadUrl": download_url,
+        "sha256": artifact.get("sha256"),
+        "sizeBytes": artifact.get("sizeBytes"),
+        "format": file_format,
+        "flavor": kind,
+        "kind": kind,
+        "head": artifact.get("head"),
+        "platformId": f"{platform}-{arch}" if platform and arch else platform or None,
+        "rid": rid,
+        "arch": arch or None,
+        "fileName": artifact.get("fileName"),
+        "channelId": artifact.get("channelId") or artifact.get("channel") or channel_id or None,
+        "channel": artifact.get("channel") or artifact.get("channelId") or channel_id or None,
+        "version": artifact.get("version")
+        or artifact.get("releaseVersion")
+        or canonical_version,
+        "releaseVersion": artifact.get("releaseVersion")
+        or artifact.get("version")
+        or canonical_version,
+        "compatibilityState": artifact.get("compatibilityState"),
+        "compatibilityReason": artifact.get("compatibilityReason"),
+        "installerMode": artifact.get("installerMode"),
+        "payloadAcquisitionMode": artifact.get("payloadAcquisitionMode"),
+        "payloadFileName": artifact.get("payloadFileName"),
+        "payloadDownloadUrl": artifact.get("payloadDownloadUrl"),
+        "payloadSha256": artifact.get("payloadSha256"),
+        "payloadSizeBytes": artifact.get("payloadSizeBytes"),
+        "installAccessClass": (
+            str(artifact.get("installAccessClass") or "").strip()
+            or default_install_access_class(platform, kind)
+        ),
+    }
+
+
 def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
     source_contract_name = str(canonical.get("contract_name") or canonical.get("contractName") or "").strip()
     if source_contract_name and source_contract_name != DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME:
@@ -5593,50 +5650,12 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
     for artifact in canonical.get("artifacts") or []:
         if not isinstance(artifact, dict):
             continue
-        artifact_id = str(artifact.get("artifactId") or artifact.get("id") or "").strip()
-        file_name = str(artifact.get("fileName") or "")
-        file_format = "tar.gz" if file_name.endswith(".tar.gz") else Path(file_name).suffix.lower().lstrip(".")
-        platform = str(artifact.get("platform") or "").strip()
-        platform_label = str(artifact.get("platformLabel") or platform).strip()
-        arch = str(artifact.get("arch") or "").strip()
-        rid = str(artifact.get("rid") or "").strip()
-        kind = str(artifact.get("kind") or "").strip()
-        download_url = artifact.get("downloadUrl") or artifact.get("url")
         downloads.append(
-            {
-                "id": artifact_id,
-                "artifactId": artifact_id,
-                "platform": platform,
-                "platformLabel": platform_label,
-                "url": download_url,
-                "downloadUrl": download_url,
-                "sha256": artifact.get("sha256"),
-                "sizeBytes": artifact.get("sizeBytes"),
-                "format": file_format,
-                "flavor": kind,
-                "kind": kind,
-                "head": artifact.get("head"),
-                "platformId": f"{platform}-{arch}" if platform and arch else platform or None,
-                "rid": rid,
-                "arch": arch or None,
-                "fileName": artifact.get("fileName"),
-                "channelId": artifact.get("channelId") or artifact.get("channel") or channel_id or None,
-                "channel": artifact.get("channel") or artifact.get("channelId") or channel_id or None,
-                "version": artifact.get("version") or artifact.get("releaseVersion") or canonical.get("version"),
-                "releaseVersion": artifact.get("releaseVersion") or artifact.get("version") or canonical.get("version"),
-                "compatibilityState": artifact.get("compatibilityState"),
-                "compatibilityReason": artifact.get("compatibilityReason"),
-                "installerMode": artifact.get("installerMode"),
-                "payloadAcquisitionMode": artifact.get("payloadAcquisitionMode"),
-                "payloadFileName": artifact.get("payloadFileName"),
-                "payloadDownloadUrl": artifact.get("payloadDownloadUrl"),
-                "payloadSha256": artifact.get("payloadSha256"),
-                "payloadSizeBytes": artifact.get("payloadSizeBytes"),
-                "installAccessClass": (
-                    str(artifact.get("installAccessClass") or "").strip()
-                    or default_install_access_class(platform, kind)
-                ),
-            }
+            compatibility_artifact_row(
+                artifact,
+                channel_id=channel_id,
+                canonical_version=canonical.get("version"),
+            )
         )
     return {
         "generated_at": canonical.get("generated_at") or canonical.get("generatedAt"),
