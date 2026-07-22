@@ -5,6 +5,7 @@ import importlib.util
 import json
 import os
 import shutil
+import subprocess
 import sys
 from pathlib import Path
 
@@ -13,13 +14,26 @@ import pytest
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT_PATH = REPO_ROOT / "scripts" / "materialize_unsigned_preview_publication_delta.py"
+VERIFY_SCRIPT_PATH = REPO_ROOT / "scripts" / "verify_public_release_channel.py"
 VERSION = "run-20260722-190000"
 SOURCE_SHA = "a" * 40
+REGISTRY_SOURCE_SHA = "b" * 40
 
 
 def load_module():
     spec = importlib.util.spec_from_file_location(
         "materialize_unsigned_preview_publication_delta_for_tests", SCRIPT_PATH
+    )
+    assert spec is not None and spec.loader is not None
+    module = importlib.util.module_from_spec(spec)
+    sys.modules[spec.name] = module
+    spec.loader.exec_module(module)
+    return module
+
+
+def load_verifier_module():
+    spec = importlib.util.spec_from_file_location(
+        "verify_public_release_channel_for_unsigned_delta_tests", VERIFY_SCRIPT_PATH
     )
     assert spec is not None and spec.loader is not None
     module = importlib.util.module_from_spec(spec)
@@ -440,6 +454,167 @@ def build_fixture(module, tmp_path: Path) -> dict[str, object]:
     }
 
 
+def build_profile_fixture(module, tmp_path: Path) -> dict[str, object]:
+    fixture = build_fixture(module, tmp_path)
+    incumbent = fixture["incumbent"]
+    publication = fixture["publication"]
+    request_path = fixture["request_path"]
+    prepare_args = fixture["prepare_args"]
+    assert isinstance(incumbent, Path)
+    assert isinstance(publication, Path)
+    assert isinstance(request_path, Path)
+    assert isinstance(prepare_args, list)
+
+    for root in (incumbent, publication):
+        linux = root / "files/chummer-avalonia-linux-x64-installer.deb"
+        linux.unlink()
+        canonical_path = root / module.CANONICAL_MANIFEST_NAME
+        canonical = read_json(canonical_path)
+        canonical["artifacts"] = [
+            row for row in canonical["artifacts"] if row["platform"] != "linux"
+        ]
+        for row in canonical["artifacts"]:
+            if row["platform"] == "macos":
+                row["downloadUrl"] = module.governed_download_url(row["fileName"])
+                row["releaseVersion"] = "run-20260720-120000"
+        write_json(canonical_path, canonical)
+
+        compatibility_path = root / module.COMPATIBILITY_MANIFEST_NAME
+        compatibility_manifest = read_json(compatibility_path)
+        compatibility_manifest["downloads"] = [
+            row
+            for row in compatibility_manifest["downloads"]
+            if row["platformId"] != "linux"
+        ]
+        for row in compatibility_manifest["downloads"]:
+            if row["platformId"] == "macos-arm64":
+                row["url"] = module.governed_download_url(row["fileName"])
+                row["releaseVersion"] = "run-20260720-120000"
+        write_json(compatibility_path, compatibility_manifest)
+
+    payload = publication / module.PAYLOAD_PATH
+    sidecar_path = publication / module.PAYLOAD_SIDECAR_PATH
+    write_json(
+        sidecar_path,
+        {
+            "contractName": "chummer6-ui.windows_bootstrap_payload",
+            "downloadUrl": f"{module.SOURCE_DOWNLOAD_ROOT}/{module.PAYLOAD_NAME}",
+            "fileName": module.PAYLOAD_NAME,
+            "installerFileName": module.INSTALLER_NAME,
+            "payloadAcquisitionMode": "download",
+            "releaseVersion": VERSION,
+            "sha256": digest(payload),
+            "sizeBytes": payload.stat().st_size,
+        },
+    )
+
+    request = read_json(request_path)
+    incumbent_inventory = module.scan_inventory(incumbent, label="profile incumbent")
+    incumbent_modes = module.scan_directory_modes(incumbent, label="profile incumbent")
+    incumbent_snapshot = {
+        "canonicalManifest": binding(
+            incumbent / module.CANONICAL_MANIFEST_NAME,
+            module.CANONICAL_MANIFEST_NAME,
+        ),
+        "compatibilityManifest": binding(
+            incumbent / module.COMPATIBILITY_MANIFEST_NAME,
+            module.COMPATIBILITY_MANIFEST_NAME,
+        ),
+        "directoryModes": incumbent_modes,
+        "directoryModesSha256": module.ui_object_sha256(incumbent_modes),
+        "fullShelfInventory": incumbent_inventory,
+        "fullShelfInventorySha256": module.ui_object_sha256(incumbent_inventory),
+    }
+    incumbent_snapshot["snapshotSha256"] = module.ui_object_sha256(
+        incumbent_snapshot
+    )
+    proposed_inventory = module.scan_inventory(publication, label="profile source shelf")
+    proposed_modes = module.scan_directory_modes(publication, label="profile source shelf")
+    proposed_by_path = {row["path"]: row for row in proposed_inventory}
+    canonical_path = publication / module.CANONICAL_MANIFEST_NAME
+    compatibility_path = publication / module.COMPATIBILITY_MANIFEST_NAME
+    source_windows = next(
+        row
+        for row in read_json(canonical_path)["artifacts"]
+        if row["platform"] == "windows"
+    )
+    manifest_row_sha256 = module.ui_object_sha256(source_windows)
+    request.update(
+        {
+            "freshDelta": [
+                {
+                    "artifactRole": role,
+                    "fileName": file_name,
+                    "head": "avalonia",
+                    "manifestRowSha256": manifest_row_sha256,
+                    **proposed_by_path[path],
+                    "platform": "windows",
+                    "rid": "win-x64",
+                }
+                for role, file_name, path in (
+                    ("installer", module.INSTALLER_NAME, module.INSTALLER_PATH),
+                    ("bootstrap_payload", module.PAYLOAD_NAME, module.PAYLOAD_PATH),
+                    (
+                        "bootstrap_payload_sidecar",
+                        module.PAYLOAD_SIDECAR_NAME,
+                        module.PAYLOAD_SIDECAR_PATH,
+                    ),
+                )
+            ],
+            "incumbentSnapshot": incumbent_snapshot,
+            "projectionProfile": module.V3_PROJECTION_PROFILE,
+            "proposedCanonicalManifest": binding(
+                canonical_path, module.CANONICAL_MANIFEST_NAME
+            ),
+            "proposedCompatibilityManifest": binding(
+                compatibility_path, module.COMPATIBILITY_MANIFEST_NAME
+            ),
+            "proposedDirectoryModes": proposed_modes,
+            "proposedDirectoryModesSha256": module.ui_object_sha256(proposed_modes),
+            "proposedShelfInventory": proposed_inventory,
+            "proposedShelfInventorySha256": module.ui_object_sha256(
+                proposed_inventory
+            ),
+        }
+    )
+    fresh_paths = {
+        module.CANONICAL_MANIFEST_NAME,
+        module.COMPATIBILITY_MANIFEST_NAME,
+        module.INSTALLER_PATH,
+        module.PAYLOAD_PATH,
+        module.PAYLOAD_SIDECAR_PATH,
+    }
+    request["retainedFromIncumbent"] = [
+        {
+            **row,
+            "retentionKind": (
+                "managed_artifact"
+                if row["path"] == "files/chummer-avalonia-osx-arm64-installer.dmg"
+                else "ancillary"
+            ),
+        }
+        for row in proposed_inventory
+        if row["path"] not in fresh_paths
+    ]
+    control = fixture["control"]
+    assert isinstance(control, Path)
+    for source, relative in (
+        (canonical_path, module.SOURCE_CANONICAL_CUSTODY_PATH),
+        (compatibility_path, module.SOURCE_COMPATIBILITY_CUSTODY_PATH),
+    ):
+        custody = control / relative
+        custody.parent.mkdir(parents=True, exist_ok=True)
+        shutil.copy2(source, custody)
+        custody.chmod(0o444)
+    request_raw = write_json(request_path, request)
+    prepare_args[
+        prepare_args.index("--expected-composition-request-sha256") + 1
+    ] = module.sha256_bytes(request_raw)
+    prepare_args.extend(["--registry-source-sha", REGISTRY_SOURCE_SHA])
+    fixture["registry_source_sha"] = REGISTRY_SOURCE_SHA
+    return fixture
+
+
 def run_prepare(module, fixture: dict[str, object]) -> dict:
     args = fixture["prepare_args"]
     assert isinstance(args, list)
@@ -462,6 +637,19 @@ def build_scope_and_finalize(module, fixture: dict[str, object]) -> tuple[Path, 
     assert isinstance(transactions, Path)
     assert isinstance(provenance_paths, dict)
     request = read_json(request_path)
+    profile = request.get("projectionProfile")
+    if profile:
+        publication = fixture["publication"]
+        assert isinstance(publication, Path)
+        for name in (
+            module.CANONICAL_MANIFEST_NAME,
+            module.COMPATIBILITY_MANIFEST_NAME,
+        ):
+            shutil.copy2(prepare_root / name, publication / name)
+            (publication / name).chmod(0o644)
+        assert module.scan_inventory(
+            publication, label="projected profile publication"
+        ) == candidate["fullShelfInventory"]
     scope = {
         "compatibilityManifest": binding(
             prepare_root / module.COMPATIBILITY_MANIFEST_NAME,
@@ -475,8 +663,8 @@ def build_scope_and_finalize(module, fixture: dict[str, object]) -> tuple[Path, 
             {key: value for key, value in row.items() if key != "manifestRowSha256"}
             for row in request["freshDelta"]
         ],
-        "fullShelfInventory": request["proposedShelfInventory"],
-        "fullShelfInventorySha256": request["proposedShelfInventorySha256"],
+        "fullShelfInventory": candidate["fullShelfInventory"],
+        "fullShelfInventorySha256": candidate["fullShelfInventorySha256"],
         "incumbentInventorySha256": request["incumbentSnapshot"][
             "fullShelfInventorySha256"
         ],
@@ -496,6 +684,8 @@ def build_scope_and_finalize(module, fixture: dict[str, object]) -> tuple[Path, 
         "status": "prepared",
         "uploadAuthorized": False,
     }
+    if profile:
+        scope["projectionProfile"] = profile
     scope_path = control / "scope" / module.UNSIGNED_SCOPE_NAME
     scope_raw = write_json(scope_path, scope)
     final_root = transactions / "finalize"
@@ -532,6 +722,8 @@ def build_scope_and_finalize(module, fixture: dict[str, object]) -> tuple[Path, 
         "--output-finalize-receipt",
         str(final_root / module.FINALIZE_RECEIPT_NAME),
     ]
+    if profile:
+        args.extend(["--registry-source-sha", str(fixture["registry_source_sha"])])
     fixture["candidate"] = candidate
     fixture["final_args"] = args
     fixture["final_root"] = final_root
@@ -595,6 +787,795 @@ def test_prepare_v2_is_exact_deterministic_windows_only_and_non_authoritative(
     assert (prepare_root / module.CANONICAL_MANIFEST_NAME).read_bytes() == (
         publication / module.CANONICAL_MANIFEST_NAME
     ).read_bytes()
+
+
+def test_prepare_v3_projects_public_bytes_without_promotion_or_fake_proof(
+    tmp_path: Path,
+) -> None:
+    module = load_module()
+    fixture = build_profile_fixture(module, tmp_path)
+    incumbent = fixture["incumbent"]
+    publication = fixture["publication"]
+    prepare_root = fixture["prepare_root"]
+    request_path = fixture["request_path"]
+    assert isinstance(incumbent, Path)
+    assert isinstance(publication, Path)
+    assert isinstance(prepare_root, Path)
+    assert isinstance(request_path, Path)
+    source_canonical_raw = (publication / module.CANONICAL_MANIFEST_NAME).read_bytes()
+    source_compatibility_raw = (
+        publication / module.COMPATIBILITY_MANIFEST_NAME
+    ).read_bytes()
+
+    candidate = run_prepare(module, fixture)
+    first = {path.name: path.read_bytes() for path in prepare_root.iterdir()}
+    assert module.main(fixture["prepare_args"]) == 0
+    assert {path.name: path.read_bytes() for path in prepare_root.iterdir()} == first
+    canonical = read_json(prepare_root / module.CANONICAL_MANIFEST_NAME)
+    compatibility_manifest = read_json(
+        prepare_root / module.COMPATIBILITY_MANIFEST_NAME
+    )
+    request = read_json(request_path)
+
+    assert first[module.CANONICAL_MANIFEST_NAME] != source_canonical_raw
+    assert first[module.COMPATIBILITY_MANIFEST_NAME] != source_compatibility_raw
+    assert canonical["status"] == compatibility_manifest["status"] == "published"
+    assert canonical["releaseDecisionStatus"] == "review_required"
+    assert canonical["supportabilityState"] == "review_required"
+    assert canonical["rolloutState"] == "coverage_incomplete"
+    expected_proof = {
+        "baseUrl": "https://chummer.run",
+        "generatedAt": "2026-07-22T19:00:00Z",
+        "journeysPassed": [],
+        "proofRoutes": [],
+        "status": "review_required",
+    }
+    assert canonical["releaseProof"] == expected_proof
+    assert compatibility_manifest["releaseProof"] == expected_proof
+    assert set(canonical["releaseProof"]) == {
+        "baseUrl",
+        "generatedAt",
+        "journeysPassed",
+        "proofRoutes",
+        "status",
+    }
+    assert "flagshipReadiness" not in canonical["releaseProof"]
+    assert "uiLocalizationReleaseGate" not in canonical["releaseProof"]
+    for projected in (canonical, compatibility_manifest):
+        assert projected["projectionProfile"] == module.V3_PROJECTION_PROFILE
+        assert projected["registryCommit"] == REGISTRY_SOURCE_SHA
+        assert projected["registry_commit"] == REGISTRY_SOURCE_SHA
+        assert projected["publicTrustMetrics"]["privacyReadiness"] == (
+            module.PRIVACY_LAUNCH_GATE_SNAPSHOT
+        )
+        assert projected["publicTrustMetrics"]["proofFreshness"]["status"] == (
+            "missing"
+        )
+        assert projected["publicTrustMetrics"]["releaseChannel"]["posture"] == (
+            "blocked"
+        )
+
+    incumbent_canonical = read_json(incumbent / module.CANONICAL_MANIFEST_NAME)
+    incumbent_compatibility = read_json(
+        incumbent / module.COMPATIBILITY_MANIFEST_NAME
+    )
+    assert [
+        row for row in canonical["artifacts"] if row["platform"] != "windows"
+    ] == [
+        row
+        for row in incumbent_canonical["artifacts"]
+        if row["platform"] != "windows"
+    ]
+    assert [
+        row
+        for row in compatibility_manifest["downloads"]
+        if module.platform_of(row) != "windows"
+    ] == [
+        row
+        for row in incumbent_compatibility["downloads"]
+        if module.platform_of(row) != "windows"
+    ]
+    windows = next(row for row in canonical["artifacts"] if row["platform"] == "windows")
+    assert windows["downloadUrl"] == (
+        "/downloads/files/chummer-avalonia-win-x64-installer.exe"
+    )
+    assert windows["payloadDownloadUrl"] == (
+        "/downloads/files/chummer-avalonia-win-x64-payload.zip"
+    )
+    assert windows["artifactByteVisibility"] == "public"
+    windows_download = next(
+        row
+        for row in compatibility_manifest["downloads"]
+        if module.platform_of(row) == "windows"
+    )
+    assert windows_download["url"] == windows["downloadUrl"]
+    assert windows_download["downloadUrl"] == windows["downloadUrl"]
+    coverage = canonical["desktopTupleCoverage"]
+    assert coverage["complete"] is False
+    assert coverage["requiredDesktopPlatforms"] == ["macos", "windows"]
+    assert "windows" in coverage["missingRequiredPlatforms"]
+    assert not any(
+        row.get("platform") == "windows"
+        for row in coverage["promotedInstallerTuples"]
+    )
+    windows_route = next(
+        row
+        for row in coverage["desktopRouteTruth"]
+        if row.get("platform") == "windows"
+    )
+    assert windows_route["promotionState"] == "proof_required"
+    assert windows_route["publicInstallRoute"] is None
+    assert windows_route["routeAuthority"] is False
+    assert windows_route["artifactByteVisibility"] == "public"
+    assert all(
+        row["routeAuthority"] is False and row["publicInstallRoute"] is None
+        for row in coverage["desktopRouteTruth"]
+        if row.get("platform") == "windows"
+    )
+    assert not any(
+        row.get("platform") == "linux" for row in coverage["desktopRouteTruth"]
+    )
+
+    assert candidate["projectionProfile"] == module.V3_PROJECTION_PROFILE
+    assert candidate["registryCommit"] == REGISTRY_SOURCE_SHA
+    assert candidate["registry_commit"] == REGISTRY_SOURCE_SHA
+    assert candidate["evidencePlatforms"] == []
+    assert candidate["retainedPlatforms"] == ["macos"]
+    assert candidate["shelfPlatforms"] == ["macos", "windows"]
+    assert set(candidate["windowsDelta"]) == {
+        "bootstrap_payload",
+        "bootstrap_payload_sidecar",
+        "installer",
+    }
+    assert set(candidate["projectionInputs"]) == {
+        "materializer",
+        "releaseChannelMaterializer",
+        "releaseChannelVerifier",
+        "schema",
+    }
+    assert candidate["privacyLaunchGateSnapshot"] == (
+        module.PRIVACY_LAUNCH_GATE_SNAPSHOT
+    )
+    assert candidate["privacyLaunchGateSnapshotSha256"] == module.ui_object_sha256(
+        module.PRIVACY_LAUNCH_GATE_SNAPSHOT
+    )
+    assert candidate["sourceShelfInventorySha256"] == request[
+        "proposedShelfInventorySha256"
+    ]
+    assert candidate["sourceCanonicalManifest"] == {
+        **request["proposedCanonicalManifest"],
+        "path": module.SOURCE_CANONICAL_CUSTODY_PATH,
+    }
+    assert candidate["sourceCompatibilityManifest"] == {
+        **request["proposedCompatibilityManifest"],
+        "path": module.SOURCE_COMPATIBILITY_CUSTODY_PATH,
+    }
+    assert candidate["canonicalManifest"]["sha256"] != request[
+        "proposedCanonicalManifest"
+    ]["sha256"]
+    review = canonical["codeDeployCurrentShelfAuthority"]
+    assert review == compatibility_manifest["codeDeployCurrentShelfAuthority"]
+    assert review == candidate["codeDeployCurrentShelfAuthority"]
+    assert set(review) == {
+        "authority",
+        "contract",
+        "evaluatedAt",
+        "incumbentSnapshotSha256",
+        "projectedArtifactCount",
+        "projectedArtifactInventorySha256",
+        "projectionProfile",
+        "registryCommit",
+        "sourceCanonicalManifestSha256",
+        "sourceCompatibilityManifestSha256",
+        "sourceShelfInventorySha256",
+        "status",
+    }
+    assert review["authority"] is False
+    assert review["contract"] == module.V3_CODE_DEPLOY_REVIEW_CONTRACT
+    assert review["status"] == "review_required"
+    projected_inventory = module.v3_projected_artifact_inventory_rows(
+        canonical["artifacts"]
+    )
+    assert review["projectedArtifactCount"] == len(projected_inventory)
+    assert review["projectedArtifactInventorySha256"] == (
+        module.v3_projected_artifact_inventory_sha256(canonical["artifacts"])
+    )
+    windows_inventory = next(
+        row for row in projected_inventory if row["platform"] == "windows"
+    )
+    assert windows_inventory["payloadFileName"] == module.PAYLOAD_NAME
+    assert windows_inventory["payloadSha256"] == windows["payloadSha256"]
+    assert windows_inventory["payloadSizeBytes"] == windows["payloadSizeBytes"]
+
+    retained_provenance = canonical["retainedIncumbentProvenance"]
+    assert retained_provenance == compatibility_manifest[
+        "retainedIncumbentProvenance"
+    ]
+    assert retained_provenance == candidate["retainedIncumbentProvenance"]
+    assert retained_provenance["contractName"] == (
+        module.RETAINED_INCUMBENT_PROVENANCE_CONTRACT
+    )
+    assert retained_provenance["contractVersion"] == 1
+    assert len(retained_provenance["retainedArtifactBindings"]) == len(
+        [row for row in canonical["artifacts"] if row["platform"] != "windows"]
+    )
+    assert retained_provenance["retainedArtifactBindingsSha256"] == (
+        module.ui_object_sha256(retained_provenance["retainedArtifactBindings"])
+    )
+    assert len(retained_provenance["retainedCompatibilityBindings"]) == len(
+        retained_provenance["retainedArtifactBindings"]
+    )
+    assert retained_provenance["retainedCompatibilityBindingsSha256"] == (
+        module.ui_object_sha256(
+            retained_provenance["retainedCompatibilityBindings"]
+        )
+    )
+    assert {
+        row["artifactId"]
+        for row in retained_provenance["retainedCompatibilityBindings"]
+    } == {
+        row["artifactId"]
+        for row in retained_provenance["retainedArtifactBindings"]
+    }
+
+
+def test_generated_v3_prepare_bundle_passes_normal_public_verifier_but_not_complete_gate(
+    tmp_path: Path,
+) -> None:
+    module = load_module()
+    fixture = build_profile_fixture(module, tmp_path)
+    run_prepare(module, fixture)
+    prepare_root = fixture["prepare_root"]
+    assert isinstance(prepare_root, Path)
+
+    normal = subprocess.run(
+        [sys.executable, str(VERIFY_SCRIPT_PATH), str(prepare_root)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert normal.returncode == 0, normal.stderr
+    assert "verified v3 unsigned Windows PREPARE bundle" in normal.stdout
+
+    strict = subprocess.run(
+        [
+            sys.executable,
+            str(VERIFY_SCRIPT_PATH),
+            "--require-complete-desktop-coverage",
+            str(prepare_root),
+        ],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert strict.returncode != 0
+    assert "desktop tuple coverage is incomplete" in strict.stderr
+
+
+@pytest.mark.parametrize(
+    ("target", "field", "value"),
+    (
+        ("root", "previewPolicy", "signed_release"),
+        (
+            "root",
+            "signature",
+            {"policy": "production_signing", "required": True, "status": "signed"},
+        ),
+        (
+            "windows",
+            "signature",
+            {"policy": "production_signing", "required": True, "status": "signed"},
+        ),
+        ("windows", "routeAuthority", True),
+        ("windows", "publicationAuthorized", True),
+        ("windows", "installerMode", "offline"),
+        ("windows", "payloadAcquisitionMode", "embedded"),
+        ("windows", "downloadUrl", "/downloads/files/wrong-installer.exe"),
+        ("windows", "payloadDownloadUrl", "/downloads/files/wrong-payload.zip"),
+        ("windows", "channel", "stable"),
+        ("windows", "channelId", "stable"),
+        ("windows", "version", "run-20260721-000000"),
+        ("windows", "releaseVersion", "run-20260721-000000"),
+        ("windows", "platformScope", "all_platforms"),
+        ("windows", "previewPolicy", "signed_release"),
+        ("windows", "crossRunBitReproducible", True),
+    ),
+)
+def test_v3_normal_verifier_rejects_root_and_windows_preview_identity_mutations(
+    tmp_path: Path,
+    target: str,
+    field: str,
+    value: object,
+) -> None:
+    module = load_module()
+    fixture = build_profile_fixture(module, tmp_path)
+    run_prepare(module, fixture)
+    prepare_root = fixture["prepare_root"]
+    assert isinstance(prepare_root, Path)
+    canonical = read_json(prepare_root / module.CANONICAL_MANIFEST_NAME)
+    mutation_target = canonical
+    if target == "windows":
+        mutation_target = next(
+            row
+            for row in canonical["artifacts"]
+            if row["platform"] == "windows"
+        )
+    mutation_target[field] = value
+    mutated_path = tmp_path / f"mutated-{target}-{field}.json"
+    write_json(mutated_path, canonical)
+
+    result = subprocess.run(
+        [sys.executable, str(VERIFY_SCRIPT_PATH), str(mutated_path)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode != 0
+    assert "v3" in result.stderr
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    (
+        "authority_true",
+        "review_field_missing",
+        "review_field_extra",
+        "review_inventory_digest",
+        "profile_missing",
+        "profile_spoofed",
+        "retained_snapshot",
+        "retained_binding",
+    ),
+)
+def test_v3_public_verifier_rejects_review_profile_and_retained_provenance_mutations(
+    tmp_path: Path,
+    mutation: str,
+) -> None:
+    module = load_module()
+    verifier = load_verifier_module()
+    fixture = build_profile_fixture(module, tmp_path)
+    run_prepare(module, fixture)
+    prepare_root = fixture["prepare_root"]
+    assert isinstance(prepare_root, Path)
+    canonical = read_json(prepare_root / module.CANONICAL_MANIFEST_NAME)
+
+    if mutation == "authority_true":
+        canonical["codeDeployCurrentShelfAuthority"]["authority"] = True
+    elif mutation == "review_field_missing":
+        canonical["codeDeployCurrentShelfAuthority"].pop("evaluatedAt")
+    elif mutation == "review_field_extra":
+        canonical["codeDeployCurrentShelfAuthority"]["unexpected"] = False
+    elif mutation == "review_inventory_digest":
+        canonical["codeDeployCurrentShelfAuthority"][
+            "projectedArtifactInventorySha256"
+        ] = "0" * 64
+    elif mutation == "profile_missing":
+        canonical.pop("projectionProfile")
+    elif mutation == "profile_spoofed":
+        canonical["projectionProfile"] = "v3_unsigned_windows_fresh_delta_spoofed"
+    elif mutation == "retained_snapshot":
+        canonical["retainedIncumbentProvenance"][
+            "incumbentSnapshotSha256"
+        ] = "0" * 64
+    elif mutation == "retained_binding":
+        bindings = canonical["retainedIncumbentProvenance"][
+            "retainedArtifactBindings"
+        ]
+        bindings[0]["manifestRowSha256"] = "0" * 64
+        canonical["retainedIncumbentProvenance"][
+            "retainedArtifactBindingsSha256"
+        ] = module.ui_object_sha256(bindings)
+    else:  # pragma: no cover - the parameter list is exhaustive
+        raise AssertionError(mutation)
+
+    with pytest.raises(SystemExit):
+        verifier.verify_v3_unsigned_windows_projection(canonical, "mutated v3")
+
+
+def test_v3_projected_inventory_digest_transitively_binds_payload_bytes(
+    tmp_path: Path,
+) -> None:
+    module = load_module()
+    verifier = load_verifier_module()
+    fixture = build_profile_fixture(module, tmp_path)
+    run_prepare(module, fixture)
+    prepare_root = fixture["prepare_root"]
+    assert isinstance(prepare_root, Path)
+    canonical = read_json(prepare_root / module.CANONICAL_MANIFEST_NAME)
+    original_digest = verifier.v3_projected_artifact_inventory_sha256(
+        canonical, "original v3"
+    )
+    windows = next(
+        row for row in canonical["artifacts"] if row["platform"] == "windows"
+    )
+    windows["payloadSha256"] = "0" * 64
+    assert verifier.v3_projected_artifact_inventory_sha256(
+        canonical, "mutated v3"
+    ) != original_digest
+    with pytest.raises(SystemExit, match="projected artifact inventory binding differs"):
+        verifier.verify_v3_unsigned_windows_projection(canonical, "mutated v3")
+
+
+@pytest.mark.parametrize("field", ("sha256", "sizeBytes"))
+def test_v3_candidate_full_inventory_transitively_binds_payload_sidecar(
+    tmp_path: Path,
+    field: str,
+) -> None:
+    module = load_module()
+    verifier = load_verifier_module()
+    fixture = build_profile_fixture(module, tmp_path)
+    run_prepare(module, fixture)
+    prepare_root = fixture["prepare_root"]
+    assert isinstance(prepare_root, Path)
+    canonical_raw = (prepare_root / module.CANONICAL_MANIFEST_NAME).read_bytes()
+    compatibility_raw = (
+        prepare_root / module.COMPATIBILITY_MANIFEST_NAME
+    ).read_bytes()
+    canonical = json.loads(canonical_raw)
+    candidate = read_json(prepare_root / module.CANDIDATE_RECEIPT_NAME)
+    sidecar = next(
+        row
+        for row in candidate["fullShelfInventory"]
+        if row["path"] == module.PAYLOAD_SIDECAR_PATH
+    )
+    sidecar[field] = "0" * 64 if field == "sha256" else sidecar[field] + 1
+    candidate["fullShelfInventorySha256"] = module.ui_object_sha256(
+        candidate["fullShelfInventory"]
+    )
+    with pytest.raises(SystemExit, match="bootstrap_payload_sidecar byte binding differs"):
+        verifier.verify_v3_candidate_transitive_byte_bindings(
+            candidate,
+            canonical,
+            canonical_raw=canonical_raw,
+            compatibility_raw=compatibility_raw,
+            source="mutated candidate",
+        )
+
+
+def test_v3_candidate_rejects_full_inventory_digest_mismatch(tmp_path: Path) -> None:
+    module = load_module()
+    verifier = load_verifier_module()
+    fixture = build_profile_fixture(module, tmp_path)
+    run_prepare(module, fixture)
+    prepare_root = fixture["prepare_root"]
+    assert isinstance(prepare_root, Path)
+    canonical_raw = (prepare_root / module.CANONICAL_MANIFEST_NAME).read_bytes()
+    compatibility_raw = (
+        prepare_root / module.COMPATIBILITY_MANIFEST_NAME
+    ).read_bytes()
+    canonical = json.loads(canonical_raw)
+    candidate = read_json(prepare_root / module.CANDIDATE_RECEIPT_NAME)
+    candidate["fullShelfInventorySha256"] = "0" * 64
+    with pytest.raises(SystemExit, match="full-shelf inventory digest differs"):
+        verifier.verify_v3_candidate_transitive_byte_bindings(
+            candidate,
+            canonical,
+            canonical_raw=canonical_raw,
+            compatibility_raw=compatibility_raw,
+            source="mutated candidate",
+        )
+
+
+def test_v3_candidate_source_inventory_digest_binds_sidecar_row(tmp_path: Path) -> None:
+    module = load_module()
+    verifier = load_verifier_module()
+    fixture = build_profile_fixture(module, tmp_path)
+    run_prepare(module, fixture)
+    prepare_root = fixture["prepare_root"]
+    assert isinstance(prepare_root, Path)
+    canonical_raw = (prepare_root / module.CANONICAL_MANIFEST_NAME).read_bytes()
+    compatibility_raw = (
+        prepare_root / module.COMPATIBILITY_MANIFEST_NAME
+    ).read_bytes()
+    canonical = json.loads(canonical_raw)
+    candidate = read_json(prepare_root / module.CANDIDATE_RECEIPT_NAME)
+    source_inventory = candidate["compositionInputDocument"][
+        "proposedShelfInventory"
+    ]
+    sidecar = next(
+        row for row in source_inventory if row["path"] == module.PAYLOAD_SIDECAR_PATH
+    )
+    sidecar["sha256"] = "0" * 64
+    source_digest = module.ui_object_sha256(source_inventory)
+    candidate["compositionInputDocument"][
+        "proposedShelfInventorySha256"
+    ] = source_digest
+    candidate["sourceShelfInventorySha256"] = source_digest
+    canonical["codeDeployCurrentShelfAuthority"][
+        "sourceShelfInventorySha256"
+    ] = source_digest
+    with pytest.raises(SystemExit, match="bootstrap_payload_sidecar byte binding differs"):
+        verifier.verify_v3_candidate_transitive_byte_bindings(
+            candidate,
+            canonical,
+            canonical_raw=canonical_raw,
+            compatibility_raw=compatibility_raw,
+            source="mutated candidate",
+        )
+
+
+@pytest.mark.parametrize(
+    ("location", "field"),
+    (
+        ("candidate", "publicationEligible"),
+        ("composition", "publicationAuthorized"),
+        ("fresh_delta", "routeAuthority"),
+        ("retained", "uploadAuthorized"),
+    ),
+)
+def test_v3_candidate_recursive_authority_posture_rejects_true_mutations(
+    tmp_path: Path,
+    location: str,
+    field: str,
+) -> None:
+    module = load_module()
+    verifier = load_verifier_module()
+    fixture = build_profile_fixture(module, tmp_path)
+    run_prepare(module, fixture)
+    prepare_root = fixture["prepare_root"]
+    assert isinstance(prepare_root, Path)
+    candidate = read_json(prepare_root / module.CANDIDATE_RECEIPT_NAME)
+    if location == "candidate":
+        target = candidate
+    elif location == "composition":
+        target = candidate["compositionInputDocument"]
+    elif location == "fresh_delta":
+        target = candidate["compositionInputDocument"]["freshDelta"][0]
+    elif location == "retained":
+        target = candidate["compositionInputDocument"]["retainedFromIncumbent"][0]
+    else:  # pragma: no cover - parameter list is exhaustive
+        raise AssertionError(location)
+    target[field] = True
+    with pytest.raises(SystemExit, match="must be exactly false"):
+        verifier.verify_v3_recursive_authority_posture(
+            candidate, source="mutated candidate"
+        )
+
+
+def test_v3_prepare_verifier_rejects_resealed_retained_compatibility_url_mutation(
+    tmp_path: Path,
+) -> None:
+    module = load_module()
+    verifier = load_verifier_module()
+    fixture = build_profile_fixture(module, tmp_path)
+    run_prepare(module, fixture)
+    prepare_root = fixture["prepare_root"]
+    assert isinstance(prepare_root, Path)
+    compatibility_path = prepare_root / module.COMPATIBILITY_MANIFEST_NAME
+    compatibility = read_json(compatibility_path)
+    retained = next(
+        row
+        for row in compatibility["downloads"]
+        if module.platform_of(row) != "windows"
+    )
+    retained["url"] = "/downloads/files/resealed-wrong-retained-installer.dmg"
+    compatibility_raw = module.registry_json_bytes(compatibility)
+    compatibility_path.write_bytes(compatibility_raw)
+    compatibility_path.chmod(0o644)
+
+    candidate_path = prepare_root / module.CANDIDATE_RECEIPT_NAME
+    candidate = read_json(candidate_path)
+    candidate["compatibilityManifest"] = module.byte_reference(
+        module.COMPATIBILITY_MANIFEST_NAME, compatibility_raw
+    )
+    inventory_row = next(
+        row
+        for row in candidate["fullShelfInventory"]
+        if row["path"] == module.COMPATIBILITY_MANIFEST_NAME
+    )
+    inventory_row["sha256"] = module.sha256_bytes(compatibility_raw)
+    inventory_row["sizeBytes"] = len(compatibility_raw)
+    candidate["fullShelfInventorySha256"] = module.ui_object_sha256(
+        candidate["fullShelfInventory"]
+    )
+    candidate_path.write_bytes(module.registry_json_bytes(candidate))
+    candidate_path.chmod(0o644)
+    canonical_path = prepare_root / module.CANONICAL_MANIFEST_NAME
+    canonical = read_json(canonical_path)
+
+    with pytest.raises(
+        SystemExit, match=r"retained compatibility row\[0\] custody differs"
+    ):
+        verifier.verify_v3_unsigned_windows_prepare_directory(
+            prepare_root, canonical, str(canonical_path)
+        )
+
+
+def test_v3_prepare_verifier_rejects_fully_resealed_global_download_reversal(
+    tmp_path: Path,
+) -> None:
+    module = load_module()
+    verifier = load_verifier_module()
+    fixture = build_profile_fixture(module, tmp_path)
+    run_prepare(module, fixture)
+    prepare_root = fixture["prepare_root"]
+    assert isinstance(prepare_root, Path)
+    canonical_path = prepare_root / module.CANONICAL_MANIFEST_NAME
+    compatibility_path = prepare_root / module.COMPATIBILITY_MANIFEST_NAME
+    candidate_path = prepare_root / module.CANDIDATE_RECEIPT_NAME
+    canonical = read_json(canonical_path)
+    compatibility = read_json(compatibility_path)
+    candidate = read_json(candidate_path)
+
+    compatibility["downloads"].reverse()
+    compatibility_raw = module.registry_json_bytes(compatibility)
+    compatibility_path.write_bytes(compatibility_raw)
+    compatibility_path.chmod(0o644)
+    candidate["compatibilityManifest"] = module.byte_reference(
+        module.COMPATIBILITY_MANIFEST_NAME, compatibility_raw
+    )
+    inventory_row = next(
+        row
+        for row in candidate["fullShelfInventory"]
+        if row["path"] == module.COMPATIBILITY_MANIFEST_NAME
+    )
+    inventory_row["sha256"] = module.sha256_bytes(compatibility_raw)
+    inventory_row["sizeBytes"] = len(compatibility_raw)
+    candidate["fullShelfInventorySha256"] = module.ui_object_sha256(
+        candidate["fullShelfInventory"]
+    )
+    candidate_path.write_bytes(module.registry_json_bytes(candidate))
+    candidate_path.chmod(0o644)
+
+    with pytest.raises(
+        SystemExit, match="canonical/compatibility artifact row order differs"
+    ):
+        verifier.verify_v3_unsigned_windows_prepare_directory(
+            prepare_root, canonical, str(canonical_path)
+        )
+
+
+def test_v3_retained_compatibility_requires_two_row_canonical_relative_order() -> None:
+    verifier = load_verifier_module()
+    first = {
+        "artifactId": "avalonia-osx-arm64-installer",
+        "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
+        "head": "avalonia",
+        "kind": "installer",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "sha256": "1" * 64,
+        "sizeBytes": 11,
+    }
+    second = {
+        "artifactId": "blazor-desktop-osx-arm64-installer",
+        "fileName": "chummer-blazor-desktop-osx-arm64-installer.dmg",
+        "head": "blazor-desktop",
+        "kind": "installer",
+        "platform": "macos",
+        "rid": "osx-arm64",
+        "sha256": "2" * 64,
+        "sizeBytes": 22,
+    }
+
+    def compatibility_row(row: dict[str, object]) -> dict[str, object]:
+        return {
+            "fileName": row["fileName"],
+            "head": row["head"],
+            "kind": row["kind"],
+            "platform": (
+                "Avalonia Desktop macOS Arm64 Installer"
+                if row["head"] == "avalonia"
+                else "Blazor Desktop macOS Arm64 Installer"
+            ),
+            "platformId": "macos-arm64",
+            "rid": row["rid"],
+            "sha256": row["sha256"],
+            "sizeBytes": row["sizeBytes"],
+            "url": f"/downloads/files/{row['fileName']}",
+        }
+
+    canonical = {"artifacts": [first, second]}
+    compatibility_manifest = {
+        "downloads": [compatibility_row(second), compatibility_row(first)]
+    }
+    with pytest.raises(
+        SystemExit, match="canonical/compatibility artifact row order differs"
+    ):
+        verifier.verify_v3_retained_compatibility_bijection(
+            canonical,
+            compatibility_manifest,
+            source="two-retained-row reversal",
+        )
+
+
+def test_finalize_v3_propagates_projection_privacy_and_source_custody(
+    tmp_path: Path,
+) -> None:
+    module = load_module()
+    fixture = build_profile_fixture(module, tmp_path)
+    _scope_path, args = build_scope_and_finalize(module, fixture)
+    final_root = fixture["final_root"]
+    assert isinstance(final_root, Path)
+    assert module.main(args) == 0
+    first = {path.name: path.read_bytes() for path in final_root.iterdir()}
+    assert module.main(args) == 0
+    assert {path.name: path.read_bytes() for path in final_root.iterdir()} == first
+    authority = json.loads(first[module.AUTHORITY_RECEIPT_NAME])
+    receipt = json.loads(first[module.FINALIZE_RECEIPT_NAME])
+    candidate = fixture["candidate"]
+    assert isinstance(candidate, dict)
+    for payload in (authority, receipt):
+        assert payload["projectionProfile"] == module.V3_PROJECTION_PROFILE
+        assert payload["registryCommit"] == REGISTRY_SOURCE_SHA
+        assert payload["registry_commit"] == REGISTRY_SOURCE_SHA
+        assert payload["privacyLaunchGateSnapshot"] == (
+            module.PRIVACY_LAUNCH_GATE_SNAPSHOT
+        )
+        assert payload["privacyLaunchGateSnapshotSha256"] == (
+            candidate["privacyLaunchGateSnapshotSha256"]
+        )
+        assert payload["sourceCanonicalManifest"] == candidate[
+            "sourceCanonicalManifest"
+        ]
+        assert payload["sourceCompatibilityManifest"] == candidate[
+            "sourceCompatibilityManifest"
+        ]
+        assert payload["sourceShelfInventorySha256"] == candidate[
+            "sourceShelfInventorySha256"
+        ]
+        assert payload["codeDeployCurrentShelfAuthority"] == candidate[
+            "codeDeployCurrentShelfAuthority"
+        ]
+        assert payload["retainedIncumbentProvenance"] == candidate[
+            "retainedIncumbentProvenance"
+        ]
+        assert payload["codeDeploymentAuthority"] is False
+        assert payload["publicationAuthorized"] is False
+        assert payload["publicationEligible"] is False
+        assert payload["releaseUploadAuthority"] is False
+        assert payload["routeAuthority"] is False
+    assert authority["evidencePlatforms"] == []
+
+
+def test_prepare_v3_rejects_resealed_payload_sidecar_semantic_drift(
+    tmp_path: Path,
+) -> None:
+    module = load_module()
+    fixture = build_profile_fixture(module, tmp_path)
+    publication = fixture["publication"]
+    request_path = fixture["request_path"]
+    assert isinstance(publication, Path) and isinstance(request_path, Path)
+    sidecar_path = publication / module.PAYLOAD_SIDECAR_PATH
+    sidecar = read_json(sidecar_path)
+    sidecar["sha256"] = "0" * 64
+    write_json(sidecar_path, sidecar)
+    request = read_json(request_path)
+    inventory = module.scan_inventory(publication, label="tampered profile shelf")
+    request["proposedShelfInventory"] = inventory
+    request["proposedShelfInventorySha256"] = module.ui_object_sha256(inventory)
+    sidecar_inventory = next(
+        row for row in inventory if row["path"] == module.PAYLOAD_SIDECAR_PATH
+    )
+    request["freshDelta"][2].update(sidecar_inventory)
+    rewrite_request(module, fixture, request)
+    assert module.main(fixture["prepare_args"]) == 1
+    assert_no_output(fixture["prepare_root"])
+
+
+def test_prepare_v3_requires_immutable_raw_source_custody(tmp_path: Path) -> None:
+    module = load_module()
+    fixture = build_profile_fixture(module, tmp_path)
+    control = fixture["control"]
+    assert isinstance(control, Path)
+    custody = control / module.SOURCE_CANONICAL_CUSTODY_PATH
+    custody.chmod(0o644)
+    assert module.main(fixture["prepare_args"]) == 1
+    assert_no_output(fixture["prepare_root"])
+
+
+def test_finalize_v3_rechecks_raw_source_custody_bytes(tmp_path: Path) -> None:
+    module = load_module()
+    fixture = build_profile_fixture(module, tmp_path)
+    _scope_path, args = build_scope_and_finalize(module, fixture)
+    control = fixture["control"]
+    assert isinstance(control, Path)
+    custody = control / module.SOURCE_COMPATIBILITY_CUSTODY_PATH
+    custody.chmod(0o644)
+    custody.write_bytes(custody.read_bytes() + b"\n")
+    custody.chmod(0o444)
+    assert module.main(args) == 1
+    assert_no_output(fixture["final_root"])
 
 
 def test_prepare_accepts_actual_ui_provenance_binding_shape(tmp_path: Path) -> None:
