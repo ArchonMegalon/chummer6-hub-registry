@@ -99,6 +99,7 @@ PACKAGE_PLANE_LOCK_CONTRACT = "chummer6-ui.fresh-package-plane-lock"
 PACKAGE_PLANE_LOCK_VERSION = 8
 PACKAGE_PLANE_RECEIPT_CONTRACT = "chummer6-ui.fresh-package-plane-verification"
 PACKAGE_PLANE_RECEIPT_VERSION = 8
+PACKAGE_PLANE_LOCK_REFERENCE_PATH = "config/package-plane.lock.json"
 RETAINED_MANIFEST_CONTRACT = "chummer6-ui.retained-windows-publish-closure"
 RETAINED_MANIFEST_VERSION = 2
 RETAINED_POINTER_CONTRACT = "chummer6-ui.retained-windows-publish-closure-pointer"
@@ -167,6 +168,20 @@ INCUMBENT_KEYS = {
 INVENTORY_KEYS = {"mode", "path", "sha256", "sizeBytes"}
 DIRECTORY_MODE_KEYS = {"mode", "path"}
 BYTE_REFERENCE_KEYS = {"path", "sha256", "sizeBytes"}
+RETAINED_POINTER_KEYS = {
+    "atomicallyRetained",
+    "authority",
+    "bundleInventoryCount",
+    "bundleInventorySha256",
+    "consumerCommit",
+    "contractName",
+    "contractVersion",
+    "manifest",
+    "manifestIsAuthoritative",
+    "release",
+    "status",
+    "targetPath",
+}
 FRESH_DELTA_KEYS = {
     "artifactRole",
     "fileName",
@@ -301,6 +316,23 @@ def portable_path(value: Any, *, label: str) -> str:
     for part in path.parts:
         if part.endswith((" ", ".")) or part.split(".", 1)[0].upper() in WINDOWS_RESERVED:
             raise ContractError(f"{label} is not portable to Windows")
+    return value
+
+
+def canonical_absolute_posix_path(value: Any, *, label: str) -> str:
+    if type(value) is not str:
+        raise ContractError(f"{label} is not a string")
+    path = PurePosixPath(value)
+    if (
+        value == "/"
+        or value.startswith("//")
+        or not path.is_absolute()
+        or path.as_posix() != value
+        or "\\" in value
+        or any(part in {"", ".", ".."} for part in path.parts[1:])
+        or any(ord(character) < 32 or ord(character) == 127 for character in value)
+    ):
+        raise ContractError(f"{label} is not a canonical absolute POSIX path")
     return value
 
 
@@ -895,17 +927,6 @@ def validate_manifests(
     }
 
 
-def validate_ref_bytes(value: Any, raw: bytes, *, label: str) -> None:
-    reference = exact_object(value, {"sha256", "sizeBytes"}, label=label)
-    if (
-        require_digest(reference.get("sha256"), label=f"{label} sha256")
-        != sha256_bytes(raw)
-        or require_int(reference.get("sizeBytes"), label=f"{label} sizeBytes", minimum=1)
-        != len(raw)
-    ):
-        raise ContractError(f"{label} does not bind exact bytes")
-
-
 def document_contract(
     value: dict[str, Any], *, name: str, version: int, label: str
 ) -> None:
@@ -979,8 +1000,11 @@ def validate_provenance(
     )
     if receipt.get("packageSources") != ["same-run-local-feed"]:
         raise ContractError("package-plane receipt sources differ")
-    validate_ref_bytes(
-        receipt.get("consumerPackagePlaneLock"), lock_raw, label="receipt package-plane lock"
+    validate_byte_reference(
+        receipt.get("consumerPackagePlaneLock"),
+        expected_path=PACKAGE_PLANE_LOCK_REFERENCE_PATH,
+        raw=lock_raw,
+        label="receipt package-plane lock",
     )
 
     retained_raw = documents["retainedManifest"][1]
@@ -1021,13 +1045,21 @@ def validate_provenance(
     eligibility = retained.get("releaseEligibility")
     if not isinstance(eligibility, dict) or eligibility.get("eligible") is not False:
         raise ContractError("retained manifest improperly grants release eligibility")
-    validate_ref_bytes(
-        retained.get("packagePlaneLock"), lock_raw, label="retained package-plane lock"
+    validate_byte_reference(
+        retained.get("packagePlaneLock"),
+        expected_path=PACKAGE_PLANE_LOCK_REFERENCE_PATH,
+        raw=lock_raw,
+        label="retained package-plane lock",
+    )
+    retained_target_path = canonical_absolute_posix_path(
+        retained.get("targetPath"), label="retained manifest targetPath"
     )
 
-    pointer = receipt.get("retainedWindowsBundle")
-    if not isinstance(pointer, dict):
-        raise ContractError("retained Windows pointer is malformed")
+    pointer = exact_object(
+        receipt.get("retainedWindowsBundle"),
+        RETAINED_POINTER_KEYS,
+        label="retained Windows pointer",
+    )
     document_contract(
         pointer,
         name=RETAINED_POINTER_CONTRACT,
@@ -1045,7 +1077,26 @@ def validate_provenance(
     )
     if pointer.get("release") != {"channel": CHANNEL, "version": release_version}:
         raise ContractError("retained pointer release differs")
-    validate_ref_bytes(pointer.get("manifest"), retained_raw, label="retained pointer manifest")
+    require_int(
+        pointer.get("bundleInventoryCount"),
+        label="retained pointer bundleInventoryCount",
+        minimum=1,
+    )
+    require_digest(
+        pointer.get("bundleInventorySha256"),
+        label="retained pointer bundleInventorySha256",
+    )
+    pointer_target_path = canonical_absolute_posix_path(
+        pointer.get("targetPath"), label="retained pointer targetPath"
+    )
+    if pointer_target_path != retained_target_path:
+        raise ContractError("retained pointer targetPath differs from retained manifest")
+    validate_byte_reference(
+        pointer.get("manifest"),
+        expected_path=f"{pointer_target_path}/manifest.json",
+        raw=retained_raw,
+        label="retained pointer manifest",
+    )
 
     native = documents["nativeToolchainLock"][2]
     exact_object(
