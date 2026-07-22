@@ -482,16 +482,48 @@
     "evidenceSet": {
       "type": "object",
       "additionalProperties": false,
-      "required": ["approval", "nativeEvidence", "signingReceipt", "visualEvidence"],
+      "required": [
+        "approval", "authenticodeEvidence", "nativeEvidence",
+        "nativeFinalization", "signingReceipt", "visualEvidence"
+      ],
       "properties": {
         "approval": { "$ref": "#/$defs/byteReference" },
-        "nativeEvidence": { "$ref": "#/$defs/byteReference" },
-        "signingReceipt": { "$ref": "#/$defs/byteReference" },
+        "authenticodeEvidence": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "proof/windows-native/authenticode/AUTHENTICODE_VERIFICATION-avalonia-win-x64.generated.json" } } }
+          ]
+        },
+        "nativeEvidence": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "NATIVE_WINDOWS_EVIDENCE.generated.json" } } }
+          ]
+        },
+        "nativeFinalization": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "WINDOWS_NATIVE_EVIDENCE_FINALIZATION.generated.json" } } }
+          ]
+        },
+        "signingReceipt": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "signing/signing-avalonia-win-x64.receipt.json" } } }
+          ]
+        },
         "visualEvidence": {
           "type": "array",
+          "prefixItems": [
+            {
+              "allOf": [
+                { "$ref": "#/$defs/byteReference" },
+                { "properties": { "path": { "const": "WINDOWS_INSTALLER_VISUAL_PROOF-avalonia-win-x64.generated.json" } } }
+              ]
+            }
+          ],
           "minItems": 1,
-          "maxItems": 32,
-          "items": { "$ref": "#/$defs/byteReference" }
+          "maxItems": 1
         }
       }
     },
@@ -499,22 +531,26 @@
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "candidateReceipt", "canonicalManifest", "channel", "compatibilityManifest",
+        "candidateImportAuthority", "candidateReceipt", "candidateReviewAuthority",
+        "canonicalManifest", "channel", "compatibilityManifest",
         "compositionInputSha256", "contractName", "contractVersion", "deltaPlatforms",
         "deployAuthority", "dispositions", "evidence", "evidencePlatforms",
         "fullShelfInventorySha256", "incumbentSnapshotSha256",
         "nonPublishedEvidenceTupleSetSha256", "postPublicationTupleSetSha256",
         "publicationDeltaTupleSetSha256", "publicationEligible",
         "releaseUploadAuthority", "releaseVersion", "retainedPlatforms",
-        "retainedTupleSetSha256", "scope", "shelfPlatforms", "sourceScope"
+        "retainedTupleSetSha256", "routeAuthority", "scope", "shelfPlatforms",
+        "sourceScope"
       ],
       "properties": {
+        "candidateImportAuthority": { "const": true },
         "candidateReceipt": {
           "allOf": [
             { "$ref": "#/$defs/byteReference" },
             { "properties": { "path": { "const": "PREVIEW_PUBLICATION_DELTA_CANDIDATE.json" } } }
           ]
         },
+        "candidateReviewAuthority": { "const": true },
         "canonicalManifest": {
           "allOf": [
             { "$ref": "#/$defs/byteReference" },
@@ -552,11 +588,12 @@
         "nonPublishedEvidenceTupleSetSha256": { "$ref": "#/$defs/sha256" },
         "postPublicationTupleSetSha256": { "$ref": "#/$defs/sha256" },
         "publicationDeltaTupleSetSha256": { "$ref": "#/$defs/sha256" },
-        "publicationEligible": { "const": true },
+        "publicationEligible": { "const": false },
         "releaseUploadAuthority": { "const": false },
         "releaseVersion": { "$ref": "#/$defs/releaseVersion" },
         "retainedPlatforms": { "$ref": "#/$defs/retainedPlatformArray" },
         "retainedTupleSetSha256": { "$ref": "#/$defs/sha256" },
+        "routeAuthority": { "const": false },
         "scope": { "const": "windows_only" },
         "shelfPlatforms": { "$ref": "#/$defs/platformArray" },
         "sourceScope": {
@@ -571,17 +608,18 @@
           ]
         }
       },
-      "x-chummer-invariant": "Authority proves independent eligibility for exact prepared bytes only. It never proves that upload or convergence occurred. Every public artifact has one disposition row; delta rows are Windows-only and every non-replaced incumbent row is retained_incumbent."
+      "x-chummer-invariant": "Authority permits only downstream candidate import and independent review of exact prepared bytes. publicationEligible, releaseUploadAuthority, deployAuthority, and routeAuthority remain false because this receipt never proves upload, deployment, route activation, or convergence. Every public artifact has one disposition row; delta rows are Windows-only and every non-replaced incumbent row is retained_incumbent."
     },
     "finalizeReceipt": {
       "type": "object",
       "additionalProperties": false,
       "required": [
-        "authority", "candidateBytesMutated", "candidateReceipt",
+        "authority", "candidateBytesMutated", "candidateImportAuthority",
+        "candidateReceipt", "candidateReviewAuthority",
         "canonicalManifest", "channel", "compatibilityManifest", "contractName",
         "contractVersion", "deployAuthority", "fullShelfInventorySha256",
         "publicationEligible", "releaseUploadAuthority", "releaseVersion",
-        "sourceScope", "verificationStatus"
+        "routeAuthority", "sourceScope", "verificationStatus"
       ],
       "properties": {
         "authority": {
@@ -591,12 +629,14 @@
           ]
         },
         "candidateBytesMutated": { "const": false },
+        "candidateImportAuthority": { "const": true },
         "candidateReceipt": {
           "allOf": [
             { "$ref": "#/$defs/byteReference" },
             { "properties": { "path": { "const": "PREVIEW_PUBLICATION_DELTA_CANDIDATE.json" } } }
           ]
         },
+        "candidateReviewAuthority": { "const": true },
         "canonicalManifest": {
           "allOf": [
             { "$ref": "#/$defs/byteReference" },
@@ -614,9 +654,10 @@
         "contractVersion": { "const": 1 },
         "deployAuthority": { "const": false },
         "fullShelfInventorySha256": { "$ref": "#/$defs/sha256" },
-        "publicationEligible": { "const": true },
+        "publicationEligible": { "const": false },
         "releaseUploadAuthority": { "const": false },
         "releaseVersion": { "$ref": "#/$defs/releaseVersion" },
+        "routeAuthority": { "const": false },
         "sourceScope": {
           "allOf": [
             { "$ref": "#/$defs/byteReference" },
@@ -629,7 +670,7 @@
         },
         "verificationStatus": { "const": "finalized" }
       },
-      "x-chummer-invariant": "Finalization revalidates exact prepared bytes and emits a separate authority graph. It does not mutate candidate manifest bytes and cannot authorize upload without a Run handoff, complete live convergence receipt, and predecessor CAS at the Registry publish boundary."
+      "x-chummer-invariant": "Finalization revalidates exact prepared bytes and emits a separate candidate-import/review authority graph. It does not mutate candidate manifest bytes and cannot authorize publication, upload, deploy, or route activation without later independently governed receipts and predecessor CAS at the Registry publish boundary."
     }
   }
 }
