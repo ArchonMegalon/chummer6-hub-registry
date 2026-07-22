@@ -94,6 +94,7 @@ python3 ${repo_root}/scripts/verify_next90_m144_registry_release_tuple_proof.py 
 python3 ${repo_root}/scripts/verify_next90_m144_registry_release_tuple_proof.py --self-test >/dev/null
 python3 ${repo_root}/scripts/test_materialize_public_release_channel.py >/dev/null
 python3 -m pytest -q ${repo_root}/scripts/test_verify_public_release_channel.py >/dev/null
+python3 -m pytest -q ${repo_root}/scripts/test_materialize_unsigned_preview_publication_delta.py >/dev/null
 python3 -m pytest -q ${repo_root}/tests/test_release_authority_schema.py >/dev/null
 python3 -m pytest -q ${repo_root}/tests/test_contract_package_metadata.py >/dev/null
 python3 "${repo_root}/scripts/test_refresh_public_desktop_truth_release_helpers.py" >/dev/null

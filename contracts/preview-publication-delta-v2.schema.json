@@ -1,0 +1,506 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chummer.run/contracts/preview-publication-delta-v2.schema.json",
+  "title": "Unsigned Windows preview composition, candidate, and finalize contracts",
+  "oneOf": [
+    { "$ref": "#/$defs/compositionRequestV3" },
+    { "$ref": "#/$defs/candidateV2" },
+    { "$ref": "#/$defs/scopeV3" },
+    { "$ref": "#/$defs/authorityV2" },
+    { "$ref": "#/$defs/finalizeV2" }
+  ],
+  "$defs": {
+    "sha256": { "type": "string", "pattern": "^[0-9a-f]{64}$" },
+    "gitCommit": { "type": "string", "pattern": "^[0-9a-f]{40}$" },
+    "releaseVersion": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 128,
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._-]*$",
+      "not": { "pattern": "\\.\\." }
+    },
+    "relativePath": {
+      "type": "string",
+      "minLength": 1,
+      "maxLength": 512,
+      "pattern": "^(?!/)(?!.*(?:^|/)\\.{1,2}(?:/|$))(?!.*\\\\)[A-Za-z0-9._+@/-]+$"
+    },
+    "byteReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["path", "sha256", "sizeBytes"],
+      "properties": {
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "sizeBytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "opaqueReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["sha256", "sizeBytes"],
+      "properties": {
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "sizeBytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "release": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["channel", "version"],
+      "properties": {
+        "channel": { "const": "preview" },
+        "version": { "$ref": "#/$defs/releaseVersion" }
+      }
+    },
+    "uiSignature": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["policy", "required", "status"],
+      "properties": {
+        "policy": { "const": "preview_policy" },
+        "required": { "const": false },
+        "status": { "const": "unsigned" }
+      }
+    },
+    "signaturePolicy": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["signatureStatus", "signingRequired", "unsignedReason"],
+      "properties": {
+        "signatureStatus": { "const": "unsigned" },
+        "signingRequired": { "const": false },
+        "unsignedReason": { "const": "preview_policy" }
+      }
+    },
+    "inventoryRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "path", "sha256", "sizeBytes"],
+      "properties": {
+        "mode": { "type": "integer", "minimum": 0, "maximum": 511 },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "sizeBytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "directoryMode": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "path"],
+      "properties": {
+        "mode": { "type": "integer", "minimum": 0, "maximum": 511 },
+        "path": { "$ref": "#/$defs/relativePath" }
+      }
+    },
+    "retainedRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["mode", "path", "retentionKind", "sha256", "sizeBytes"],
+      "properties": {
+        "mode": { "type": "integer", "minimum": 0, "maximum": 511 },
+        "path": { "$ref": "#/$defs/relativePath" },
+        "retentionKind": { "enum": ["ancillary", "managed_artifact"] },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "sizeBytes": { "type": "integer", "minimum": 0 }
+      }
+    },
+    "compositionFreshRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactRole", "fileName", "head", "manifestRowSha256", "mode",
+        "path", "platform", "rid", "sha256", "sizeBytes"
+      ],
+      "properties": {
+        "artifactRole": { "enum": ["installer", "bootstrap_payload"] },
+        "fileName": { "enum": ["chummer-avalonia-win-x64-installer.exe", "chummer-avalonia-win-x64-payload.zip"] },
+        "head": { "const": "avalonia" },
+        "manifestRowSha256": { "$ref": "#/$defs/sha256" },
+        "mode": { "type": "integer", "minimum": 0, "maximum": 511 },
+        "path": { "enum": ["files/chummer-avalonia-win-x64-installer.exe", "files/chummer-avalonia-win-x64-payload.zip"] },
+        "platform": { "const": "windows" },
+        "rid": { "const": "win-x64" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "sizeBytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "scopeFreshRow": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "artifactRole", "fileName", "head", "mode", "path", "platform",
+        "rid", "sha256", "sizeBytes"
+      ],
+      "properties": {
+        "artifactRole": { "enum": ["installer", "bootstrap_payload"] },
+        "fileName": { "enum": ["chummer-avalonia-win-x64-installer.exe", "chummer-avalonia-win-x64-payload.zip"] },
+        "head": { "const": "avalonia" },
+        "mode": { "type": "integer", "minimum": 0, "maximum": 511 },
+        "path": { "enum": ["files/chummer-avalonia-win-x64-installer.exe", "files/chummer-avalonia-win-x64-payload.zip"] },
+        "platform": { "const": "windows" },
+        "rid": { "const": "win-x64" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "sizeBytes": { "type": "integer", "minimum": 1 }
+      }
+    },
+    "incumbentSnapshot": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalManifest", "compatibilityManifest", "directoryModes",
+        "directoryModesSha256", "fullShelfInventory", "fullShelfInventorySha256",
+        "snapshotSha256"
+      ],
+      "properties": {
+        "canonicalManifest": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "RELEASE_CHANNEL.generated.json" } } }
+          ]
+        },
+        "compatibilityManifest": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "releases.json" } } }
+          ]
+        },
+        "directoryModes": { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/directoryMode" } },
+        "directoryModesSha256": { "$ref": "#/$defs/sha256" },
+        "fullShelfInventory": { "type": "array", "minItems": 2, "maxItems": 4096, "items": { "$ref": "#/$defs/inventoryRow" } },
+        "fullShelfInventorySha256": { "$ref": "#/$defs/sha256" },
+        "snapshotSha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "provenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nativeToolchainLock", "packagePlaneLock", "packagePlaneReceipt", "retainedManifest"],
+      "properties": {
+        "nativeToolchainLock": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "provenance/config/windows-native-bootstrap-toolchain.lock.json" } } }
+          ]
+        },
+        "packagePlaneLock": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "provenance/config/package-plane.lock.json" } } }
+          ]
+        },
+        "packagePlaneReceipt": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "provenance/UI_FRESH_PACKAGE_PLANE.generated.json" } } }
+          ]
+        },
+        "retainedManifest": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "provenance/retained-windows-publish-closure/manifest.json" } } }
+          ]
+        }
+      }
+    },
+    "scopeProvenance": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["nativeToolchainLock", "packagePlaneLock", "packagePlaneReceipt", "retainedManifest"],
+      "properties": {
+        "nativeToolchainLock": { "$ref": "#/$defs/opaqueReference" },
+        "packagePlaneLock": { "$ref": "#/$defs/opaqueReference" },
+        "packagePlaneReceipt": { "$ref": "#/$defs/opaqueReference" },
+        "retainedManifest": { "$ref": "#/$defs/opaqueReference" }
+      }
+    },
+    "projectionInputs": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["materializer", "schema"],
+      "properties": {
+        "materializer": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "scripts/materialize_unsigned_preview_publication_delta.py" } } }
+          ]
+        },
+        "schema": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "contracts/preview-publication-delta-v2.schema.json" } } }
+          ]
+        }
+      }
+    },
+    "windowsDelta": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["bootstrap_payload", "installer"],
+      "properties": {
+        "bootstrap_payload": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "files/chummer-avalonia-win-x64-payload.zip" } } }
+          ]
+        },
+        "installer": {
+          "allOf": [
+            { "$ref": "#/$defs/byteReference" },
+            { "properties": { "path": { "const": "files/chummer-avalonia-win-x64-installer.exe" } } }
+          ]
+        }
+      }
+    },
+    "platformArray": {
+      "type": "array",
+      "uniqueItems": true,
+      "items": { "enum": ["linux", "macos", "windows"] }
+    },
+    "mixedVersionGraph": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authorityContractVersion", "candidateReceiptContractVersion",
+        "compositionRequestContractVersion", "finalizeReceiptContractVersion",
+        "sourceScopeContractVersion"
+      ],
+      "properties": {
+        "authorityContractVersion": { "const": 2 },
+        "candidateReceiptContractVersion": { "const": 2 },
+        "compositionRequestContractVersion": { "const": 3 },
+        "finalizeReceiptContractVersion": { "const": 2 },
+        "sourceScopeContractVersion": { "const": 3 }
+      }
+    },
+    "compositionRequestV3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractName", "contractVersion", "crossRunBitReproducible",
+        "deployAuthorized", "freshDelta", "incumbentSnapshot", "platformScope",
+        "proposedCanonicalManifest", "proposedCompatibilityManifest",
+        "proposedDirectoryModes", "proposedDirectoryModesSha256",
+        "proposedShelfInventory", "proposedShelfInventorySha256", "provenance",
+        "publicationAuthorized", "release", "retainedFromIncumbent", "signature",
+        "sourceSha", "status", "uploadAuthorized"
+      ],
+      "properties": {
+        "contractName": { "const": "chummer6-ui.preview-nightly-unsigned-composition-request" },
+        "contractVersion": { "const": 3 },
+        "crossRunBitReproducible": { "const": false },
+        "deployAuthorized": { "const": false },
+        "freshDelta": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "prefixItems": [
+            { "allOf": [{ "$ref": "#/$defs/compositionFreshRow" }, { "properties": { "artifactRole": { "const": "installer" }, "fileName": { "const": "chummer-avalonia-win-x64-installer.exe" }, "path": { "const": "files/chummer-avalonia-win-x64-installer.exe" } } }] },
+            { "allOf": [{ "$ref": "#/$defs/compositionFreshRow" }, { "properties": { "artifactRole": { "const": "bootstrap_payload" }, "fileName": { "const": "chummer-avalonia-win-x64-payload.zip" }, "path": { "const": "files/chummer-avalonia-win-x64-payload.zip" } } }] }
+          ],
+          "items": false
+        },
+        "incumbentSnapshot": { "$ref": "#/$defs/incumbentSnapshot" },
+        "platformScope": { "const": "windows_only" },
+        "proposedCanonicalManifest": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "RELEASE_CHANNEL.generated.json" } } }] },
+        "proposedCompatibilityManifest": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "releases.json" } } }] },
+        "proposedDirectoryModes": { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/directoryMode" } },
+        "proposedDirectoryModesSha256": { "$ref": "#/$defs/sha256" },
+        "proposedShelfInventory": { "type": "array", "minItems": 2, "maxItems": 4096, "items": { "$ref": "#/$defs/inventoryRow" } },
+        "proposedShelfInventorySha256": { "$ref": "#/$defs/sha256" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "publicationAuthorized": { "const": false },
+        "release": { "$ref": "#/$defs/release" },
+        "retainedFromIncumbent": { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/retainedRow" } },
+        "signature": { "$ref": "#/$defs/uiSignature" },
+        "sourceSha": { "$ref": "#/$defs/gitCommit" },
+        "status": { "const": "prepared" },
+        "uploadAuthorized": { "const": false }
+      }
+    },
+    "candidateV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "canonicalManifest", "channel", "codeDeploymentAuthority",
+        "compatibilityManifest", "compositionInput", "compositionInputDocument",
+        "contractName", "contractVersion", "crossRunBitReproducible",
+        "deltaPlatforms", "deployAuthority", "evidencePlatforms", "fullShelfInventory",
+        "fullShelfInventorySha256", "incumbentDirectoryModesSha256",
+        "incumbentInventorySha256", "incumbentSnapshotSha256", "platformScope",
+        "projectionInputs", "proposedDirectoryModesSha256", "provenance",
+        "publicationAuthorized", "publicationEligible", "publicationStatus",
+        "releaseUploadAuthority", "releaseVersion", "retainedInventorySha256",
+        "retainedPlatforms", "routeAuthority", "shelfPlatforms", "signaturePolicy",
+        "sourceSha", "windowsDelta"
+      ],
+      "properties": {
+        "canonicalManifest": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "RELEASE_CHANNEL.generated.json" } } }] },
+        "channel": { "const": "preview" },
+        "codeDeploymentAuthority": { "const": false },
+        "compatibilityManifest": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "releases.json" } } }] },
+        "compositionInput": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "PREVIEW_NIGHTLY_UNSIGNED_COMPOSITION.proposed.json" } } }] },
+        "compositionInputDocument": { "$ref": "#/$defs/compositionRequestV3" },
+        "contractName": { "const": "chummer.registry.preview-publication-delta-candidate" },
+        "contractVersion": { "const": 2 },
+        "crossRunBitReproducible": { "const": false },
+        "deltaPlatforms": { "const": ["windows"] },
+        "deployAuthority": { "const": false },
+        "evidencePlatforms": { "const": [] },
+        "fullShelfInventory": { "type": "array", "minItems": 2, "maxItems": 4096, "items": { "$ref": "#/$defs/inventoryRow" } },
+        "fullShelfInventorySha256": { "$ref": "#/$defs/sha256" },
+        "incumbentDirectoryModesSha256": { "$ref": "#/$defs/sha256" },
+        "incumbentInventorySha256": { "$ref": "#/$defs/sha256" },
+        "incumbentSnapshotSha256": { "$ref": "#/$defs/sha256" },
+        "platformScope": { "const": "windows_only" },
+        "projectionInputs": { "$ref": "#/$defs/projectionInputs" },
+        "proposedDirectoryModesSha256": { "$ref": "#/$defs/sha256" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "publicationAuthorized": { "const": false },
+        "publicationEligible": { "const": false },
+        "publicationStatus": { "const": "review_required" },
+        "releaseUploadAuthority": { "const": false },
+        "releaseVersion": { "$ref": "#/$defs/releaseVersion" },
+        "retainedInventorySha256": { "$ref": "#/$defs/sha256" },
+        "retainedPlatforms": { "$ref": "#/$defs/platformArray" },
+        "routeAuthority": { "const": false },
+        "shelfPlatforms": { "allOf": [{ "$ref": "#/$defs/platformArray" }, { "contains": { "const": "windows" } }] },
+        "signaturePolicy": { "$ref": "#/$defs/signaturePolicy" },
+        "sourceSha": { "$ref": "#/$defs/gitCommit" },
+        "windowsDelta": { "$ref": "#/$defs/windowsDelta" }
+      }
+    },
+    "scopeV3": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "compatibilityManifest", "contractName", "contractVersion",
+        "crossRunBitReproducible", "deployAuthorized", "freshDelta",
+        "fullShelfInventory", "fullShelfInventorySha256", "incumbentInventorySha256",
+        "platformScope", "provenance", "publicationAuthorized", "publicationManifest",
+        "release", "retainedFromIncumbent", "signature", "sourceSha", "status",
+        "uploadAuthorized"
+      ],
+      "properties": {
+        "compatibilityManifest": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "releases.json" } } }] },
+        "contractName": { "const": "chummer6-ui.preview-nightly-unsigned-publication-scope" },
+        "contractVersion": { "const": 3 },
+        "crossRunBitReproducible": { "const": false },
+        "deployAuthorized": { "const": false },
+        "freshDelta": {
+          "type": "array", "minItems": 2, "maxItems": 2,
+          "prefixItems": [
+            { "allOf": [{ "$ref": "#/$defs/scopeFreshRow" }, { "properties": { "artifactRole": { "const": "installer" }, "fileName": { "const": "chummer-avalonia-win-x64-installer.exe" }, "path": { "const": "files/chummer-avalonia-win-x64-installer.exe" } } }] },
+            { "allOf": [{ "$ref": "#/$defs/scopeFreshRow" }, { "properties": { "artifactRole": { "const": "bootstrap_payload" }, "fileName": { "const": "chummer-avalonia-win-x64-payload.zip" }, "path": { "const": "files/chummer-avalonia-win-x64-payload.zip" } } }] }
+          ],
+          "items": false
+        },
+        "fullShelfInventory": { "type": "array", "minItems": 2, "maxItems": 4096, "items": { "$ref": "#/$defs/inventoryRow" } },
+        "fullShelfInventorySha256": { "$ref": "#/$defs/sha256" },
+        "incumbentInventorySha256": { "$ref": "#/$defs/sha256" },
+        "platformScope": { "const": "windows_only" },
+        "provenance": { "$ref": "#/$defs/scopeProvenance" },
+        "publicationAuthorized": { "const": false },
+        "publicationManifest": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "RELEASE_CHANNEL.generated.json" } } }] },
+        "release": { "$ref": "#/$defs/release" },
+        "retainedFromIncumbent": { "type": "array", "maxItems": 4096, "items": { "$ref": "#/$defs/retainedRow" } },
+        "signature": { "$ref": "#/$defs/uiSignature" },
+        "sourceSha": { "$ref": "#/$defs/gitCommit" },
+        "status": { "const": "prepared" },
+        "uploadAuthorized": { "const": false }
+      }
+    },
+    "authorityV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "candidateImportAuthority", "candidateReceipt", "candidateReviewAuthority",
+        "canonicalManifest", "channel", "codeDeploymentAuthority", "compatibilityManifest",
+        "compositionRequest", "contractName", "contractVersion",
+        "crossRunBitReproducible", "deltaPlatforms", "deployAuthority",
+        "evidencePlatforms", "fullShelfInventorySha256", "incumbentInventorySha256",
+        "incumbentSnapshotSha256", "mixedVersionGraph", "platformScope",
+        "projectionInputs", "proposedDirectoryModesSha256", "provenance",
+        "publicationAuthorized", "publicationEligible", "releaseUploadAuthority",
+        "releaseVersion", "retainedInventorySha256", "retainedPlatforms",
+        "routeAuthority", "shelfPlatforms", "signaturePolicy", "sourceScope",
+        "sourceSha", "windowsDelta"
+      ],
+      "properties": {
+        "candidateImportAuthority": { "const": true },
+        "candidateReceipt": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "PREVIEW_PUBLICATION_DELTA_CANDIDATE.json" } } }] },
+        "candidateReviewAuthority": { "const": true },
+        "canonicalManifest": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "RELEASE_CHANNEL.generated.json" } } }] },
+        "channel": { "const": "preview" },
+        "codeDeploymentAuthority": { "const": false },
+        "compatibilityManifest": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "releases.json" } } }] },
+        "compositionRequest": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "PREVIEW_NIGHTLY_UNSIGNED_COMPOSITION.proposed.json" } } }] },
+        "contractName": { "const": "chummer.registry.preview-publication-delta-authority" },
+        "contractVersion": { "const": 2 },
+        "crossRunBitReproducible": { "const": false },
+        "deltaPlatforms": { "const": ["windows"] },
+        "deployAuthority": { "const": false },
+        "evidencePlatforms": { "const": [] },
+        "fullShelfInventorySha256": { "$ref": "#/$defs/sha256" },
+        "incumbentInventorySha256": { "$ref": "#/$defs/sha256" },
+        "incumbentSnapshotSha256": { "$ref": "#/$defs/sha256" },
+        "mixedVersionGraph": { "$ref": "#/$defs/mixedVersionGraph" },
+        "platformScope": { "const": "windows_only" },
+        "projectionInputs": { "$ref": "#/$defs/projectionInputs" },
+        "proposedDirectoryModesSha256": { "$ref": "#/$defs/sha256" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "publicationAuthorized": { "const": false },
+        "publicationEligible": { "const": false },
+        "releaseUploadAuthority": { "const": false },
+        "releaseVersion": { "$ref": "#/$defs/releaseVersion" },
+        "retainedInventorySha256": { "$ref": "#/$defs/sha256" },
+        "retainedPlatforms": { "$ref": "#/$defs/platformArray" },
+        "routeAuthority": { "const": false },
+        "shelfPlatforms": { "$ref": "#/$defs/platformArray" },
+        "signaturePolicy": { "$ref": "#/$defs/signaturePolicy" },
+        "sourceScope": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "PREVIEW_NIGHTLY_UNSIGNED_SCOPE.proposed.json" } } }] },
+        "sourceSha": { "$ref": "#/$defs/gitCommit" },
+        "windowsDelta": { "$ref": "#/$defs/windowsDelta" }
+      }
+    },
+    "finalizeV2": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "authority", "candidateBytesMutated", "candidateImportAuthority",
+        "candidateReceipt", "candidateReviewAuthority", "canonicalManifest", "channel",
+        "codeDeploymentAuthority", "compatibilityManifest", "compositionRequest",
+        "contractName", "contractVersion", "deployAuthority", "fullShelfInventorySha256",
+        "mixedVersionGraph", "platformScope", "provenance", "publicationAuthorized",
+        "publicationEligible", "releaseUploadAuthority", "releaseVersion", "routeAuthority",
+        "signaturePolicy", "sourceScope", "verificationStatus", "windowsDelta"
+      ],
+      "properties": {
+        "authority": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "PREVIEW_PUBLICATION_DELTA_AUTHORITY.json" } } }] },
+        "candidateBytesMutated": { "const": false },
+        "candidateImportAuthority": { "const": true },
+        "candidateReceipt": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "PREVIEW_PUBLICATION_DELTA_CANDIDATE.json" } } }] },
+        "candidateReviewAuthority": { "const": true },
+        "canonicalManifest": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "RELEASE_CHANNEL.generated.json" } } }] },
+        "channel": { "const": "preview" },
+        "codeDeploymentAuthority": { "const": false },
+        "compatibilityManifest": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "releases.json" } } }] },
+        "compositionRequest": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "PREVIEW_NIGHTLY_UNSIGNED_COMPOSITION.proposed.json" } } }] },
+        "contractName": { "const": "chummer.registry.preview-publication-delta-finalize" },
+        "contractVersion": { "const": 2 },
+        "deployAuthority": { "const": false },
+        "fullShelfInventorySha256": { "$ref": "#/$defs/sha256" },
+        "mixedVersionGraph": { "$ref": "#/$defs/mixedVersionGraph" },
+        "platformScope": { "const": "windows_only" },
+        "provenance": { "$ref": "#/$defs/provenance" },
+        "publicationAuthorized": { "const": false },
+        "publicationEligible": { "const": false },
+        "releaseUploadAuthority": { "const": false },
+        "releaseVersion": { "$ref": "#/$defs/releaseVersion" },
+        "routeAuthority": { "const": false },
+        "signaturePolicy": { "$ref": "#/$defs/signaturePolicy" },
+        "sourceScope": { "allOf": [{ "$ref": "#/$defs/byteReference" }, { "properties": { "path": { "const": "PREVIEW_NIGHTLY_UNSIGNED_SCOPE.proposed.json" } } }] },
+        "verificationStatus": { "const": "finalized" },
+        "windowsDelta": { "$ref": "#/$defs/windowsDelta" }
+      }
+    }
+  }
+}
