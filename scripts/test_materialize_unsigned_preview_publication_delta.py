@@ -116,8 +116,9 @@ def create_provenance(module, control: Path) -> dict[str, Path]:
             "packages": [],
         },
     )
-    lock_binding = binding(package_lock)
+    lock_binding = binding(package_lock, module.PACKAGE_PLANE_LOCK_REFERENCE_PATH)
     retained = control / module.PROVENANCE_PATHS["retainedManifest"]
+    retained_target = retained.parent.as_posix()
     write_json(
         retained,
         {
@@ -137,6 +138,7 @@ def create_provenance(module, control: Path) -> dict[str, Path]:
             "release": {"channel": "preview", "version": VERSION},
             "releaseEligibility": {"eligible": False},
             "status": "passed",
+            "targetPath": retained_target,
         },
     )
     receipt = control / module.PROVENANCE_PATHS["packagePlaneReceipt"]
@@ -152,13 +154,16 @@ def create_provenance(module, control: Path) -> dict[str, Path]:
             "retainedWindowsBundle": {
                 "atomicallyRetained": True,
                 "authority": False,
+                "bundleInventoryCount": 1,
+                "bundleInventorySha256": "3" * 64,
                 "consumerCommit": SOURCE_SHA,
                 "contractName": module.RETAINED_POINTER_CONTRACT,
                 "contractVersion": module.RETAINED_MANIFEST_VERSION,
-                "manifest": binding(retained),
+                "manifest": binding(retained, f"{retained_target}/manifest.json"),
                 "manifestIsAuthoritative": True,
                 "release": {"channel": "preview", "version": VERSION},
                 "status": "passed",
+                "targetPath": retained_target,
             },
             "status": "passed",
             "stubPackagesAllowed": False,
@@ -592,6 +597,30 @@ def test_prepare_v2_is_exact_deterministic_windows_only_and_non_authoritative(
     ).read_bytes()
 
 
+def test_prepare_accepts_actual_ui_provenance_binding_shape(tmp_path: Path) -> None:
+    module = load_module()
+    fixture = build_fixture(module, tmp_path)
+    paths = fixture["provenance_paths"]
+    assert isinstance(paths, dict)
+    receipt = read_json(paths["packagePlaneReceipt"])
+    retained = read_json(paths["retainedManifest"])
+    pointer = receipt["retainedWindowsBundle"]
+
+    assert set(receipt["consumerPackagePlaneLock"]) == module.BYTE_REFERENCE_KEYS
+    assert receipt["consumerPackagePlaneLock"]["path"] == (
+        module.PACKAGE_PLANE_LOCK_REFERENCE_PATH
+    )
+    assert set(retained["packagePlaneLock"]) == module.BYTE_REFERENCE_KEYS
+    assert retained["packagePlaneLock"]["path"] == (
+        module.PACKAGE_PLANE_LOCK_REFERENCE_PATH
+    )
+    assert set(pointer) == module.RETAINED_POINTER_KEYS
+    assert set(pointer["manifest"]) == module.BYTE_REFERENCE_KEYS
+    assert pointer["manifest"]["path"] == f"{pointer['targetPath']}/manifest.json"
+    assert pointer["targetPath"] == retained["targetPath"]
+    assert module.main(fixture["prepare_args"]) == 0
+
+
 def test_finalize_v2_replays_candidate_and_freezes_34_26_key_asymmetry(
     tmp_path: Path,
 ) -> None:
@@ -1022,6 +1051,77 @@ def reseal_request_provenance(module, fixture: dict[str, object]) -> None:
     rewrite_request(module, fixture, request)
 
 
+@pytest.mark.parametrize(
+    "case",
+    [
+        "consumer_lock_extra",
+        "consumer_lock_path_traversal",
+        "retained_lock_extra",
+        "retained_lock_path_traversal",
+        "pointer_manifest_extra",
+        "pointer_manifest_path_escape",
+        "pointer_target_traversal",
+        "pointer_target_mismatch",
+        "pointer_extra",
+    ],
+)
+def test_prepare_rejects_provenance_binding_property_and_path_smuggling(
+    tmp_path: Path, case: str
+) -> None:
+    module = load_module()
+    fixture = build_fixture(module, tmp_path)
+    paths = fixture["provenance_paths"]
+    assert isinstance(paths, dict)
+    receipt_path = paths["packagePlaneReceipt"]
+    retained_path = paths["retainedManifest"]
+    receipt = read_json(receipt_path)
+    retained = read_json(retained_path)
+    pointer = receipt["retainedWindowsBundle"]
+    retained_changed = False
+
+    if case == "consumer_lock_extra":
+        receipt["consumerPackagePlaneLock"]["authority"] = False
+    elif case == "consumer_lock_path_traversal":
+        receipt["consumerPackagePlaneLock"]["path"] = (
+            "config/nested/../package-plane.lock.json"
+        )
+    elif case == "retained_lock_extra":
+        retained["packagePlaneLock"]["authority"] = False
+        retained_changed = True
+    elif case == "retained_lock_path_traversal":
+        retained["packagePlaneLock"]["path"] = (
+            "config/nested/../package-plane.lock.json"
+        )
+        retained_changed = True
+    elif case == "pointer_manifest_extra":
+        pointer["manifest"]["authority"] = False
+    elif case == "pointer_manifest_path_escape":
+        pointer["manifest"]["path"] = (
+            f"{pointer['targetPath']}/nested/../manifest.json"
+        )
+    elif case == "pointer_target_traversal":
+        pointer["targetPath"] = f"{pointer['targetPath']}/nested/.."
+        pointer["manifest"]["path"] = f"{pointer['targetPath']}/manifest.json"
+    elif case == "pointer_target_mismatch":
+        pointer["targetPath"] = f"{pointer['targetPath']}-alternate"
+        pointer["manifest"]["path"] = f"{pointer['targetPath']}/manifest.json"
+    elif case == "pointer_extra":
+        pointer["publicationAuthorized"] = False
+    else:  # pragma: no cover
+        raise AssertionError(case)
+
+    if retained_changed:
+        write_json(retained_path, retained)
+        pointer["manifest"] = binding(
+            retained_path, f"{pointer['targetPath']}/manifest.json"
+        )
+    write_json(receipt_path, receipt)
+    reseal_request_provenance(module, fixture)
+
+    assert module.main(fixture["prepare_args"]) == 1
+    assert_no_output(fixture["prepare_root"])
+
+
 def test_prepare_accepts_absent_optional_retained_publish_runtime_identifier(
     tmp_path: Path,
 ) -> None:
@@ -1035,7 +1135,10 @@ def test_prepare_accepts_absent_optional_retained_publish_runtime_identifier(
     del retained["publish"]["runtimeIdentifier"]
     write_json(retained_path, retained)
     receipt = read_json(receipt_path)
-    receipt["retainedWindowsBundle"]["manifest"] = binding(retained_path)
+    target_path = receipt["retainedWindowsBundle"]["targetPath"]
+    receipt["retainedWindowsBundle"]["manifest"] = binding(
+        retained_path, f"{target_path}/manifest.json"
+    )
     write_json(receipt_path, receipt)
     reseal_request_provenance(module, fixture)
     assert module.main(fixture["prepare_args"]) == 0
@@ -1070,13 +1173,16 @@ def test_prepare_rejects_resealed_provenance_semantic_tamper(
         value = read_json(lock)
         value["contractVersion"] = 7
         write_json(lock, value)
-        lock_ref = binding(lock)
+        lock_ref = binding(lock, module.PACKAGE_PLANE_LOCK_REFERENCE_PATH)
         retained = read_json(retained_path)
         retained["packagePlaneLock"] = lock_ref
         write_json(retained_path, retained)
         receipt = read_json(receipt_path)
         receipt["consumerPackagePlaneLock"] = lock_ref
-        receipt["retainedWindowsBundle"]["manifest"] = binding(retained_path)
+        target_path = receipt["retainedWindowsBundle"]["targetPath"]
+        receipt["retainedWindowsBundle"]["manifest"] = binding(
+            retained_path, f"{target_path}/manifest.json"
+        )
         write_json(receipt_path, receipt)
     elif case.startswith("receipt_") or case == "pointer_authority":
         receipt = read_json(receipt_path)
@@ -1095,7 +1201,10 @@ def test_prepare_rejects_resealed_provenance_semantic_tamper(
             retained["publish"]["runtimeIdentifier"] = "linux-x64"
         write_json(retained_path, retained)
         receipt = read_json(receipt_path)
-        receipt["retainedWindowsBundle"]["manifest"] = binding(retained_path)
+        target_path = receipt["retainedWindowsBundle"]["targetPath"]
+        receipt["retainedWindowsBundle"]["manifest"] = binding(
+            retained_path, f"{target_path}/manifest.json"
+        )
         write_json(receipt_path, receipt)
     else:
         native = read_json(native_path)
