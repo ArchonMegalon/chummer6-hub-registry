@@ -1557,6 +1557,58 @@ def test_compatibility_payload_canonicalizes_contract_name_aliases() -> None:
     assert payload["contractName"] == MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
 
 
+def test_compatibility_payload_omits_absent_optional_mode_fields() -> None:
+    payload = compatibility_payload(
+        {
+            "generatedAt": "2026-07-23T00:00:00Z",
+            "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+            "channelId": "preview",
+            "version": "run-20260723-000000",
+            "publishedAt": "2026-07-23T00:00:00Z",
+            "status": "published",
+            "artifacts": [],
+        }
+    )
+
+    optional_mode_fields = {
+        "releaseDecisionStatus",
+        "projectionStage",
+        "codeDeploymentAuthority",
+        "releaseUploadAuthority",
+        "codeDeployCurrentShelfAuthority",
+    }
+    assert optional_mode_fields.isdisjoint(payload)
+
+
+def test_compatibility_payload_preserves_present_optional_mode_fields() -> None:
+    code_deploy_review = {
+        "authority": False,
+        "contract": "chummer.registry.preview-publication-delta-code-deploy-review/v1",
+        "status": "review_required",
+    }
+    expected = {
+        "releaseDecisionStatus": None,
+        "projectionStage": "prepared_candidate",
+        "codeDeploymentAuthority": False,
+        "releaseUploadAuthority": False,
+        "codeDeployCurrentShelfAuthority": code_deploy_review,
+    }
+    payload = compatibility_payload(
+        {
+            "generatedAt": "2026-07-23T00:00:00Z",
+            "contract_name": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+            "channelId": "preview",
+            "version": "run-20260723-000000",
+            "publishedAt": "2026-07-23T00:00:00Z",
+            "status": "published",
+            "artifacts": [],
+            **expected,
+        }
+    )
+
+    assert {field: payload[field] for field in expected} == expected
+
+
 def test_compatibility_payload_projects_public_stable_channel() -> None:
     payload = compatibility_payload(
         {
