@@ -1,11 +1,13 @@
 #!/usr/bin/env python3
 """Prepare and finalize an unsigned Windows-only preview publication delta.
 
-This is an additive Registry v2 lane.  It consumes a UI composition request v3,
-copies the already-composed manifest bytes into a non-authoritative three-file
-PREPARE transaction, then independently replays that transaction before
-emitting candidate-import-only authority/finalize receipts.  It never builds a
-Linux artifact, signs, uploads, publishes, deploys, or grants route authority.
+This is an additive Registry v2 lane.  It consumes a UI composition request v3.
+The original v2 profile copies the already-composed manifests; the explicit v3
+unsigned-Windows profile deterministically projects a Registry-owned canonical
+and compatibility pair while retaining incumbent non-Windows rows exactly.  It
+then independently replays PREPARE before emitting candidate-import-only
+authority/finalize receipts.  It never builds a Linux artifact, signs, uploads,
+publishes, deploys, or grants route authority.
 """
 
 from __future__ import annotations
@@ -14,11 +16,13 @@ import argparse
 import ctypes
 import errno
 import hashlib
+import importlib.util
 import json
 import os
 import re
 import secrets
 import stat
+from datetime import UTC, datetime
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -49,6 +53,14 @@ FINALIZE_VERSION = 2
 
 CHANNEL = "preview"
 PLATFORM_SCOPE = "windows_only"
+V3_PROJECTION_PROFILE = "v3_unsigned_windows_fresh_delta"
+V3_CODE_DEPLOY_REVIEW_CONTRACT = (
+    "chummer.registry.preview-publication-delta-code-deploy-review/v1"
+)
+RETAINED_INCUMBENT_PROVENANCE_CONTRACT = (
+    "chummer.registry.retained-incumbent-provenance"
+)
+RETAINED_INCUMBENT_PROVENANCE_VERSION = 1
 PLATFORM_LABELS = {"linux", "macos", "windows"}
 COMPATIBILITY_PLATFORM_IDS = {
     "linux": "linux",
@@ -90,10 +102,52 @@ MANIFEST_AUTHORITY_POSTURE_FIELDS = {
 }
 INSTALLER_NAME = "chummer-avalonia-win-x64-installer.exe"
 PAYLOAD_NAME = "chummer-avalonia-win-x64-payload.zip"
+PAYLOAD_SIDECAR_NAME = f"{PAYLOAD_NAME}.json"
 WINDOWS_COMPATIBILITY_PLATFORM = "Avalonia Desktop Windows X64 Installer"
 INSTALLER_PATH = f"files/{INSTALLER_NAME}"
 PAYLOAD_PATH = f"files/{PAYLOAD_NAME}"
-DOWNLOAD_ROOT = "https://chummer.run/downloads/files"
+PAYLOAD_SIDECAR_PATH = f"files/{PAYLOAD_SIDECAR_NAME}"
+SOURCE_CANONICAL_CUSTODY_PATH = (
+    "transport/source-publication/RELEASE_CHANNEL.generated.json"
+)
+SOURCE_COMPATIBILITY_CUSTODY_PATH = "transport/source-publication/releases.json"
+SOURCE_DOWNLOAD_ROOT = "https://chummer.run/downloads/files"
+# Kept as the v2 source-manifest spelling for existing callers and fixtures.
+DOWNLOAD_ROOT = SOURCE_DOWNLOAD_ROOT
+GOVERNED_DOWNLOAD_ROOT = "/downloads/files"
+
+PRIVACY_LAUNCH_GATE_SNAPSHOT = {
+    "blockedClaims": [
+        "flagship_launch",
+        "public_release_supportability",
+        "hosted_build_recovery_and_erasure",
+    ],
+    "blocksLaunch": True,
+    "capabilityContractName": "chummer.hosted_build_privacy_lifecycle",
+    "capabilityContractVersion": 1,
+    "contractName": "chummer.privacy_launch_gate",
+    "contractVersion": 1,
+    "facts": [
+        "active-record-delete",
+        "memory-only-recovery",
+        "no-delete-replay",
+        "no-owner-erasure",
+        "production-recovery-unverified",
+    ],
+    "prohibitedClaims": [
+        "permanent-delete",
+        "durable-recovery",
+        "account-erasure",
+    ],
+    "reason": (
+        "Hosted Build backup and point-in-time-recovery retention, tombstone or lineage "
+        "retention, deletion replay, and whole-account erasure are not launch-approved "
+        "or production-verified."
+    ),
+    "reviewRequired": True,
+    "scope": "flagship_launch_and_release_supportability",
+    "status": "review_required",
+}
 
 PACKAGE_PLANE_LOCK_CONTRACT = "chummer6-ui.fresh-package-plane-lock"
 PACKAGE_PLANE_LOCK_VERSION = 8
@@ -135,6 +189,7 @@ COMPOSITION_KEYS = {
     "status",
     "uploadAuthorized",
 }
+PROFILE_COMPOSITION_KEYS = COMPOSITION_KEYS | {"projectionProfile"}
 SCOPE_KEYS = {
     "compatibilityManifest",
     "contractName",
@@ -156,6 +211,7 @@ SCOPE_KEYS = {
     "status",
     "uploadAuthorized",
 }
+PROFILE_SCOPE_KEYS = SCOPE_KEYS | {"projectionProfile"}
 INCUMBENT_KEYS = {
     "canonicalManifest",
     "compatibilityManifest",
@@ -197,6 +253,10 @@ FRESH_DELTA_KEYS = {
 SCOPE_FRESH_DELTA_KEYS = FRESH_DELTA_KEYS - {"manifestRowSha256"}
 RETAINED_KEYS = INVENTORY_KEYS | {"retentionKind"}
 PROJECTION_KEYS = {"materializer", "schema"}
+PROFILE_PROJECTION_KEYS = PROJECTION_KEYS | {
+    "releaseChannelMaterializer",
+    "releaseChannelVerifier",
+}
 
 SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
 COMMIT_RE = re.compile(r"^[0-9a-f]{40}$")
@@ -210,6 +270,8 @@ WINDOWS_RESERVED = {
     *(f"COM{number}" for number in range(1, 10)),
     *(f"LPT{number}" for number in range(1, 10)),
 }
+
+_RELEASE_CHANNEL_MODULE: Any | None = None
 
 
 class ContractError(RuntimeError):
@@ -262,6 +324,48 @@ def ui_object_sha256(value: Any) -> str:
 
 def sha256_bytes(value: bytes) -> str:
     return hashlib.sha256(value).hexdigest()
+
+
+def release_channel_module() -> Any:
+    global _RELEASE_CHANNEL_MODULE
+    if _RELEASE_CHANNEL_MODULE is not None:
+        return _RELEASE_CHANNEL_MODULE
+    path = SCRIPT_DIR / "materialize_public_release_channel.py"
+    spec = importlib.util.spec_from_file_location(
+        "materialize_public_release_channel_for_unsigned_delta", path
+    )
+    if spec is None or spec.loader is None:
+        raise ContractError("Registry release-channel materializer cannot be loaded")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    _RELEASE_CHANNEL_MODULE = module
+    return module
+
+
+def projection_profile(value: dict[str, Any]) -> str | None:
+    profile = value.get("projectionProfile")
+    if profile is None:
+        return None
+    if profile != V3_PROJECTION_PROFILE:
+        raise ContractError("projectionProfile is unsupported")
+    return profile
+
+
+def deterministic_generated_at(release_version: str) -> str:
+    match = re.fullmatch(r"run-([0-9]{8})-([0-9]{6})", release_version)
+    if match is None:
+        raise ContractError(
+            "v3 unsigned Windows projection requires a timestamped release version"
+        )
+    parsed = datetime.strptime("".join(match.groups()), "%Y%m%d%H%M%S").replace(
+        tzinfo=UTC
+    )
+    return parsed.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def governed_download_url(file_name: str) -> str:
+    portable = artifact_name({"fileName": file_name}, label="projected artifact fileName")
+    return f"{GOVERNED_DOWNLOAD_ROOT}/{portable}"
 
 
 def exact_object(value: Any, keys: set[str], *, label: str) -> dict[str, Any]:
@@ -380,11 +484,15 @@ def require_plain_file(
     return lexical
 
 
-def read_stable_bytes(path: Path, *, label: str) -> bytes:
+def read_stable_bytes(
+    path: Path, *, label: str, expected_mode: int | None = None
+) -> bytes:
     path = require_plain_file(path, label=label)
     descriptor = os.open(path, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
     try:
         before = os.fstat(descriptor)
+        if expected_mode is not None and stat.S_IMODE(before.st_mode) != expected_mode:
+            raise ContractError(f"{label} mode is not {expected_mode:04o}")
         chunks: list[bytes] = []
         while True:
             chunk = os.read(descriptor, 1024 * 1024)
@@ -545,11 +653,19 @@ def validate_schema(value: dict[str, Any]) -> None:
         raise ContractError(f"Registry v2 schema rejected {location}: {error.message}")
 
 
-def projection_inputs() -> dict[str, dict[str, Any]]:
+def projection_inputs(profile: str | None = None) -> dict[str, dict[str, Any]]:
     paths = {
         "materializer": Path(__file__).resolve(),
         "schema": SCHEMA_PATH,
     }
+    if profile == V3_PROJECTION_PROFILE:
+        paths.update(
+            {
+                "releaseChannelMaterializer": SCRIPT_DIR
+                / "materialize_public_release_channel.py",
+                "releaseChannelVerifier": SCRIPT_DIR / "verify_public_release_channel.py",
+            }
+        )
     return {
         name: byte_reference(path.relative_to(REPO_ROOT).as_posix(), read_stable_bytes(path, label=name))
         for name, path in paths.items()
@@ -750,6 +866,7 @@ def validate_manifests(
     incumbent_canonical: dict[str, Any],
     incumbent_compatibility: dict[str, Any],
     incumbent_inventory: list[dict[str, Any]],
+    profile: str | None = None,
 ) -> dict[str, Any]:
     validate_manifest_posture(canonical, version, label="proposed canonical manifest")
     validate_manifest_posture(compatibility, version, label="proposed compatibility manifest")
@@ -781,8 +898,8 @@ def validate_manifests(
         or installer.get("payloadFileName") != PAYLOAD_NAME
         or installer.get("installerMode") != "bootstrap"
         or installer.get("payloadAcquisitionMode") != "download"
-        or installer.get("downloadUrl") != f"{DOWNLOAD_ROOT}/{INSTALLER_NAME}"
-        or installer.get("payloadDownloadUrl") != f"{DOWNLOAD_ROOT}/{PAYLOAD_NAME}"
+        or installer.get("downloadUrl") != f"{SOURCE_DOWNLOAD_ROOT}/{INSTALLER_NAME}"
+        or installer.get("payloadDownloadUrl") != f"{SOURCE_DOWNLOAD_ROOT}/{PAYLOAD_NAME}"
     ):
         raise ContractError("proposed Windows canonical identity or unsigned policy differs")
     installer_inventory = inventory_binding(proposed_by_path, INSTALLER_PATH, label="installer")
@@ -813,7 +930,7 @@ def validate_manifests(
         or download.get("payloadSha256") != payload_inventory["sha256"]
         or download.get("payloadSizeBytes") != payload_inventory["sizeBytes"]
         or download_url(download, label="Windows compatibility download URL")
-        != f"{DOWNLOAD_ROOT}/{INSTALLER_NAME}"
+        != f"{SOURCE_DOWNLOAD_ROOT}/{INSTALLER_NAME}"
         or download.get("signature") != SIGNATURE
     ):
         raise ContractError("proposed Windows compatibility row differs")
@@ -861,6 +978,8 @@ def validate_manifests(
             names.append(artifact_name({"fileName": row["payloadFileName"]}, label="incumbent payload"))
         target = old_windows_paths if platform_of(row) == "windows" else managed_non_windows
         target.update(f"files/{name}" for name in names)
+    if profile == V3_PROJECTION_PROFILE:
+        old_windows_paths.add(PAYLOAD_SIDECAR_PATH)
     for row in artifacts:
         name = artifact_name(row, label="proposed artifact fileName")
         bound = inventory_binding(proposed_by_path, f"files/{name}", label=name)
@@ -873,9 +992,10 @@ def validate_manifests(
             if row.get("payloadSha256") != payload["sha256"] or row.get("payloadSizeBytes") != payload["sizeBytes"]:
                 raise ContractError(f"proposed manifest does not bind exact payload {payload_name}")
 
-    expected_paths = (
-        set(incumbent_by_path) - old_windows_paths | {INSTALLER_PATH, PAYLOAD_PATH}
-    )
+    fresh_paths = {INSTALLER_PATH, PAYLOAD_PATH}
+    if profile == V3_PROJECTION_PROFILE:
+        fresh_paths.add(PAYLOAD_SIDECAR_PATH)
+    expected_paths = set(incumbent_by_path) - old_windows_paths | fresh_paths
     if set(proposed_by_path) != expected_paths:
         raise ContractError("proposed shelf has missing or unexplained paths")
     for path in managed_non_windows:
@@ -888,6 +1008,8 @@ def validate_manifests(
         INSTALLER_PATH,
         PAYLOAD_PATH,
     }
+    if profile == V3_PROJECTION_PROFILE:
+        excluded.add(PAYLOAD_SIDECAR_PATH)
     for path in sorted(expected_paths - excluded):
         row = proposed_by_path[path]
         if row != incumbent_by_path.get(path):
@@ -906,7 +1028,7 @@ def validate_manifests(
     shelf_platforms = sorted({platform_of(row) for row in artifacts})
     if not all(retained_platforms) or not all(shelf_platforms):
         raise ContractError("proposed artifact platform set is incomplete")
-    return {
+    result = {
         "installerRowSha256": ui_object_sha256(installer),
         "managedNonWindows": managed_non_windows,
         "retained": retained,
@@ -925,6 +1047,1010 @@ def validate_manifests(
             },
         },
     }
+    if profile == V3_PROJECTION_PROFILE:
+        sidecar_inventory = inventory_binding(
+            proposed_by_path, PAYLOAD_SIDECAR_PATH, label="payload sidecar"
+        )
+        result["windowsDelta"]["bootstrap_payload_sidecar"] = {
+            "path": PAYLOAD_SIDECAR_PATH,
+            "sha256": sidecar_inventory["sha256"],
+            "sizeBytes": sidecar_inventory["sizeBytes"],
+        }
+    return result
+
+
+def validate_payload_sidecar(
+    publication_root: Path,
+    proposed_inventory: list[dict[str, Any]],
+    *,
+    release_version: str,
+) -> None:
+    sidecar_path = resolve_member(
+        publication_root, PAYLOAD_SIDECAR_PATH, label="Windows payload sidecar"
+    )
+    sidecar, sidecar_raw = read_json_file(sidecar_path, label="Windows payload sidecar")
+    exact_object(
+        sidecar,
+        {
+            "contractName",
+            "downloadUrl",
+            "fileName",
+            "installerFileName",
+            "payloadAcquisitionMode",
+            "releaseVersion",
+            "sha256",
+            "sizeBytes",
+        },
+        label="Windows payload sidecar",
+    )
+    by_path = {row["path"]: row for row in proposed_inventory}
+    payload = inventory_binding(by_path, PAYLOAD_PATH, label="Windows payload")
+    sidecar_inventory = inventory_binding(
+        by_path, PAYLOAD_SIDECAR_PATH, label="Windows payload sidecar"
+    )
+    if (
+        sidecar
+        != {
+            "contractName": "chummer6-ui.windows_bootstrap_payload",
+            "downloadUrl": f"{SOURCE_DOWNLOAD_ROOT}/{PAYLOAD_NAME}",
+            "fileName": PAYLOAD_NAME,
+            "installerFileName": INSTALLER_NAME,
+            "payloadAcquisitionMode": "download",
+            "releaseVersion": release_version,
+            "sha256": payload["sha256"],
+            "sizeBytes": payload["sizeBytes"],
+        }
+        or sidecar_inventory["sha256"] != sha256_bytes(sidecar_raw)
+        or sidecar_inventory["sizeBytes"] != len(sidecar_raw)
+    ):
+        raise ContractError("Windows payload sidecar does not bind the exact fresh payload")
+
+
+def validate_source_publication_custody(
+    *, request_root: Path, request: dict[str, Any]
+) -> tuple[dict[str, dict[str, Any]], dict[Path, bytes]]:
+    references: dict[str, dict[str, Any]] = {}
+    bound: dict[Path, bytes] = {}
+    for field, manifest_name, custody_path in (
+        (
+            "sourceCanonicalManifest",
+            CANONICAL_MANIFEST_NAME,
+            SOURCE_CANONICAL_CUSTODY_PATH,
+        ),
+        (
+            "sourceCompatibilityManifest",
+            COMPATIBILITY_MANIFEST_NAME,
+            SOURCE_COMPATIBILITY_CUSTODY_PATH,
+        ),
+    ):
+        path = require_plain_file(
+            resolve_member(request_root, custody_path, label=f"{field} custody path"),
+            label=f"{field} custody",
+        )
+        raw = read_stable_bytes(
+            path, label=f"{field} custody", expected_mode=0o444
+        )
+        validate_byte_reference(
+            request[
+                "proposedCanonicalManifest"
+                if manifest_name == CANONICAL_MANIFEST_NAME
+                else "proposedCompatibilityManifest"
+            ],
+            expected_path=manifest_name,
+            raw=raw,
+            label=f"composition {field} custody",
+        )
+        references[field] = byte_reference(custody_path, raw)
+        bound[path] = raw
+    return references, bound
+
+
+def projection_shelf_context(
+    *,
+    incumbent_canonical: dict[str, Any],
+    incumbent_inventory: list[dict[str, Any]],
+    proposed_inventory: list[dict[str, Any]],
+) -> dict[str, Any]:
+    incumbent_artifacts = manifest_rows(
+        incumbent_canonical, "artifacts", label="incumbent canonical manifest"
+    )
+    validate_manifest_platform_rows(
+        incumbent_artifacts, field="platform", label="incumbent canonical artifacts"
+    )
+    incumbent_by_path = {row["path"]: row for row in incumbent_inventory}
+    proposed_by_path = {row["path"]: row for row in proposed_inventory}
+    old_windows_paths = {PAYLOAD_SIDECAR_PATH}
+    managed_non_windows: set[str] = set()
+    retained_artifacts: list[dict[str, Any]] = []
+    for artifact in incumbent_artifacts:
+        platform = platform_of(artifact)
+        names = [artifact_name(artifact, label="incumbent artifact fileName")]
+        if artifact.get("payloadFileName") is not None:
+            names.append(
+                artifact_name(
+                    {"fileName": artifact["payloadFileName"]},
+                    label="incumbent payload",
+                )
+            )
+        paths = {f"files/{name}" for name in names}
+        if platform == "windows":
+            old_windows_paths.update(paths)
+            continue
+        if platform not in {"linux", "macos"}:
+            raise ContractError("incumbent canonical artifact platform is unsupported")
+        managed_non_windows.update(paths)
+        retained_artifacts.append(artifact)
+
+    fresh_paths = {INSTALLER_PATH, PAYLOAD_PATH, PAYLOAD_SIDECAR_PATH}
+    expected_paths = set(incumbent_by_path) - old_windows_paths | fresh_paths
+    if set(proposed_by_path) != expected_paths:
+        raise ContractError("v3 projected shelf has missing or unexplained paths")
+    for path in sorted(expected_paths - fresh_paths):
+        if path in {CANONICAL_MANIFEST_NAME, COMPATIBILITY_MANIFEST_NAME}:
+            continue
+        if proposed_by_path[path] != incumbent_by_path.get(path):
+            raise ContractError(f"retained incumbent byte or mode changed: {path}")
+    for path in managed_non_windows:
+        if proposed_by_path.get(path) != incumbent_by_path.get(path):
+            raise ContractError(f"retained non-Windows managed byte changed: {path}")
+
+    retained: list[dict[str, Any]] = []
+    excluded = {
+        CANONICAL_MANIFEST_NAME,
+        COMPATIBILITY_MANIFEST_NAME,
+        *fresh_paths,
+    }
+    for path in sorted(expected_paths - excluded):
+        row = proposed_by_path[path]
+        retained.append(
+            {
+                **row,
+                "retentionKind": (
+                    "managed_artifact" if path in managed_non_windows else "ancillary"
+                ),
+            }
+        )
+    retained_platforms = sorted({platform_of(row) for row in retained_artifacts})
+    if not all(retained_platforms):
+        raise ContractError("retained artifact platform set is incomplete")
+    shelf_platforms = sorted({*retained_platforms, "windows"})
+    return {
+        "managedNonWindows": managed_non_windows,
+        "retained": retained,
+        "retainedArtifacts": retained_artifacts,
+        "retainedPlatforms": retained_platforms,
+        "shelfPlatforms": shelf_platforms,
+        "windowsDelta": {
+            "bootstrap_payload": {
+                "path": PAYLOAD_PATH,
+                "sha256": proposed_by_path[PAYLOAD_PATH]["sha256"],
+                "sizeBytes": proposed_by_path[PAYLOAD_PATH]["sizeBytes"],
+            },
+            "bootstrap_payload_sidecar": {
+                "path": PAYLOAD_SIDECAR_PATH,
+                "sha256": proposed_by_path[PAYLOAD_SIDECAR_PATH]["sha256"],
+                "sizeBytes": proposed_by_path[PAYLOAD_SIDECAR_PATH]["sizeBytes"],
+            },
+            "installer": {
+                "path": INSTALLER_PATH,
+                "sha256": proposed_by_path[INSTALLER_PATH]["sha256"],
+                "sizeBytes": proposed_by_path[INSTALLER_PATH]["sizeBytes"],
+            },
+        },
+    }
+
+
+def projected_retained_artifact(
+    source: dict[str, Any],
+    *,
+    incumbent_release_version: str,
+) -> dict[str, Any]:
+    artifact = json.loads(json.dumps(source))
+    file_name = artifact_name(artifact, label="retained artifact fileName")
+    if not str(
+        artifact.get("releaseVersion")
+        or artifact.get("version")
+        or incumbent_release_version
+        or ""
+    ).strip():
+        raise ContractError("retained artifact is missing its source release version")
+    if download_url(artifact, label=f"retained artifact {file_name} URL") != governed_download_url(
+        file_name
+    ):
+        raise ContractError("retained artifact URL is not the governed relative path")
+    if artifact.get("payloadFileName") is not None and artifact.get(
+        "payloadDownloadUrl"
+    ) != governed_download_url(str(artifact["payloadFileName"])):
+        raise ContractError("retained artifact payload URL is not governed and relative")
+    return artifact
+
+
+def projected_windows_artifact(
+    *,
+    release_version: str,
+    generated_at: str,
+    installer: dict[str, Any],
+    payload: dict[str, Any],
+    source_manifest_row_sha256: str,
+) -> dict[str, Any]:
+    artifact_id = "avalonia-win-x64-installer"
+    return {
+        "arch": "x64",
+        "artifactByteVisibility": "public",
+        "artifactId": artifact_id,
+        "channel": CHANNEL,
+        "channelId": CHANNEL,
+        "compatibilityReason": None,
+        "compatibilityState": "compatible",
+        "crossRunBitReproducible": False,
+        "downloadUrl": governed_download_url(INSTALLER_NAME),
+        "fileName": INSTALLER_NAME,
+        "generatedAt": generated_at,
+        "generated_at": generated_at,
+        "head": "avalonia",
+        "id": artifact_id,
+        "installAccessClass": "open_public",
+        "installerMode": "bootstrap",
+        "kind": "installer",
+        "payloadAcquisitionMode": "download",
+        "payloadDownloadUrl": governed_download_url(PAYLOAD_NAME),
+        "payloadFileName": PAYLOAD_NAME,
+        "payloadSha256": payload["sha256"],
+        "payloadSizeBytes": payload["sizeBytes"],
+        "platform": "windows",
+        "platformLabel": WINDOWS_COMPATIBILITY_PLATFORM,
+        "platformScope": PLATFORM_SCOPE,
+        "previewPolicy": "preview_policy",
+        "publicationDisposition": "delta",
+        "releaseVersion": release_version,
+        "rid": "win-x64",
+        "sha256": installer["sha256"],
+        "signature": dict(SIGNATURE),
+        "sizeBytes": installer["sizeBytes"],
+        "sourceManifestRowSha256": source_manifest_row_sha256,
+        "version": release_version,
+    }
+
+
+def sanitize_projected_coverage(
+    coverage: dict[str, Any], artifacts_by_id: dict[str, dict[str, Any]]
+) -> None:
+    coverage["publicationDeltaPlatforms"] = ["windows"]
+    coverage["routeAuthority"] = False
+    for route in coverage.get("desktopRouteTruth") or []:
+        if not isinstance(route, dict):
+            continue
+        artifact = artifacts_by_id.get(str(route.get("artifactId") or ""))
+        route["routeAuthority"] = False
+        if platform_of(route) == "windows":
+            # Missing required-head placeholders must not retain the release-channel
+            # helper's synthetic install route either.  Public bytes are only the
+            # explicitly bound fresh artifact, never a promoted install route.
+            route["publicInstallRoute"] = None
+        if artifact is None:
+            continue
+        disposition = (
+            "delta" if platform_of(artifact) == "windows" else "retained_incumbent"
+        )
+        route["publicationDisposition"] = disposition
+        if disposition == "retained_incumbent":
+            route["publicationState"] = "retained"
+            route["promotionReasonCode"] = "retained_incumbent_publication"
+            route["promotionReason"] = (
+                "The incumbent route remains byte-identical and retains its original "
+                "publication provenance; this delta makes no fresh runtime-proof claim."
+            )
+        else:
+            route["publicationState"] = "preview"
+            route["promotionState"] = "proof_required"
+            route["artifactByteVisibility"] = "public"
+            route["visibility"] = "public_artifact_only"
+            route["publicInstallRoute"] = None
+            route["promotionReasonCode"] = "fresh_delta_requires_runtime_proof"
+            route["promotionReason"] = (
+                "Fresh Windows bytes are present but remain unpromoted until runtime proof "
+                "is independently captured and reviewed."
+            )
+            route["updateEligibility"] = "blocked_missing_proof"
+            route["updateEligibilityReason"] = (
+                "Runtime promotion evidence is not part of this fresh-delta projection."
+            )
+            route["installPosture"] = "proof_capture_required"
+            route["installPostureReason"] = (
+                "Do not advertise this Windows route as promoted before runtime proof."
+            )
+
+
+def decorate_projected_registry_rows(
+    rows: list[dict[str, Any]], artifacts_by_id: dict[str, dict[str, Any]]
+) -> None:
+    for row in rows:
+        artifact = artifacts_by_id.get(str(row.get("artifactId") or ""))
+        if artifact is None:
+            continue
+        disposition = (
+            "delta" if platform_of(artifact) == "windows" else "retained_incumbent"
+        )
+        row["publicationDisposition"] = disposition
+        if disposition == "retained_incumbent":
+            if "publicationState" in row:
+                row["publicationState"] = "retained"
+        else:
+            if "publicationState" in row:
+                row["publicationState"] = "preview"
+            row["publicInstallRoute"] = None
+            row["artifactByteVisibility"] = "public"
+            if "publicationScope" in row:
+                row["publicationScope"] = "signed-in-and-public"
+
+
+def retained_incumbent_provenance(
+    *,
+    request: dict[str, Any],
+    context: dict[str, Any],
+    incumbent_compatibility: dict[str, Any],
+) -> dict[str, Any]:
+    bindings: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for artifact in context["retainedArtifacts"]:
+        artifact_id = str(artifact.get("artifactId") or artifact.get("id") or "").strip()
+        if not artifact_id or artifact_id in seen:
+            raise ContractError("retained artifacts do not have unique stable identities")
+        seen.add(artifact_id)
+        bindings.append(
+            {
+                "artifactId": artifact_id,
+                "manifestRowSha256": ui_object_sha256(artifact),
+                "sha256": require_digest(
+                    artifact.get("sha256"),
+                    label=f"retained artifact {artifact_id} sha256",
+                ),
+                "sizeBytes": require_int(
+                    artifact.get("sizeBytes"),
+                    label=f"retained artifact {artifact_id} sizeBytes",
+                    minimum=1,
+                ),
+            }
+        )
+    retained_by_file_name = {
+        artifact_name(artifact, label="retained canonical artifact fileName"): artifact
+        for artifact in context["retainedArtifacts"]
+    }
+    if len(retained_by_file_name) != len(context["retainedArtifacts"]):
+        raise ContractError("retained canonical artifact file names are not unique")
+    compatibility_bindings: list[dict[str, Any]] = []
+    seen_compatibility_files: set[str] = set()
+    ordered_compatibility_files: list[str] = []
+    for row in manifest_rows(
+        incumbent_compatibility,
+        "downloads",
+        label="incumbent compatibility manifest",
+    ):
+        if platform_of(row) == "windows":
+            continue
+        file_name = artifact_name(row, label="retained compatibility fileName")
+        artifact = retained_by_file_name.get(file_name)
+        if artifact is None or file_name in seen_compatibility_files:
+            raise ContractError(
+                "retained compatibility rows are not bijective with canonical artifacts"
+            )
+        seen_compatibility_files.add(file_name)
+        ordered_compatibility_files.append(file_name)
+        artifact_id = str(
+            artifact.get("artifactId") or artifact.get("id") or ""
+        ).strip()
+        if (
+            not artifact_id
+            or require_digest(
+                row.get("sha256"),
+                label=f"retained compatibility {file_name} sha256",
+            )
+            != require_digest(
+                artifact.get("sha256"),
+                label=f"retained canonical {file_name} sha256",
+            )
+            or require_int(
+                row.get("sizeBytes"),
+                label=f"retained compatibility {file_name} sizeBytes",
+                minimum=1,
+            )
+            != require_int(
+                artifact.get("sizeBytes"),
+                label=f"retained canonical {file_name} sizeBytes",
+                minimum=1,
+            )
+        ):
+            raise ContractError(
+                "retained compatibility byte identity differs from canonical"
+            )
+        compatibility_bindings.append(
+            {
+                "artifactId": artifact_id,
+                "manifestRowSha256": ui_object_sha256(row),
+                "sha256": row["sha256"],
+                "sizeBytes": row["sizeBytes"],
+            }
+        )
+    if seen_compatibility_files != set(retained_by_file_name):
+        raise ContractError(
+            "retained compatibility rows do not cover every canonical artifact"
+        )
+    if ordered_compatibility_files != list(retained_by_file_name):
+        raise ContractError(
+            "retained compatibility row order differs from canonical artifact order"
+        )
+    incumbent = request["incumbentSnapshot"]
+    return {
+        "contractName": RETAINED_INCUMBENT_PROVENANCE_CONTRACT,
+        "contractVersion": RETAINED_INCUMBENT_PROVENANCE_VERSION,
+        "incumbentCanonicalManifestSha256": incumbent["canonicalManifest"]["sha256"],
+        "incumbentCompatibilityManifestSha256": incumbent[
+            "compatibilityManifest"
+        ]["sha256"],
+        "incumbentFullShelfInventorySha256": incumbent[
+            "fullShelfInventorySha256"
+        ],
+        "incumbentSnapshotSha256": incumbent["snapshotSha256"],
+        "retainedArtifactBindings": bindings,
+        "retainedArtifactBindingsSha256": ui_object_sha256(bindings),
+        "retainedCompatibilityBindings": compatibility_bindings,
+        "retainedCompatibilityBindingsSha256": ui_object_sha256(
+            compatibility_bindings
+        ),
+        "retainedInventorySha256": ui_object_sha256(context["retained"]),
+    }
+
+
+def v3_projected_artifact_inventory_rows(
+    artifacts: list[dict[str, Any]],
+) -> list[dict[str, Any]]:
+    release_module = release_channel_module()
+    rows = release_module.code_deploy_artifact_inventory_rows(
+        artifacts, source="v3 projected artifact inventory"
+    )
+    for index, (artifact, row) in enumerate(zip(artifacts, rows, strict=True)):
+        payload_fields = (
+            artifact.get("payloadFileName"),
+            artifact.get("payloadSha256"),
+            artifact.get("payloadSizeBytes"),
+        )
+        if all(value is None for value in payload_fields):
+            continue
+        if any(value is None for value in payload_fields):
+            raise ContractError(
+                f"v3 projected artifact inventory row {index} has a partial payload binding"
+            )
+        row.update(
+            {
+                "payloadFileName": artifact_name(
+                    {"fileName": payload_fields[0]},
+                    label=f"v3 projected artifact inventory row {index} payloadFileName",
+                ),
+                "payloadSha256": require_digest(
+                    payload_fields[1],
+                    label=f"v3 projected artifact inventory row {index} payloadSha256",
+                ),
+                "payloadSizeBytes": require_int(
+                    payload_fields[2],
+                    label=f"v3 projected artifact inventory row {index} payloadSizeBytes",
+                    minimum=1,
+                ),
+            }
+        )
+    return rows
+
+
+def v3_projected_artifact_inventory_sha256(
+    artifacts: list[dict[str, Any]],
+) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            v3_projected_artifact_inventory_rows(artifacts),
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def v3_code_deploy_review_posture(
+    *,
+    request: dict[str, Any],
+    artifacts: list[dict[str, Any]],
+    generated_at: str,
+    registry_source_sha: str,
+) -> dict[str, Any]:
+    inventory_rows = v3_projected_artifact_inventory_rows(artifacts)
+    return {
+        "authority": False,
+        "contract": V3_CODE_DEPLOY_REVIEW_CONTRACT,
+        "evaluatedAt": generated_at,
+        "incumbentSnapshotSha256": request["incumbentSnapshot"]["snapshotSha256"],
+        "projectedArtifactCount": len(inventory_rows),
+        "projectedArtifactInventorySha256": v3_projected_artifact_inventory_sha256(
+            artifacts
+        ),
+        "projectionProfile": V3_PROJECTION_PROFILE,
+        "registryCommit": registry_source_sha,
+        "sourceCanonicalManifestSha256": request["proposedCanonicalManifest"][
+            "sha256"
+        ],
+        "sourceCompatibilityManifestSha256": request[
+            "proposedCompatibilityManifest"
+        ]["sha256"],
+        "sourceShelfInventorySha256": request["proposedShelfInventorySha256"],
+        "status": "review_required",
+    }
+
+
+def build_projected_manifests(
+    *,
+    request: dict[str, Any],
+    incumbent_canonical: dict[str, Any],
+    incumbent_compatibility: dict[str, Any],
+    context: dict[str, Any],
+    proposed_inventory: list[dict[str, Any]],
+    registry_source_sha: str,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    release_version = request["release"]["version"]
+    generated_at = deterministic_generated_at(release_version)
+    incumbent_release_version = str(
+        incumbent_canonical.get("releaseVersion")
+        or incumbent_canonical.get("version")
+        or ""
+    ).strip()
+    artifacts = [
+        projected_retained_artifact(
+            row,
+            incumbent_release_version=incumbent_release_version,
+        )
+        for row in context["retainedArtifacts"]
+    ]
+    proposed_by_path = {row["path"]: row for row in proposed_inventory}
+    source_row_digests = {
+        row["manifestRowSha256"] for row in request["freshDelta"]
+    }
+    if len(source_row_digests) != 1:
+        raise ContractError("v3 fresh delta rows do not bind one source manifest row")
+    artifacts.append(
+        projected_windows_artifact(
+            release_version=release_version,
+            generated_at=generated_at,
+            installer=proposed_by_path[INSTALLER_PATH],
+            payload=proposed_by_path[PAYLOAD_PATH],
+            source_manifest_row_sha256=next(iter(source_row_digests)),
+        )
+    )
+    # Retained rows are immutable incumbent custody.  Preserve their exact order and
+    # append the one deterministic fresh Windows row without normalizing that subsequence.
+    release_module = release_channel_module()
+    shelf_platforms = context["shelfPlatforms"]
+    rollout_reason = (
+        "Retained shelf bytes and fresh Windows Avalonia bytes are present, but coverage "
+        "stays incomplete because fresh Windows runtime promotion evidence is not part "
+        "of this projection."
+    )
+    known_issue = (
+        "Known issue: fresh Windows bytes remain unpromoted until independent runtime "
+        "proof is captured and reviewed."
+    )
+    coverage = release_module.desktop_tuple_coverage(
+        artifacts,
+        required_heads=["avalonia"],
+        required_platforms=shelf_platforms,
+        channel_id=CHANNEL,
+        release_version=release_version,
+        channel_status="published",
+        rollout_state="coverage_incomplete",
+        rollout_reason=rollout_reason,
+        known_issue_summary=known_issue,
+        downloads_dir=None,
+    )
+    retained_coverage = release_module.desktop_tuple_coverage(
+        [row for row in artifacts if platform_of(row) != "windows"],
+        required_heads=["avalonia"],
+        required_platforms=shelf_platforms,
+        channel_id=CHANNEL,
+        release_version=release_version,
+        channel_status="published",
+        rollout_state="coverage_incomplete",
+        rollout_reason=rollout_reason,
+        known_issue_summary=known_issue,
+        downloads_dir=None,
+    )
+    for key in (
+        "complete",
+        "missingRequiredHeads",
+        "missingRequiredPlatformHeadPairs",
+        "missingRequiredPlatformHeadRidTuples",
+        "missingRequiredPlatforms",
+        "promotedInstallerTuples",
+        "promotedPlatformHeadRidTuples",
+        "promotedPlatformHeads",
+    ):
+        coverage[key] = retained_coverage[key]
+    artifacts_by_id = {
+        str(row.get("artifactId") or row.get("id") or ""): row for row in artifacts
+    }
+    sanitize_projected_coverage(coverage, artifacts_by_id)
+    install_aware = release_module.install_aware_artifact_registry(
+        artifacts,
+        coverage,
+        channel_id=CHANNEL,
+        release_version=release_version,
+    )
+    install_aware = [row for row in install_aware if row.get("platform") != "windows"]
+    identities = release_module.artifact_identity_registry(
+        coverage,
+        artifacts,
+        channel_id=CHANNEL,
+        release_version=release_version,
+        proof_freshness_status="missing",
+    )
+    surfaces = release_module.desktop_surface_refs(
+        artifacts,
+        coverage,
+        channel_id=CHANNEL,
+        release_version=release_version,
+    )
+    bindings = release_module.artifact_publication_bindings(
+        coverage,
+        artifacts,
+        channel_id=CHANNEL,
+        release_version=release_version,
+        proof_freshness_status="missing",
+    )
+    decorate_projected_registry_rows(identities, artifacts_by_id)
+    decorate_projected_registry_rows(bindings, artifacts_by_id)
+    retained_provenance = retained_incumbent_provenance(
+        request=request,
+        context=context,
+        incumbent_compatibility=incumbent_compatibility,
+    )
+    code_deploy_review = v3_code_deploy_review_posture(
+        request=request,
+        artifacts=artifacts,
+        generated_at=generated_at,
+        registry_source_sha=registry_source_sha,
+    )
+    release_proof = {
+        "baseUrl": "https://chummer.run",
+        "generatedAt": generated_at,
+        "journeysPassed": [],
+        "proofRoutes": [],
+        "status": "review_required",
+    }
+    canonical = {
+        "artifactIdentityRegistry": identities,
+        "artifactPublicationBindings": bindings,
+        "artifactSource": "registry_v3_unsigned_windows_fresh_delta",
+        "artifacts": artifacts,
+        "channel": CHANNEL,
+        "channelId": CHANNEL,
+        "codeDeployCurrentShelfAuthority": code_deploy_review,
+        "codeDeploymentAuthority": False,
+        "contractName": "Chummer.Hub.Registry.Contracts",
+        "contract_name": "Chummer.Hub.Registry.Contracts",
+        "crossRunBitReproducible": False,
+        "deployAuthority": False,
+        "deployAuthorized": False,
+        "desktopSurfaceRefs": surfaces,
+        "desktopTupleCoverage": coverage,
+        "fixAvailabilitySummary": (
+            "Capture and review fresh Windows runtime proof before widening promotion claims."
+        ),
+        "generatedAt": generated_at,
+        "generated_at": generated_at,
+        "installAwareArtifactRegistry": install_aware,
+        "knownIssueSummary": known_issue,
+        "message": (
+            "Unsigned Windows preview bytes are projected for review; publication and "
+            "runtime-promotion authority remain separate."
+        ),
+        "platformScope": PLATFORM_SCOPE,
+        "previewPolicy": "preview_policy",
+        "projectionProfile": V3_PROJECTION_PROFILE,
+        "projectionStage": "prepared_candidate",
+        "publicationAuthorized": False,
+        "publicationEligible": False,
+        "publishedAt": generated_at,
+        "registryCommit": registry_source_sha,
+        "registry_commit": registry_source_sha,
+        "retainedIncumbentProvenance": retained_provenance,
+        "releaseDecisionStatus": "review_required",
+        "releaseProof": release_proof,
+        "releaseUploadAuthority": False,
+        "releaseVersion": release_version,
+        "rolloutReason": rollout_reason,
+        "rolloutState": "coverage_incomplete",
+        "routeAuthority": False,
+        "runtimeBundleHeads": list(incumbent_canonical.get("runtimeBundleHeads") or []),
+        "schemaVersion": 1,
+        "signature": dict(SIGNATURE),
+        "status": "published",
+        "supportabilityState": "review_required",
+        "supportabilitySummary": (
+            "The preview shelf is downloadable but remains review-required while fresh "
+            "Windows runtime promotion evidence is absent."
+        ),
+        "uploadAuthorized": False,
+        "version": release_version,
+    }
+    canonical["publicTrustMetrics"] = release_module.expected_public_trust_metrics(
+        canonical
+    )
+    canonical["publicTrustMetrics"]["privacyReadiness"] = json.loads(
+        json.dumps(PRIVACY_LAUNCH_GATE_SNAPSHOT)
+    )
+    canonical["registryBoundaryCoverage"] = (
+        release_module.expected_registry_boundary_coverage(canonical)
+    )
+    compatibility = release_module.compatibility_payload(canonical)
+    compatibility.update(
+        {
+            "channel": CHANNEL,
+            "channelId": CHANNEL,
+            "crossRunBitReproducible": False,
+            "deployAuthority": False,
+            "deployAuthorized": False,
+            "platformScope": PLATFORM_SCOPE,
+            "previewPolicy": "preview_policy",
+            "projectionProfile": V3_PROJECTION_PROFILE,
+            "publicationAuthorized": False,
+            "publicationEligible": False,
+            "registryCommit": registry_source_sha,
+            "registry_commit": registry_source_sha,
+            "retainedIncumbentProvenance": json.loads(
+                json.dumps(retained_provenance)
+            ),
+            "releaseUploadAuthority": False,
+            "routeAuthority": False,
+            "schemaVersion": 1,
+            "signature": dict(SIGNATURE),
+            "uploadAuthorized": False,
+        }
+    )
+    compatibility["publicTrustMetrics"] = json.loads(
+        json.dumps(canonical["publicTrustMetrics"])
+    )
+    compatibility["registryBoundaryCoverage"] = json.loads(
+        json.dumps(canonical["registryBoundaryCoverage"])
+    )
+    generated_windows_downloads = [
+        row
+        for row in compatibility.get("downloads") or []
+        if platform_of(row) == "windows"
+    ]
+    if len(generated_windows_downloads) != 1:
+        raise ContractError("projected compatibility Windows row cardinality differs")
+    retained_downloads = [
+        json.loads(json.dumps(row))
+        for row in manifest_rows(
+            incumbent_compatibility,
+            "downloads",
+            label="incumbent compatibility manifest",
+        )
+        if platform_of(row) != "windows"
+    ]
+    for row in retained_downloads:
+        file_name = artifact_name(row, label="retained compatibility fileName")
+        if download_url(row, label=f"retained compatibility {file_name} URL") != governed_download_url(
+            file_name
+        ):
+            raise ContractError(
+                "retained compatibility URL is not the governed relative path"
+            )
+    compatibility["downloads"] = [*retained_downloads, *generated_windows_downloads]
+    if [
+        artifact_name(row, label="projected compatibility row order")
+        for row in compatibility["downloads"]
+    ] != [
+        artifact_name(row, label="projected canonical artifact order")
+        for row in artifacts
+    ]:
+        raise ContractError(
+            "projected compatibility row order differs from canonical artifact order"
+        )
+    for row in compatibility.get("downloads") or []:
+        artifact = artifacts_by_id.get(str(row.get("artifactId") or row.get("id") or ""))
+        if artifact is None:
+            raise ContractError("projected compatibility contains an unknown artifact")
+        if platform_of(row) != "windows":
+            continue
+        row.update(
+            {
+                "channel": CHANNEL,
+                "channelId": CHANNEL,
+                "crossRunBitReproducible": False,
+                "downloadUrl": artifact["downloadUrl"],
+                "platformScope": PLATFORM_SCOPE,
+                "previewPolicy": "preview_policy",
+                "publicationDisposition": artifact["publicationDisposition"],
+                "releaseVersion": release_version,
+                "signature": dict(SIGNATURE),
+                "url": artifact["downloadUrl"],
+                "version": release_version,
+            }
+        )
+        for field in (
+            "sourceManifestRowSha256",
+            "sourceManifestSha256",
+            "sourceReleaseVersion",
+            "sourceSnapshotSha256",
+        ):
+            if field in artifact:
+                row[field] = artifact[field]
+    return canonical, compatibility
+
+
+def projected_inventory(
+    source_inventory: list[dict[str, Any]],
+    *,
+    canonical_raw: bytes,
+    compatibility_raw: bytes,
+) -> list[dict[str, Any]]:
+    replacements = {
+        CANONICAL_MANIFEST_NAME: canonical_raw,
+        COMPATIBILITY_MANIFEST_NAME: compatibility_raw,
+    }
+    rows: list[dict[str, Any]] = []
+    seen: set[str] = set()
+    for source in source_inventory:
+        row = dict(source)
+        raw = replacements.get(row["path"])
+        if raw is not None:
+            row["sha256"] = sha256_bytes(raw)
+            row["sizeBytes"] = len(raw)
+            seen.add(row["path"])
+        rows.append(row)
+    if seen != set(replacements):
+        raise ContractError("source inventory does not contain both manifest rows")
+    return rows
+
+
+def validate_projected_manifests(
+    canonical: dict[str, Any],
+    compatibility: dict[str, Any],
+    *,
+    request: dict[str, Any],
+    context: dict[str, Any],
+    release_version: str,
+    registry_source_sha: str,
+) -> None:
+    expected_release_proof = {
+        "baseUrl": "https://chummer.run",
+        "generatedAt": deterministic_generated_at(release_version),
+        "journeysPassed": [],
+        "proofRoutes": [],
+        "status": "review_required",
+    }
+    expected_retained_provenance = retained_incumbent_provenance(
+        request=request,
+        context=context,
+        incumbent_compatibility=compatibility,
+    )
+    expected_code_deploy_review = v3_code_deploy_review_posture(
+        request=request,
+        artifacts=canonical["artifacts"],
+        generated_at=deterministic_generated_at(release_version),
+        registry_source_sha=registry_source_sha,
+    )
+    for payload, rows_key, label in (
+        (canonical, "artifacts", "projected canonical manifest"),
+        (compatibility, "downloads", "projected compatibility manifest"),
+    ):
+        validate_manifest_posture(payload, release_version, label=label)
+        require_string(payload.get("status"), "published", label=f"{label} status")
+        require_string(
+            payload.get("rolloutState"),
+            "coverage_incomplete",
+            label=f"{label} rolloutState",
+        )
+        require_string(
+            payload.get("supportabilityState"),
+            "review_required",
+            label=f"{label} supportabilityState",
+        )
+        require_string(
+            payload.get("projectionProfile"),
+            V3_PROJECTION_PROFILE,
+            label=f"{label} projectionProfile",
+        )
+        for alias in ("registryCommit", "registry_commit"):
+            require_string(
+                payload.get(alias), registry_source_sha, label=f"{label} {alias}"
+            )
+        if payload.get("codeDeploymentAuthority") is not False or payload.get(
+            "codeDeployCurrentShelfAuthority"
+        ) != expected_code_deploy_review:
+            raise ContractError(f"{label} overstates code-deploy authority")
+        if payload.get("retainedIncumbentProvenance") != (
+            expected_retained_provenance
+        ):
+            raise ContractError(f"{label} retained incumbent provenance differs")
+        if payload.get("releaseProof") != expected_release_proof:
+            raise ContractError(
+                f"{label} must carry only the minimal review-required release proof"
+            )
+        metrics = payload.get("publicTrustMetrics")
+        if (
+            not isinstance(metrics, dict)
+            or metrics.get("privacyReadiness") != PRIVACY_LAUNCH_GATE_SNAPSHOT
+            or metrics.get("releaseChannel", {}).get("posture") != "blocked"
+            or metrics.get("proofFreshness", {}).get("status") != "missing"
+        ):
+            raise ContractError(f"{label} privacy/public-trust projection is incoherent")
+        rows = manifest_rows(payload, rows_key, label=label)
+        for index, row in enumerate(rows):
+            url = download_url(row, label=f"{label} row[{index}] URL")
+            if not url.startswith(f"{GOVERNED_DOWNLOAD_ROOT}/") or "://" in url:
+                raise ContractError(f"{label} row[{index}] URL is not governed and relative")
+    if canonical["releaseProof"] != compatibility["releaseProof"]:
+        raise ContractError("projected manifests disagree about release proof")
+    if canonical["desktopTupleCoverage"] != compatibility["desktopTupleCoverage"]:
+        raise ContractError("projected manifests disagree about desktop coverage")
+    if canonical["publicTrustMetrics"] != compatibility["publicTrustMetrics"]:
+        raise ContractError("projected manifests disagree about public trust metrics")
+    if canonical["registryBoundaryCoverage"] != compatibility["registryBoundaryCoverage"]:
+        raise ContractError("projected manifests disagree about Registry boundary coverage")
+    canonical_rows = {
+        str(row.get("artifactId") or row.get("id") or ""): row
+        for row in canonical["artifacts"]
+    }
+    compatibility_rows = {
+        str(row.get("artifactId") or row.get("id") or ""): row
+        for row in compatibility["downloads"]
+    }
+    if (
+        len(canonical_rows) != len(canonical["artifacts"])
+        or len(compatibility_rows) != len(compatibility["downloads"])
+        or set(canonical_rows) != set(compatibility_rows)
+    ):
+        raise ContractError("projected manifest artifact ids are not bijective")
+    for artifact_id, artifact in canonical_rows.items():
+        download = compatibility_rows[artifact_id]
+        for left, right in (
+            ("downloadUrl", "url"),
+            ("fileName", "fileName"),
+            ("head", "head"),
+            ("kind", "kind"),
+            ("payloadDownloadUrl", "payloadDownloadUrl"),
+            ("payloadFileName", "payloadFileName"),
+            ("payloadSha256", "payloadSha256"),
+            ("payloadSizeBytes", "payloadSizeBytes"),
+            ("publicationDisposition", "publicationDisposition"),
+            ("releaseVersion", "releaseVersion"),
+            ("sha256", "sha256"),
+            ("sizeBytes", "sizeBytes"),
+            ("sourceManifestRowSha256", "sourceManifestRowSha256"),
+            ("sourceManifestSha256", "sourceManifestSha256"),
+            ("sourceReleaseVersion", "sourceReleaseVersion"),
+            ("sourceSnapshotSha256", "sourceSnapshotSha256"),
+        ):
+            if artifact.get(left) != download.get(right):
+                raise ContractError(
+                    f"projected compatibility artifact {artifact_id} disagrees on {right}"
+                )
+        if artifact.get("platform") != platform_of(download):
+            raise ContractError(
+                f"projected compatibility artifact {artifact_id} disagrees on platform"
+            )
+        if platform_of(artifact) == "windows" and artifact.get("rid") != download.get(
+            "rid"
+        ):
+            raise ContractError(
+                f"projected Windows compatibility artifact {artifact_id} disagrees on rid"
+            )
+    coverage = canonical["desktopTupleCoverage"]
+    if (
+        coverage.get("complete") is not False
+        or "windows" not in (coverage.get("missingRequiredPlatforms") or [])
+        or any(
+            isinstance(row, dict) and row.get("platform") == "windows"
+            for row in coverage.get("promotedInstallerTuples") or []
+        )
+    ):
+        raise ContractError("projected coverage overstates fresh Windows promotion")
 
 
 def document_contract(
@@ -1143,9 +2269,19 @@ def validate_composition_request(
     publication_root: Path,
     incumbent_root: Path,
     provenance_paths: dict[str, Path],
+    registry_source_sha: str | None,
 ) -> dict[str, Any]:
     validate_schema(request)
-    exact_object(request, COMPOSITION_KEYS, label="UI composition request v3")
+    profile = projection_profile(request)
+    exact_object(
+        request,
+        PROFILE_COMPOSITION_KEYS if profile else COMPOSITION_KEYS,
+        label="UI composition request v3",
+    )
+    if profile:
+        registry_source_sha = require_commit(
+            registry_source_sha, label="Registry projection sourceSha"
+        )
     require_string(
         request.get("contractName"), COMPOSITION_CONTRACT, label="composition contractName"
     )
@@ -1221,8 +2357,7 @@ def validate_composition_request(
     proposed_modes = validate_directory_modes(
         request.get("proposedDirectoryModes"), label="proposed directory modes"
     )
-    if scan_inventory(publication_root, label="proposed publication root") != proposed_inventory:
-        raise ContractError("proposed actual inventory differs from request")
+    actual_inventory = scan_inventory(publication_root, label="proposed publication root")
     if scan_directory_modes(publication_root, label="proposed publication root") != proposed_modes:
         raise ContractError("proposed actual directory modes differ from request")
     if request.get("proposedShelfInventorySha256") != ui_object_sha256(proposed_inventory):
@@ -1232,46 +2367,20 @@ def validate_composition_request(
     if proposed_modes != incumbent_modes:
         raise ContractError("proposed directory set or modes differ from incumbent")
 
-    canonical_path = resolve_member(
-        publication_root, CANONICAL_MANIFEST_NAME, label="proposed canonical manifest"
-    )
-    compatibility_path = resolve_member(
-        publication_root,
-        COMPATIBILITY_MANIFEST_NAME,
-        label="proposed compatibility manifest",
-    )
-    canonical, canonical_raw = read_json_file(canonical_path, label="proposed canonical manifest")
-    compatibility, compatibility_raw = read_json_file(
-        compatibility_path, label="proposed compatibility manifest"
-    )
-    validate_byte_reference(
-        request.get("proposedCanonicalManifest"),
-        expected_path=CANONICAL_MANIFEST_NAME,
-        raw=canonical_raw,
-        label="proposed canonical reference",
-    )
-    validate_byte_reference(
-        request.get("proposedCompatibilityManifest"),
-        expected_path=COMPATIBILITY_MANIFEST_NAME,
-        raw=compatibility_raw,
-        label="proposed compatibility reference",
-    )
-    manifest = validate_manifests(
-        canonical=canonical,
-        compatibility=compatibility,
-        version=version,
-        proposed_inventory=proposed_inventory,
-        incumbent_canonical=incumbent_canonical,
-        incumbent_compatibility=incumbent_compatibility,
-        incumbent_inventory=incumbent_inventory,
-    )
-
     fresh = request.get("freshDelta")
-    if not isinstance(fresh, list) or len(fresh) != 2:
-        raise ContractError("composition freshDelta is not the exact Windows pair")
-    expected_roles = (("installer", INSTALLER_NAME), ("bootstrap_payload", PAYLOAD_NAME))
+    expected_roles = [
+        ("installer", INSTALLER_NAME),
+        ("bootstrap_payload", PAYLOAD_NAME),
+    ]
+    if profile:
+        expected_roles.append(("bootstrap_payload_sidecar", PAYLOAD_SIDECAR_NAME))
+    if not isinstance(fresh, list) or len(fresh) != len(expected_roles):
+        raise ContractError("composition freshDelta cardinality differs from its profile")
     inventory_by_path = {row["path"]: row for row in proposed_inventory}
-    for index, (row, (role, name)) in enumerate(zip(fresh, expected_roles, strict=True)):
+    source_manifest_row_sha256: str | None = None
+    for index, (row, (role, name)) in enumerate(
+        zip(fresh, expected_roles, strict=True)
+    ):
         exact_object(row, FRESH_DELTA_KEYS, label=f"composition freshDelta[{index}]")
         path = f"files/{name}"
         if (
@@ -1281,12 +2390,164 @@ def validate_composition_request(
             or row.get("path") != path
             or row.get("platform") != "windows"
             or row.get("rid") != "win-x64"
-            or row.get("manifestRowSha256") != manifest["installerRowSha256"]
         ):
             raise ContractError("composition freshDelta identity differs")
+        row_manifest_sha256 = require_digest(
+            row.get("manifestRowSha256"),
+            label=f"composition freshDelta[{index}] manifestRowSha256",
+        )
+        if source_manifest_row_sha256 is None:
+            source_manifest_row_sha256 = row_manifest_sha256
+        elif source_manifest_row_sha256 != row_manifest_sha256:
+            raise ContractError("composition freshDelta rows bind different manifest rows")
         exact = {key: row[key] for key in INVENTORY_KEYS}
         if inventory_by_path.get(path) != exact:
             raise ContractError("composition freshDelta differs from exact inventory")
+
+    canonical_path = resolve_member(
+        publication_root, CANONICAL_MANIFEST_NAME, label="proposed canonical manifest"
+    )
+    compatibility_path = resolve_member(
+        publication_root,
+        COMPATIBILITY_MANIFEST_NAME,
+        label="proposed compatibility manifest",
+    )
+    publication_canonical, publication_canonical_raw = read_json_file(
+        canonical_path, label="proposed canonical manifest"
+    )
+    publication_compatibility, publication_compatibility_raw = read_json_file(
+        compatibility_path, label="proposed compatibility manifest"
+    )
+    source_custody: dict[str, dict[str, Any]] = {}
+    source_custody_bound: dict[Path, bytes] = {}
+    if profile:
+        source_custody, source_custody_bound = validate_source_publication_custody(
+            request_root=request_root, request=request
+        )
+        validate_payload_sidecar(
+            publication_root, proposed_inventory, release_version=version
+        )
+        manifest = projection_shelf_context(
+            incumbent_canonical=incumbent_canonical,
+            incumbent_inventory=incumbent_inventory,
+            proposed_inventory=proposed_inventory,
+        )
+        manifest["installerRowSha256"] = source_manifest_row_sha256
+        canonical, compatibility = build_projected_manifests(
+            request=request,
+            incumbent_canonical=incumbent_canonical,
+            incumbent_compatibility=incumbent_compatibility,
+            context=manifest,
+            proposed_inventory=proposed_inventory,
+            registry_source_sha=str(registry_source_sha),
+        )
+        validate_projected_manifests(
+            canonical,
+            compatibility,
+            request=request,
+            context=manifest,
+            release_version=version,
+            registry_source_sha=str(registry_source_sha),
+        )
+        canonical_raw = registry_json_bytes(canonical)
+        compatibility_raw = registry_json_bytes(compatibility)
+        candidate_inventory = projected_inventory(
+            proposed_inventory,
+            canonical_raw=canonical_raw,
+            compatibility_raw=compatibility_raw,
+        )
+        source_by_path = {row["path"]: row for row in proposed_inventory}
+        for value, path, label in (
+            (
+                request.get("proposedCanonicalManifest"),
+                CANONICAL_MANIFEST_NAME,
+                "proposed canonical reference",
+            ),
+            (
+                request.get("proposedCompatibilityManifest"),
+                COMPATIBILITY_MANIFEST_NAME,
+                "proposed compatibility reference",
+            ),
+        ):
+            reference = exact_object(value, BYTE_REFERENCE_KEYS, label=label)
+            inventory_row = source_by_path.get(path)
+            if inventory_row is None or reference != {
+                "path": path,
+                "sha256": inventory_row["sha256"],
+                "sizeBytes": inventory_row["sizeBytes"],
+            }:
+                raise ContractError(f"{label} does not bind the source inventory")
+        if actual_inventory == proposed_inventory:
+            validate_byte_reference(
+                request.get("proposedCanonicalManifest"),
+                expected_path=CANONICAL_MANIFEST_NAME,
+                raw=publication_canonical_raw,
+                label="proposed canonical reference",
+            )
+            validate_byte_reference(
+                request.get("proposedCompatibilityManifest"),
+                expected_path=COMPATIBILITY_MANIFEST_NAME,
+                raw=publication_compatibility_raw,
+                label="proposed compatibility reference",
+            )
+            source_manifest = validate_manifests(
+                canonical=publication_canonical,
+                compatibility=publication_compatibility,
+                version=version,
+                proposed_inventory=proposed_inventory,
+                incumbent_canonical=incumbent_canonical,
+                incumbent_compatibility=incumbent_compatibility,
+                incumbent_inventory=incumbent_inventory,
+                profile=profile,
+            )
+            if (
+                source_manifest["installerRowSha256"]
+                != source_manifest_row_sha256
+                or source_manifest["retained"] != manifest["retained"]
+                or source_manifest["windowsDelta"] != manifest["windowsDelta"]
+            ):
+                raise ContractError("source manifest and v3 projection custody disagree")
+        elif actual_inventory == candidate_inventory:
+            if (
+                publication_canonical_raw != canonical_raw
+                or publication_compatibility_raw != compatibility_raw
+            ):
+                raise ContractError("projected publication root manifest bytes drifted")
+        else:
+            raise ContractError(
+                "publication root is neither the source nor Registry-projected inventory"
+            )
+    else:
+        if actual_inventory != proposed_inventory:
+            raise ContractError("proposed actual inventory differs from request")
+        validate_byte_reference(
+            request.get("proposedCanonicalManifest"),
+            expected_path=CANONICAL_MANIFEST_NAME,
+            raw=publication_canonical_raw,
+            label="proposed canonical reference",
+        )
+        validate_byte_reference(
+            request.get("proposedCompatibilityManifest"),
+            expected_path=COMPATIBILITY_MANIFEST_NAME,
+            raw=publication_compatibility_raw,
+            label="proposed compatibility reference",
+        )
+        canonical = publication_canonical
+        canonical_raw = publication_canonical_raw
+        compatibility = publication_compatibility
+        compatibility_raw = publication_compatibility_raw
+        manifest = validate_manifests(
+            canonical=canonical,
+            compatibility=compatibility,
+            version=version,
+            proposed_inventory=proposed_inventory,
+            incumbent_canonical=incumbent_canonical,
+            incumbent_compatibility=incumbent_compatibility,
+            incumbent_inventory=incumbent_inventory,
+        )
+        if manifest["installerRowSha256"] != source_manifest_row_sha256:
+            raise ContractError("composition freshDelta manifest row binding differs")
+        candidate_inventory = proposed_inventory
     retained = validate_retained(
         request.get("retainedFromIncumbent"), label="composition retainedFromIncumbent"
     )
@@ -1304,19 +2565,27 @@ def validate_composition_request(
         "canonical": canonical,
         "canonicalPath": canonical_path,
         "canonicalRaw": canonical_raw,
+        "publicationCanonicalRaw": publication_canonical_raw,
         "compatibility": compatibility,
         "compatibilityPath": compatibility_path,
         "compatibilityRaw": compatibility_raw,
+        "publicationCompatibilityRaw": publication_compatibility_raw,
+        "activationInventory": actual_inventory,
+        "candidateInventory": candidate_inventory,
         "incumbentInventory": incumbent_inventory,
         "incumbentModes": incumbent_modes,
         "manifest": manifest,
-        "projectionInputs": projection_inputs(),
+        "profile": profile,
+        "projectionInputs": projection_inputs(profile),
         "proposedInventory": proposed_inventory,
         "proposedModes": proposed_modes,
         "provenance": provenance,
         "provenanceBound": provenance_bound,
         "retained": retained,
         "sourceSha": source_sha,
+        "sourceCustody": source_custody,
+        "sourceCustodyBound": source_custody_bound,
+        "registrySourceSha": registry_source_sha,
         "version": version,
     }
 
@@ -1324,7 +2593,7 @@ def validate_composition_request(
 def build_candidate(
     request: dict[str, Any], request_raw: bytes, validated: dict[str, Any]
 ) -> dict[str, Any]:
-    return {
+    candidate = {
         "canonicalManifest": byte_reference(
             CANONICAL_MANIFEST_NAME, validated["canonicalRaw"]
         ),
@@ -1341,8 +2610,10 @@ def build_candidate(
         "deltaPlatforms": ["windows"],
         "deployAuthority": False,
         "evidencePlatforms": [],
-        "fullShelfInventory": validated["proposedInventory"],
-        "fullShelfInventorySha256": request["proposedShelfInventorySha256"],
+        "fullShelfInventory": validated["candidateInventory"],
+        "fullShelfInventorySha256": ui_object_sha256(
+            validated["candidateInventory"]
+        ),
         "incumbentDirectoryModesSha256": request["incumbentSnapshot"][
             "directoryModesSha256"
         ],
@@ -1367,6 +2638,36 @@ def build_candidate(
         "sourceSha": validated["sourceSha"],
         "windowsDelta": validated["manifest"]["windowsDelta"],
     }
+    if validated["profile"] == V3_PROJECTION_PROFILE:
+        candidate.update(
+            {
+                "codeDeployCurrentShelfAuthority": json.loads(
+                    json.dumps(validated["canonical"]["codeDeployCurrentShelfAuthority"])
+                ),
+                "privacyLaunchGateSnapshot": json.loads(
+                    json.dumps(PRIVACY_LAUNCH_GATE_SNAPSHOT)
+                ),
+                "privacyLaunchGateSnapshotSha256": ui_object_sha256(
+                    PRIVACY_LAUNCH_GATE_SNAPSHOT
+                ),
+                "projectionProfile": V3_PROJECTION_PROFILE,
+                "registryCommit": validated["registrySourceSha"],
+                "registry_commit": validated["registrySourceSha"],
+                "retainedIncumbentProvenance": json.loads(
+                    json.dumps(validated["canonical"]["retainedIncumbentProvenance"])
+                ),
+                "sourceCanonicalManifest": validated["sourceCustody"][
+                    "sourceCanonicalManifest"
+                ],
+                "sourceCompatibilityManifest": validated["sourceCustody"][
+                    "sourceCompatibilityManifest"
+                ],
+                "sourceShelfInventorySha256": request[
+                    "proposedShelfInventorySha256"
+                ],
+            }
+        )
+    return candidate
 
 
 def replay_prepare(
@@ -1672,6 +2973,7 @@ def load_and_validate_request(
         publication_root=publication_root,
         incumbent_root=incumbent_root,
         provenance_paths=provenance_paths_from_args(args),
+        registry_source_sha=getattr(args, "registry_source_sha", None),
     )
     return request_path, request, request_raw, publication_root, incumbent_root, validated
 
@@ -1687,15 +2989,16 @@ def verify_activation_inputs(
 ) -> None:
     bound = {
         request_path: request_raw,
-        validated["canonicalPath"]: validated["canonicalRaw"],
-        validated["compatibilityPath"]: validated["compatibilityRaw"],
+        validated["canonicalPath"]: validated["publicationCanonicalRaw"],
+        validated["compatibilityPath"]: validated["publicationCompatibilityRaw"],
         **validated["provenanceBound"],
+        **validated["sourceCustodyBound"],
     }
     for path, raw in bound.items():
         if read_stable_bytes(path, label=f"activation input {path.name}") != raw:
             raise ContractError(f"activation input changed: {path.name}")
     if scan_inventory(publication_root, label="activation publication root") != validated[
-        "proposedInventory"
+        "activationInventory"
     ]:
         raise ContractError("publication root changed before activation")
     if scan_directory_modes(publication_root, label="activation publication root") != validated[
@@ -1710,7 +3013,7 @@ def verify_activation_inputs(
         incumbent_root, label="activation incumbent root"
     ) != validated["incumbentModes"]:
         raise ContractError("incumbent directory modes changed before activation")
-    if projection_inputs() != projection:
+    if projection_inputs(validated["profile"]) != projection:
         raise ContractError("Registry projection inputs changed before activation")
 
 
@@ -1791,7 +3094,18 @@ def validate_scope(
     compatibility_raw: bytes,
 ) -> dict[str, Any]:
     validate_schema(scope)
-    exact_object(scope, SCOPE_KEYS, label="UI unsigned scope v3")
+    profile = validated["profile"]
+    exact_object(
+        scope,
+        PROFILE_SCOPE_KEYS if profile else SCOPE_KEYS,
+        label="UI unsigned scope v3",
+    )
+    if profile:
+        require_string(
+            scope.get("projectionProfile"),
+            V3_PROJECTION_PROFILE,
+            label="scope projectionProfile",
+        )
     require_string(scope.get("contractName"), SCOPE_CONTRACT, label="scope contractName")
     if scope.get("contractVersion") != SCOPE_VERSION:
         raise ContractError("scope contractVersion differs")
@@ -1834,9 +3148,11 @@ def validate_scope(
         if read_stable_bytes(path, label=f"scope {label} manifest") != raw:
             raise ContractError(f"scope {label} manifest differs from PREPARE v2")
     inventory = validate_inventory(scope.get("fullShelfInventory"), label="scope full inventory")
-    if inventory != validated["proposedInventory"]:
+    if inventory != validated["candidateInventory"]:
         raise ContractError("scope full inventory differs from PREPARE v2")
-    if scope.get("fullShelfInventorySha256") != request["proposedShelfInventorySha256"]:
+    if scope.get("fullShelfInventorySha256") != ui_object_sha256(
+        validated["candidateInventory"]
+    ):
         raise ContractError("scope full inventory digest differs")
     if scope.get("incumbentInventorySha256") != request["incumbentSnapshot"][
         "fullShelfInventorySha256"
@@ -1847,8 +3163,8 @@ def validate_scope(
         for row in request["freshDelta"]
     ]
     fresh = scope.get("freshDelta")
-    if not isinstance(fresh, list) or len(fresh) != 2:
-        raise ContractError("scope freshDelta is not the exact Windows pair")
+    if not isinstance(fresh, list) or len(fresh) != len(expected_fresh):
+        raise ContractError("scope freshDelta cardinality differs from PREPARE v2")
     for index, (row, expected) in enumerate(zip(fresh, expected_fresh, strict=True)):
         exact_object(row, SCOPE_FRESH_DELTA_KEYS, label=f"scope freshDelta[{index}]")
         if row != expected:
@@ -1943,6 +3259,20 @@ def finalize(args: argparse.Namespace) -> int:
         "sourceScope": byte_reference(UNSIGNED_SCOPE_NAME, scope_raw),
         "windowsDelta": candidate["windowsDelta"],
     }
+    if validated["profile"] == V3_PROJECTION_PROFILE:
+        for field in (
+            "codeDeployCurrentShelfAuthority",
+            "privacyLaunchGateSnapshot",
+            "privacyLaunchGateSnapshotSha256",
+            "projectionProfile",
+            "registryCommit",
+            "registry_commit",
+            "retainedIncumbentProvenance",
+            "sourceCanonicalManifest",
+            "sourceCompatibilityManifest",
+            "sourceShelfInventorySha256",
+        ):
+            common[field] = candidate[field]
     authority = {
         **common,
         "contractName": AUTHORITY_CONTRACT,
@@ -2011,6 +3341,7 @@ def finalize(args: argparse.Namespace) -> int:
 def add_shared_arguments(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("--composition-request", required=True)
     parser.add_argument("--expected-composition-request-sha256", required=True)
+    parser.add_argument("--registry-source-sha")
     parser.add_argument("--publication-root", required=True)
     parser.add_argument("--incumbent-root", required=True)
     parser.add_argument("--package-plane-lock", required=True)

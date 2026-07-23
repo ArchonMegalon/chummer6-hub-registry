@@ -98,6 +98,54 @@ def strict_json_loads(raw: str | bytes, *, source: str) -> Any:
         raise SystemExit(f"manifest is not valid UTF-8 JSON: {source}") from exc
 
 
+def read_stable_regular_file_bytes(
+    path: Path, *, source: str, max_bytes: int = 16 * 1024 * 1024
+) -> bytes:
+    lexical = Path(os.path.abspath(os.fspath(path.expanduser())))
+    current = Path(lexical.anchor)
+    for component in lexical.parts[1:]:
+        current /= component
+        try:
+            metadata = current.lstat()
+        except OSError as exc:
+            raise SystemExit(f"unavailable file {source}") from exc
+        if stat.S_ISLNK(metadata.st_mode):
+            raise SystemExit(f"symbolic-link component in {source}")
+    metadata = lexical.lstat()
+    if (
+        not stat.S_ISREG(metadata.st_mode)
+        or metadata.st_nlink != 1
+        or metadata.st_size < 1
+        or metadata.st_size > max_bytes
+    ):
+        raise SystemExit(f"invalid bounded regular file {source}")
+    descriptor = os.open(lexical, os.O_RDONLY | getattr(os, "O_NOFOLLOW", 0))
+    try:
+        before = os.fstat(descriptor)
+        chunks: list[bytes] = []
+        while True:
+            chunk = os.read(descriptor, 1024 * 1024)
+            if not chunk:
+                break
+            chunks.append(chunk)
+        after = os.fstat(descriptor)
+    finally:
+        os.close(descriptor)
+    identity = lambda item: (
+        item.st_dev,
+        item.st_ino,
+        item.st_mode,
+        item.st_nlink,
+        item.st_size,
+        item.st_mtime_ns,
+        item.st_ctime_ns,
+    )
+    raw = b"".join(chunks)
+    if identity(before) != identity(after) or len(raw) != before.st_size:
+        raise SystemExit(f"file changed while read: {source}")
+    return raw
+
+
 def write_registry_mismatch_audit(
     *,
     source: str,
@@ -175,6 +223,106 @@ CODE_DEPLOY_CURRENT_SHELF_PROJECTION_STAGE = "code_deploy_review_required"
 CODE_DEPLOY_CURRENT_SHELF_RELEASE_DECISION_STATUS = "review_required"
 CODE_DEPLOY_CURRENT_SHELF_ROLLOUT_STATE = "public_release_review_required"
 CODE_DEPLOY_CURRENT_SHELF_SUPPORTABILITY_STATE = "review_required"
+V3_UNSIGNED_WINDOWS_PROJECTION_PROFILE = "v3_unsigned_windows_fresh_delta"
+V3_CODE_DEPLOY_REVIEW_CONTRACT = (
+    "chummer.registry.preview-publication-delta-code-deploy-review/v1"
+)
+V3_UNSIGNED_SIGNATURE = {
+    "policy": "preview_policy",
+    "required": False,
+    "status": "unsigned",
+}
+V3_AUTHORITY_POSTURE_FIELDS = frozenset(
+    {
+        "authority",
+        "authoritative",
+        "candidateImportAuthority",
+        "candidateReviewAuthority",
+        "codeDeploymentAuthority",
+        "deployAuthority",
+        "deployAuthorized",
+        "manifestIsAuthoritative",
+        "publicationAuthority",
+        "publicationAuthorized",
+        "publicationEligible",
+        "releaseUploadAuthority",
+        "releaseUploadAuthorized",
+        "routeAuthority",
+        "routeAuthorized",
+        "uploadAuthority",
+        "uploadAuthorized",
+    }
+)
+V3_WINDOWS_ARTIFACT_ID = "avalonia-win-x64-installer"
+V3_WINDOWS_INSTALLER_NAME = "chummer-avalonia-win-x64-installer.exe"
+V3_WINDOWS_PAYLOAD_NAME = "chummer-avalonia-win-x64-payload.zip"
+V3_GOVERNED_DOWNLOAD_ROOT = "/downloads/files"
+V3_CODE_DEPLOY_REVIEW_KEYS = frozenset(
+    {
+        "authority",
+        "contract",
+        "evaluatedAt",
+        "incumbentSnapshotSha256",
+        "projectedArtifactCount",
+        "projectedArtifactInventorySha256",
+        "projectionProfile",
+        "registryCommit",
+        "sourceCanonicalManifestSha256",
+        "sourceCompatibilityManifestSha256",
+        "sourceShelfInventorySha256",
+        "status",
+    }
+)
+V3_RETAINED_PROVENANCE_KEYS = frozenset(
+    {
+        "contractName",
+        "contractVersion",
+        "incumbentCanonicalManifestSha256",
+        "incumbentCompatibilityManifestSha256",
+        "incumbentFullShelfInventorySha256",
+        "incumbentSnapshotSha256",
+        "retainedArtifactBindings",
+        "retainedArtifactBindingsSha256",
+        "retainedCompatibilityBindings",
+        "retainedCompatibilityBindingsSha256",
+        "retainedInventorySha256",
+    }
+)
+V3_RETAINED_ARTIFACT_BINDING_KEYS = frozenset(
+    {"artifactId", "manifestRowSha256", "sha256", "sizeBytes"}
+)
+V3_PRIVACY_LAUNCH_GATE_SNAPSHOT = {
+    "blockedClaims": [
+        "flagship_launch",
+        "public_release_supportability",
+        "hosted_build_recovery_and_erasure",
+    ],
+    "blocksLaunch": True,
+    "capabilityContractName": "chummer.hosted_build_privacy_lifecycle",
+    "capabilityContractVersion": 1,
+    "contractName": "chummer.privacy_launch_gate",
+    "contractVersion": 1,
+    "facts": [
+        "active-record-delete",
+        "memory-only-recovery",
+        "no-delete-replay",
+        "no-owner-erasure",
+        "production-recovery-unverified",
+    ],
+    "prohibitedClaims": [
+        "permanent-delete",
+        "durable-recovery",
+        "account-erasure",
+    ],
+    "reason": (
+        "Hosted Build backup and point-in-time-recovery retention, tombstone or lineage "
+        "retention, deletion replay, and whole-account erasure are not launch-approved "
+        "or production-verified."
+    ),
+    "reviewRequired": True,
+    "scope": "flagship_launch_and_release_supportability",
+    "status": "review_required",
+}
 CODE_DEPLOY_CURRENT_SHELF_AUTHORITY_KEYS = frozenset(
     {
         "contract",
@@ -1349,6 +1497,879 @@ def code_deploy_artifact_inventory_sha256(payload: dict[str, Any], source: str) 
         ensure_ascii=False,
     ).encode("utf-8")
     return hashlib.sha256(canonical_bytes).hexdigest()
+
+
+def v3_projected_artifact_inventory_rows(
+    payload: dict[str, Any], source: str
+) -> list[dict[str, Any]]:
+    artifacts = list(iter_manifest_download_entries(payload))
+    rows = code_deploy_artifact_inventory_rows(payload, source)
+    for index, (artifact, row) in enumerate(zip(artifacts, rows, strict=True)):
+        # The Registry materializer derives architecture from the validated RID/file
+        # tuple even when a retained incumbent row predates the explicit `arch` field.
+        row["arch"] = str(row["rid"]).rsplit("-", 1)[-1]
+        payload_values = (
+            artifact.get("payloadFileName"),
+            artifact.get("payloadSha256"),
+            artifact.get("payloadSizeBytes"),
+        )
+        if all(value is None for value in payload_values):
+            continue
+        if any(value is None for value in payload_values):
+            raise SystemExit(
+                f"{source} v3 projected artifact row {index} has a partial payload binding"
+            )
+        payload_file_name = str(payload_values[0] or "").strip()
+        payload_digest = str(payload_values[1] or "").strip()
+        payload_size = parse_positive_int(payload_values[2])
+        if (
+            not payload_file_name
+            or Path(payload_file_name).name != payload_file_name
+            or RAW_SHA256_RE.fullmatch(payload_digest) is None
+            or payload_size is None
+            or payload_size <= 0
+        ):
+            raise SystemExit(
+                f"{source} v3 projected artifact row {index} payload binding is invalid"
+            )
+        row.update(
+            {
+                "payloadFileName": payload_file_name,
+                "payloadSha256": payload_digest,
+                "payloadSizeBytes": payload_size,
+            }
+        )
+    return rows
+
+
+def v3_projected_artifact_inventory_sha256(
+    payload: dict[str, Any], source: str
+) -> str:
+    return canonical_compact_object_sha256(
+        v3_projected_artifact_inventory_rows(payload, source)
+    )
+
+
+def ui_canonical_object_sha256(value: Any) -> str:
+    return hashlib.sha256(
+        json.dumps(
+            value, ensure_ascii=True, separators=(",", ":"), sort_keys=True
+        ).encode("utf-8")
+    ).hexdigest()
+
+
+def verify_v3_recursive_authority_posture(value: Any, *, source: str) -> None:
+    pending: list[tuple[Any, str]] = [(value, source)]
+    while pending:
+        current, current_source = pending.pop()
+        if isinstance(current, dict):
+            for field, child in current.items():
+                child_source = f"{current_source} {field}"
+                if field in V3_AUTHORITY_POSTURE_FIELDS and child is not False:
+                    raise SystemExit(
+                        f"{child_source} must be exactly false in the v3 review projection"
+                    )
+                if isinstance(child, (dict, list)):
+                    pending.append((child, child_source))
+        elif isinstance(current, list):
+            pending.extend(
+                (child, f"{current_source}[{index}]")
+                for index, child in enumerate(current)
+                if isinstance(child, (dict, list))
+            )
+
+
+def verify_v3_unsigned_preview_root_identity(
+    payload: dict[str, Any], *, source: str
+) -> str:
+    release_version = str(payload.get("releaseVersion") or "").strip()
+    if (
+        not release_version
+        or payload.get("version") != release_version
+        or payload.get("channel") != "preview"
+        or payload.get("channelId") != "preview"
+        or payload.get("platformScope") != "windows_only"
+        or payload.get("previewPolicy") != "preview_policy"
+        or payload.get("crossRunBitReproducible") is not False
+        or payload.get("signature") != V3_UNSIGNED_SIGNATURE
+    ):
+        raise SystemExit(f"{source} v3 unsigned Windows root preview identity is invalid")
+    verify_v3_recursive_authority_posture(payload, source=source)
+    return release_version
+
+
+def verify_v3_fresh_windows_artifact_identity(
+    artifact: dict[str, Any],
+    *,
+    release_version: str,
+    source: str,
+    compatibility: bool = False,
+) -> None:
+    installer_url = f"{V3_GOVERNED_DOWNLOAD_ROOT}/{V3_WINDOWS_INSTALLER_NAME}"
+    payload_url = f"{V3_GOVERNED_DOWNLOAD_ROOT}/{V3_WINDOWS_PAYLOAD_NAME}"
+    expected = {
+        "arch": "x64",
+        "artifactId": V3_WINDOWS_ARTIFACT_ID,
+        "channel": "preview",
+        "channelId": "preview",
+        "downloadUrl": installer_url,
+        "fileName": V3_WINDOWS_INSTALLER_NAME,
+        "head": "avalonia",
+        "id": V3_WINDOWS_ARTIFACT_ID,
+        "installerMode": "bootstrap",
+        "kind": "installer",
+        "payloadAcquisitionMode": "download",
+        "payloadDownloadUrl": payload_url,
+        "payloadFileName": V3_WINDOWS_PAYLOAD_NAME,
+        "platform": "windows",
+        "releaseVersion": release_version,
+        "rid": "win-x64",
+        "version": release_version,
+    }
+    if any(artifact.get(field) != value for field, value in expected.items()):
+        raise SystemExit(f"{source} v3 fresh Windows preview identity is invalid")
+    if artifact.get("url") not in (None, installer_url):
+        raise SystemExit(f"{source} v3 fresh Windows installer URL alias differs")
+    if (
+        artifact.get("signature") != V3_UNSIGNED_SIGNATURE
+        or artifact.get("publicationDisposition") != "delta"
+        or artifact.get("payloadSha256") is None
+        or artifact.get("payloadSizeBytes") is None
+    ):
+        raise SystemExit(f"{source} v3 fresh Windows unsigned payload identity is invalid")
+    if compatibility:
+        if (
+            artifact.get("platformId") != "windows-x64"
+            or artifact.get("platformScope") != "windows_only"
+            or artifact.get("previewPolicy") != "preview_policy"
+            or artifact.get("crossRunBitReproducible") is not False
+        ):
+            raise SystemExit(
+                f"{source} v3 compatibility Windows preview identity is invalid"
+            )
+    else:
+        if (
+            artifact.get("platformScope") != "windows_only"
+            or artifact.get("previewPolicy") != "preview_policy"
+            or artifact.get("crossRunBitReproducible") is not False
+        ):
+            raise SystemExit(f"{source} v3 canonical Windows preview identity is invalid")
+    verify_v3_recursive_authority_posture(artifact, source=source)
+
+
+def has_v3_unsigned_windows_projection_markers(payload: dict[str, Any]) -> bool:
+    review = payload.get("codeDeployCurrentShelfAuthority")
+    return (
+        payload.get("projectionProfile") is not None
+        or payload.get("retainedIncumbentProvenance") is not None
+        or (
+            isinstance(review, dict)
+            and review.get("contract") == V3_CODE_DEPLOY_REVIEW_CONTRACT
+        )
+    )
+
+
+def verify_v3_unsigned_windows_projection(payload: dict[str, Any], source: str) -> None:
+    if payload.get("projectionProfile") != V3_UNSIGNED_WINDOWS_PROJECTION_PROFILE:
+        raise SystemExit(f"{source} v3 unsigned Windows projectionProfile is invalid")
+    release_version = verify_v3_unsigned_preview_root_identity(payload, source=source)
+    for field in (
+        "codeDeploymentAuthority",
+        "deployAuthority",
+        "deployAuthorized",
+        "publicationAuthorized",
+        "publicationEligible",
+        "releaseUploadAuthority",
+        "routeAuthority",
+        "uploadAuthorized",
+    ):
+        if payload.get(field) is not False:
+            raise SystemExit(f"{source} v3 unsigned Windows projection must set {field}=false")
+    if normalized_token(payload.get("status")) != "published":
+        raise SystemExit(f"{source} v3 unsigned Windows bytes must be published")
+    if normalized_token(payload.get("releaseDecisionStatus")) != "review_required":
+        raise SystemExit(f"{source} v3 unsigned Windows decision must remain review_required")
+    if normalized_token(payload.get("supportabilityState")) != "review_required":
+        raise SystemExit(f"{source} v3 unsigned Windows supportability must remain review_required")
+    if normalized_token(payload.get("rolloutState")) != "coverage_incomplete":
+        raise SystemExit(f"{source} v3 unsigned Windows rollout must remain coverage_incomplete")
+    if payload.get("projectionStage") != "prepared_candidate":
+        raise SystemExit(f"{source} v3 unsigned Windows projection stage is invalid")
+
+    generated_at = str(
+        resolve_alias_value(
+            payload,
+            primary_key="generatedAt",
+            secondary_key="generated_at",
+            field_path="generatedAt",
+            source=source,
+        )
+        or ""
+    ).strip()
+    registry_commit = str(
+        resolve_alias_value(
+            payload,
+            primary_key="registry_commit",
+            secondary_key="registryCommit",
+            field_path="registry_commit",
+            source=source,
+        )
+        or ""
+    ).strip()
+    if parse_iso_timestamp(generated_at) is None:
+        raise SystemExit(f"{source} v3 unsigned Windows generatedAt is invalid")
+    if re.fullmatch(r"[0-9a-f]{40}", registry_commit) is None:
+        raise SystemExit(f"{source} v3 unsigned Windows Registry commit is invalid")
+
+    review = payload.get("codeDeployCurrentShelfAuthority")
+    if not isinstance(review, dict) or set(review) != V3_CODE_DEPLOY_REVIEW_KEYS:
+        raise SystemExit(f"{source} v3 code-deploy review posture shape is invalid")
+    if (
+        review.get("authority") is not False
+        or review.get("contract") != V3_CODE_DEPLOY_REVIEW_CONTRACT
+        or review.get("evaluatedAt") != generated_at
+        or review.get("projectionProfile") != V3_UNSIGNED_WINDOWS_PROJECTION_PROFILE
+        or review.get("registryCommit") != registry_commit
+        or review.get("status") != "review_required"
+    ):
+        raise SystemExit(f"{source} v3 code-deploy review posture is not fail-closed")
+    for field in (
+        "incumbentSnapshotSha256",
+        "projectedArtifactInventorySha256",
+        "sourceCanonicalManifestSha256",
+        "sourceCompatibilityManifestSha256",
+        "sourceShelfInventorySha256",
+    ):
+        if not is_lower_sha256(review.get(field)):
+            raise SystemExit(f"{source} v3 code-deploy review {field} is invalid")
+    projected_inventory = v3_projected_artifact_inventory_rows(payload, source)
+    projected_count = review.get("projectedArtifactCount")
+    if (
+        isinstance(projected_count, bool)
+        or not isinstance(projected_count, int)
+        or projected_count != len(projected_inventory)
+        or review.get("projectedArtifactInventorySha256")
+        != v3_projected_artifact_inventory_sha256(payload, source)
+    ):
+        raise SystemExit(f"{source} v3 projected artifact inventory binding differs")
+
+    provenance = payload.get("retainedIncumbentProvenance")
+    if not isinstance(provenance, dict) or set(provenance) != V3_RETAINED_PROVENANCE_KEYS:
+        raise SystemExit(f"{source} retained incumbent provenance shape is invalid")
+    if (
+        provenance.get("contractName")
+        != "chummer.registry.retained-incumbent-provenance"
+        or provenance.get("contractVersion") != 1
+        or provenance.get("incumbentSnapshotSha256")
+        != review.get("incumbentSnapshotSha256")
+    ):
+        raise SystemExit(f"{source} retained incumbent snapshot binding differs")
+    for field in (
+        "incumbentCanonicalManifestSha256",
+        "incumbentCompatibilityManifestSha256",
+        "incumbentFullShelfInventorySha256",
+        "incumbentSnapshotSha256",
+        "retainedArtifactBindingsSha256",
+        "retainedCompatibilityBindingsSha256",
+        "retainedInventorySha256",
+    ):
+        if not is_lower_sha256(provenance.get(field)):
+            raise SystemExit(f"{source} retained incumbent provenance {field} is invalid")
+    artifact_rows = payload.get("artifacts")
+    if not isinstance(artifact_rows, list) or any(
+        not isinstance(row, dict) for row in artifact_rows
+    ):
+        raise SystemExit(f"{source} v3 canonical artifacts are invalid")
+    retained_artifacts = [
+        row
+        for row in artifact_rows
+        if normalized_platform_token(row.get("platform")) != "windows"
+    ]
+    windows_artifacts = [
+        row
+        for row in artifact_rows
+        if normalized_platform_token(row.get("platform")) == "windows"
+    ]
+    if len(windows_artifacts) != 1 or any(
+        row.get("signature") != V3_UNSIGNED_SIGNATURE for row in windows_artifacts
+    ):
+        raise SystemExit(
+            f"{source} v3 fresh Windows artifact signature posture is invalid"
+        )
+    verify_v3_fresh_windows_artifact_identity(
+        windows_artifacts[0],
+        release_version=release_version,
+        source=f"{source} Windows artifact",
+    )
+    bindings = provenance.get("retainedArtifactBindings")
+    if (
+        not isinstance(bindings, list)
+        or len(bindings) != len(retained_artifacts)
+        or provenance.get("retainedArtifactBindingsSha256")
+        != ui_canonical_object_sha256(bindings)
+    ):
+        raise SystemExit(f"{source} retained artifact binding set differs")
+    seen_binding_ids: set[str] = set()
+    for index, (binding, artifact) in enumerate(zip(bindings, retained_artifacts, strict=True)):
+        if not isinstance(binding, dict) or set(binding) != V3_RETAINED_ARTIFACT_BINDING_KEYS:
+            raise SystemExit(f"{source} retained artifact binding[{index}] shape is invalid")
+        artifact_id = str(artifact.get("artifactId") or artifact.get("id") or "").strip()
+        if (
+            not artifact_id
+            or artifact_id in seen_binding_ids
+            or binding.get("artifactId") != artifact_id
+            or binding.get("manifestRowSha256")
+            != ui_canonical_object_sha256(artifact)
+            or binding.get("sha256") != artifact.get("sha256")
+            or binding.get("sizeBytes") != artifact.get("sizeBytes")
+        ):
+            raise SystemExit(f"{source} retained artifact binding[{index}] differs")
+        seen_binding_ids.add(artifact_id)
+    compatibility_bindings = provenance.get("retainedCompatibilityBindings")
+    if (
+        not isinstance(compatibility_bindings, list)
+        or len(compatibility_bindings) != len(bindings)
+        or provenance.get("retainedCompatibilityBindingsSha256")
+        != ui_canonical_object_sha256(compatibility_bindings)
+    ):
+        raise SystemExit(f"{source} retained compatibility binding set differs")
+    canonical_binding_by_id = {row["artifactId"]: row for row in bindings}
+    seen_compatibility_binding_ids: set[str] = set()
+    for index, binding in enumerate(compatibility_bindings):
+        if (
+            not isinstance(binding, dict)
+            or set(binding) != V3_RETAINED_ARTIFACT_BINDING_KEYS
+        ):
+            raise SystemExit(
+                f"{source} retained compatibility binding[{index}] shape is invalid"
+            )
+        artifact_id = str(binding.get("artifactId") or "").strip()
+        canonical_binding = canonical_binding_by_id.get(artifact_id)
+        if (
+            not artifact_id
+            or artifact_id in seen_compatibility_binding_ids
+            or canonical_binding is None
+            or binding.get("sha256") != canonical_binding.get("sha256")
+            or binding.get("sizeBytes") != canonical_binding.get("sizeBytes")
+            or not is_lower_sha256(binding.get("manifestRowSha256"))
+        ):
+            raise SystemExit(
+                f"{source} retained compatibility binding[{index}] differs"
+            )
+        seen_compatibility_binding_ids.add(artifact_id)
+    if (
+        seen_compatibility_binding_ids != seen_binding_ids
+        or [row["artifactId"] for row in compatibility_bindings]
+        != [row["artifactId"] for row in bindings]
+    ):
+        raise SystemExit(
+            f"{source} retained canonical/compatibility bindings are not ordered-bijective"
+        )
+
+    coverage = payload.get("desktopTupleCoverage")
+    if not isinstance(coverage, dict) or coverage.get("routeAuthority") is not False:
+        raise SystemExit(f"{source} v3 desktop coverage overstates route authority")
+    required_platforms = coverage.get("requiredDesktopPlatforms")
+    artifact_platforms = sorted(
+        {
+            normalized_platform_token(row.get("platform"))
+            for row in artifact_rows
+            if normalized_platform_token(row.get("platform"))
+        }
+    )
+    if required_platforms != artifact_platforms or "windows" not in (
+        coverage.get("missingRequiredPlatforms") or []
+    ):
+        raise SystemExit(f"{source} v3 desktop platform coverage is not fail-closed")
+    routes = coverage.get("desktopRouteTruth")
+    if not isinstance(routes, list) or any(not isinstance(row, dict) for row in routes):
+        raise SystemExit(f"{source} v3 desktop route truth is invalid")
+    windows_routes = [
+        row for row in routes if normalized_platform_token(row.get("platform")) == "windows"
+    ]
+    if not windows_routes or any(
+        row.get("promotionState") != "proof_required"
+        or row.get("publicInstallRoute") is not None
+        or row.get("routeAuthority") is not False
+        for row in windows_routes
+    ):
+        raise SystemExit(f"{source} v3 Windows install routes overstate promotion")
+    retained_installer_ids = {
+        str(row.get("artifactId") or row.get("id") or "").strip()
+        for row in retained_artifacts
+        if normalized_token(row.get("kind")) == "installer"
+    }
+    retained_route_ids = {
+        str(row.get("artifactId") or "").strip()
+        for row in routes
+        if row.get("publicationDisposition") == "retained_incumbent"
+    }
+    if retained_route_ids != retained_installer_ids or any(
+        row.get("routeAuthority") is not False for row in routes
+    ):
+        raise SystemExit(f"{source} retained route provenance is not artifact-bijective")
+    if any(
+        normalized_platform_token(row.get("platform")) == "windows"
+        for row in coverage.get("promotedInstallerTuples") or []
+    ):
+        raise SystemExit(f"{source} v3 coverage promotes fresh Windows without proof")
+
+    for index, artifact in enumerate(artifact_rows):
+        url = str(artifact.get("downloadUrl") or "")
+        if not url.startswith("/downloads/files/") or "://" in url:
+            raise SystemExit(f"{source} v3 artifact[{index}] URL is not governed and relative")
+        payload_url = artifact.get("payloadDownloadUrl")
+        if payload_url is not None and (
+            not isinstance(payload_url, str)
+            or not payload_url.startswith("/downloads/files/")
+            or "://" in payload_url
+        ):
+            raise SystemExit(f"{source} v3 artifact[{index}] payload URL is invalid")
+
+    expected_release_proof = {
+        "baseUrl": "https://chummer.run",
+        "generatedAt": generated_at,
+        "journeysPassed": [],
+        "proofRoutes": [],
+        "status": "review_required",
+    }
+    if payload.get("releaseProof") != expected_release_proof:
+        raise SystemExit(f"{source} v3 release proof is not exact review-required truth")
+    metrics = payload.get("publicTrustMetrics")
+    if not isinstance(metrics, dict) or metrics.get("privacyReadiness") != (
+        V3_PRIVACY_LAUNCH_GATE_SNAPSHOT
+    ):
+        raise SystemExit(f"{source} v3 privacy launch gate differs")
+    metrics_without_privacy = dict(metrics)
+    metrics_without_privacy.pop("privacyReadiness", None)
+    if normalize_public_trust_metrics(metrics_without_privacy) != (
+        normalize_public_trust_metrics(expected_public_trust_metrics(payload))
+    ):
+        raise SystemExit(f"{source} v3 public trust metrics differ")
+    if payload.get("registryBoundaryCoverage") != expected_registry_boundary_coverage(
+        payload
+    ):
+        raise SystemExit(f"{source} v3 Registry boundary coverage differs")
+
+
+def v3_inventory_by_path(value: Any, *, source: str) -> dict[str, dict[str, Any]]:
+    if not isinstance(value, list) or not value:
+        raise SystemExit(f"{source} inventory must be a non-empty array")
+    result: dict[str, dict[str, Any]] = {}
+    paths: list[str] = []
+    for index, row in enumerate(value):
+        if not isinstance(row, dict) or set(row) != {
+            "mode",
+            "path",
+            "sha256",
+            "sizeBytes",
+        }:
+            raise SystemExit(f"{source} inventory row {index} shape is invalid")
+        path = str(row.get("path") or "").strip()
+        mode = row.get("mode")
+        size_bytes = row.get("sizeBytes")
+        if (
+            not path
+            or path.startswith("/")
+            or "\\" in path
+            or any(part in {"", ".", ".."} for part in path.split("/"))
+            or path in result
+            or isinstance(mode, bool)
+            or not isinstance(mode, int)
+            or mode < 0
+            or mode > 0o777
+            or RAW_SHA256_RE.fullmatch(str(row.get("sha256") or "")) is None
+            or isinstance(size_bytes, bool)
+            or not isinstance(size_bytes, int)
+            or size_bytes <= 0
+        ):
+            raise SystemExit(f"{source} inventory row {index} is invalid")
+        result[path] = row
+        paths.append(path)
+    if paths != sorted(paths):
+        raise SystemExit(f"{source} inventory path order is not canonical")
+    return result
+
+
+def verify_v3_candidate_transitive_byte_bindings(
+    candidate: dict[str, Any],
+    canonical: dict[str, Any],
+    *,
+    canonical_raw: bytes,
+    compatibility_raw: bytes,
+    source: str,
+) -> None:
+    review = canonical["codeDeployCurrentShelfAuthority"]
+    composition = candidate.get("compositionInputDocument")
+    if not isinstance(composition, dict):
+        raise SystemExit(f"{source} v3 compositionInputDocument is invalid")
+    source_inventory = composition.get("proposedShelfInventory")
+    source_by_path = v3_inventory_by_path(
+        source_inventory, source=f"{source} source shelf"
+    )
+    source_inventory_sha256 = ui_canonical_object_sha256(source_inventory)
+    if (
+        composition.get("proposedShelfInventorySha256")
+        != source_inventory_sha256
+        or candidate.get("sourceShelfInventorySha256")
+        != source_inventory_sha256
+        or review.get("sourceShelfInventorySha256") != source_inventory_sha256
+    ):
+        raise SystemExit(f"{source} v3 source shelf inventory digest differs")
+
+    full_inventory = candidate.get("fullShelfInventory")
+    full_by_path = v3_inventory_by_path(
+        full_inventory, source=f"{source} projected full shelf"
+    )
+    if candidate.get("fullShelfInventorySha256") != ui_canonical_object_sha256(
+        full_inventory
+    ):
+        raise SystemExit(f"{source} v3 projected full-shelf inventory digest differs")
+    for name, raw in (
+        ("RELEASE_CHANNEL.generated.json", canonical_raw),
+        ("releases.json", compatibility_raw),
+    ):
+        if full_by_path.get(name) != {
+            "mode": 0o644,
+            "path": name,
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "sizeBytes": len(raw),
+        }:
+            raise SystemExit(f"{source} v3 projected inventory does not bind {name}")
+
+    expected_delta_paths = {
+        "installer": "files/chummer-avalonia-win-x64-installer.exe",
+        "bootstrap_payload": "files/chummer-avalonia-win-x64-payload.zip",
+        "bootstrap_payload_sidecar": (
+            "files/chummer-avalonia-win-x64-payload.zip.json"
+        ),
+    }
+    windows_delta = candidate.get("windowsDelta")
+    if not isinstance(windows_delta, dict) or set(windows_delta) != set(
+        expected_delta_paths
+    ):
+        raise SystemExit(f"{source} v3 Windows delta shape differs")
+    fresh_delta = composition.get("freshDelta")
+    if not isinstance(fresh_delta, list):
+        raise SystemExit(f"{source} v3 composition freshDelta is invalid")
+    fresh_by_role: dict[str, dict[str, Any]] = {}
+    for row in fresh_delta:
+        if not isinstance(row, dict):
+            raise SystemExit(f"{source} v3 composition freshDelta row is invalid")
+        role = str(row.get("artifactRole") or "").strip()
+        if role in fresh_by_role:
+            raise SystemExit(f"{source} v3 composition freshDelta roles are not unique")
+        fresh_by_role[role] = row
+    if set(fresh_by_role) != set(expected_delta_paths):
+        raise SystemExit(f"{source} v3 composition freshDelta roles differ")
+
+    for role, path in expected_delta_paths.items():
+        delta_binding = windows_delta.get(role)
+        source_row = source_by_path.get(path)
+        projected_row = full_by_path.get(path)
+        fresh_row = fresh_by_role[role]
+        if (
+            not isinstance(delta_binding, dict)
+            or set(delta_binding) != {"path", "sha256", "sizeBytes"}
+            or source_row is None
+            or projected_row is None
+            or source_row != projected_row
+            or delta_binding
+            != {
+                "path": path,
+                "sha256": source_row["sha256"],
+                "sizeBytes": source_row["sizeBytes"],
+            }
+            or fresh_row.get("path") != path
+            or fresh_row.get("sha256") != source_row["sha256"]
+            or fresh_row.get("sizeBytes") != source_row["sizeBytes"]
+            or fresh_row.get("mode") != source_row["mode"]
+        ):
+            raise SystemExit(f"{source} v3 {role} byte binding differs")
+
+    artifact_rows = canonical.get("artifacts")
+    windows_artifacts = [
+        row
+        for row in artifact_rows or []
+        if isinstance(row, dict)
+        and normalized_platform_token(row.get("platform")) == "windows"
+    ]
+    if len(windows_artifacts) != 1:
+        raise SystemExit(f"{source} v3 projected Windows artifact cardinality differs")
+    windows_artifact = windows_artifacts[0]
+    installer = windows_delta["installer"]
+    payload = windows_delta["bootstrap_payload"]
+    if (
+        windows_artifact.get("fileName") != Path(installer["path"]).name
+        or windows_artifact.get("sha256") != installer["sha256"]
+        or windows_artifact.get("sizeBytes") != installer["sizeBytes"]
+        or windows_artifact.get("payloadFileName") != Path(payload["path"]).name
+        or windows_artifact.get("payloadSha256") != payload["sha256"]
+        or windows_artifact.get("payloadSizeBytes") != payload["sizeBytes"]
+    ):
+        raise SystemExit(f"{source} v3 manifest payload transitive binding differs")
+
+    source_canonical = candidate.get("sourceCanonicalManifest")
+    source_compatibility = candidate.get("sourceCompatibilityManifest")
+    if (
+        not isinstance(source_canonical, dict)
+        or not isinstance(source_compatibility, dict)
+        or source_canonical.get("sha256")
+        != review.get("sourceCanonicalManifestSha256")
+        or source_compatibility.get("sha256")
+        != review.get("sourceCompatibilityManifestSha256")
+    ):
+        raise SystemExit(f"{source} v3 source manifest custody digest differs")
+
+
+def verify_v3_retained_compatibility_bijection(
+    canonical: dict[str, Any],
+    compatibility: dict[str, Any],
+    *,
+    source: str,
+) -> None:
+    canonical_rows = canonical.get("artifacts")
+    compatibility_rows = compatibility.get("downloads")
+    if not isinstance(canonical_rows, list) or not isinstance(
+        compatibility_rows, list
+    ):
+        raise SystemExit(f"{source} retained manifest rows are invalid")
+    if any(not isinstance(row, dict) for row in canonical_rows) or any(
+        not isinstance(row, dict) for row in compatibility_rows
+    ):
+        raise SystemExit(f"{source} manifest artifact rows must all be objects")
+    canonical_file_order = [normalize_file_name(row) for row in canonical_rows]
+    compatibility_file_order = [
+        normalize_file_name(row) for row in compatibility_rows
+    ]
+    if (
+        not all(canonical_file_order)
+        or canonical_file_order != compatibility_file_order
+        or len(set(canonical_file_order)) != len(canonical_file_order)
+    ):
+        raise SystemExit(
+            f"{source} canonical/compatibility artifact row order differs"
+        )
+    retained_canonical = [
+        row
+        for row in canonical_rows
+        if isinstance(row, dict)
+        and normalized_platform_token(row.get("platform")) != "windows"
+    ]
+    retained_compatibility = [
+        row
+        for row in compatibility_rows
+        if isinstance(row, dict)
+        and parse_manifest_tuple_fields(row)[1] != "windows"
+    ]
+    canonical_by_file_name: dict[str, dict[str, Any]] = {}
+    for row in retained_canonical:
+        file_name = normalize_file_name(row)
+        if not file_name or file_name in canonical_by_file_name:
+            raise SystemExit(f"{source} retained canonical file names are not unique")
+        canonical_by_file_name[file_name] = row
+    provenance = canonical.get("retainedIncumbentProvenance")
+    bindings = (
+        provenance.get("retainedCompatibilityBindings")
+        if isinstance(provenance, dict)
+        else None
+    )
+    if (
+        not isinstance(bindings, list)
+        or len(bindings) != len(retained_compatibility)
+        or len(retained_compatibility) != len(retained_canonical)
+        or [normalize_file_name(row) for row in retained_compatibility]
+        != [normalize_file_name(row) for row in retained_canonical]
+    ):
+        raise SystemExit(
+            f"{source} retained compatibility order or cardinality differs"
+        )
+
+    seen_file_names: set[str] = set()
+    seen_artifact_ids: set[str] = set()
+    for index, (row, binding) in enumerate(
+        zip(retained_compatibility, bindings, strict=True)
+    ):
+        file_name = normalize_file_name(row)
+        artifact = canonical_by_file_name.get(file_name)
+        if artifact is None or file_name in seen_file_names:
+            raise SystemExit(
+                f"{source} retained compatibility row[{index}] is not canonical-bijective"
+            )
+        seen_file_names.add(file_name)
+        artifact_id = str(
+            artifact.get("artifactId") or artifact.get("id") or ""
+        ).strip()
+        if not artifact_id or artifact_id in seen_artifact_ids:
+            raise SystemExit(
+                f"{source} retained compatibility row[{index}] artifact identity differs"
+            )
+        seen_artifact_ids.add(artifact_id)
+        expected_url = f"{V3_GOVERNED_DOWNLOAD_ROOT}/{file_name}"
+        canonical_tuple = parse_manifest_tuple_fields(artifact)
+        compatibility_tuple = parse_manifest_tuple_fields(row)
+        payload_file_name = artifact.get("payloadFileName")
+        expected_payload_url = (
+            f"{V3_GOVERNED_DOWNLOAD_ROOT}/{payload_file_name}"
+            if isinstance(payload_file_name, str) and payload_file_name
+            else None
+        )
+        if (
+            compatibility_tuple != canonical_tuple
+            or row.get("sha256") != artifact.get("sha256")
+            or row.get("sizeBytes") != artifact.get("sizeBytes")
+            or row.get("url") != expected_url
+            or row.get("downloadUrl") not in (None, expected_url)
+            or row.get("payloadFileName") != payload_file_name
+            or row.get("payloadSha256") != artifact.get("payloadSha256")
+            or row.get("payloadSizeBytes") != artifact.get("payloadSizeBytes")
+            or row.get("payloadDownloadUrl") != expected_payload_url
+            or not isinstance(binding, dict)
+            or binding
+            != {
+                "artifactId": artifact_id,
+                "manifestRowSha256": ui_canonical_object_sha256(row),
+                "sha256": artifact.get("sha256"),
+                "sizeBytes": artifact.get("sizeBytes"),
+            }
+        ):
+            raise SystemExit(
+                f"{source} retained compatibility row[{index}] custody differs"
+            )
+    if seen_file_names != set(canonical_by_file_name):
+        raise SystemExit(f"{source} retained compatibility coverage differs")
+
+
+def verify_v3_unsigned_windows_prepare_directory(
+    root: Path, canonical: dict[str, Any], source: str
+) -> None:
+    expected_names = {
+        "PREVIEW_PUBLICATION_DELTA_CANDIDATE.json",
+        "RELEASE_CHANNEL.generated.json",
+        "releases.json",
+    }
+    actual_names = {path.name for path in root.iterdir()}
+    if actual_names != expected_names or any(
+        path.is_symlink()
+        or not path.is_file()
+        or stat.S_IMODE(path.stat().st_mode) != 0o644
+        for path in root.iterdir()
+    ):
+        raise SystemExit(f"{root} v3 PREPARE directory shape or modes differ")
+    canonical_path = root / "RELEASE_CHANNEL.generated.json"
+    compatibility_path = root / "releases.json"
+    candidate_path = root / "PREVIEW_PUBLICATION_DELTA_CANDIDATE.json"
+    canonical_raw = read_stable_regular_file_bytes(canonical_path, source=str(canonical_path))
+    compatibility_raw = read_stable_regular_file_bytes(
+        compatibility_path, source=str(compatibility_path)
+    )
+    candidate_raw = read_stable_regular_file_bytes(candidate_path, source=str(candidate_path))
+    compatibility = strict_json_loads(compatibility_raw, source=str(compatibility_path))
+    candidate = strict_json_loads(candidate_raw, source=str(candidate_path))
+    if not isinstance(compatibility, dict) or not isinstance(candidate, dict):
+        raise SystemExit(f"{root} v3 PREPARE documents must be objects")
+    compatibility_release_version = verify_v3_unsigned_preview_root_identity(
+        compatibility, source=str(compatibility_path)
+    )
+    verify_v3_recursive_authority_posture(candidate, source=str(candidate_path))
+    for field in (
+        "codeDeployCurrentShelfAuthority",
+        "desktopTupleCoverage",
+        "projectionProfile",
+        "publicTrustMetrics",
+        "registryBoundaryCoverage",
+        "registryCommit",
+        "registry_commit",
+        "releaseProof",
+        "retainedIncumbentProvenance",
+        "signature",
+    ):
+        if compatibility.get(field) != canonical.get(field):
+            raise SystemExit(f"{root} v3 manifest pair differs on {field}")
+    compatibility_rows = compatibility.get("downloads")
+    compatibility_windows = [
+        row
+        for row in compatibility_rows or []
+        if isinstance(row, dict)
+        and (
+            normalized_platform_token(row.get("platform")) == "windows"
+            or normalized_platform_token(
+                str(row.get("platformId") or "").split("-", 1)[0]
+            )
+            == "windows"
+        )
+    ]
+    if len(compatibility_windows) != 1:
+        raise SystemExit(f"{root} v3 compatibility Windows signature posture differs")
+    verify_v3_fresh_windows_artifact_identity(
+        compatibility_windows[0],
+        release_version=compatibility_release_version,
+        source=f"{compatibility_path} Windows download",
+        compatibility=True,
+    )
+    verify_v3_retained_compatibility_bijection(
+        canonical,
+        compatibility,
+        source=str(compatibility_path),
+    )
+    if candidate.get("projectionProfile") != V3_UNSIGNED_WINDOWS_PROJECTION_PROFILE:
+        raise SystemExit(f"{root} v3 candidate projectionProfile differs")
+    if candidate.get("codeDeploymentAuthority") is not False:
+        raise SystemExit(f"{root} v3 candidate overstates code-deploy authority")
+    for field in (
+        "codeDeployCurrentShelfAuthority",
+        "registryCommit",
+        "registry_commit",
+        "retainedIncumbentProvenance",
+    ):
+        if candidate.get(field) != canonical.get(field):
+            raise SystemExit(f"{root} v3 candidate differs on {field}")
+    provenance = canonical["retainedIncumbentProvenance"]
+    if (
+        candidate.get("incumbentSnapshotSha256")
+        != provenance.get("incumbentSnapshotSha256")
+        or candidate.get("incumbentInventorySha256")
+        != provenance.get("incumbentFullShelfInventorySha256")
+        or candidate.get("retainedInventorySha256")
+        != provenance.get("retainedInventorySha256")
+    ):
+        raise SystemExit(f"{root} v3 candidate incumbent provenance differs")
+    for field, name, raw in (
+        ("canonicalManifest", "RELEASE_CHANNEL.generated.json", canonical_raw),
+        ("compatibilityManifest", "releases.json", compatibility_raw),
+    ):
+        reference = candidate.get(field)
+        if not isinstance(reference, dict) or reference != {
+            "path": name,
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "sizeBytes": len(raw),
+        }:
+            raise SystemExit(f"{root} v3 candidate {field} byte reference differs")
+    verify_v3_candidate_transitive_byte_bindings(
+        candidate,
+        canonical,
+        canonical_raw=canonical_raw,
+        compatibility_raw=compatibility_raw,
+        source=str(candidate_path),
+    )
+    try:
+        from jsonschema import Draft202012Validator
+    except ImportError as exc:
+        raise SystemExit("jsonschema is required to verify a v3 PREPARE bundle") from exc
+    schema_path = Path(__file__).resolve().parents[1] / "contracts" / "preview-publication-delta-v2.schema.json"
+    schema = strict_json_loads(
+        read_stable_regular_file_bytes(schema_path, source=str(schema_path)),
+        source=str(schema_path),
+    )
+    errors = sorted(
+        Draft202012Validator(schema).iter_errors(candidate),
+        key=lambda error: [str(item) for item in error.absolute_path],
+    )
+    if errors:
+        location = "/".join(str(item) for item in errors[0].absolute_path) or "<root>"
+        raise SystemExit(
+            f"{root} v3 candidate schema failed at {location}: {errors[0].message}"
+        )
 
 
 def verify_code_deploy_current_shelf_authority(payload: dict[str, Any], source: str) -> bool:
@@ -8398,6 +9419,26 @@ def main() -> int:
         raise SystemExit(f"manifest must be a JSON object: {source}")
     verify_generated_timestamp(payload, source)
     verify_contract_identity(payload, source)
+    if has_v3_unsigned_windows_projection_markers(payload):
+        verify_v3_unsigned_windows_projection(payload, source)
+        if require_complete_desktop_coverage:
+            coverage = payload.get("desktopTupleCoverage")
+            if not isinstance(coverage, dict) or coverage.get("complete") is not True:
+                raise SystemExit(
+                    f"desktop tuple coverage is incomplete for the explicitly required "
+                    f"complete-coverage gate: {source}"
+                )
+        target_is_directory = not target.startswith(("http://", "https://")) and Path(
+            target
+        ).expanduser().is_dir()
+        if target_is_directory:
+            if local_root is None:
+                raise SystemExit(f"v3 PREPARE bundle root is unavailable: {target}")
+            verify_v3_unsigned_windows_prepare_directory(local_root, payload, source)
+            print(f"verified v3 unsigned Windows PREPARE bundle: {local_root}")
+        else:
+            print(f"verified v3 unsigned Windows projection: {source}")
+        return 0
     if is_prepared_preview_publication_delta(payload):
         verify_prepared_preview_publication_delta(payload, source)
         target_is_directory = not target.startswith(("http://", "https://")) and Path(
