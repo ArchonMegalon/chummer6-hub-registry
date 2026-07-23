@@ -69,6 +69,13 @@ CODE_DEPLOY_CURRENT_SHELF_TRANSFORM_OPTIONS = (
     "--artifact-source",
     "--downloads-prefix",
 )
+COMPATIBILITY_OPTIONAL_MODE_FIELDS = (
+    "releaseDecisionStatus",
+    "projectionStage",
+    "codeDeploymentAuthority",
+    "releaseUploadAuthority",
+    "codeDeployCurrentShelfAuthority",
+)
 
 
 def env_flag_is_true(value: Any) -> bool:
@@ -5679,11 +5686,11 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         "supportabilitySummary": canonical.get("supportabilitySummary"),
         "knownIssueSummary": canonical.get("knownIssueSummary"),
         "fixAvailabilitySummary": canonical.get("fixAvailabilitySummary"),
-        "releaseDecisionStatus": canonical.get("releaseDecisionStatus"),
-        "projectionStage": canonical.get("projectionStage"),
-        "codeDeploymentAuthority": canonical.get("codeDeploymentAuthority"),
-        "releaseUploadAuthority": canonical.get("releaseUploadAuthority"),
-        "codeDeployCurrentShelfAuthority": canonical.get("codeDeployCurrentShelfAuthority"),
+        **{
+            field: canonical[field]
+            for field in COMPATIBILITY_OPTIONAL_MODE_FIELDS
+            if field in canonical
+        },
         "releaseProof": canonical.get("releaseProof"),
         "desktopTupleCoverage": canonical.get("desktopTupleCoverage"),
         "installAwareArtifactRegistry": canonical.get("installAwareArtifactRegistry"),

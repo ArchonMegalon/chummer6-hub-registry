@@ -1861,6 +1861,42 @@ def test_prepare_rejects_resealed_manifest_authority_posture(
     assert_no_output(fixture["prepare_root"])
 
 
+@pytest.mark.parametrize(
+    "field", ["codeDeploymentAuthority", "releaseUploadAuthority"]
+)
+def test_prepare_accepts_omitted_or_false_optional_authority_but_rejects_null(
+    tmp_path: Path, field: str
+) -> None:
+    module = load_module()
+    fixture = build_fixture(module, tmp_path)
+    publication = fixture["publication"]
+    assert isinstance(publication, Path)
+    manifest = read_json(publication / module.COMPATIBILITY_MANIFEST_NAME)
+    assert field not in manifest
+
+    module.validate_manifest_posture(
+        manifest,
+        VERSION,
+        label="proposed compatibility manifest",
+    )
+    manifest[field] = False
+    module.validate_manifest_posture(
+        manifest,
+        VERSION,
+        label="proposed compatibility manifest",
+    )
+    manifest[field] = None
+    with pytest.raises(
+        module.ContractError,
+        match=rf"proposed compatibility manifest {field} is not exact",
+    ):
+        module.validate_manifest_posture(
+            manifest,
+            VERSION,
+            label="proposed compatibility manifest",
+        )
+
+
 @pytest.mark.parametrize("manifest_name", ["canonical", "compatibility"])
 @pytest.mark.parametrize(
     "field", ["publicationAuthorized", "uploadAuthorized", "deployAuthorized"]

@@ -210,6 +210,26 @@ def test_verify_code_deploy_current_shelf_accepts_exact_bounded_macos_inventory(
     }
 
 
+def test_compatibility_projection_without_mode_fields_does_not_activate_code_deploy_verifier() -> None:
+    compatibility = MATERIALIZER.compatibility_payload(
+        {
+            "generatedAt": "2026-07-23T00:00:00Z",
+            "contractName": MATERIALIZER.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+            "registry_commit": "0123456789abcdef0123456789abcdef01234567",
+            "registryCommit": "0123456789abcdef0123456789abcdef01234567",
+            "channel": "preview",
+            "version": "run-20260723-000000",
+            "status": "published",
+            "artifacts": [],
+        }
+    )
+
+    assert MODULE.verify_code_deploy_current_shelf_authority(
+        compatibility,
+        "test compatibility projection",
+    ) is False
+
+
 def test_verify_code_deploy_current_shelf_rejects_partial_or_upload_authority() -> None:
     payload = code_deploy_current_shelf_authority_payload()
     payload.pop("codeDeployCurrentShelfAuthority")
