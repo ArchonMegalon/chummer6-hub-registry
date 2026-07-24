@@ -448,6 +448,7 @@ VerifyReleaseAuthoritySnapshotFiles(
     releaseDecisionBytes,
     releaseAuthorityMetadata,
     releaseAuthorityCurrent);
+VerifyPublicReviewByteHandoffContract();
 PublicationWorkflowService workflow = new(store);
 HubPublicationDraftService draftWorkflow = new();
 HubRegistryController registryController = CreateController(new HubRegistryController(store, releaseChannelStore, workflow, config));
@@ -1175,6 +1176,314 @@ static bool HasHeader(ControllerBase controller, string key, string expectedValu
     controller.Response.Headers.TryGetValue(key, out var values)
     && values.Any(value => string.Equals(value, expectedValue, StringComparison.Ordinal));
 
+static void VerifyPublicReviewByteHandoffContract()
+{
+    const string releaseVersion = "review-handoff-2026.07.24-win-x64";
+    const string generationId = "registry-review-byte-handoff";
+    const string artifactId = "avalonia-win-x64-installer";
+    const string artifactSha256 =
+        "89abcdef0123456789abcdef0123456789abcdef0123456789abcdef01234567";
+    const string fileName = "chummer-avalonia-win-x64-installer.exe";
+    const string downloadUrl =
+        "/downloads/g/registry-review-byte-handoff/files/chummer-avalonia-win-x64-installer.exe";
+    const string publicInstallRoute = "/downloads/install/avalonia-win-x64-installer";
+    const string knownIssueSummary =
+        "Unsigned Windows preview bytes are approved for public review; release readiness remains under review.";
+    const string supportOwner = "registry-operations";
+    string root = Path.Combine(
+        Path.GetTempPath(),
+        "registry-review-byte-handoff",
+        Guid.NewGuid().ToString("N"));
+
+    byte[] manifestBytes = JsonSerializer.SerializeToUtf8Bytes(
+        new
+        {
+            generationId,
+            product = "chummer6",
+            channelId = "preview",
+            version = releaseVersion,
+            publishedAt = "2026-07-24T12:30:42Z",
+            status = "published",
+            artifactSource = "ui_desktop_bundle",
+            rolloutState = "public_release_review_required",
+            supportabilityState = "review_required",
+            knownIssueSummary,
+            artifacts = new[]
+            {
+                new
+                {
+                    artifactId,
+                    head = "avalonia",
+                    platform = "windows",
+                    rid = "win-x64",
+                    arch = "x64",
+                    kind = "installer",
+                    fileName,
+                    downloadUrl,
+                    sha256 = artifactSha256,
+                    sizeBytes = 2734880L,
+                    compatibilityState = "compatible",
+                    status = "published",
+                    rolloutState = "review_required",
+                    revokeReason = "",
+                    installAccessClass = "open_public"
+                }
+            },
+            desktopTupleCoverage = new
+            {
+                requiredDesktopPlatforms = new[] { "windows" },
+                requiredDesktopHeads = new[] { "avalonia" },
+                desktopRouteTruth = new[]
+                {
+                    new
+                    {
+                        tupleId = "avalonia-windows-win-x64",
+                        head = "avalonia",
+                        platform = "windows",
+                        rid = "win-x64",
+                        arch = "x64",
+                        artifactId,
+                        routeRole = "primary",
+                        promotionState = "promoted",
+                        updateEligibility = "eligible",
+                        revokeState = "not_revoked",
+                        installPosture = "installer_first",
+                        publicInstallRoute
+                    }
+                },
+                complete = false
+            },
+            artifactPublicationBindings = new[]
+            {
+                new
+                {
+                    bindingId = "binding-avalonia-win-x64-installer",
+                    artifactId,
+                    channelId = "preview",
+                    releaseVersion,
+                    tupleId = "avalonia-windows-win-x64",
+                    head = "avalonia",
+                    platform = "windows",
+                    rid = "win-x64",
+                    arch = "x64",
+                    kind = "installer",
+                    publicationScope = "signed-in-and-public",
+                    publicationState = "preview",
+                    publicShelfRef = "shelf:public:preview:" + releaseVersion + ":" + artifactId,
+                    publicInstallRoute
+                }
+            },
+            publicTrustMetrics = new
+            {
+                revocationFacts = new
+                {
+                    status = "clear",
+                    channelRevoked = false,
+                    activeRevocationCount = 0,
+                    activeRevocations = Array.Empty<object>()
+                }
+            }
+        },
+        new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+    var artifact = new RegistryOwner.ReleaseAuthorityArtifactProjection(
+        ArtifactId: artifactId,
+        Head: "avalonia",
+        Platform: "windows",
+        Rid: "win-x64",
+        Arch: "x64",
+        Kind: "installer",
+        DownloadUrl: downloadUrl,
+        Sha256: artifactSha256,
+        SizeBytes: 2734880L,
+        CompatibilityState: "compatible",
+        PromotionState: "promoted",
+        PublicationScope: "signed-in-and-public",
+        RevokeState: "not_revoked",
+        PublicInstallRoute: publicInstallRoute,
+        InstallAccessClass: "open_public");
+    var metadata = new RegistryOwner.ReleaseAuthorityPublicationMetadata(
+        ReleaseVersion: releaseVersion,
+        Channel: "preview",
+        Status: "published",
+        RolloutState: "public_release_review_required",
+        SupportabilityState: "review_required",
+        AvailablePlatforms: ["windows"],
+        PrimaryHeadByPlatform: new Dictionary<string, string>(StringComparer.Ordinal)
+        {
+            ["windows"] = "avalonia"
+        },
+        ArtifactCount: 1,
+        DownloadAccessPosture: "open_public",
+        KnownIssueSummary: knownIssueSummary,
+        RegistryRepository: ReleaseAuthoritySnapshotStore.ExpectedRegistryRepository,
+        RegistryCommit: new string('d', 40),
+        SupportOwner: supportOwner,
+        NextActions: ["Complete release-readiness review independently of the public byte handoff."],
+        Artifacts: [artifact]);
+    byte[] scopeBytes = BuildReleaseScopeDecisionBytes(
+        metadata,
+        allowUnsignedWindowsPreview: true);
+    string scopeSha256 = ReleaseAuthoritySnapshotStore.ComputeSha256(scopeBytes);
+    byte[] decisionBytes = JsonSerializer.SerializeToUtf8Bytes(
+        new
+        {
+            contractName = ReleaseAuthoritySnapshotStore.PreviewHandoffDecisionContract,
+            generatedAt = "2026-07-24T12:35:00Z",
+            status = "review_required",
+            releaseDecisionStatus = "review_required",
+            verdict = "PREVIEW_RELEASE_REVIEW_REQUIRED",
+            releaseVersion,
+            releaseScopeDecisionSha256 = scopeSha256,
+            channel = "preview",
+            platforms = new[] { "windows" },
+            primaryHeadByPlatform = new SortedDictionary<string, string>(StringComparer.Ordinal)
+            {
+                ["windows"] = "avalonia"
+            },
+            fallbackHeadsByPlatform =
+                new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal)
+                {
+                    ["windows"] = Array.Empty<string>()
+                },
+            artifactAccessClass = "open_public",
+            supportOwner,
+            nextActions = metadata.NextActions,
+            registryCommit = metadata.RegistryCommit,
+            manifestSha256 = ReleaseAuthoritySnapshotStore.ComputeSha256(manifestBytes),
+            authoritySnapshotSha256 = "",
+            candidateDecisionStatus = "",
+            candidateDecisionSha256 = "",
+            manifestGeneratedAt = "2026-07-24T12:30:42Z",
+            scorecardSha256 = "",
+            convergenceSha256 = "",
+            blockingFindings = new[]
+            {
+                new
+                {
+                    id = "preview_1",
+                    severity = "release_truth",
+                    summary = "Release readiness remains review-required."
+                }
+            },
+            artifactHandoff = new
+            {
+                contractName = ReleaseAuthoritySnapshotStore.PublicPreviewByteHandoffContract,
+                status = "approved_public_preview_bytes",
+                sourcePublicationState = "preview",
+                releaseScopeDecisionSha256 = scopeSha256,
+                releaseVersion,
+                channel = "preview",
+                artifactId,
+                head = "avalonia",
+                platform = "windows",
+                rid = "win-x64",
+                arch = "x64",
+                sha256 = artifactSha256,
+                sizeBytes = 2734880L,
+                artifactAccessClass = "open_public",
+                signingRequirement = "preview_unsigned_allowed",
+                downloadUrl,
+                publicInstallRoute
+            }
+        },
+        new JsonSerializerOptions(JsonSerializerDefaults.Web));
+
+    try
+    {
+        ReleaseAuthorityCurrentPointer current = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+            Path.Combine(root, "positive"),
+            metadata,
+            manifestBytes,
+            scopeBytes,
+            scopeSha256,
+            decisionBytes,
+            expectedCurrentSnapshotSha256: null);
+        LoadedReleaseAuthoritySnapshot loaded = ReleaseAuthoritySnapshotStore.LoadCurrent(
+            Path.Combine(root, "positive"))
+            ?? throw new InvalidOperationException("Review byte handoff authority must load.");
+        VerifyReleaseAuthoritySchemaContract(
+            File.ReadAllBytes(
+                Path.Combine(
+                    root,
+                    "positive",
+                    ReleaseAuthoritySnapshotStore.CurrentFileName)),
+            loaded.SnapshotBytes,
+            decisionBytes);
+        Assert(
+            current.Status == "review_required"
+            && loaded.Snapshot.ReleaseDecisionStatus == "review_required"
+            && loaded.Snapshot.Artifacts.Count == 1
+            && loaded.Snapshot.Artifacts[0].DownloadUrl == downloadUrl,
+            "Scope-approved v2 handoff must expose exact public bytes without upgrading readiness.");
+
+        byte[] v1DecisionBytes = MutateJson(
+            decisionBytes,
+            static decision =>
+            {
+                decision["contractName"] = ReleaseAuthoritySnapshotStore.PreviewDecisionContract;
+                decision.Remove("artifactHandoff");
+            });
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                Path.Combine(root, "generic-v1-preview"),
+                metadata,
+                manifestBytes,
+                scopeBytes,
+                scopeSha256,
+                v1DecisionBytes,
+                expectedCurrentSnapshotSha256: null),
+            "Generic preview decision v1 must not reinterpret a preview publication binding as public authority.");
+
+        byte[] signedScopeBytes = BuildReleaseScopeDecisionBytes(metadata);
+        string signedScopeSha256 = ReleaseAuthoritySnapshotStore.ComputeSha256(signedScopeBytes);
+        byte[] signedScopeDecisionBytes = MutateJson(
+            decisionBytes,
+            decision =>
+            {
+                decision["releaseScopeDecisionSha256"] = signedScopeSha256;
+                decision["artifactHandoff"]!["releaseScopeDecisionSha256"] = signedScopeSha256;
+            });
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                Path.Combine(root, "signed-scope"),
+                metadata,
+                manifestBytes,
+                signedScopeBytes,
+                signedScopeSha256,
+                signedScopeDecisionBytes,
+                expectedCurrentSnapshotSha256: null),
+            "Decision v2 must require explicit preview_unsigned_allowed scope rather than infer it.");
+
+        byte[] optimisticDecisionBytes = MutateJson(
+            decisionBytes,
+            static decision =>
+            {
+                decision["status"] = "preview_ready";
+                decision["releaseDecisionStatus"] = "preview_ready";
+                decision["verdict"] = "PREVIEW_READY";
+                decision["blockingFindings"] = new JsonArray();
+            });
+        AssertThrows<InvalidDataException>(
+            () => _ = ReleaseAuthoritySnapshotStore.PublishSnapshot(
+                Path.Combine(root, "optimistic-ready"),
+                metadata,
+                manifestBytes,
+                scopeBytes,
+                scopeSha256,
+                optimisticDecisionBytes,
+                expectedCurrentSnapshotSha256: null),
+            "Decision v2 public-byte handoff must never be accepted as preview_ready.");
+    }
+    finally
+    {
+        if (Directory.Exists(root))
+        {
+            Directory.Delete(root, recursive: true);
+        }
+    }
+}
+
 static void VerifyReleaseAuthoritySnapshotFiles(
     string authorityRoot,
     string mutableManifestPath,
@@ -1412,6 +1721,20 @@ static void VerifyReleaseAuthoritySnapshotFiles(
             decisionBytes,
             static root => root["supportOwner"] = "other-owner",
             "Preview decision supportOwner must bind SNAPSHOT.json exactly.");
+        byte[] missingManifestSupportOwner = MutateJson(
+            manifestBytes,
+            static root => root.Remove("supportOwner"));
+        AssertThrows<InvalidDataException>(
+            () => _ = PublishAuthoritySnapshot(
+                Path.Combine(strictPointerRoot, "missing-manifest-support-owner"),
+                metadata,
+                missingManifestSupportOwner,
+                BuildPreviewDecisionBytes(
+                    missingManifestSupportOwner,
+                    metadata,
+                    "review_required"),
+                expectedCurrentSnapshotSha256: null),
+            "Preview decision v1 must retain an explicit manifest supportOwner binding.");
         AssertDecisionMutationRejected(
             Path.Combine(strictPointerRoot, "preview-access-binding"),
             metadata,
@@ -1587,14 +1910,16 @@ static void VerifyReleaseAuthoritySnapshotFiles(
 
         string[] unsafeDownloadUrls =
         [
-            "/downloads/g/registry-smoke-generation/files/chummer-avalonia-linux-x64.bin",
             "http://downloads.chummer.run/downloads/g/registry-smoke-generation/files/chummer-avalonia-linux-x64.bin",
             "https://user:secret@downloads.chummer.run/downloads/g/registry-smoke-generation/files/chummer-avalonia-linux-x64.bin",
             "https://downloads.chummer.run/downloads/g/registry-smoke-generation/files/chummer-avalonia-linux-x64.bin?latest=1",
             "https://downloads.chummer.run/downloads/g/registry-smoke-generation/files/chummer-avalonia-linux-x64.bin#latest",
             "https://downloads.chummer.run/downloads/g/other-generation/files/chummer-avalonia-linux-x64.bin",
             "https://downloads.chummer.run/downloads/g/registry-smoke-generation/files/%2e%2e",
-            "https://downloads.chummer.run/downloads/g/registry-smoke-generation/files/%5cevil.bin"
+            "https://downloads.chummer.run/downloads/g/registry-smoke-generation/files/%5cevil.bin",
+            "/downloads/g/registry-smoke-generation/files/chummer-avalonia-linux-x64.bin?latest=1",
+            "/downloads/g/registry-smoke-generation/files/%2e%2e",
+            "/downloads/g/registry-smoke-generation/files/%5cevil.bin"
         ];
         for (int index = 0; index < unsafeDownloadUrls.Length; index++)
         {
@@ -1619,7 +1944,7 @@ static void VerifyReleaseAuthoritySnapshotFiles(
                         unsafeDownloadMetadata,
                         "review_required"),
                     expectedCurrentSnapshotSha256: null),
-                "A promoted shelf artifact must pin an absolute HTTPS credential/query/fragment/traversal-free URL with the exact generationId/fileName path.");
+                "A promoted shelf artifact must pin a root-relative or HTTPS credential/query/fragment/traversal-free URL with the exact generationId/fileName path.");
         }
 
         string[] unsafePublicRoutes =
@@ -1697,6 +2022,20 @@ static void VerifyReleaseAuthoritySnapshotFiles(
                     "review_required"),
                 expectedCurrentSnapshotSha256: null),
             "review_required authority must use the consumer-readable preview contract, not a stable contract seed.");
+        byte[] missingStableManifestSupportOwner = MutateJson(
+            manifestBytes,
+            static root => root.Remove("supportOwner"));
+        AssertThrows<InvalidDataException>(
+            () => _ = PublishAuthoritySnapshot(
+                Path.Combine(stableRoot, "missing-manifest-support-owner"),
+                metadata,
+                missingStableManifestSupportOwner,
+                BuildStableDecisionBytes(
+                    missingStableManifestSupportOwner,
+                    metadata,
+                    "stable_ready"),
+                expectedCurrentSnapshotSha256: null),
+            "Stable authority must retain an explicit manifest supportOwner binding.");
 
         byte[] stableReviewDecisionBytes = BuildPreviewDecisionBytes(
             manifestBytes,
@@ -2122,9 +2461,23 @@ static void VerifyReleaseAuthoritySchemaContract(
         .EnumerateArray()
         .Select(static item => item.GetString() ?? string.Empty)
         .ToArray();
+    string[] expectedDecisionProperties = decisionRequired;
+    if (decisionDefinition == "previewDecision"
+        && decisionDocument.RootElement.GetProperty("contractName").GetString()
+           == ReleaseAuthoritySnapshotStore.PreviewHandoffDecisionContract)
+    {
+        expectedDecisionProperties = [.. decisionRequired, "artifactHandoff"];
+    }
+    string[] actualDecisionProperties = decisionDocument.RootElement
+        .EnumerateObject()
+        .Select(static property => property.Name)
+        .Order(StringComparer.Ordinal)
+        .ToArray();
     Assert(
-        decisionRequired.All(name => decisionDocument.RootElement.TryGetProperty(name, out _)),
-        "The exact emitted RELEASE_DECISION.json bytes must contain every native schema binding field.");
+        actualDecisionProperties.SequenceEqual(
+            expectedDecisionProperties.Order(StringComparer.Ordinal),
+            StringComparer.Ordinal),
+        "The exact emitted RELEASE_DECISION.json bytes must contain only its contract-version-specific native schema fields.");
     Assert(
         snapshotSchema.TryGetProperty("x-chummer-derivation-invariants", out JsonElement derivation)
         && derivation.TryGetProperty("artifacts", out _)
@@ -2195,7 +2548,8 @@ static ReleaseAuthorityCurrentPointer PublishAuthoritySnapshot(
 
 static byte[] BuildReleaseScopeDecisionBytes(
     RegistryOwner.ReleaseAuthorityPublicationMetadata metadata,
-    IReadOnlyDictionary<string, IReadOnlyList<string>>? fallbackHeadsByPlatform = null)
+    IReadOnlyDictionary<string, IReadOnlyList<string>>? fallbackHeadsByPlatform = null,
+    bool allowUnsignedWindowsPreview = false)
 {
     var platformRows = new JsonArray();
     foreach (string platform in metadata.AvailablePlatforms.Order(StringComparer.Ordinal))
@@ -2232,7 +2586,10 @@ static byte[] BuildReleaseScopeDecisionBytes(
                 ["platform"] = platform,
                 ["primaryHead"] = primaryHead,
                 ["rid"] = rid,
-                ["signingRequirement"] = "signed"
+                ["signingRequirement"] = allowUnsignedWindowsPreview
+                    && platform == "windows"
+                    ? "preview_unsigned_allowed"
+                    : "signed"
             });
     }
     var scope = new JsonObject

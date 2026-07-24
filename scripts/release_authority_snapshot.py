@@ -17,6 +17,9 @@ from urllib.parse import unquote
 
 AUTHORITY_CONTRACT = "chummer.release-authority-snapshot/v2"
 PREVIEW_DECISION_CONTRACT = "chummer.preview-release-decision/v1"
+PREVIEW_HANDOFF_DECISION_CONTRACT = "chummer.preview-release-decision/v2"
+PUBLIC_PREVIEW_BYTE_HANDOFF_CONTRACT = "chummer.public-preview-byte-handoff/v1"
+PUBLIC_PREVIEW_BYTE_HANDOFF_STATUS = "approved_public_preview_bytes"
 APPROVED_SCOPE_CONTRACT = "chummer.release-scope-decision/v1"
 REGISTRY_REPOSITORY = "ArchonMegalon/chummer6-hub-registry"
 MANIFEST_PATH = "RELEASE_CHANNEL.json"
@@ -92,6 +95,26 @@ PREVIEW_DECISION_FIELDS = {
     "scorecardSha256",
     "convergenceSha256",
     "blockingFindings",
+}
+PREVIEW_HANDOFF_DECISION_FIELDS = PREVIEW_DECISION_FIELDS | {"artifactHandoff"}
+PUBLIC_PREVIEW_BYTE_HANDOFF_FIELDS = {
+    "contractName",
+    "status",
+    "sourcePublicationState",
+    "releaseScopeDecisionSha256",
+    "releaseVersion",
+    "channel",
+    "artifactId",
+    "head",
+    "platform",
+    "rid",
+    "arch",
+    "sha256",
+    "sizeBytes",
+    "artifactAccessClass",
+    "signingRequirement",
+    "downloadUrl",
+    "publicInstallRoute",
 }
 FINDING_FIELDS = {"id", "severity", "summary"}
 CONVERGENCE_FIELDS = {
@@ -533,7 +556,9 @@ def validate_approved_scope(
     platforms: list[str] = []
     primary_heads: dict[str, str] = {}
     fallback_heads: dict[str, list[str]] = {}
+    rids: dict[str, str] = {}
     access_classes: dict[str, str] = {}
+    signing_requirements: dict[str, str] = {}
     for index, value in enumerate(rows):
         label = "approved release-scope platform %d" % index
         row = _exact_object(value, APPROVED_SCOPE_PLATFORM_FIELDS, label)
@@ -571,7 +596,9 @@ def validate_approved_scope(
         platforms.append(platform)
         primary_heads[platform] = primary
         fallback_heads[platform] = fallbacks
+        rids[platform] = rid
         access_classes[platform] = access_class
+        signing_requirements[platform] = signing
     if platforms != sorted(set(platforms)):
         raise AuthorityError(
             "approved release-scope platforms must be unique and ordinally sorted"
@@ -584,7 +611,9 @@ def validate_approved_scope(
         "platforms": platforms,
         "primaryHeadByPlatform": primary_heads,
         "fallbackHeadsByPlatform": fallback_heads,
+        "ridByPlatform": rids,
         "artifactAccessClassByPlatform": access_classes,
+        "signingRequirementByPlatform": signing_requirements,
         "supportOwner": support_owner,
     }
 
@@ -593,6 +622,13 @@ def _validate_scope_manifest_binding(
     scope: Mapping[str, Any],
     manifest_projection: Mapping[str, Any],
 ) -> None:
+    artifacts = manifest_projection["artifacts"]
+    artifact_scope_matches = all(
+        artifact["rid"] == scope["ridByPlatform"].get(artifact["platform"])
+        and artifact["installAccessClass"]
+        == scope["artifactAccessClassByPlatform"].get(artifact["platform"])
+        for artifact in artifacts
+    )
     if (
         scope["releaseVersion"] != manifest_projection["releaseVersion"]
         or scope["channel"] != manifest_projection["channel"]
@@ -604,6 +640,7 @@ def _validate_scope_manifest_binding(
             if heads
         }
         != manifest_projection["fallbackHeadsByPlatform"]
+        or not artifact_scope_matches
     ):
         raise AuthorityError(
             "approved release-scope decision does not match the exact manifest candidate scope"
@@ -960,7 +997,13 @@ def _matching_rows(rows: Any, artifact_id: str, label: str) -> list[dict[str, An
     return [row for row in rows if isinstance(row, dict) and row.get("artifactId") == artifact_id]
 
 
-def derive_manifest_projection(manifest: Any, manifest_sha256: str) -> dict[str, Any]:
+def derive_manifest_projection(
+    manifest: Any,
+    manifest_sha256: str,
+    *,
+    approved_scope: Optional[Mapping[str, Any]] = None,
+    decision_status: Optional[str] = None,
+) -> dict[str, Any]:
     if not isinstance(manifest, dict):
         raise AuthorityError("manifest must be a JSON object")
     release_version = _version(_manifest_field(manifest, "releaseVersion"), "manifest releaseVersion")
@@ -988,6 +1031,23 @@ def derive_manifest_projection(manifest: Any, manifest_sha256: str) -> dict[str,
     source_artifacts = _manifest_field(manifest, "artifacts")
     if not isinstance(source_artifacts, list) or len(source_artifacts) > 256:
         raise AuthorityError("manifest artifacts must be a bounded array")
+    scope_approved_review_handoff = (
+        decision_status == "review_required"
+        and approved_scope is not None
+        and channel == "preview"
+        and status == "published"
+        and rollout_state == "public_release_review_required"
+        and supportability_state == "review_required"
+        and len(source_artifacts) == 1
+        and approved_scope["platforms"] == ["windows"]
+        and approved_scope["primaryHeadByPlatform"] == {"windows": "avalonia"}
+        and approved_scope["fallbackHeadsByPlatform"] == {"windows": []}
+        and approved_scope["ridByPlatform"] == {"windows": "win-x64"}
+        and approved_scope["artifactAccessClassByPlatform"]
+        == {"windows": "open_public"}
+        and approved_scope["signingRequirementByPlatform"]
+        == {"windows": "preview_unsigned_allowed"}
+    )
     coverage = _manifest_field(manifest, "desktopTupleCoverage")
     if not isinstance(coverage, dict):
         raise AuthorityError("manifest desktopTupleCoverage must be an object")
@@ -1082,7 +1142,21 @@ def derive_manifest_projection(manifest: Any, manifest_sha256: str) -> dict[str,
                 raise AuthorityError("artifact %s publication binding contradicts its tuple" % artifact_id)
         if _token(binding.get("publicationScope"), "%s publicationScope" % artifact_id) != "signed-in-and-public":
             raise AuthorityError("artifact %s is not bound to the public shelf" % artifact_id)
-        if _token(binding.get("publicationState"), "%s publicationState" % artifact_id) != "published":
+        publication_state = _token(
+            binding.get("publicationState"), "%s publicationState" % artifact_id
+        )
+        approved_review_handoff_artifact = (
+            scope_approved_review_handoff
+            and publication_state == "preview"
+            and artifact_id == "avalonia-win-x64-installer"
+            and head == "avalonia"
+            and platform == "windows"
+            and rid == "win-x64"
+            and arch == "x64"
+            and access_class == "open_public"
+            and role == "primary"
+        )
+        if publication_state != "published" and not approved_review_handoff_artifact:
             raise AuthorityError("artifact %s publication binding is not published" % artifact_id)
         _string(binding.get("publicShelfRef"), "%s publicShelfRef" % artifact_id, 512)
         if _safe_public_route(
@@ -1151,6 +1225,13 @@ def derive_manifest_projection(manifest: Any, manifest_sha256: str) -> dict[str,
         "primaryHeadByPlatform": primary_ordered,
         "fallbackHeadsByPlatform": fallback_ordered,
         "downloadAccessPosture": access_posture,
+        "scopeApprovedReviewByteHandoff": (
+            projected[0]
+            if scope_approved_review_handoff
+            and len(projected) == 1
+            and publication_state == "preview"
+            else None
+        ),
     }
 
 
@@ -1172,6 +1253,59 @@ def _availability_ready(projection: Mapping[str, Any]) -> bool:
         and not blocked_rollout
         and not blocked_support
     )
+
+
+def _public_preview_byte_handoff_payload(
+    projection: Mapping[str, Any],
+    approved_scope: Mapping[str, Any],
+) -> Optional[dict[str, Any]]:
+    artifact = projection.get("scopeApprovedReviewByteHandoff")
+    if artifact is None:
+        return None
+    if not isinstance(artifact, dict):
+        raise AuthorityError("scope-approved review byte handoff artifact is malformed")
+    return {
+        "contractName": PUBLIC_PREVIEW_BYTE_HANDOFF_CONTRACT,
+        "status": PUBLIC_PREVIEW_BYTE_HANDOFF_STATUS,
+        "sourcePublicationState": "preview",
+        "releaseScopeDecisionSha256": approved_scope["sha256"],
+        "releaseVersion": projection["releaseVersion"],
+        "channel": projection["channel"],
+        "artifactId": artifact["artifactId"],
+        "head": artifact["head"],
+        "platform": artifact["platform"],
+        "rid": artifact["rid"],
+        "arch": artifact["arch"],
+        "sha256": artifact["sha256"],
+        "sizeBytes": artifact["sizeBytes"],
+        "artifactAccessClass": artifact["installAccessClass"],
+        "signingRequirement": approved_scope["signingRequirementByPlatform"][
+            artifact["platform"]
+        ],
+        "downloadUrl": artifact["downloadUrl"],
+        "publicInstallRoute": artifact["publicInstallRoute"],
+    }
+
+
+def _validate_public_preview_byte_handoff(
+    decision: Mapping[str, Any],
+    projection: Mapping[str, Any],
+    approved_scope: Mapping[str, Any],
+) -> None:
+    expected = _public_preview_byte_handoff_payload(projection, approved_scope)
+    if expected is None:
+        raise AuthorityError(
+            "preview decision v2 requires one exact scope-approved review byte handoff"
+        )
+    observed = _exact_object(
+        decision["artifactHandoff"],
+        PUBLIC_PREVIEW_BYTE_HANDOFF_FIELDS,
+        "preview decision artifactHandoff",
+    )
+    if observed != expected:
+        raise AuthorityError(
+            "preview decision artifactHandoff does not exactly bind the approved scope and artifact"
+        )
 
 
 def _canonical_value_sha256(payload: Any) -> str:
@@ -1920,21 +2054,40 @@ def verify_envelope_bytes(
     predecessor: Optional[tuple[bytes, Any, bytes, Any, bytes, Any]] = None,
 ) -> dict[str, Any]:
     manifest_digest = sha256_bytes(manifest_raw)
-    derived = derive_manifest_projection(manifest, manifest_digest)
     approved_scope = validate_approved_scope(
         release_scope_raw,
         release_scope,
         expected_release_scope_sha256,
     )
-    _validate_scope_manifest_binding(approved_scope, derived)
     current_obj = _exact_object(current, CURRENT_FIELDS, "CURRENT.json")
     snapshot_obj = _exact_object(snapshot, SNAPSHOT_FIELDS, "SNAPSHOT.json")
-    decision_obj = _exact_object(decision, PREVIEW_DECISION_FIELDS, "RELEASE_DECISION.json")
 
     release_version = _version(current_obj["releaseVersion"], "CURRENT releaseVersion")
     status = _token(current_obj["status"], "CURRENT status")
     if status not in DECISION_STATUSES:
         raise AuthorityError("CURRENT status must be review_required or preview_ready")
+    if not isinstance(decision, dict):
+        raise AuthorityError("RELEASE_DECISION.json must be an object")
+    decision_contract = decision.get("contractName")
+    if decision_contract == PREVIEW_HANDOFF_DECISION_CONTRACT:
+        decision_obj = _exact_object(
+            decision,
+            PREVIEW_HANDOFF_DECISION_FIELDS,
+            "RELEASE_DECISION.json",
+        )
+    else:
+        decision_obj = _exact_object(
+            decision,
+            PREVIEW_DECISION_FIELDS,
+            "RELEASE_DECISION.json",
+        )
+    derived = derive_manifest_projection(
+        manifest,
+        manifest_digest,
+        approved_scope=approved_scope,
+        decision_status=status,
+    )
+    _validate_scope_manifest_binding(approved_scope, derived)
     if _sha256(current_obj["snapshotSha256"], "CURRENT snapshotSha256") != sha256_bytes(snapshot_raw):
         raise AuthorityError("CURRENT snapshotSha256 does not match SNAPSHOT.json bytes")
     decision_digest = sha256_bytes(decision_raw)
@@ -1992,8 +2145,25 @@ def verify_envelope_bytes(
         snapshot_obj["nextActions"], "SNAPSHOT nextActions", allow_empty=status != "review_required"
     )
 
-    if decision_obj["contractName"] != PREVIEW_DECISION_CONTRACT:
+    if decision_contract not in {
+        PREVIEW_DECISION_CONTRACT,
+        PREVIEW_HANDOFF_DECISION_CONTRACT,
+    }:
         raise AuthorityError("preview decision contractName is invalid")
+    if decision_contract == PREVIEW_HANDOFF_DECISION_CONTRACT:
+        if status != "review_required":
+            raise AuthorityError(
+                "preview decision v2 is only valid for a review_required byte handoff"
+            )
+        _validate_public_preview_byte_handoff(
+            decision_obj,
+            derived,
+            approved_scope,
+        )
+    elif derived["scopeApprovedReviewByteHandoff"] is not None:
+        raise AuthorityError(
+            "scope-approved review byte handoff requires preview decision v2"
+        )
     if decision_obj["status"] != status or decision_obj["releaseDecisionStatus"] != status:
         raise AuthorityError("preview decision status contradicts CURRENT")
     _timestamp(decision_obj["generatedAt"], "preview decision generatedAt")
@@ -2170,11 +2340,16 @@ def materialize(
         raise AuthorityError("preview_ready cannot carry blocking findings")
 
     manifest_digest = sha256_bytes(manifest_raw)
-    derived = derive_manifest_projection(manifest, manifest_digest)
     approved_scope = validate_approved_scope(
         release_scope_raw,
         release_scope,
         expected_release_scope_sha256,
+    )
+    derived = derive_manifest_projection(
+        manifest,
+        manifest_digest,
+        approved_scope=approved_scope,
+        decision_status=decision_status,
     )
     _validate_scope_manifest_binding(approved_scope, derived)
     support_owner = approved_scope["supportOwner"]
@@ -2245,8 +2420,16 @@ def materialize(
         if not _availability_ready(derived):
             raise AuthorityError("manifest release posture does not permit preview_ready")
 
+    artifact_handoff = _public_preview_byte_handoff_payload(
+        derived,
+        approved_scope,
+    )
     decision = {
-        "contractName": PREVIEW_DECISION_CONTRACT,
+        "contractName": (
+            PREVIEW_HANDOFF_DECISION_CONTRACT
+            if artifact_handoff is not None
+            else PREVIEW_DECISION_CONTRACT
+        ),
         "generatedAt": generated_at,
         "status": decision_status,
         "releaseDecisionStatus": decision_status,
@@ -2277,6 +2460,8 @@ def materialize(
             for index, summary in enumerate(finding_summaries, start=1)
         ],
     }
+    if artifact_handoff is not None:
+        decision["artifactHandoff"] = artifact_handoff
     decision_raw = canonical_bytes(decision)
     decision_digest = sha256_bytes(decision_raw)
     snapshot = {

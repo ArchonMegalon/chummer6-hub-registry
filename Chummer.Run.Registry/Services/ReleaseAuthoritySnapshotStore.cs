@@ -93,7 +93,10 @@ internal sealed record ApprovedReleaseScopeBinding(
     string SupportOwner,
     IReadOnlyList<string> Platforms,
     IReadOnlyDictionary<string, string> PrimaryHeadByPlatform,
-    IReadOnlyDictionary<string, IReadOnlyList<string>> FallbackHeadsByPlatform);
+    IReadOnlyDictionary<string, IReadOnlyList<string>> FallbackHeadsByPlatform,
+    IReadOnlyDictionary<string, string> RidByPlatform,
+    IReadOnlyDictionary<string, string> ArtifactAccessClassByPlatform,
+    IReadOnlyDictionary<string, string> SigningRequirementByPlatform);
 
 public static class ReleaseAuthoritySnapshotStore
 {
@@ -102,6 +105,8 @@ public static class ReleaseAuthoritySnapshotStore
     public const string AuthorityContract = "chummer.release-authority-snapshot/v2";
     public const string ExpectedRegistryRepository = "ArchonMegalon/chummer6-hub-registry";
     public const string PreviewDecisionContract = "chummer.preview-release-decision/v1";
+    public const string PreviewHandoffDecisionContract = "chummer.preview-release-decision/v2";
+    public const string PublicPreviewByteHandoffContract = "chummer.public-preview-byte-handoff/v1";
     public const string StableDecisionContract = "chummer.final_gold_graph";
     public const int StableDecisionContractVersion = 2;
     public const string CurrentFileName = "CURRENT.json";
@@ -233,7 +238,10 @@ public static class ReleaseAuthoritySnapshotStore
         EnsureDigest(decisionBytes, snapshot.ReleaseDecisionSha256, "SNAPSHOT.json releaseDecisionSha256");
         ValidatedReleaseDecision decision = ValidateReleaseDecision(decisionBytes, manifestBytes);
         ReleaseAuthorityManifestDecisionScope manifestScope =
-            FileReleaseChannelManifestStore.ValidatePublishableAuthority(snapshot, manifestBytes);
+            FileReleaseChannelManifestStore.ValidatePublishableAuthority(
+                snapshot,
+                manifestBytes,
+                decision.ContractName == PreviewHandoffDecisionContract);
         EnsureDecisionMatchesSnapshot(decision, snapshot, manifestScope);
         return new LoadedReleaseAuthoritySnapshot(
             current,
@@ -285,7 +293,7 @@ public static class ReleaseAuthoritySnapshotStore
         ValidatedReleaseDecision decision = ValidateReleaseDecision(releaseDecisionBytes, manifestBytes);
         if (!string.Equals(metadata.ReleaseVersion, approvedScope.ReleaseVersion, StringComparison.Ordinal)
             || !string.Equals(decision.ReleaseVersion, approvedScope.ReleaseVersion, StringComparison.Ordinal)
-            || decision.ContractName == PreviewDecisionContract
+            || IsPreviewDecisionContract(decision.ContractName)
                && !string.Equals(
                    decision.ReleaseScopeDecisionSha256,
                    approvedScope.Sha256,
@@ -296,6 +304,7 @@ public static class ReleaseAuthoritySnapshotStore
         }
 
         EnsurePublicationMetadataMatchesApprovedScope(metadata, approvedScope);
+        EnsureHandoffMatchesApprovedScope(decision, approvedScope);
 
         ReleaseAuthoritySnapshot snapshot = CreateSnapshot(
             metadata,
@@ -305,7 +314,10 @@ public static class ReleaseAuthoritySnapshotStore
             ComputeSha256(releaseDecisionBytes));
         ValidateSnapshot(snapshot);
         ReleaseAuthorityManifestDecisionScope manifestScope =
-            FileReleaseChannelManifestStore.ValidatePublishableAuthority(snapshot, manifestBytes);
+            FileReleaseChannelManifestStore.ValidatePublishableAuthority(
+                snapshot,
+                manifestBytes,
+                decision.ContractName == PreviewHandoffDecisionContract);
         EnsureApprovedScopeMatchesManifest(approvedScope, snapshot, manifestScope);
         EnsureDecisionMatchesSnapshot(decision, snapshot, manifestScope);
 
@@ -593,6 +605,9 @@ public static class ReleaseAuthoritySnapshotStore
             var platforms = new List<string>();
             var primaryHeads = new SortedDictionary<string, string>(StringComparer.Ordinal);
             var fallbackHeads = new SortedDictionary<string, IReadOnlyList<string>>(StringComparer.Ordinal);
+            var rids = new SortedDictionary<string, string>(StringComparer.Ordinal);
+            var accessClasses = new SortedDictionary<string, string>(StringComparer.Ordinal);
+            var signingRequirements = new SortedDictionary<string, string>(StringComparer.Ordinal);
             foreach (JsonElement row in platformRows.EnumerateArray())
             {
                 RequireExactProperties(
@@ -651,6 +666,9 @@ public static class ReleaseAuthoritySnapshotStore
                 platforms.Add(platform);
                 primaryHeads.Add(platform, primaryHead);
                 fallbackHeads.Add(platform, fallbacks);
+                rids.Add(platform, rid);
+                accessClasses.Add(platform, accessClass);
+                signingRequirements.Add(platform, signingRequirement);
             }
             EnsureSortedUnique(platforms, "approved release-scope platforms");
             return new ApprovedReleaseScopeBinding(
@@ -659,7 +677,10 @@ public static class ReleaseAuthoritySnapshotStore
                 supportOwner,
                 platforms,
                 primaryHeads,
-                fallbackHeads);
+                fallbackHeads,
+                rids,
+                accessClasses,
+                signingRequirements);
         }
         catch (JsonException exception)
         {
@@ -685,6 +706,49 @@ public static class ReleaseAuthoritySnapshotStore
         }
     }
 
+    private static void EnsureHandoffMatchesApprovedScope(
+        ValidatedReleaseDecision decision,
+        ApprovedReleaseScopeBinding approvedScope)
+    {
+        if (decision.ContractName != PreviewHandoffDecisionContract)
+        {
+            return;
+        }
+
+        bool exactScope = decision.ReleaseDecisionStatus == "review_required"
+            && string.Equals(
+                decision.ReleaseScopeDecisionSha256,
+                approvedScope.Sha256,
+                StringComparison.Ordinal)
+            && approvedScope.Platforms.SequenceEqual(["windows"], StringComparer.Ordinal)
+            && approvedScope.PrimaryHeadByPlatform.Count == 1
+            && approvedScope.PrimaryHeadByPlatform.TryGetValue("windows", out string? primaryHead)
+            && primaryHead == "avalonia"
+            && approvedScope.FallbackHeadsByPlatform.Count == 1
+            && approvedScope.FallbackHeadsByPlatform.TryGetValue(
+                "windows",
+                out IReadOnlyList<string>? fallbackHeads)
+            && fallbackHeads.Count == 0
+            && approvedScope.RidByPlatform.Count == 1
+            && approvedScope.RidByPlatform.TryGetValue("windows", out string? rid)
+            && rid == "win-x64"
+            && approvedScope.ArtifactAccessClassByPlatform.Count == 1
+            && approvedScope.ArtifactAccessClassByPlatform.TryGetValue(
+                "windows",
+                out string? accessClass)
+            && accessClass == "open_public"
+            && approvedScope.SigningRequirementByPlatform.Count == 1
+            && approvedScope.SigningRequirementByPlatform.TryGetValue(
+                "windows",
+                out string? signingRequirement)
+            && signingRequirement == "preview_unsigned_allowed";
+        if (!exactScope)
+        {
+            throw new InvalidDataException(
+                "Preview decision v2 requires the exact approved Windows/Avalonia/win-x64/open_public/preview_unsigned_allowed release scope.");
+        }
+    }
+
     private static void EnsureApprovedScopeMatchesManifest(
         ApprovedReleaseScopeBinding approvedScope,
         ReleaseAuthoritySnapshot snapshot,
@@ -693,10 +757,20 @@ public static class ReleaseAuthoritySnapshotStore
         var nonemptyFallbacks = approvedScope.FallbackHeadsByPlatform
             .Where(static pair => pair.Value.Count != 0)
             .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal);
+        bool artifactsMatchScope = snapshot.Artifacts.All(
+            artifact => approvedScope.RidByPlatform.TryGetValue(
+                    artifact.Platform,
+                    out string? scopedRid)
+                && scopedRid == artifact.Rid
+                && approvedScope.ArtifactAccessClassByPlatform.TryGetValue(
+                    artifact.Platform,
+                    out string? scopedAccessClass)
+                && scopedAccessClass == artifact.InstallAccessClass);
         if (!string.Equals(snapshot.ReleaseVersion, approvedScope.ReleaseVersion, StringComparison.Ordinal)
             || !snapshot.AvailablePlatforms.SequenceEqual(approvedScope.Platforms, StringComparer.Ordinal)
             || !StringMapEquals(snapshot.PrimaryHeadByPlatform, approvedScope.PrimaryHeadByPlatform)
-            || !FallbackMapEquals(nonemptyFallbacks, manifestScope.FallbackHeadsByPlatform))
+            || !FallbackMapEquals(nonemptyFallbacks, manifestScope.FallbackHeadsByPlatform)
+            || !artifactsMatchScope)
         {
             throw new InvalidDataException(
                 "Approved release-scope decision does not match the exact manifest candidate scope.");
@@ -892,7 +966,7 @@ public static class ReleaseAuthoritySnapshotStore
                 $"{decision.ReleaseDecisionStatus} must converge from a candidate bound to the same exact manifest bytes.");
         }
 
-        if (decision.ContractName == PreviewDecisionContract
+        if (IsPreviewDecisionContract(decision.ContractName)
             && (!string.Equals(
                     previous.Current.SnapshotSha256,
                     decision.AuthoritySnapshotSha256,
@@ -917,6 +991,9 @@ public static class ReleaseAuthoritySnapshotStore
                 "stable_ready must converge from a manifest-bound review_required authority candidate.");
         }
     }
+
+    private static bool IsPreviewDecisionContract(string? contractName)
+        => contractName is PreviewDecisionContract or PreviewHandoffDecisionContract;
 
     private static void PersistImmutableGeneration(
         string generationDirectory,
@@ -1142,8 +1219,27 @@ public static class ReleaseAuthoritySnapshotStore
             ValidatedReleaseDecision decision;
             if (root.TryGetProperty("contractName", out JsonElement previewContract))
             {
+                string? previewContractName = previewContract.ValueKind == JsonValueKind.String
+                    ? previewContract.GetString()
+                    : null;
+                bool handoffDecision = string.Equals(
+                    previewContractName,
+                    PreviewHandoffDecisionContract,
+                    StringComparison.Ordinal);
                 RequireExactProperties(
                     root,
+                    handoffDecision
+                    ?
+                    [
+                        "contractName", "generatedAt", "status", "releaseDecisionStatus",
+                        "verdict", "releaseVersion", "releaseScopeDecisionSha256", "channel",
+                        "platforms", "primaryHeadByPlatform", "fallbackHeadsByPlatform",
+                        "artifactAccessClass", "supportOwner", "nextActions", "registryCommit",
+                        "manifestSha256", "authoritySnapshotSha256", "candidateDecisionStatus",
+                        "candidateDecisionSha256", "manifestGeneratedAt", "scorecardSha256",
+                        "convergenceSha256", "blockingFindings", "artifactHandoff"
+                    ]
+                    :
                     [
                         "contractName", "generatedAt", "status", "releaseDecisionStatus",
                         "verdict", "releaseVersion", "releaseScopeDecisionSha256", "channel",
@@ -1155,7 +1251,7 @@ public static class ReleaseAuthoritySnapshotStore
                     ],
                     ReleaseDecisionFileName);
                 if (previewContract.ValueKind != JsonValueKind.String
-                    || !string.Equals(previewContract.GetString(), PreviewDecisionContract, StringComparison.Ordinal)
+                    || !IsPreviewDecisionContract(previewContractName)
                     || root.TryGetProperty("contract_name", out _)
                     || root.TryGetProperty("contract_version", out _)
                     || root.TryGetProperty("release_authority", out _))
@@ -1170,6 +1266,11 @@ public static class ReleaseAuthoritySnapshotStore
                 {
                     throw new InvalidDataException(
                         $"{ReleaseDecisionFileName} preview releaseDecisionStatus must be review_required or preview_ready.");
+                }
+                if (handoffDecision && decisionStatus != "review_required")
+                {
+                    throw new InvalidDataException(
+                        $"{ReleaseDecisionFileName} preview decision v2 is only valid for review_required public-byte handoff.");
                 }
 
                 string status = GetRequiredString(root, "status", ReleaseDecisionFileName);
@@ -1205,7 +1306,7 @@ public static class ReleaseAuthoritySnapshotStore
                     candidateDecisionStatus,
                     candidateDecisionSha256);
                 decision = new ValidatedReleaseDecision(
-                    PreviewDecisionContract,
+                    previewContractName!,
                     null,
                     releaseVersion,
                     decisionStatus,
@@ -1551,10 +1652,18 @@ public static class ReleaseAuthoritySnapshotStore
 
     internal static Uri ValidateImmutableArtifactDownloadUri(string downloadUrl, string fieldName)
     {
-        if (!downloadUrl.StartsWith("https://", StringComparison.Ordinal)
+        bool rootRelative = downloadUrl.StartsWith("/", StringComparison.Ordinal)
+            && !downloadUrl.StartsWith("//", StringComparison.Ordinal);
+        string parseableUrl = rootRelative
+            ? "https://release-authority.invalid" + downloadUrl
+            : downloadUrl;
+        if ((!rootRelative && !downloadUrl.StartsWith("https://", StringComparison.Ordinal))
             || downloadUrl.Contains('\\', StringComparison.Ordinal)
             || downloadUrl.Any(char.IsControl)
-            || !Uri.TryCreate(downloadUrl, UriKind.Absolute, out Uri? downloadUri)
+            || downloadUrl.Any(char.IsWhiteSpace)
+            || downloadUrl.Contains('?')
+            || downloadUrl.Contains('#')
+            || !Uri.TryCreate(parseableUrl, UriKind.Absolute, out Uri? downloadUri)
             || !string.Equals(downloadUri.Scheme, Uri.UriSchemeHttps, StringComparison.Ordinal)
             || string.IsNullOrWhiteSpace(downloadUri.Host)
             || !string.IsNullOrEmpty(downloadUri.UserInfo)
@@ -1562,7 +1671,7 @@ public static class ReleaseAuthoritySnapshotStore
             || !string.IsNullOrEmpty(downloadUri.Fragment))
         {
             throw new InvalidDataException(
-                $"{fieldName} must be an absolute HTTPS immutable generation URL without credentials, query, or fragment.");
+                $"{fieldName} must be a root-relative or absolute HTTPS immutable generation URL without credentials, query, fragment, whitespace, or traversal.");
         }
 
         string unescapedPath;
@@ -1678,7 +1787,7 @@ public static class ReleaseAuthoritySnapshotStore
                 "RELEASE_DECISION.json releaseVersion, status, and manifest binding must match SNAPSHOT.json.");
         }
 
-        if (decision.ContractName == PreviewDecisionContract)
+        if (IsPreviewDecisionContract(decision.ContractName))
         {
             ValidatePreviewDecisionBindings(decision, snapshot, manifestScope);
             return;
@@ -1723,6 +1832,9 @@ public static class ReleaseAuthoritySnapshotStore
             "fallbackHeadsByPlatform",
             platforms,
             primaryHeads);
+        var nonemptyFallbackHeads = fallbackHeads
+            .Where(static pair => pair.Value.Count != 0)
+            .ToDictionary(static pair => pair.Key, static pair => pair.Value, StringComparer.Ordinal);
         string supportOwner = GetRequiredString(root, "supportOwner", ReleaseDecisionFileName);
         string artifactAccessClass = GetRequiredString(root, "artifactAccessClass", ReleaseDecisionFileName);
         string expectedArtifactAccessClass = decision.ReleaseDecisionStatus == "review_required"
@@ -1734,12 +1846,156 @@ public static class ReleaseAuthoritySnapshotStore
             || !string.Equals(registryCommit, snapshot.RegistryCommit, StringComparison.Ordinal)
             || !platforms.SequenceEqual(snapshot.AvailablePlatforms, StringComparer.Ordinal)
             || !StringMapEquals(primaryHeads, snapshot.PrimaryHeadByPlatform)
-            || !FallbackMapEquals(fallbackHeads, manifestScope.FallbackHeadsByPlatform)
+            || !FallbackMapEquals(nonemptyFallbackHeads, manifestScope.FallbackHeadsByPlatform)
             || !string.Equals(supportOwner, snapshot.SupportOwner, StringComparison.Ordinal)
             || !string.Equals(artifactAccessClass, expectedArtifactAccessClass, StringComparison.Ordinal))
         {
             throw new InvalidDataException(
                 "RELEASE_DECISION.json preview scope must exactly bind channel, registry commit, platforms, primary/fallback heads, support owner, and artifact access posture to the derived authority snapshot and manifest.");
+        }
+
+        if (decision.ContractName == PreviewHandoffDecisionContract)
+        {
+            ValidatePublicPreviewByteHandoff(decision, snapshot, manifestScope);
+        }
+    }
+
+    private static void ValidatePublicPreviewByteHandoff(
+        ValidatedReleaseDecision decision,
+        ReleaseAuthoritySnapshot snapshot,
+        ReleaseAuthorityManifestDecisionScope manifestScope)
+    {
+        JsonElement root = decision.Payload;
+        JsonElement handoff = GetRequiredObject(root, "artifactHandoff", ReleaseDecisionFileName);
+        RequireExactProperties(
+            handoff,
+            [
+                "contractName", "status", "sourcePublicationState",
+                "releaseScopeDecisionSha256", "releaseVersion", "channel",
+                "artifactId", "head", "platform", "rid", "arch", "sha256",
+                "sizeBytes", "artifactAccessClass", "signingRequirement",
+                "downloadUrl", "publicInstallRoute"
+            ],
+            $"{ReleaseDecisionFileName}.artifactHandoff");
+
+        if (snapshot.Artifacts.Count != 1)
+        {
+            throw new InvalidDataException(
+                "Preview decision v2 requires exactly one derived public-byte handoff artifact.");
+        }
+        ReleaseAuthorityArtifactSnapshot artifact = snapshot.Artifacts[0];
+        string handoffSha256 = GetRequiredString(
+            handoff,
+            "sha256",
+            $"{ReleaseDecisionFileName}.artifactHandoff");
+        ValidateSha256(handoffSha256, $"{ReleaseDecisionFileName}.artifactHandoff sha256");
+        long handoffSizeBytes = GetRequiredInt64(
+            handoff,
+            "sizeBytes",
+            $"{ReleaseDecisionFileName}.artifactHandoff");
+
+        bool exactHandoff = decision.ReleaseDecisionStatus == "review_required"
+            && GetRequiredString(root, "verdict", ReleaseDecisionFileName)
+               == "PREVIEW_RELEASE_REVIEW_REQUIRED"
+            && snapshot.Channel == "preview"
+            && snapshot.Status == "published"
+            && snapshot.RolloutState == "public_release_review_required"
+            && snapshot.SupportabilityState == "review_required"
+            && snapshot.AvailablePlatforms.SequenceEqual(["windows"], StringComparer.Ordinal)
+            && snapshot.PrimaryHeadByPlatform.Count == 1
+            && snapshot.PrimaryHeadByPlatform.TryGetValue("windows", out string? primaryHead)
+            && primaryHead == "avalonia"
+            && snapshot.DownloadAccessPosture == "open_public"
+            && manifestScope.ReviewByteHandoffArtifactId == "avalonia-win-x64-installer"
+            && GetRequiredString(
+                handoff,
+                "contractName",
+                $"{ReleaseDecisionFileName}.artifactHandoff")
+               == PublicPreviewByteHandoffContract
+            && GetRequiredString(
+                handoff,
+                "status",
+                $"{ReleaseDecisionFileName}.artifactHandoff")
+               == "approved_public_preview_bytes"
+            && GetRequiredString(
+                handoff,
+                "sourcePublicationState",
+                $"{ReleaseDecisionFileName}.artifactHandoff")
+               == "preview"
+            && GetRequiredString(
+                handoff,
+                "releaseScopeDecisionSha256",
+                $"{ReleaseDecisionFileName}.artifactHandoff")
+               == decision.ReleaseScopeDecisionSha256
+            && GetRequiredString(
+                handoff,
+                "releaseVersion",
+                $"{ReleaseDecisionFileName}.artifactHandoff")
+               == snapshot.ReleaseVersion
+            && GetRequiredString(
+                handoff,
+                "channel",
+                $"{ReleaseDecisionFileName}.artifactHandoff")
+               == "preview"
+            && GetRequiredString(
+                handoff,
+                "artifactId",
+                $"{ReleaseDecisionFileName}.artifactHandoff")
+               == artifact.ArtifactId
+            && artifact.ArtifactId == "avalonia-win-x64-installer"
+            && GetRequiredString(
+                handoff,
+                "head",
+                $"{ReleaseDecisionFileName}.artifactHandoff")
+               == artifact.Head
+            && artifact.Head == "avalonia"
+            && GetRequiredString(
+                handoff,
+                "platform",
+                $"{ReleaseDecisionFileName}.artifactHandoff")
+               == artifact.Platform
+            && artifact.Platform == "windows"
+            && GetRequiredString(
+                handoff,
+                "rid",
+                $"{ReleaseDecisionFileName}.artifactHandoff")
+               == artifact.Rid
+            && artifact.Rid == "win-x64"
+            && GetRequiredString(
+                handoff,
+                "arch",
+                $"{ReleaseDecisionFileName}.artifactHandoff")
+               == artifact.Arch
+            && artifact.Arch == "x64"
+            && handoffSha256 == artifact.Sha256
+            && handoffSizeBytes == artifact.SizeBytes
+            && GetRequiredString(
+                handoff,
+                "artifactAccessClass",
+                $"{ReleaseDecisionFileName}.artifactHandoff")
+               == artifact.InstallAccessClass
+            && artifact.InstallAccessClass == "open_public"
+            && GetRequiredString(
+                handoff,
+                "signingRequirement",
+                $"{ReleaseDecisionFileName}.artifactHandoff")
+               == "preview_unsigned_allowed"
+            && GetRequiredString(
+                handoff,
+                "downloadUrl",
+                $"{ReleaseDecisionFileName}.artifactHandoff")
+               == artifact.DownloadUrl
+            && GetRequiredString(
+                handoff,
+                "publicInstallRoute",
+                $"{ReleaseDecisionFileName}.artifactHandoff")
+               == artifact.PublicInstallRoute
+            && artifact.PublicInstallRoute
+               == "/downloads/install/avalonia-win-x64-installer";
+        if (!exactHandoff)
+        {
+            throw new InvalidDataException(
+                "Preview decision v2 artifactHandoff must exactly bind the approved review-only Windows installer bytes and derived Registry snapshot.");
         }
     }
 
@@ -1870,6 +2126,20 @@ public static class ReleaseAuthoritySnapshotStore
             || !property.TryGetInt32(out int value))
         {
             throw new InvalidDataException($"{contractName} {name} must be a 32-bit integer.");
+        }
+
+        return value;
+    }
+
+    private static long GetRequiredInt64(JsonElement parent, string name, string contractName)
+    {
+        if (!parent.TryGetProperty(name, out JsonElement property)
+            || property.ValueKind != JsonValueKind.Number
+            || !property.TryGetInt64(out long value)
+            || value <= 0)
+        {
+            throw new InvalidDataException(
+                $"{contractName} {name} must be a positive 64-bit integer.");
         }
 
         return value;
