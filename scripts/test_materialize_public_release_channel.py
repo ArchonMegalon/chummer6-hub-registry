@@ -2288,7 +2288,7 @@ def test_filter_unproven_installers_enriches_windows_installer_with_bootstrap_pa
     assert filtered[0]["installerMode"] == "bootstrap"
     assert filtered[0]["payloadAcquisitionMode"] == "download"
     assert filtered[0]["payloadFileName"] == "chummer-avalonia-win-x64-payload.zip"
-    assert filtered[0]["payloadDownloadUrl"] == "https://chummer.run/downloads/files/chummer-avalonia-win-x64-payload.zip"
+    assert filtered[0]["payloadDownloadUrl"] == "/downloads/files/chummer-avalonia-win-x64-payload.zip"
     assert filtered[0]["payloadSha256"] == "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2"
     assert filtered[0]["payloadSizeBytes"] == 51124044
 
@@ -2299,6 +2299,50 @@ def test_filter_unproven_installers_enriches_windows_installer_with_bootstrap_pa
     startup_smoke_receipts[0].pop("payloadAcquisitionMode")
     absent_mode_filtered = MODULE.filter_unproven_installers(artifacts, startup_smoke_receipts)
     assert absent_mode_filtered[0]["payloadAcquisitionMode"] == "download"
+
+
+def test_payload_download_url_derivation_preserves_canonical_route_form() -> None:
+    payload_name = "chummer-avalonia-win-x64-payload.zip"
+    installer_path = "/downloads/files/chummer-avalonia-win-x64-installer.exe"
+
+    assert MODULE.derive_public_payload_download_url(installer_path, payload_name) == (
+        f"/downloads/files/{payload_name}"
+    )
+    assert MODULE.derive_public_payload_download_url(
+        f"https://chummer.run{installer_path}",
+        payload_name,
+    ) == f"https://chummer.run/downloads/files/{payload_name}"
+    assert MODULE.derive_public_payload_download_url(None, payload_name) == (
+        f"https://chummer.run/downloads/files/{payload_name}"
+    )
+
+
+@pytest.mark.parametrize(
+    "installer_url",
+    (
+        "https://evil.invalid/downloads/files/chummer-avalonia-win-x64-installer.exe",
+        "http://chummer.run/downloads/files/chummer-avalonia-win-x64-installer.exe",
+        "https://chummer.run:443/downloads/files/chummer-avalonia-win-x64-installer.exe",
+        "https://user@chummer.run/downloads/files/chummer-avalonia-win-x64-installer.exe",
+        "//chummer.run/downloads/files/chummer-avalonia-win-x64-installer.exe",
+        "/downloads/files/chummer-avalonia-win-x64-installer.exe?ticket=secret",
+        "/downloads/files/chummer-avalonia-win-x64-installer.exe#fragment",
+        "/downloads/files/../files/chummer-avalonia-win-x64-installer.exe",
+        "/downloads/files/%2e%2e/chummer-avalonia-win-x64-installer.exe",
+        "/downloads//files/chummer-avalonia-win-x64-installer.exe",
+        "/downloads/files\\chummer-avalonia-win-x64-installer.exe",
+        "/downloads/files/chummer-avalonia-win-x64-installer.exe;parameter",
+        " /downloads/files/chummer-avalonia-win-x64-installer.exe",
+    ),
+)
+def test_payload_download_url_derivation_rejects_noncanonical_or_untrusted_installer_url(
+    installer_url: str,
+) -> None:
+    with pytest.raises(ValueError, match="downloadUrl"):
+        MODULE.derive_public_payload_download_url(
+            installer_url,
+            "chummer-avalonia-win-x64-payload.zip",
+        )
 
 
 def test_enrich_artifact_from_startup_smoke_scrubs_stale_payload_authority() -> None:
@@ -2527,9 +2571,7 @@ def test_enrich_artifact_from_startup_smoke_rejects_alias_conflicts_and_falsey_f
             "installerMode": "bootstrap",
             "payloadAcquisitionMode": "download",
             "payloadFileName": receipt["payloadFileName"],
-            "payloadDownloadUrl": (
-                "https://chummer.run/downloads/files/chummer-avalonia-win-x64-payload.zip"
-            ),
+            "payloadDownloadUrl": "/downloads/files/chummer-avalonia-win-x64-payload.zip",
             "payloadSha256": receipt["payloadSha256"],
             "payloadSizeBytes": receipt["payloadSizeBytes"],
         }

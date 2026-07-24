@@ -714,36 +714,67 @@ def canonical_bootstrap_payload_sha256(value: Any) -> str:
     return value
 
 
+def parse_canonical_public_download_url(value: Any, *, field_name: str) -> tuple[str, str]:
+    if not isinstance(value, str) or not value or value != value.strip():
+        raise ValueError(f"{field_name} must be a non-empty canonical public download URL")
+    if (
+        not value.isascii()
+        or any(ord(character) <= 32 or ord(character) == 127 for character in value)
+        or any(character in value for character in ("%", "\\", ";", "?", "#"))
+    ):
+        raise ValueError(
+            f"{field_name} must not contain encoded, escaped, parameter, query, fragment, or control syntax"
+        )
+    try:
+        parsed = urllib.parse.urlsplit(value)
+        port = parsed.port
+    except ValueError as exc:
+        raise ValueError(f"{field_name} is not a canonical public download URL") from exc
+
+    origin = ""
+    if parsed.scheme or parsed.netloc:
+        candidate_origin = f"{parsed.scheme}://{parsed.netloc}"
+        if (
+            parsed.scheme != "https"
+            or parsed.username is not None
+            or parsed.password is not None
+            or port is not None
+            or candidate_origin not in DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS
+        ):
+            raise ValueError(
+                f"{field_name} absolute URL must use an exact trusted public release origin"
+            )
+        origin = candidate_origin
+    if parsed.query or parsed.fragment or parsed.geturl() != value:
+        raise ValueError(f"{field_name} must be a lossless canonical public download URL")
+
+    path = parsed.path
+    if not path.startswith("/downloads/"):
+        raise ValueError(f"{field_name} must use a canonical /downloads/ site path")
+    segments = path.split("/")
+    if any(segment in {"", ".", ".."} for segment in segments[1:]):
+        raise ValueError(
+            f"{field_name} must not contain empty or dot-segment path traversal"
+        )
+    return origin, path
+
+
 def derive_public_payload_download_url(artifact_download_url: Any, payload_file_name: str) -> str:
     canonical_payload_file_name = canonical_bootstrap_payload_file_name(payload_file_name)
     if not canonical_payload_file_name:
         return ""
 
     public_origin = DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS[0].rstrip("/")
-    normalized_installer_url = str(artifact_download_url or "").strip()
-    if normalized_installer_url:
-        parsed = urllib.parse.urlparse(normalized_installer_url)
-        if not parsed.scheme or not parsed.netloc:
-            normalized_installer_url = urllib.parse.urljoin(
-                f"{public_origin}/",
-                normalized_installer_url.lstrip("/"),
-            )
-            parsed = urllib.parse.urlparse(normalized_installer_url)
-        if parsed.scheme.lower() == "https" and parsed.netloc:
-            installer_dir = parsed.path.rsplit("/", 1)[0] if "/" in parsed.path else ""
-            payload_path = (
-                f"{installer_dir}/{canonical_payload_file_name}"
-                if installer_dir
-                else f"/{canonical_payload_file_name}"
-            )
-            return urllib.parse.urlunparse(
-                ("https", parsed.netloc.lower(), payload_path, "", "", "")
-            )
+    if artifact_download_url in (None, ""):
+        return f"{public_origin}/downloads/files/{canonical_payload_file_name}"
 
-    return urllib.parse.urljoin(
-        f"{public_origin}/",
-        f"downloads/files/{canonical_payload_file_name}",
+    origin, installer_path = parse_canonical_public_download_url(
+        artifact_download_url,
+        field_name="artifact downloadUrl",
     )
+    installer_dir = installer_path.rsplit("/", 1)[0]
+    payload_path = f"{installer_dir}/{canonical_payload_file_name}"
+    return f"{origin}{payload_path}" if origin else payload_path
 
 
 def enrich_artifact_from_startup_smoke(
@@ -824,13 +855,18 @@ def enrich_artifact_from_startup_smoke(
             enriched.get("downloadUrl"),
             payload_file_name,
         )
-        parsed_payload_download_url = urllib.parse.urlparse(payload_download_url)
+        try:
+            _, payload_download_path = parse_canonical_public_download_url(
+                payload_download_url,
+                field_name="derived payloadDownloadUrl",
+            )
+        except ValueError:
+            continue
         if (
             not payload_file_name
             or not payload_sha256
             or payload_size_bytes is None
-            or parsed_payload_download_url.scheme != "https"
-            or not parsed_payload_download_url.netloc
+            or payload_download_path.rsplit("/", 1)[-1] != payload_file_name
         ):
             continue
 
