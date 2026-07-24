@@ -395,6 +395,15 @@ def windows_only_primary_desktop_tuple_payload() -> dict:
     return payload
 
 
+def chummer_windows_only_preview_payload() -> dict:
+    payload = windows_only_primary_desktop_tuple_payload()
+    payload["product"] = "chummer6"
+    payload["channelId"] = "preview"
+    payload["platformScope"] = "windows_only"
+    payload["artifacts"][0]["fileName"] = "chummer-avalonia-win-x64-installer.exe"
+    return payload
+
+
 def shared_primary_desktop_tuple_payload() -> dict:
     payload = complete_primary_desktop_tuple_payload()
     payload["product"] = "shared-verifier-test-product"
@@ -1602,6 +1611,69 @@ def test_verify_desktop_tuple_coverage_accepts_explicit_non_chummer_windows_only
     assert coverage["missing_platform_head_rid_tuples"] == []
 
 
+def test_verify_desktop_tuple_coverage_accepts_exact_chummer_windows_only_preview_scope() -> None:
+    payload = chummer_windows_only_preview_payload()
+
+    coverage = MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+    assert coverage["missing_platforms"] == []
+    assert coverage["missing_platform_head_rid_tuples"] == []
+
+
+def test_verify_desktop_tuple_coverage_accepts_windows_only_compatibility_projection() -> None:
+    canonical = chummer_windows_only_preview_payload()
+    canonical.update(
+        {
+            "contract_name": MATERIALIZER.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+            "registry_commit": "a" * 40,
+            "version": "run-20260724-000000",
+            "publishedAt": "2026-07-24T00:00:00Z",
+            "status": "published",
+        }
+    )
+
+    compatibility = MATERIALIZER.compatibility_payload(canonical)
+    coverage = MODULE.verify_desktop_tuple_coverage(
+        compatibility,
+        "releases.json",
+    )
+
+    assert compatibility["platformScope"] == "windows_only"
+    assert coverage["missing_platforms"] == []
+
+
+def test_verify_desktop_tuple_coverage_rejects_windows_only_scope_drift() -> None:
+    payload = chummer_windows_only_preview_payload()
+    payload["platformScope"] = "WINDOWS_ONLY"
+    with pytest.raises(SystemExit, match="platformScope must be exactly"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+    payload = chummer_windows_only_preview_payload()
+    payload["channelId"] = "public_stable"
+    with pytest.raises(SystemExit, match="allowed only for channel preview"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+    payload = chummer_windows_only_preview_payload()
+    payload["desktopTupleCoverage"]["requiredDesktopPlatforms"] = ["linux", "windows"]
+    with pytest.raises(SystemExit, match="requiredDesktopPlatforms exactly"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+    payload = chummer_windows_only_preview_payload()
+    payload["artifacts"].append(
+        {
+            "artifactId": "avalonia-linux-x64-installer",
+            "fileName": "chummer-avalonia-linux-x64-installer.deb",
+            "head": "avalonia",
+            "rid": "linux-x64",
+            "platform": "linux",
+            "arch": "x64",
+            "kind": "installer",
+        }
+    )
+    with pytest.raises(SystemExit, match="outside the exact"):
+        MODULE.verify_desktop_tuple_coverage(payload, "release-channel.json")
+
+
 def test_verify_desktop_tuple_coverage_rejects_chummer_product_aliases_outside_current_target() -> None:
     for product in ("chummer", "chummer6"):
         payload = complete_primary_desktop_tuple_payload()
@@ -1897,6 +1969,251 @@ def _write_skipped_windows_startup_smoke(
     receipt_path = manifest_root / "startup-smoke" / "startup-smoke-avalonia-win-x64.receipt.json"
     receipt_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
     return receipt_path
+
+
+def _configure_windows_only_preview_payload(payload: dict) -> None:
+    payload["channelId"] = "preview"
+    payload["channel"] = "preview"
+    payload["platformScope"] = "windows_only"
+    for entry_name in ("downloads", "artifacts"):
+        for artifact in payload.get(entry_name) or []:
+            artifact["channelId"] = "preview"
+            artifact["channel"] = "preview"
+    payload["desktopTupleCoverage"][
+        "desktopRouteTruth"
+    ] = MODULE.expected_desktop_route_truth_rows(payload)
+
+
+def _write_windows_wine_compatibility_startup_smoke(
+    manifest_root: Path,
+    *,
+    installer_name: str,
+    installer_sha: str,
+    **overrides,
+) -> Path:
+    receipt = {
+        "status": "pass",
+        "readyCheckpoint": "pre_ui_event_loop",
+        "headId": "avalonia",
+        "platform": "windows",
+        "rid": "win-x64",
+        "arch": "x64",
+        "hostClass": "local-win-x64",
+        "operatingSystem": "Microsoft Windows 10.0.19043",
+        "artifactDigest": f"sha256:{installer_sha}",
+        "artifactId": "avalonia-win-x64-installer",
+        "artifactRelativePath": f"files/{installer_name}",
+        "artifactFileName": installer_name,
+        "channelId": "preview",
+        "channel": "preview",
+        "version": "run-20260618-061908",
+        "releaseVersion": "run-20260618-061908",
+        "executionEnvironment": "wine_compatibility",
+        "verificationScope": "windows_compatibility_startup",
+        "nativeHostEvidence": {
+            "contractName": "chummer6-ui.native_windows_host_evidence",
+            "status": "not_native",
+            "isNativeWindows": False,
+            "hostPlatform": "linux",
+            "hostKernel": "Linux",
+            "runner": "wine64",
+            "evidenceSource": "wine_runner_selection",
+        },
+        "completedAtUtc": datetime.now(timezone.utc).isoformat().replace("+00:00", "Z"),
+    }
+    receipt.update(overrides)
+    receipt_path = (
+        manifest_root
+        / "startup-smoke"
+        / "startup-smoke-avalonia-win-x64.receipt.json"
+    )
+    receipt_path.write_text(json.dumps(receipt, indent=2) + "\n", encoding="utf-8")
+    return receipt_path
+
+
+def test_windows_only_preview_accepts_exact_wine_compatibility_startup_receipt(
+    tmp_path: Path,
+) -> None:
+    payload, manifest_root, installer_name, installer_sha = _write_windows_release_fixture(
+        tmp_path
+    )
+    _configure_windows_only_preview_payload(payload)
+    receipt_path = _write_windows_wine_compatibility_startup_smoke(
+        manifest_root,
+        installer_name=installer_name,
+        installer_sha=installer_sha,
+    )
+
+    receipts = MATERIALIZER.load_startup_smoke_receipts(
+        receipt_path.parent,
+        expected_channel="preview",
+        expected_release_version=str(payload["version"]),
+        expected_platform_scope="windows_only",
+        now=datetime.now(timezone.utc),
+    )
+
+    assert receipts is not None
+    assert len(receipts) == 1
+    assert receipts[0]["executionEnvironment"] == "wine_compatibility"
+    assert receipts[0]["verificationScope"] == "windows_compatibility_startup"
+    assert receipts[0]["nativeHostEvidence"]["isNativeWindows"] is False
+    filtered = MATERIALIZER.filter_unproven_installers(payload["artifacts"], receipts)
+    assert len(filtered) == 1
+    assert filtered[0]["executionEnvironment"] == "wine_compatibility"
+    assert filtered[0]["verificationScope"] == "windows_compatibility_startup"
+    assert filtered[0]["nativeHostEvidence"]["isNativeWindows"] is False
+    compatibility_source = {
+        **payload,
+        "registry_commit": "a" * 40,
+        "contract_name": MATERIALIZER.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+        "artifacts": filtered,
+    }
+    compatibility = MATERIALIZER.compatibility_payload(compatibility_source)
+    assert compatibility["downloads"][0]["executionEnvironment"] == "wine_compatibility"
+    assert (
+        compatibility["downloads"][0]["verificationScope"]
+        == "windows_compatibility_startup"
+    )
+    assert (
+        compatibility["downloads"][0]["nativeHostEvidence"]["isNativeWindows"]
+        is False
+    )
+    MODULE.verify_desktop_tuple_coverage(compatibility, "releases.json")
+    MODULE.verify_local_download_files(payload, manifest_root, str(manifest_root))
+
+
+def test_stable_release_rejects_wine_compatibility_startup_receipt(
+    tmp_path: Path,
+) -> None:
+    payload, manifest_root, installer_name, installer_sha = _write_windows_release_fixture(
+        tmp_path
+    )
+    payload["platformScope"] = "windows_only"
+    _write_windows_wine_compatibility_startup_smoke(
+        manifest_root,
+        installer_name=installer_name,
+        installer_sha=installer_sha,
+        channelId="stable",
+        channel="stable",
+    )
+
+    with pytest.raises(SystemExit, match="not an exact windows-only preview Wine compatibility boundary"):
+        MODULE.verify_local_download_files(payload, manifest_root, str(manifest_root))
+
+
+def test_windows_only_preview_rejects_wine_compatibility_boundary_drift(
+    tmp_path: Path,
+) -> None:
+    payload, manifest_root, installer_name, installer_sha = _write_windows_release_fixture(
+        tmp_path
+    )
+    _configure_windows_only_preview_payload(payload)
+    valid_native_evidence = {
+        "contractName": "chummer6-ui.native_windows_host_evidence",
+        "status": "not_native",
+        "isNativeWindows": False,
+        "hostPlatform": "linux",
+        "hostKernel": "Linux",
+        "runner": "wine64",
+        "evidenceSource": "wine_runner_selection",
+    }
+    drift_cases = (
+        {"executionEnvironment": "native_windows"},
+        {"verificationScope": "windows_native_startup"},
+        {
+            "nativeHostEvidence": {
+                **valid_native_evidence,
+                "isNativeWindows": True,
+            }
+        },
+        {
+            "nativeHostEvidence": {
+                **valid_native_evidence,
+                "hostPlatform": "windows",
+            }
+        },
+        {
+            "nativeHostEvidence": {
+                **valid_native_evidence,
+                "runner": "native-windows-runner",
+            }
+        },
+        {
+            "nativeHostEvidence": {
+                **valid_native_evidence,
+                "evidenceSource": "host_class_inference",
+            }
+        },
+    )
+    for overrides in drift_cases:
+        _write_windows_wine_compatibility_startup_smoke(
+            manifest_root,
+            installer_name=installer_name,
+            installer_sha=installer_sha,
+            **overrides,
+        )
+        with pytest.raises(
+            SystemExit,
+            match="not an exact windows-only preview Wine compatibility boundary",
+        ):
+            MODULE.verify_local_download_files(payload, manifest_root, str(manifest_root))
+
+
+def test_windows_only_preview_rejects_host_substring_laundering_without_explicit_evidence(
+    tmp_path: Path,
+) -> None:
+    payload, manifest_root, installer_name, installer_sha = _write_windows_release_fixture(
+        tmp_path
+    )
+    _configure_windows_only_preview_payload(payload)
+    _write_windows_wine_compatibility_startup_smoke(
+        manifest_root,
+        installer_name=installer_name,
+        installer_sha=installer_sha,
+        hostClass="wine9-linux-x64-compatibility",
+        executionEnvironment=None,
+        verificationScope=None,
+        nativeHostEvidence=None,
+    )
+
+    with pytest.raises(SystemExit, match="lacks explicit native or Wine compatibility host evidence"):
+        MODULE.verify_local_download_files(payload, manifest_root, str(manifest_root))
+
+
+def test_native_windows_evidence_requires_exact_execution_environment_and_scope() -> None:
+    receipt = {
+        "status": "pass",
+        "headId": "avalonia",
+        "platform": "windows",
+        "rid": "win-x64",
+        "executionEnvironment": "native_windows",
+        "verificationScope": "native_windows_startup",
+        "nativeHostEvidence": {
+            "contractName": "chummer6-ui.native_windows_host_evidence",
+            "status": "verified",
+            "isNativeWindows": True,
+            "hostPlatform": "windows",
+            "hostKernel": "Windows_NT",
+            "runner": "windows-x64-runner",
+            "evidenceSource": "native_runner_probe",
+        },
+    }
+
+    assert MATERIALIZER.startup_smoke_has_exact_native_windows_evidence(receipt)
+    for field_name, drift_value in (
+        ("executionEnvironment", "wine_compatibility"),
+        ("verificationScope", "windows_native_startup"),
+    ):
+        drifted = {**receipt, field_name: drift_value}
+        assert not MATERIALIZER.startup_smoke_has_exact_native_windows_evidence(drifted)
+    wine_runner = {
+        **receipt,
+        "nativeHostEvidence": {
+            **receipt["nativeHostEvidence"],
+            "runner": "wine64",
+        },
+    }
+    assert not MATERIALIZER.startup_smoke_has_exact_native_windows_evidence(wine_runner)
 
 
 def test_verify_local_download_files_accepts_exact_windows_incompatible_host_skip_when_enabled(tmp_path: Path) -> None:

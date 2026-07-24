@@ -1576,6 +1576,7 @@ def test_compatibility_payload_omits_absent_optional_mode_fields() -> None:
         "codeDeploymentAuthority",
         "releaseUploadAuthority",
         "codeDeployCurrentShelfAuthority",
+        "platformScope",
     }
     assert optional_mode_fields.isdisjoint(payload)
 
@@ -1592,6 +1593,7 @@ def test_compatibility_payload_preserves_present_optional_mode_fields() -> None:
         "codeDeploymentAuthority": False,
         "releaseUploadAuthority": False,
         "codeDeployCurrentShelfAuthority": code_deploy_review,
+        "platformScope": "windows_only",
     }
     payload = compatibility_payload(
         {
@@ -2581,6 +2583,58 @@ def test_materialization_required_platforms_enforces_current_preview_scope_over_
         artifacts,
         ["macos"],
     ) == ["linux", "windows"]
+
+
+def test_materialization_required_platforms_accepts_explicit_windows_only_preview_scope() -> None:
+    artifacts = [current_preview_artifact()]
+
+    assert MODULE.materialization_required_platforms(
+        artifacts,
+        ["windows"],
+        platform_scope="windows_only",
+        channel="preview",
+    ) == ["windows"]
+
+
+def test_materialization_required_platforms_rejects_windows_only_scope_drift() -> None:
+    artifacts = [current_preview_artifact()]
+
+    with pytest.raises(ValueError, match="platformScope must be exactly"):
+        MODULE.materialization_required_platforms(
+            artifacts,
+            ["windows"],
+            platform_scope="WINDOWS_ONLY",
+            channel="preview",
+        )
+    with pytest.raises(ValueError, match="allowed only for a preview source"):
+        MODULE.materialization_required_platforms(
+            artifacts,
+            ["windows"],
+            platform_scope="windows_only",
+            channel="public_stable",
+        )
+    with pytest.raises(ValueError, match="explicit required desktop platforms"):
+        MODULE.materialization_required_platforms(
+            artifacts,
+            ["linux", "windows"],
+            platform_scope="windows_only",
+            channel="preview",
+        )
+    with pytest.raises(ValueError, match="exact current Windows preview artifact inventory"):
+        MODULE.materialization_required_platforms(
+            [
+                *artifacts,
+                current_preview_artifact(
+                    platform="linux",
+                    rid="linux-x64",
+                    artifact_id="avalonia-linux-x64-installer",
+                    file_name="chummer-avalonia-linux-x64-installer.deb",
+                ),
+            ],
+            ["windows"],
+            platform_scope="windows_only",
+            channel="preview",
+        )
 
 
 def current_preview_artifact(

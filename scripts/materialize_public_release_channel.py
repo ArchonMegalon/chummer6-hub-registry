@@ -75,6 +75,7 @@ COMPATIBILITY_OPTIONAL_MODE_FIELDS = (
     "codeDeploymentAuthority",
     "releaseUploadAuthority",
     "codeDeployCurrentShelfAuthority",
+    "platformScope",
 )
 
 
@@ -180,6 +181,20 @@ DESKTOP_ROUTE_ROLES = {
 # CANONICAL_DESKTOP_PLATFORM_ORDER below: macOS remains a supported/buildable
 # platform, but it is not part of the current Windows/Linux preview candidate.
 DEFAULT_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows")
+WINDOWS_ONLY_PLATFORM_SCOPE = "windows_only"
+WINDOWS_WINE_COMPATIBILITY_EXECUTION_ENVIRONMENT = "wine_compatibility"
+WINDOWS_WINE_COMPATIBILITY_VERIFICATION_SCOPE = "windows_compatibility_startup"
+WINDOWS_NATIVE_EXECUTION_ENVIRONMENT = "native_windows"
+WINDOWS_NATIVE_VERIFICATION_SCOPE = "native_windows_startup"
+WINDOWS_NATIVE_HOST_EVIDENCE_CONTRACT = "chummer6-ui.native_windows_host_evidence"
+WINDOWS_WINE_COMPATIBILITY_EVIDENCE_SOURCES = frozenset(
+    {"isolated_wine_runner", "wine_runner_selection"}
+)
+STARTUP_EXECUTION_TRUTH_FIELDS = (
+    "executionEnvironment",
+    "verificationScope",
+    "nativeHostEvidence",
+)
 DEFAULT_REQUIRED_DESKTOP_PLATFORM_RIDS = {
     "linux": ("linux-x64",),
     "windows": ("win-x64",),
@@ -738,6 +753,29 @@ def enrich_artifact_from_startup_smoke(
     enriched = dict(artifact)
     for field_name in PROOF_DERIVED_PAYLOAD_AUTHORITY_FIELDS:
         enriched.pop(field_name, None)
+
+    execution_receipt = next(
+        (
+            receipt
+            for receipt in matching_receipts
+            if normalize_token(receipt.get("executionEnvironment"))
+            in {
+                WINDOWS_NATIVE_EXECUTION_ENVIRONMENT,
+                WINDOWS_WINE_COMPATIBILITY_EXECUTION_ENVIRONMENT,
+            }
+            and normalize_token(receipt.get("verificationScope"))
+            in {
+                WINDOWS_NATIVE_VERIFICATION_SCOPE,
+                WINDOWS_WINE_COMPATIBILITY_VERIFICATION_SCOPE,
+            }
+            and isinstance(receipt.get("nativeHostEvidence"), dict)
+        ),
+        None,
+    )
+    if execution_receipt is not None:
+        enriched["executionEnvironment"] = execution_receipt["executionEnvironment"]
+        enriched["verificationScope"] = execution_receipt["verificationScope"]
+        enriched["nativeHostEvidence"] = dict(execution_receipt["nativeHostEvidence"])
 
     for matching_receipt in matching_receipts:
         installer_mode = resolve_exact_receipt_alias(
@@ -1657,6 +1695,90 @@ def startup_smoke_is_windows_incompatible_host_skip(loaded: dict[str, Any]) -> b
     return verification_disposition == "incompatible_host" or skip_class == "incompatible_host"
 
 
+def startup_smoke_declares_windows_wine_compatibility(loaded: dict[str, Any]) -> bool:
+    native_host_evidence = loaded.get("nativeHostEvidence")
+    if not isinstance(native_host_evidence, dict):
+        native_host_evidence = {}
+    tokens = (
+        loaded.get("executionEnvironment"),
+        loaded.get("verificationScope"),
+        native_host_evidence.get("runner"),
+        native_host_evidence.get("evidenceSource"),
+    )
+    return (
+        any(
+            "wine" in normalize_token(value) or "compatibility" in normalize_token(value)
+            for value in tokens
+        )
+        or normalize_token(native_host_evidence.get("status")) == "not_native"
+        or native_host_evidence.get("isNativeWindows") is False
+        or normalize_token(native_host_evidence.get("hostPlatform")) == "linux"
+    )
+
+
+def startup_smoke_has_exact_native_windows_evidence(loaded: dict[str, Any]) -> bool:
+    native_host_evidence = loaded.get("nativeHostEvidence")
+    if not isinstance(native_host_evidence, dict):
+        return False
+    runner = str(native_host_evidence.get("runner") or "").strip()
+    return (
+        loaded.get("status") == "pass"
+        and loaded.get("executionEnvironment") == WINDOWS_NATIVE_EXECUTION_ENVIRONMENT
+        and loaded.get("verificationScope") == WINDOWS_NATIVE_VERIFICATION_SCOPE
+        and loaded.get("headId") == "avalonia"
+        and loaded.get("platform") == "windows"
+        and loaded.get("rid") == "win-x64"
+        and native_host_evidence.get("contractName")
+        == WINDOWS_NATIVE_HOST_EVIDENCE_CONTRACT
+        and native_host_evidence.get("status") == "verified"
+        and native_host_evidence.get("isNativeWindows") is True
+        and native_host_evidence.get("hostPlatform") == "windows"
+        and bool(str(native_host_evidence.get("hostKernel") or "").strip())
+        and bool(runner)
+        and "wine" not in runner.lower()
+        and bool(str(native_host_evidence.get("evidenceSource") or "").strip())
+    )
+
+
+def startup_smoke_is_exact_windows_wine_compatibility(
+    loaded: dict[str, Any],
+    *,
+    expected_channel: Any,
+    expected_platform_scope: Any,
+) -> bool:
+    native_host_evidence = loaded.get("nativeHostEvidence")
+    if not isinstance(native_host_evidence, dict):
+        return False
+    runner = str(native_host_evidence.get("runner") or "").strip()
+    receipt_channel = loaded.get("channelId")
+    channel_alias = loaded.get("channel")
+    return (
+        loaded.get("status") == "pass"
+        and loaded.get("executionEnvironment")
+        == WINDOWS_WINE_COMPATIBILITY_EXECUTION_ENVIRONMENT
+        and loaded.get("verificationScope")
+        == WINDOWS_WINE_COMPATIBILITY_VERIFICATION_SCOPE
+        and loaded.get("headId") == "avalonia"
+        and loaded.get("platform") == "windows"
+        and loaded.get("rid") == "win-x64"
+        and receipt_channel == "preview"
+        and (channel_alias is None or channel_alias == "preview")
+        and normalize_token(expected_channel) == "preview"
+        and expected_platform_scope == WINDOWS_ONLY_PLATFORM_SCOPE
+        and bool(str(loaded.get("hostClass") or "").strip())
+        and native_host_evidence.get("contractName")
+        == WINDOWS_NATIVE_HOST_EVIDENCE_CONTRACT
+        and native_host_evidence.get("status") == "not_native"
+        and native_host_evidence.get("isNativeWindows") is False
+        and native_host_evidence.get("hostPlatform") == "linux"
+        and bool(str(native_host_evidence.get("hostKernel") or "").strip())
+        and bool(runner)
+        and "wine" in runner.lower()
+        and native_host_evidence.get("evidenceSource")
+        in WINDOWS_WINE_COMPATIBILITY_EVIDENCE_SOURCES
+    )
+
+
 def load_startup_smoke_receipts(
     startup_smoke_dir: Path | None,
     *,
@@ -1664,6 +1786,7 @@ def load_startup_smoke_receipts(
     max_future_skew_seconds: int = STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
     expected_channel: str = "",
     expected_release_version: str = "",
+    expected_platform_scope: str = "",
     now: dt.datetime | None = None,
 ) -> list[dict[str, Any]] | None:
     if startup_smoke_dir is None or not startup_smoke_dir.exists():
@@ -1757,6 +1880,22 @@ def load_startup_smoke_receipts(
             continue
         status = str(loaded.get("status") or "").strip().lower()
         incompatible_host_skip = startup_smoke_is_windows_incompatible_host_skip(loaded)
+        wine_compatibility_declared = startup_smoke_declares_windows_wine_compatibility(loaded)
+        exact_wine_compatibility = startup_smoke_is_exact_windows_wine_compatibility(
+            loaded,
+            expected_channel=expected_channel,
+            expected_platform_scope=expected_platform_scope,
+        )
+        exact_native_windows = startup_smoke_has_exact_native_windows_evidence(loaded)
+        if wine_compatibility_declared and not exact_wine_compatibility:
+            continue
+        if (
+            expected_platform_scope == WINDOWS_ONLY_PLATFORM_SCOPE
+            and normalize_platform_token(loaded.get("platform")) == "windows"
+            and not exact_wine_compatibility
+            and not exact_native_windows
+        ):
+            continue
         if status not in {"pass", "passed", "ready"} and not incompatible_host_skip:
             continue
         ready_checkpoint = str(loaded.get("readyCheckpoint") or "").strip().lower()
@@ -1781,7 +1920,14 @@ def load_startup_smoke_receipts(
         receipt_entry = build_receipt_entry(loaded)
         if not receipt_entry["head"] or not receipt_entry["platform"] or not receipt_entry["arch"]:
             continue
-        if not incompatible_host_skip and not startup_smoke_host_class_matches_platform(loaded, platform=receipt_entry["platform"]):
+        if (
+            not incompatible_host_skip
+            and not exact_wine_compatibility
+            and not startup_smoke_host_class_matches_platform(
+                loaded,
+                platform=receipt_entry["platform"],
+            )
+        ):
             continue
         if not incompatible_host_skip and not startup_smoke_operating_system_matches_platform(loaded, platform=receipt_entry["platform"]):
             continue
@@ -1796,6 +1942,14 @@ def load_startup_smoke_receipts(
         if incompatible_host_skip:
             receipt_entry["status"] = "skipped"
             receipt_entry["verificationDisposition"] = "incompatible_host"
+        elif exact_wine_compatibility:
+            receipt_entry["executionEnvironment"] = WINDOWS_WINE_COMPATIBILITY_EXECUTION_ENVIRONMENT
+            receipt_entry["verificationScope"] = WINDOWS_WINE_COMPATIBILITY_VERIFICATION_SCOPE
+            receipt_entry["nativeHostEvidence"] = dict(loaded["nativeHostEvidence"])
+        elif exact_native_windows:
+            receipt_entry["executionEnvironment"] = WINDOWS_NATIVE_EXECUTION_ENVIRONMENT
+            receipt_entry["verificationScope"] = WINDOWS_NATIVE_VERIFICATION_SCOPE
+            receipt_entry["nativeHostEvidence"] = dict(loaded["nativeHostEvidence"])
         if proof_freshness != "fresh":
             receipt_entry["proofFreshness"] = proof_freshness
         receipts.append(receipt_entry)
@@ -1952,6 +2106,10 @@ def parse_download_row(
     for field_name in ARTIFACT_REVOKE_TRUTH_FIELDS:
         if field_name in item:
             row[field_name] = item.get(field_name)
+    for field_name in STARTUP_EXECUTION_TRUTH_FIELDS:
+        if field_name in item:
+            value = item.get(field_name)
+            row[field_name] = dict(value) if isinstance(value, dict) else value
     return row
 
 
@@ -2652,14 +2810,57 @@ def required_desktop_platforms(raw: Any) -> list[str]:
 def materialization_required_platforms(
     artifacts: list[dict[str, Any]],
     configured_required_platforms: Any,
+    *,
+    platform_scope: Any = None,
+    channel: Any = None,
 ) -> list[str]:
+    if platform_scope is not None:
+        if platform_scope != WINDOWS_ONLY_PLATFORM_SCOPE:
+            raise ValueError(
+                "platformScope must be exactly "
+                f"{WINDOWS_ONLY_PLATFORM_SCOPE!r} when the current release platform floor is narrowed"
+            )
+        if normalize_token(channel) != "preview":
+            raise ValueError("platformScope='windows_only' is allowed only for a preview source")
+        if configured_required_platforms not in ("windows", ["windows"]):
+            raise ValueError(
+                "platformScope='windows_only' requires explicit required desktop platforms "
+                "exactly ['windows']"
+            )
+
+        expected_artifacts = {
+            scope_tuple: identity
+            for scope_tuple, identity in CURRENT_PREVIEW_DESKTOP_ARTIFACTS.items()
+            if scope_tuple[1] == "windows"
+        }
+        actual_artifacts: dict[tuple[str, str, str, str], tuple[str, str]] = {}
+        for artifact in artifacts:
+            scope_tuple = (
+                normalized_token(artifact.get("head")),
+                normalize_platform_token(artifact.get("platform")),
+                normalized_token(artifact.get("rid")),
+                normalized_token(artifact.get("kind")),
+            )
+            identity = (
+                normalized_token(artifact.get("artifactId") or artifact.get("id")),
+                str(artifact.get("fileName") or "").strip(),
+            )
+            if scope_tuple in actual_artifacts:
+                raise ValueError(
+                    f"platformScope='windows_only' artifact tuple is duplicated: {scope_tuple}"
+                )
+            actual_artifacts[scope_tuple] = identity
+        if actual_artifacts != expected_artifacts:
+            raise ValueError(
+                "platformScope='windows_only' requires the exact current Windows preview artifact inventory"
+            )
+        return ["windows"]
+
     # Current release scope is an authority boundary, not a projection of
     # whichever artifacts or stale configuration happened to reach a staging
-    # bundle.  The active preview is exactly Linux + Windows.  macOS remains
-    # recognized by the platform model and can be selected by a future policy
-    # change, but neither incoming bytes nor an older three-platform manifest
-    # may widen this release transaction.
-    del artifacts, configured_required_platforms
+    # bundle.  Without an explicit narrow preview authority, the active
+    # platform floor remains exactly Linux + Windows.
+    del artifacts, configured_required_platforms, channel
     return list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS)
 
 
@@ -5105,6 +5306,11 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         source="--registry-commit",
     )
     loaded = load_input_payload(args)
+    if "platform_scope" in loaded:
+        raise ValueError(
+            "source manifest must use canonical top-level platformScope, not platform_scope"
+        )
+    platform_scope = loaded.get("platformScope") if "platformScope" in loaded else None
     flagship_readiness = load_flagship_readiness_snapshot(getattr(args, "flagship_readiness", None))
     refresh_flagship_readiness_copy = loaded_flagship_readiness_copy_requires_refresh(
         loaded,
@@ -5166,6 +5372,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             max_future_skew_seconds=args.startup_smoke_max_future_skew_seconds,
             expected_channel=normalize_token(raw_channel),
             expected_release_version=version,
+            expected_platform_scope=platform_scope or "",
         )
     else:
         startup_smoke_receipts = None
@@ -5290,6 +5497,8 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     required_platforms = materialization_required_platforms(
         artifacts,
         configured_required_platforms,
+        platform_scope=platform_scope,
+        channel=raw_channel,
     )
     loaded_rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip()
     loaded_rollout_reason = str(loaded.get("rolloutReason") or loaded.get("rollout_reason") or "").strip()
@@ -5543,6 +5752,8 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     }
     if loaded_public_version:
         payload["publicVersion"] = loaded_public_version
+    if platform_scope is not None:
+        payload["platformScope"] = platform_scope
     payload["publicTrustMetrics"] = expected_public_trust_metrics(payload)
     if flagship_readiness.get("present") and isinstance(payload["publicTrustMetrics"], dict):
         proof_freshness = payload["publicTrustMetrics"].get("proofFreshness")
@@ -5621,6 +5832,15 @@ def compatibility_artifact_row(
         "payloadDownloadUrl": artifact.get("payloadDownloadUrl"),
         "payloadSha256": artifact.get("payloadSha256"),
         "payloadSizeBytes": artifact.get("payloadSizeBytes"),
+        **{
+            field_name: (
+                dict(artifact[field_name])
+                if isinstance(artifact[field_name], dict)
+                else artifact[field_name]
+            )
+            for field_name in STARTUP_EXECUTION_TRUTH_FIELDS
+            if field_name in artifact
+        },
         "installAccessClass": (
             str(artifact.get("installAccessClass") or "").strip()
             or default_install_access_class(platform, kind)

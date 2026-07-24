@@ -207,6 +207,7 @@ SUPPORTED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
 # Mutable current-release scope. macOS remains supported/buildable but is not
 # a required platform in the active Windows/Linux preview transaction.
 REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows")
+WINDOWS_ONLY_PLATFORM_SCOPE = "windows_only"
 REQUIRED_DESKTOP_HEADS = ("avalonia",)
 CURRENT_PREVIEW_DESKTOP_ARTIFACTS = {
     ("avalonia", "linux", "linux-x64", "installer"): (
@@ -2482,7 +2483,12 @@ def requires_chummer6_desktop_platform_floor(payload: dict[str, Any]) -> bool:
     )
 
 
-def verify_current_preview_desktop_artifact_scope(payload: dict[str, Any], source: str) -> None:
+def verify_current_preview_desktop_artifact_scope(
+    payload: dict[str, Any],
+    source: str,
+    *,
+    platform_scope: str = "",
+) -> None:
     artifacts = list(iter_manifest_download_entries(payload))
     entry_name = "artifacts" if isinstance(payload.get("artifacts"), list) else "downloads"
     product = normalized_token(payload.get("product"))
@@ -2498,6 +2504,14 @@ def verify_current_preview_desktop_artifact_scope(payload: dict[str, Any], sourc
     if not requires_chummer6_desktop_platform_floor(payload):
         return
 
+    allowed_artifacts = CURRENT_PREVIEW_DESKTOP_ARTIFACTS
+    if platform_scope == WINDOWS_ONLY_PLATFORM_SCOPE:
+        allowed_artifacts = {
+            scope_tuple: identity
+            for scope_tuple, identity in CURRENT_PREVIEW_DESKTOP_ARTIFACTS.items()
+            if scope_tuple[1] == "windows"
+        }
+
     seen_tuples: set[tuple[str, str, str, str]] = set()
     for index, artifact in enumerate(artifacts):
         verify_artifact_row_tuple_metadata(
@@ -2507,7 +2521,7 @@ def verify_current_preview_desktop_artifact_scope(payload: dict[str, Any], sourc
             entry_name=entry_name,
         )
         scope_tuple = parse_manifest_tuple_fields(artifact)
-        expected_identity = CURRENT_PREVIEW_DESKTOP_ARTIFACTS.get(scope_tuple)
+        expected_identity = allowed_artifacts.get(scope_tuple)
         artifact_id = normalized_token(artifact.get("artifactId") or artifact.get("id"))
         file_name = normalize_file_name(artifact)
         if expected_identity is None:
@@ -2525,6 +2539,10 @@ def verify_current_preview_desktop_artifact_scope(payload: dict[str, Any], sourc
                 f"{source} Chummer6 current release artifact tuple is duplicated: {scope_tuple}"
             )
         seen_tuples.add(scope_tuple)
+    if platform_scope == WINDOWS_ONLY_PLATFORM_SCOPE and seen_tuples != set(allowed_artifacts):
+        raise SystemExit(
+            f"{source} platformScope='windows_only' requires the exact current Windows preview artifact inventory"
+        )
 
 
 def startup_smoke_channel_matches_expected(expected_channel: str, actual_channel: str) -> bool:
@@ -3811,12 +3829,37 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
             f"{source} desktopTupleCoverage.requiredDesktopPlatforms contains unsupported platform ids "
             f"{unexpected_required_platforms}; allowed platforms are {list(SUPPORTED_DESKTOP_PLATFORMS)}"
         )
+    if "platform_scope" in payload:
+        raise SystemExit(
+            f"{source} must use canonical top-level platformScope, not platform_scope"
+        )
+    platform_scope = ""
+    if "platformScope" in payload:
+        platform_scope = payload.get("platformScope")
+        if platform_scope != WINDOWS_ONLY_PLATFORM_SCOPE:
+            raise SystemExit(
+                f"{source} platformScope must be exactly {WINDOWS_ONLY_PLATFORM_SCOPE!r}"
+            )
+        if expected_channel_id(payload) != "preview":
+            raise SystemExit(
+                f"{source} platformScope='windows_only' is allowed only for channel preview"
+            )
+        if tuple(normalized_required_platforms) != ("windows",):
+            raise SystemExit(
+                f"{source} platformScope='windows_only' requires "
+                "desktopTupleCoverage.requiredDesktopPlatforms exactly ['windows']"
+            )
     code_deploy_current_shelf = verify_code_deploy_current_shelf_authority(payload, source)
     if not code_deploy_current_shelf:
-        verify_current_preview_desktop_artifact_scope(payload, source)
+        verify_current_preview_desktop_artifact_scope(
+            payload,
+            source,
+            platform_scope=platform_scope,
+        )
     if (
         requires_chummer6_desktop_platform_floor(payload)
         and not code_deploy_current_shelf
+        and platform_scope != WINDOWS_ONLY_PLATFORM_SCOPE
         and tuple(normalized_required_platforms) != REQUIRED_DESKTOP_PLATFORMS
     ):
         raise SystemExit(
@@ -7102,6 +7145,38 @@ def verify_local_startup_smoke_receipts(
         if not isinstance(receipt, dict):
             raise SystemExit(f"{source} startup-smoke receipt is not an object: {receipt_path}")
 
+        materializer = release_channel_materializer_module()
+        wine_compatibility_declared = (
+            materializer.startup_smoke_declares_windows_wine_compatibility(receipt)
+        )
+        exact_wine_compatibility = (
+            materializer.startup_smoke_is_exact_windows_wine_compatibility(
+                receipt,
+                expected_channel=channel_id,
+                expected_platform_scope=payload.get("platformScope"),
+            )
+            and isinstance(payload.get("desktopTupleCoverage"), dict)
+            and payload["desktopTupleCoverage"].get("requiredDesktopPlatforms") == ["windows"]
+        )
+        exact_native_windows = (
+            materializer.startup_smoke_has_exact_native_windows_evidence(receipt)
+        )
+        if wine_compatibility_declared and not exact_wine_compatibility:
+            raise SystemExit(
+                f"{source} startup-smoke receipt for promoted desktop installer tuple "
+                f"{head}:{platform}:{rid} is not an exact windows-only preview Wine compatibility boundary"
+            )
+        if (
+            payload.get("platformScope") == WINDOWS_ONLY_PLATFORM_SCOPE
+            and platform == "windows"
+            and not exact_wine_compatibility
+            and not exact_native_windows
+        ):
+            raise SystemExit(
+                f"{source} startup-smoke receipt for promoted desktop installer tuple "
+                f"{head}:{platform}:{rid} lacks explicit native or Wine compatibility host evidence"
+            )
+
         receipt_status = normalized_token(receipt.get("status"))
         if receipt_status not in {"pass", "passed", "ready"}:
             if allow_skipped_startup_smoke and receipt_status == "skipped":
@@ -7157,13 +7232,14 @@ def verify_local_startup_smoke_receipts(
             raise SystemExit(
                 f"{source} startup-smoke receipt platform mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
-        verify_startup_smoke_receipt_host_class(
-            receipt,
-            platform=platform,
-            source=(
-                f"{source} startup-smoke receipt for promoted desktop installer tuple {head}:{platform}:{rid}"
-            ),
-        )
+        if not exact_wine_compatibility:
+            verify_startup_smoke_receipt_host_class(
+                receipt,
+                platform=platform,
+                source=(
+                    f"{source} startup-smoke receipt for promoted desktop installer tuple {head}:{platform}:{rid}"
+                ),
+            )
         verify_startup_smoke_receipt_operating_system(
             receipt,
             platform=platform,
