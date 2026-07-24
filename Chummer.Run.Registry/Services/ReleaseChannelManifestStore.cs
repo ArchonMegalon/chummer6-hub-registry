@@ -4,7 +4,8 @@ using Chummer.Hub.Registry.Contracts;
 namespace Chummer.Run.Registry.Services;
 
 internal sealed record ReleaseAuthorityManifestDecisionScope(
-    IReadOnlyDictionary<string, IReadOnlyList<string>> FallbackHeadsByPlatform);
+    IReadOnlyDictionary<string, IReadOnlyList<string>> FallbackHeadsByPlatform,
+    string? ReviewByteHandoffArtifactId);
 
 public interface IReleaseChannelManifestStore
 {
@@ -46,7 +47,16 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
             return null;
         }
 
-        ValidateAuthorityConvergence(authority.Snapshot, parsed);
+        using JsonDocument decisionDocument = JsonDocument.Parse(authority.ReleaseDecisionBytes);
+        bool allowScopeApprovedReviewByteHandoff =
+            decisionDocument.RootElement.TryGetProperty("contractName", out JsonElement contractName)
+            && contractName.ValueKind == JsonValueKind.String
+            && contractName.GetString()
+               == ReleaseAuthoritySnapshotStore.PreviewHandoffDecisionContract;
+        ValidateAuthorityConvergence(
+            authority.Snapshot,
+            parsed,
+            allowScopeApprovedReviewByteHandoff);
         HashSet<string> eligibleArtifactIds = authority.Snapshot.Artifacts
             .Select(static artifact => artifact.ArtifactId)
             .ToHashSet(StringComparer.Ordinal);
@@ -382,11 +392,15 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
 
     internal static ReleaseAuthorityManifestDecisionScope ValidatePublishableAuthority(
         ReleaseAuthoritySnapshot snapshot,
-        byte[] manifestBytes)
+        byte[] manifestBytes,
+        bool allowScopeApprovedReviewByteHandoff = false)
     {
         ArgumentNullException.ThrowIfNull(snapshot);
         ArgumentNullException.ThrowIfNull(manifestBytes);
-        return ValidateAuthorityConvergence(snapshot, ParseManifest(manifestBytes));
+        return ValidateAuthorityConvergence(
+            snapshot,
+            ParseManifest(manifestBytes),
+            allowScopeApprovedReviewByteHandoff);
     }
 
     private static RegistryReleaseChannelManifest ParseManifest(byte[] manifestBytes)
@@ -438,7 +452,8 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
 
     private static ReleaseAuthorityManifestDecisionScope ValidateAuthorityConvergence(
         ReleaseAuthoritySnapshot snapshot,
-        RegistryReleaseChannelManifest manifest)
+        RegistryReleaseChannelManifest manifest,
+        bool allowScopeApprovedReviewByteHandoff)
     {
         EnsureAuthorityValue(snapshot.ReleaseVersion, manifest.Version, "releaseVersion", "version");
         EnsureAuthorityValue(snapshot.Channel, manifest.ChannelId, "channel", "channelId");
@@ -454,11 +469,19 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
             manifest.KnownIssueSummary,
             "knownIssueSummary",
             "knownIssueSummary");
-        EnsureAuthorityValue(
-            snapshot.SupportOwner,
-            manifest.SupportOwner,
-            "supportOwner",
-            "supportOwner");
+        if (!string.IsNullOrWhiteSpace(manifest.SupportOwner))
+        {
+            EnsureAuthorityValue(
+                snapshot.SupportOwner,
+                manifest.SupportOwner,
+                "supportOwner",
+                "supportOwner");
+        }
+        else if (!allowScopeApprovedReviewByteHandoff)
+        {
+            throw new InvalidDataException(
+                "RELEASE_CHANNEL.json supportOwner is required outside the exact scope-approved review byte handoff.");
+        }
 
         if (string.IsNullOrWhiteSpace(manifest.GenerationId)
             || manifest.GenerationId.Length > 128
@@ -470,6 +493,19 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
         }
 
         IReadOnlyList<RegistryReleaseArtifact> manifestArtifacts = manifest.Artifacts ?? [];
+        bool reviewByteHandoffPosture = allowScopeApprovedReviewByteHandoff
+            && snapshot.ReleaseDecisionStatus == "review_required"
+            && snapshot.Channel == "preview"
+            && snapshot.Status == "published"
+            && snapshot.RolloutState == "public_release_review_required"
+            && snapshot.SupportabilityState == "review_required"
+            && snapshot.ArtifactCount == 1
+            && snapshot.AvailablePlatforms.SequenceEqual(["windows"], StringComparer.Ordinal)
+            && snapshot.PrimaryHeadByPlatform.Count == 1
+            && snapshot.PrimaryHeadByPlatform.TryGetValue("windows", out string? primaryHead)
+            && primaryHead == "avalonia"
+            && snapshot.DownloadAccessPosture == "open_public"
+            && manifestArtifacts.Count == 1;
         var manifestByArtifactId = new Dictionary<string, RegistryReleaseArtifact>(StringComparer.Ordinal);
         foreach (RegistryReleaseArtifact artifact in manifestArtifacts)
         {
@@ -517,6 +553,14 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
         var eligibleRows = new List<EligibleAuthorityArtifact>();
         foreach (RegistryReleaseArtifact artifact in manifestArtifacts)
         {
+            bool exactReviewByteHandoffArtifact = reviewByteHandoffPosture
+                && artifact.ArtifactId == "avalonia-win-x64-installer"
+                && artifact.Head == "avalonia"
+                && artifact.Platform == "windows"
+                && artifact.Rid == "win-x64"
+                && artifact.Arch == "x64"
+                && artifact.Kind == "installer"
+                && artifact.InstallAccessClass == "open_public";
             IReadOnlyList<RegistryDesktopRouteTruth> promotedRoutes = routeRows
                 .Where(row => string.Equals(row.ArtifactId, artifact.ArtifactId, StringComparison.Ordinal)
                     && string.Equals(row.PromotionState, "promoted", StringComparison.Ordinal))
@@ -524,7 +568,9 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
             IReadOnlyList<RegistryArtifactPublicationBindingRow> approvedBindings = bindingRows
                 .Where(row => string.Equals(row.ArtifactId, artifact.ArtifactId, StringComparison.Ordinal)
                     && string.Equals(row.PublicationScope, "signed-in-and-public", StringComparison.Ordinal)
-                    && string.Equals(row.PublicationState, "published", StringComparison.Ordinal))
+                    && (string.Equals(row.PublicationState, "published", StringComparison.Ordinal)
+                        || exactReviewByteHandoffArtifact
+                           && string.Equals(row.PublicationState, "preview", StringComparison.Ordinal)))
                 .ToArray();
 
             if (promotedRoutes.Count == 0 || approvedBindings.Count == 0)
@@ -550,7 +596,8 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
                 activelyRevokedTupleIds);
             eligibleRows.Add(new EligibleAuthorityArtifact(
                 ToAuthorityArtifact(artifact, route, binding),
-                route));
+                route,
+                binding.PublicationState!));
         }
 
         EligibleAuthorityArtifact[] eligible = eligibleRows
@@ -648,7 +695,13 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
             expectedFallbackHeads.Add(platformRows.Key, heads);
         }
 
-        return new ReleaseAuthorityManifestDecisionScope(expectedFallbackHeads);
+        string? reviewByteHandoffArtifactId = eligible.Length == 1
+            && eligible[0].PublicationState == "preview"
+            ? eligible[0].Artifact.ArtifactId
+            : null;
+        return new ReleaseAuthorityManifestDecisionScope(
+            expectedFallbackHeads,
+            reviewByteHandoffArtifactId);
     }
 
     private static void ValidateEligibleManifestArtifact(
@@ -814,7 +867,8 @@ public sealed class FileReleaseChannelManifestStore : IReleaseChannelManifestSto
 
     private sealed record EligibleAuthorityArtifact(
         ReleaseAuthorityArtifactSnapshot Artifact,
-        RegistryDesktopRouteTruth Route);
+        RegistryDesktopRouteTruth Route,
+        string PublicationState);
 
     private sealed record RegistryReleaseChannelManifest(
         string? GenerationId,

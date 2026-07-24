@@ -438,6 +438,53 @@
         "summary": { "type": "string", "minLength": 1, "maxLength": 512 }
       }
     },
+    "publicPreviewByteHandoff": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractName",
+        "status",
+        "sourcePublicationState",
+        "releaseScopeDecisionSha256",
+        "releaseVersion",
+        "channel",
+        "artifactId",
+        "head",
+        "platform",
+        "rid",
+        "arch",
+        "sha256",
+        "sizeBytes",
+        "artifactAccessClass",
+        "signingRequirement",
+        "downloadUrl",
+        "publicInstallRoute"
+      ],
+      "properties": {
+        "contractName": { "const": "chummer.public-preview-byte-handoff/v1" },
+        "status": { "const": "approved_public_preview_bytes" },
+        "sourcePublicationState": { "const": "preview" },
+        "releaseScopeDecisionSha256": { "$ref": "#/$defs/sha256" },
+        "releaseVersion": { "$ref": "#/$defs/releaseVersion" },
+        "channel": { "const": "preview" },
+        "artifactId": { "const": "avalonia-win-x64-installer" },
+        "head": { "const": "avalonia" },
+        "platform": { "const": "windows" },
+        "rid": { "const": "win-x64" },
+        "arch": { "const": "x64" },
+        "sha256": { "$ref": "#/$defs/sha256" },
+        "sizeBytes": { "type": "integer", "minimum": 1 },
+        "artifactAccessClass": { "const": "open_public" },
+        "signingRequirement": { "const": "preview_unsigned_allowed" },
+        "downloadUrl": {
+          "type": "string",
+          "pattern": "^/downloads/g/(?!\\.{1,2}(?:/|$))(?!(?:[^/]*%(?:2[eEfF]|5[cC])))[^/?#\\\\\\s]+/files/(?!\\.{1,2}$)(?!(?:[^/]*%(?:2[eEfF]|5[cC])))[^/?#\\\\\\s]+$"
+        },
+        "publicInstallRoute": {
+          "const": "/downloads/install/avalonia-win-x64-installer"
+        }
+      }
+    },
     "previewDecision": {
       "type": "object",
       "additionalProperties": false,
@@ -467,7 +514,12 @@
         "blockingFindings"
       ],
       "properties": {
-        "contractName": { "const": "chummer.preview-release-decision/v1" },
+        "contractName": {
+          "enum": [
+            "chummer.preview-release-decision/v1",
+            "chummer.preview-release-decision/v2"
+          ]
+        },
         "generatedAt": { "type": "string", "minLength": 1, "maxLength": 128 },
         "status": { "enum": ["review_required", "preview_ready"] },
         "releaseDecisionStatus": { "enum": ["review_required", "preview_ready"] },
@@ -542,9 +594,40 @@
           "type": "array",
           "maxItems": 256,
           "items": { "$ref": "#/$defs/previewFinding" }
-        }
+        },
+        "artifactHandoff": { "$ref": "#/$defs/publicPreviewByteHandoff" }
       },
       "allOf": [
+        {
+          "if": {
+            "properties": {
+              "contractName": { "const": "chummer.preview-release-decision/v2" }
+            },
+            "required": ["contractName"]
+          },
+          "then": {
+            "required": ["artifactHandoff"],
+            "properties": {
+              "status": { "const": "review_required" },
+              "releaseDecisionStatus": { "const": "review_required" },
+              "verdict": { "const": "PREVIEW_RELEASE_REVIEW_REQUIRED" },
+              "channel": { "const": "preview" },
+              "platforms": {
+                "const": ["windows"]
+              },
+              "primaryHeadByPlatform": {
+                "const": { "windows": "avalonia" }
+              },
+              "fallbackHeadsByPlatform": {
+                "const": { "windows": [] }
+              },
+              "artifactAccessClass": { "const": "open_public" }
+            }
+          },
+          "else": {
+            "not": { "required": ["artifactHandoff"] }
+          }
+        },
         {
           "if": {
             "properties": {
@@ -598,7 +681,7 @@
         }
       ],
       "x-chummer-candidate-seed-invariant": "review_required may seed from exact manifest bytes with the candidate triple and proof digests empty. preview_ready requires exact predecessor CURRENT/SNAPSHOT/RELEASE_DECISION bytes plus passing scorecard and generation-bound convergence proof bytes.",
-      "x-chummer-scope-binding-invariant": "channel, registryCommit, platforms, primaryHeadByPlatform, canonical manifest-derived fallbackHeadsByPlatform, supportOwner, nextActions, artifactAccessClass, manifest timestamp, and proof digests must exactly bind SNAPSHOT.json and immutable proof bytes."
+      "x-chummer-scope-binding-invariant": "channel, registryCommit, platforms, primaryHeadByPlatform, canonical manifest-derived fallbackHeadsByPlatform, supportOwner, nextActions, artifactAccessClass, manifest timestamp, and proof digests must exactly bind SNAPSHOT.json and immutable proof bytes. Decision v2 additionally binds one exact approved Windows/Avalonia/win-x64/open_public/preview_unsigned_allowed artifact handoff while retaining review_required release posture."
     },
     "stableDecision": {
       "type": "object",

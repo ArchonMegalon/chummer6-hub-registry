@@ -99,6 +99,38 @@ def preview_decision(*, ready: bool = False) -> dict[str, object]:
     }
 
 
+def preview_handoff_decision() -> dict[str, object]:
+    payload = preview_decision()
+    payload.update(
+        {
+            "contractName": "chummer.preview-release-decision/v2",
+            "platforms": ["windows"],
+            "primaryHeadByPlatform": {"windows": "avalonia"},
+            "fallbackHeadsByPlatform": {"windows": []},
+            "artifactHandoff": {
+                "contractName": "chummer.public-preview-byte-handoff/v1",
+                "status": "approved_public_preview_bytes",
+                "sourcePublicationState": "preview",
+                "releaseScopeDecisionSha256": SHA256,
+                "releaseVersion": payload["releaseVersion"],
+                "channel": "preview",
+                "artifactId": "avalonia-win-x64-installer",
+                "head": "avalonia",
+                "platform": "windows",
+                "rid": "win-x64",
+                "arch": "x64",
+                "sha256": SHA256,
+                "sizeBytes": 4096,
+                "artifactAccessClass": "open_public",
+                "signingRequirement": "preview_unsigned_allowed",
+                "downloadUrl": "/downloads/g/generation-a/files/chummer-installer.exe",
+                "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
+            },
+        }
+    )
+    return payload
+
+
 def stable_decision(*, ready: bool = True) -> dict[str, object]:
     decision_status = "stable_ready" if ready else "review_required"
     return {
@@ -200,10 +232,14 @@ def test_release_authority_schema_is_valid_and_pins_exact_shapes() -> None:
     assert definitions["snapshot"]["additionalProperties"] is False
     assert definitions["artifact"]["additionalProperties"] is False
     assert len(definitions["previewDecision"]["required"]) == 23
-    assert set(definitions["previewDecision"]["required"]) == set(
-        definitions["previewDecision"]["properties"]
+    assert set(definitions["previewDecision"]["required"]) == (
+        set(definitions["previewDecision"]["properties"]) - {"artifactHandoff"}
     )
     assert definitions["previewDecision"]["additionalProperties"] is False
+    assert set(definitions["publicPreviewByteHandoff"]["required"]) == set(
+        definitions["publicPreviewByteHandoff"]["properties"]
+    )
+    assert definitions["publicPreviewByteHandoff"]["additionalProperties"] is False
     assert set(definitions["approvedScopeDecision"]["required"]) == set(
         definitions["approvedScopeDecision"]["properties"]
     )
@@ -225,6 +261,7 @@ def test_release_authority_schema_is_valid_and_pins_exact_shapes() -> None:
         snapshot(decision_status="preview_ready"),
         preview_decision(),
         preview_decision(ready=True),
+        preview_handoff_decision(),
         stable_decision(ready=True),
         approved_scope(),
         publish_request(),
@@ -385,3 +422,40 @@ def test_release_decision_schema_pins_seed_and_ready_status_mappings() -> None:
     del missing_live_binding["live_release"]["registry_commit"]
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(missing_live_binding, schema)
+
+
+def test_release_decision_schema_pins_explicit_review_byte_handoff() -> None:
+    schema = load_schema()
+    jsonschema.validate(preview_handoff_decision(), schema)
+
+    v1_with_handoff = preview_decision()
+    v1_with_handoff["artifactHandoff"] = preview_handoff_decision()["artifactHandoff"]
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(v1_with_handoff, schema)
+
+    ready_handoff = preview_handoff_decision()
+    ready_handoff.update(
+        {
+            "status": "preview_ready",
+            "releaseDecisionStatus": "preview_ready",
+            "verdict": "PREVIEW_READY",
+            "blockingFindings": [],
+        }
+    )
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(ready_handoff, schema)
+
+    missing_handoff = preview_handoff_decision()
+    del missing_handoff["artifactHandoff"]
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(missing_handoff, schema)
+
+    wrong_signing_scope = preview_handoff_decision()
+    wrong_signing_scope["artifactHandoff"]["signingRequirement"] = "signed"
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(wrong_signing_scope, schema)
+
+    unknown_handoff_field = preview_handoff_decision()
+    unknown_handoff_field["artifactHandoff"]["availabilityReady"] = True
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(unknown_handoff_field, schema)

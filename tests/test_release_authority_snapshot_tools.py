@@ -8,6 +8,7 @@ from pathlib import Path
 import subprocess
 import sys
 
+import jsonschema
 import pytest
 
 from scripts.release_authority_snapshot import (
@@ -20,6 +21,8 @@ from scripts.release_authority_snapshot import (
     SCORECARD_OWNERS_BY_SURFACE,
     SCORECARD_SURFACES,
     _validate_scorecard,
+    derive_manifest_projection,
+    validate_approved_scope,
 )
 from scripts import materialize_public_release_channel as release_channel
 
@@ -30,6 +33,7 @@ MATERIALIZE = SCRIPTS / "materialize_release_authority_snapshot.py"
 VERIFY = SCRIPTS / "verify_release_authority_snapshot.py"
 PUBLISH_REQUEST = SCRIPTS / "materialize_release_authority_publish_request.py"
 VERIFY_PUBLISH_RESPONSE = SCRIPTS / "verify_release_authority_publish_response.py"
+AUTHORITY_SCHEMA = ROOT / "contracts" / "release-authority-v2.schema.json"
 COMMIT = "b" * 40
 ARTIFACT_SHA = "a" * 64
 SCOPE_FILE_NAME = "RELEASE_SCOPE_DECISION.approved.json"
@@ -66,7 +70,17 @@ def approved_scope_for_manifest(payload: dict[str, object]) -> dict[str, object]
                 "platform": platform,
                 "primaryHead": route["head"],
                 "rid": route["rid"],
-                "signingRequirement": "signed",
+                "signingRequirement": (
+                    "preview_unsigned_allowed"
+                    if platform == "windows"
+                    and next(
+                        row
+                        for row in payload["artifactPublicationBindings"]
+                        if row["artifactId"] == route["artifactId"]
+                    )["publicationState"]
+                    == "preview"
+                    else "signed"
+                ),
             }
         else:
             fallback.setdefault(platform, []).append(route["head"])
@@ -162,14 +176,62 @@ def manifest(*, ready_posture: bool = False) -> dict[str, object]:
     }
 
 
+def windows_review_byte_handoff_manifest() -> dict[str, object]:
+    payload = manifest()
+    artifact_id = "avalonia-win-x64-installer"
+    payload["rolloutState"] = "public_release_review_required"
+    payload["supportabilityState"] = "review_required"
+    payload["artifacts"][0].update(
+        {
+            "id": artifact_id,
+            "artifactId": artifact_id,
+            "platform": "windows",
+            "rid": "win-x64",
+            "arch": "x64",
+            "downloadUrl": (
+                "/downloads/g/run-20260720-220000/files/"
+                "chummer-avalonia-win-x64-installer.exe"
+            ),
+        }
+    )
+    payload["desktopTupleCoverage"]["desktopRouteTruth"][0].update(
+        {
+            "artifactId": artifact_id,
+            "platform": "windows",
+            "rid": "win-x64",
+            "arch": "x64",
+            "publicInstallRoute": "/downloads/install/" + artifact_id,
+        }
+    )
+    payload["artifactPublicationBindings"][0].update(
+        {
+            "artifactId": artifact_id,
+            "platform": "windows",
+            "rid": "win-x64",
+            "arch": "x64",
+            "publicationState": "preview",
+            "publicShelfRef": (
+                "shelf:public:preview:run-20260720-220000:" + artifact_id
+            ),
+            "publicInstallRoute": "/downloads/install/" + artifact_id,
+        }
+    )
+    return payload
+
+
 def run_materialize(
     tmp_path: Path,
     manifest_path: Path,
     output_name: str,
     *extra: str,
     generated_at: str = "2026-07-20T22:05:00Z",
+    scope_payload: dict[str, object] | None = None,
 ) -> subprocess.CompletedProcess[str]:
-    scope_path = write_scope_for_manifest(manifest_path)
+    if scope_payload is None:
+        scope_path = write_scope_for_manifest(manifest_path)
+    else:
+        scope_path = manifest_path.parent / SCOPE_FILE_NAME
+        write_json(scope_path, scope_payload)
     command = [
         sys.executable,
         str(MATERIALIZE),
@@ -256,6 +318,8 @@ def test_review_seed_materializes_exact_deterministic_envelope_and_verifies(
     assert snapshot["artifacts"][0]["downloadUrl"].startswith(
         "/downloads/g/run-20260720-220000/files/"
     )
+    assert decision["contractName"] == "chummer.preview-release-decision/v1"
+    assert "artifactHandoff" not in decision
     assert decision["verdict"] == "PREVIEW_RELEASE_REVIEW_REQUIRED"
     assert decision["authoritySnapshotSha256"] == ""
     assert decision["scorecardSha256"] == ""
@@ -275,6 +339,196 @@ def test_review_seed_materializes_exact_deterministic_envelope_and_verifies(
     )
     assert verified.returncode == 0, verified.stderr
     assert json.loads(verified.stdout)["status"] == "review_required"
+
+
+def test_scope_approved_windows_unsigned_preview_materializes_explicit_v2_byte_handoff(
+    tmp_path: Path,
+) -> None:
+    manifest_path = tmp_path / "RELEASE_CHANNEL.generated.json"
+    payload = windows_review_byte_handoff_manifest()
+    write_json(manifest_path, payload)
+    scope = approved_scope_for_manifest(payload)
+
+    completed = run_materialize(
+        tmp_path,
+        manifest_path,
+        "review-byte-handoff",
+        scope_payload=scope,
+    )
+    assert completed.returncode == 0, completed.stderr
+
+    envelope = tmp_path / "review-byte-handoff"
+    snapshot = json.loads(
+        (envelope / "SNAPSHOT.json").read_text(encoding="utf-8")
+    )
+    decision = json.loads(
+        (envelope / "RELEASE_DECISION.json").read_text(encoding="utf-8")
+    )
+    scope_sha256 = digest(tmp_path / SCOPE_FILE_NAME)
+    artifact = snapshot["artifacts"][0]
+
+    assert snapshot["releaseDecisionStatus"] == "review_required"
+    assert snapshot["rolloutState"] == "public_release_review_required"
+    assert snapshot["supportabilityState"] == "review_required"
+    assert snapshot["downloadAccessPosture"] == "open_public"
+    assert snapshot["artifactCount"] == 1
+    assert decision["contractName"] == "chummer.preview-release-decision/v2"
+    assert decision["status"] == "review_required"
+    assert decision["releaseDecisionStatus"] == "review_required"
+    assert decision["verdict"] == "PREVIEW_RELEASE_REVIEW_REQUIRED"
+    assert decision["releaseScopeDecisionSha256"] == scope_sha256
+    assert decision["artifactHandoff"] == {
+        "arch": artifact["arch"],
+        "artifactAccessClass": "open_public",
+        "artifactId": artifact["artifactId"],
+        "channel": "preview",
+        "contractName": "chummer.public-preview-byte-handoff/v1",
+        "downloadUrl": artifact["downloadUrl"],
+        "head": artifact["head"],
+        "platform": "windows",
+        "publicInstallRoute": artifact["publicInstallRoute"],
+        "releaseScopeDecisionSha256": scope_sha256,
+        "releaseVersion": payload["releaseVersion"],
+        "rid": "win-x64",
+        "sha256": artifact["sha256"],
+        "signingRequirement": "preview_unsigned_allowed",
+        "sizeBytes": artifact["sizeBytes"],
+        "sourcePublicationState": "preview",
+        "status": "approved_public_preview_bytes",
+    }
+    jsonschema.validate(
+        decision,
+        json.loads(AUTHORITY_SCHEMA.read_text(encoding="utf-8")),
+    )
+
+    verified = subprocess.run(
+        verifier_command(manifest_path, envelope),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert verified.returncode == 0, verified.stderr
+    assert json.loads(verified.stdout)["status"] == "review_required"
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "signed_scope",
+        "protected_scope",
+        "revoked",
+        "off_scope",
+        "mixed_scope",
+        "optimistic_posture",
+    ],
+)
+def test_review_byte_handoff_rejects_any_nonexact_scope_or_release_posture(
+    tmp_path: Path,
+    case: str,
+) -> None:
+    payload = windows_review_byte_handoff_manifest()
+    if case == "revoked":
+        payload["desktopTupleCoverage"]["desktopRouteTruth"][0][
+            "revokeState"
+        ] = "revoked"
+    elif case == "mixed_scope":
+        linux_artifact = copy.deepcopy(payload["artifacts"][0])
+        linux_artifact.update(
+            {
+                "id": "avalonia-linux-x64-installer",
+                "artifactId": "avalonia-linux-x64-installer",
+                "platform": "linux",
+                "rid": "linux-x64",
+                "downloadUrl": (
+                    "/downloads/g/run-20260720-220000/files/"
+                    "chummer-avalonia-linux-x64-installer.deb"
+                ),
+            }
+        )
+        payload["artifacts"].append(linux_artifact)
+        linux_route = copy.deepcopy(
+            payload["desktopTupleCoverage"]["desktopRouteTruth"][0]
+        )
+        linux_route.update(
+            {
+                "artifactId": "avalonia-linux-x64-installer",
+                "platform": "linux",
+                "rid": "linux-x64",
+                "publicInstallRoute": (
+                    "/downloads/install/avalonia-linux-x64-installer"
+                ),
+            }
+        )
+        payload["desktopTupleCoverage"]["desktopRouteTruth"].append(linux_route)
+        linux_binding = copy.deepcopy(payload["artifactPublicationBindings"][0])
+        linux_binding.update(
+            {
+                "artifactId": "avalonia-linux-x64-installer",
+                "platform": "linux",
+                "rid": "linux-x64",
+                "publicationState": "published",
+                "publicShelfRef": (
+                    "shelf:public:preview:run-20260720-220000:"
+                    "avalonia-linux-x64-installer"
+                ),
+                "publicInstallRoute": (
+                    "/downloads/install/avalonia-linux-x64-installer"
+                ),
+            }
+        )
+        payload["artifactPublicationBindings"].append(linux_binding)
+    elif case == "optimistic_posture":
+        payload["rolloutState"] = "promoted_preview"
+        payload["supportabilityState"] = "preview_supported"
+
+    scope = approved_scope_for_manifest(payload)
+    if case == "signed_scope":
+        scope["platforms"][0]["signingRequirement"] = "signed"
+    elif case == "protected_scope":
+        scope["platforms"][0]["artifactAccessClass"] = "account_required"
+    elif case == "off_scope":
+        scope["platforms"][0].update(
+            {
+                "platform": "macos",
+                "rid": "osx-arm64",
+                "signingRequirement": "signed",
+            }
+        )
+
+    manifest_path = tmp_path / "RELEASE_CHANNEL.generated.json"
+    write_json(manifest_path, payload)
+    completed = run_materialize(
+        tmp_path,
+        manifest_path,
+        "rejected",
+        scope_payload=scope,
+    )
+
+    assert completed.returncode == 1
+    assert not (tmp_path / "rejected").exists()
+
+
+def test_preview_ready_never_reinterprets_preview_publication_as_ready(
+    tmp_path: Path,
+) -> None:
+    payload = windows_review_byte_handoff_manifest()
+    manifest_path = tmp_path / "RELEASE_CHANNEL.generated.json"
+    scope_path = tmp_path / SCOPE_FILE_NAME
+    write_json(manifest_path, payload)
+    write_json(scope_path, approved_scope_for_manifest(payload))
+    approved_scope = validate_approved_scope(
+        scope_path.read_bytes(),
+        json.loads(scope_path.read_text(encoding="utf-8")),
+        digest(scope_path),
+    )
+
+    with pytest.raises(AuthorityError, match="publication binding is not published"):
+        derive_manifest_projection(
+            payload,
+            digest(manifest_path),
+            approved_scope=approved_scope,
+            decision_status="preview_ready",
+        )
 
 
 def test_long_flagship_readiness_summary_round_trips_through_release_authority(
