@@ -21,6 +21,7 @@ from scripts.release_authority_snapshot import (
     SCORECARD_SURFACES,
     _validate_scorecard,
 )
+from scripts import materialize_public_release_channel as release_channel
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -274,6 +275,63 @@ def test_review_seed_materializes_exact_deterministic_envelope_and_verifies(
     )
     assert verified.returncode == 0, verified.stderr
     assert json.loads(verified.stdout)["status"] == "review_required"
+
+
+def test_long_flagship_readiness_summary_round_trips_through_release_authority(
+    tmp_path: Path,
+) -> None:
+    readiness = {
+        "desktopClientReady": False,
+        "reason": "Launch-critical detailed evidence remains review-required. " * 64,
+        "launchBlockers": [
+            f"launch blocker {index}: detailed nested evidence remains available"
+            for index in range(1, 129)
+        ],
+        "coverageGapKeys": [f"coverage.gap.{index}" for index in range(1, 129)],
+    }
+    known_issue_summary = release_channel.derive_known_issue_summary(
+        "preview",
+        "published",
+        {},
+        desktop_coverage_complete=True,
+        coverage={},
+        flagship_readiness=readiness,
+    )
+    supportability_summary = release_channel.derive_supportability_summary(
+        "preview",
+        "published",
+        {},
+        desktop_coverage_complete=True,
+        coverage={},
+        flagship_readiness=readiness,
+    )
+    assert len(known_issue_summary) <= release_channel.PUBLIC_RELEASE_SUMMARY_MAX_LENGTH
+    assert len(supportability_summary) <= release_channel.PUBLIC_RELEASE_SUMMARY_MAX_LENGTH
+    assert "128 launch blockers and 128 coverage gaps remain" in known_issue_summary
+    assert "review-required" in supportability_summary
+
+    payload = manifest()
+    payload["knownIssueSummary"] = known_issue_summary
+    payload["supportabilitySummary"] = supportability_summary
+    payload["releaseProof"] = {"flagshipReadiness": readiness}
+    manifest_path = tmp_path / "RELEASE_CHANNEL.generated.json"
+    write_json(manifest_path, payload)
+
+    completed = run_materialize(tmp_path, manifest_path, "long-readiness")
+    assert completed.returncode == 0, completed.stderr
+    envelope = tmp_path / "long-readiness"
+    verified = subprocess.run(
+        verifier_command(manifest_path, envelope),
+        text=True,
+        capture_output=True,
+        check=False,
+    )
+    assert verified.returncode == 0, verified.stderr
+    snapshot = json.loads((envelope / "SNAPSHOT.json").read_text(encoding="utf-8"))
+    assert snapshot["knownIssueSummary"] == known_issue_summary
+    assert payload["releaseProof"]["flagshipReadiness"]["launchBlockers"] == readiness[
+        "launchBlockers"
+    ]
 
 
 def test_review_seed_materializes_exact_registry_publish_request(tmp_path: Path) -> None:

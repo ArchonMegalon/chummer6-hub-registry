@@ -332,6 +332,11 @@ FLAGSHIP_READINESS_REASON_MAX_LENGTH = 4096
 FLAGSHIP_READINESS_BLOCKER_MAX_LENGTH = 1024
 FLAGSHIP_READINESS_MAX_BLOCKERS = 128
 FLAGSHIP_READINESS_MAX_COVERAGE_GAPS = 128
+# release-authority-v2 projects knownIssueSummary through a canonical string
+# whose schema maximum is 512 characters. Keep both public summary fields on
+# that same bounded contract; detailed readiness truth stays nested below
+# releaseProof.flagshipReadiness.
+PUBLIC_RELEASE_SUMMARY_MAX_LENGTH = 512
 DEFAULT_FLAGSHIP_READINESS_GATE_CANDIDATES = (
     Path(__file__).resolve().parents[2]
     / "chummer.run-services"
@@ -1491,6 +1496,51 @@ def flagship_readiness_reason(flagship_readiness: dict[str, Any] | None) -> str:
     if coverage_gap_keys:
         return "Coverage gaps remain: " + ", ".join(coverage_gap_keys) + "."
     return "flagship readiness is not green yet"
+
+
+def flagship_readiness_public_summary_detail(
+    flagship_readiness: dict[str, Any] | None,
+) -> str:
+    launch_blocker_count = len(
+        normalized_string_list(
+            flagship_readiness.get("launchBlockers")
+            if isinstance(flagship_readiness, dict)
+            else None
+        )
+    )
+    coverage_gap_count = len(
+        normalized_string_list(
+            flagship_readiness.get("coverageGapKeys")
+            if isinstance(flagship_readiness, dict)
+            else None
+        )
+    )
+    remaining: list[str] = []
+    if launch_blocker_count:
+        remaining.append(
+            f"{launch_blocker_count} launch "
+            f"{'blocker' if launch_blocker_count == 1 else 'blockers'}"
+        )
+    if coverage_gap_count:
+        remaining.append(
+            f"{coverage_gap_count} coverage "
+            f"{'gap' if coverage_gap_count == 1 else 'gaps'}"
+        )
+    if not remaining:
+        return "the flagship readiness gate remains non-green"
+    if len(remaining) == 1:
+        return remaining[0] + " remain"
+    return remaining[0] + " and " + remaining[1] + " remain"
+
+
+def bounded_public_release_summary(value: str, *, field_name: str) -> str:
+    summary = " ".join(value.strip().split())
+    if not summary or len(summary) > PUBLIC_RELEASE_SUMMARY_MAX_LENGTH:
+        raise ValueError(
+            f"{field_name} must be a non-empty canonical public summary no longer than "
+            f"{PUBLIC_RELEASE_SUMMARY_MAX_LENGTH} characters"
+        )
+    return summary
 
 
 def loaded_flagship_readiness_copy_requires_refresh(
@@ -4900,11 +4950,12 @@ def derive_supportability_summary(
             + "."
         )
     if flagship_readiness_blocks_public_stable(flagship_readiness):
-        return (
+        return bounded_public_release_summary(
             "Treat the current release as review-required because stale or incomplete proof receipts "
-            "still block launch-readiness claims: "
-            + flagship_readiness_reason(flagship_readiness).strip().rstrip(".")
-            + "."
+            "still block launch-readiness claims; "
+            + flagship_readiness_public_summary_detail(flagship_readiness)
+            + ". Full readiness details remain in releaseProof.flagshipReadiness.",
+            field_name="supportabilitySummary",
         )
     if proof_freshness_blocks_output_readiness(proof_freshness_status_value):
         return (
@@ -4959,10 +5010,11 @@ def derive_known_issue_summary(
     if not desktop_coverage_complete:
         return "Known issue: " + desktop_tuple_coverage_gap_summary(coverage) + "."
     if flagship_readiness_blocks_public_stable(flagship_readiness):
-        return (
-            "Known issue: stale or incomplete proof receipts still block launch-readiness claims: "
-            + flagship_readiness_reason(flagship_readiness).strip().rstrip(".")
-            + "."
+        return bounded_public_release_summary(
+            "Known issue: stale or incomplete proof receipts still block launch-readiness claims; "
+            + flagship_readiness_public_summary_detail(flagship_readiness)
+            + ". Full readiness details remain in releaseProof.flagshipReadiness.",
+            field_name="knownIssueSummary",
         )
     if proof_freshness_blocks_output_readiness(proof_freshness_status_value):
         return "Known issue: stale or incomplete proof receipts still block launch-readiness claims."

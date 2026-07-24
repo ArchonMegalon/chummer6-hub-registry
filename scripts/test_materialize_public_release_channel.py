@@ -3637,6 +3637,17 @@ def test_canonical_payload_demotes_public_stable_posture_when_flagship_readiness
         "data_rules_names",
         "generated_artifacts",
     )
+    flagship_reason = (
+        "Launch-critical nested blockers remain; final gold janitor verdict is 'NOT_GOLD'; "
+        "Hosted Build recovery and erasure policy is review-required. "
+        + "The detailed readiness receipt keeps this launch-critical evidence available for operator review. "
+        * 24
+    )
+    flagship_blockers = [
+        "final gold janitor verdict is 'NOT_GOLD'",
+        "Hosted Build recovery and erasure policy is review-required.",
+    ]
+    assert len(flagship_reason) > MODULE.PUBLIC_RELEASE_SUMMARY_MAX_LENGTH
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         downloads_dir = root / "dist"
@@ -3702,13 +3713,10 @@ def test_canonical_payload_demotes_public_stable_posture_when_flagship_readiness
                     "status": "fail",
                     "generated_at_utc": "2026-07-08T03:13:53Z",
                     "summary": {
-                        "reason": "Launch-critical nested blockers remain; final gold janitor verdict is 'NOT_GOLD'; Hosted Build recovery and erasure policy is review-required.",
+                        "reason": flagship_reason,
                         "coverage_gap_keys": [],
                         "scoped_coverage_gap_keys": [],
-                        "launch_critical_nested_blockers": [
-                            "final gold janitor verdict is 'NOT_GOLD'",
-                            "Hosted Build recovery and erasure policy is review-required.",
-                        ],
+                        "launch_critical_nested_blockers": flagship_blockers,
                     },
                 }
             ),
@@ -3745,8 +3753,16 @@ def test_canonical_payload_demotes_public_stable_posture_when_flagship_readiness
     assert payload["rolloutState"] == "public_release_review_required"
     assert payload["supportabilityState"] == "review_required"
     assert "stale or incomplete proof receipts" in payload["supportabilitySummary"]
-    assert "NOT_GOLD" in payload["supportabilitySummary"]
-    assert "Hosted Build" in payload["supportabilitySummary"]
+    assert "2 launch blockers remain" in payload["supportabilitySummary"]
+    assert "releaseProof.flagshipReadiness" in payload["supportabilitySummary"]
+    assert len(payload["supportabilitySummary"]) <= MODULE.PUBLIC_RELEASE_SUMMARY_MAX_LENGTH
+    assert len(payload["knownIssueSummary"]) <= MODULE.PUBLIC_RELEASE_SUMMARY_MAX_LENGTH
+    assert payload["releaseProof"]["flagshipReadiness"]["reason"] == flagship_reason.strip()
+    assert payload["releaseProof"]["flagshipReadiness"]["launchBlockers"] == sorted(
+        flagship_blockers
+    )
+    assert "NOT_GOLD" in payload["releaseProof"]["flagshipReadiness"]["reason"]
+    assert "Hosted Build" in payload["releaseProof"]["flagshipReadiness"]["reason"]
     assert payload["publicTrustMetrics"]["proofFreshness"]["status"] == "stale"
     assert payload["publicTrustMetrics"]["proofFreshness"]["flagshipReadinessStatus"] == "fail"
     assert payload["publicTrustMetrics"]["proofFreshness"]["flagshipDesktopClientReady"] is False
