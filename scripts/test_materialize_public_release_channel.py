@@ -693,6 +693,81 @@ def test_load_flagship_readiness_snapshot_is_digest_bound_and_redacts_private_ma
     VERIFY_MODULE.validate_flagship_readiness_snapshot(snapshot, source="materialized fixture")
 
 
+def test_load_flagship_readiness_snapshot_accepts_authenticated_canonical_predecessor() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        raw_path = root / "FLAGSHIP_PRODUCT_READINESS_GATE.generated.json"
+        raw_path.write_text(
+            json.dumps(
+                {
+                    "contract_name": MODULE.FLAGSHIP_READINESS_CONTRACT_NAME,
+                    "status": "pass",
+                    "generated_at_utc": "2026-07-25T13:15:00Z",
+                    "reason": "All launch-critical flagship readiness checks pass.",
+                    "summary": {
+                        "scoped_coverage_gap_keys": [],
+                        "launch_critical_nested_blockers": [],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        canonical_snapshot = MODULE.load_flagship_readiness_snapshot(raw_path)
+        predecessor_path = root / "release-proof.flagship-readiness.json"
+        predecessor_path.write_text(
+            json.dumps(canonical_snapshot, sort_keys=True),
+            encoding="utf-8",
+        )
+
+        reloaded_snapshot = MODULE.load_flagship_readiness_snapshot(predecessor_path)
+
+    assert reloaded_snapshot == canonical_snapshot
+    assert reloaded_snapshot["desktopClientReady"] is True
+    assert reloaded_snapshot["sourceSha256"] == canonical_snapshot["sourceSha256"]
+    assert (
+        reloaded_snapshot["snapshotSha256"]
+        == MODULE.flagship_readiness_snapshot_sha256(reloaded_snapshot)
+    )
+    VERIFY_MODULE.validate_flagship_readiness_snapshot(
+        reloaded_snapshot,
+        source="canonical predecessor fixture",
+    )
+
+
+@pytest.mark.parametrize(
+    ("mutation",),
+    [
+        (lambda snapshot: snapshot.update(reason="Mutated after authentication."),),
+        (lambda snapshot: snapshot.update(sourceSha256="sha256:" + "A" * 64),),
+        (lambda snapshot: snapshot.pop("snapshotSha256"),),
+        (lambda snapshot: snapshot.update(unexpected="must fail closed"),),
+    ],
+)
+def test_load_flagship_readiness_snapshot_rejects_malformed_canonical_predecessor(
+    mutation,
+) -> None:
+    snapshot = {
+        "contractName": MODULE.FLAGSHIP_READINESS_CONTRACT_NAME,
+        "generatedAt": "2026-07-25T13:15:00Z",
+        "status": "pass",
+        "coverageGapKeys": [],
+        "launchBlockers": [],
+        "desktopClientReady": True,
+        "reason": "All launch-critical flagship readiness checks pass.",
+        "sourceSha256": "sha256:" + "1" * 64,
+    }
+    snapshot["snapshotSha256"] = MODULE.flagship_readiness_snapshot_sha256(snapshot)
+    mutation(snapshot)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "release-proof.flagship-readiness.json"
+        path.write_text(json.dumps(snapshot), encoding="utf-8")
+
+        loaded = MODULE.load_flagship_readiness_snapshot(path)
+
+    assert loaded == {}
+
+
 def materialize_flagship_readiness_fixture(
     root: Path,
     *,

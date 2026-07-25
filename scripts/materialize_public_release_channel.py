@@ -343,6 +343,20 @@ FLAGSHIP_READINESS_SNAPSHOT_BODY_KEYS = (
     "sourceSha256",
     "status",
 )
+ALLOWED_FLAGSHIP_READINESS_SNAPSHOT_KEYS = (
+    *FLAGSHIP_READINESS_SNAPSHOT_BODY_KEYS,
+    "snapshotSha256",
+)
+FLAGSHIP_READINESS_CANONICAL_MARKER_KEYS = frozenset(
+    {
+        "coverageGapKeys",
+        "desktopClientReady",
+        "launchBlockers",
+        "snapshotSha256",
+        "sourceSha256",
+    }
+)
+FLAGSHIP_READINESS_SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 FLAGSHIP_READINESS_EMAIL_RE = re.compile(
     r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9_%+-])"
 )
@@ -2028,6 +2042,93 @@ def flagship_readiness_snapshot_sha256(snapshot: dict[str, Any]) -> str:
     return "sha256:" + hashlib.sha256(canonical_bytes).hexdigest()
 
 
+def validate_canonical_flagship_readiness_snapshot(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    if set(payload) != set(ALLOWED_FLAGSHIP_READINESS_SNAPSHOT_KEYS):
+        return {}
+    if payload.get("contractName") != FLAGSHIP_READINESS_CONTRACT_NAME:
+        return {}
+
+    generated_at = payload.get("generatedAt")
+    if not isinstance(generated_at, str):
+        return {}
+    canonical_generated_at = canonical_flagship_readiness_timestamp(generated_at)
+    if canonical_generated_at is None or generated_at != canonical_generated_at:
+        return {}
+
+    status = payload.get("status")
+    if (
+        not isinstance(status, str)
+        or status != normalize_token(status)
+        or status not in {"pass", "fail"}
+    ):
+        return {}
+
+    raw_coverage_gap_keys = payload.get("coverageGapKeys")
+    coverage_gap_keys = normalize_flagship_readiness_coverage_gap_keys(
+        raw_coverage_gap_keys
+    )
+    if coverage_gap_keys is None or raw_coverage_gap_keys != coverage_gap_keys:
+        return {}
+
+    raw_launch_blockers = payload.get("launchBlockers")
+    launch_blockers = normalize_flagship_readiness_launch_blockers(
+        raw_launch_blockers
+    )
+    if launch_blockers is None or raw_launch_blockers != launch_blockers:
+        return {}
+
+    desktop_client_ready = payload.get("desktopClientReady")
+    expected_desktop_client_ready = (
+        status == FLAGSHIP_READINESS_PASSING_STATUS
+        and not coverage_gap_keys
+        and not launch_blockers
+    )
+    if (
+        type(desktop_client_ready) is not bool
+        or desktop_client_ready is not expected_desktop_client_ready
+    ):
+        return {}
+
+    reason = payload.get("reason")
+    if (
+        not isinstance(reason, str)
+        or not reason
+        or reason
+        != sanitize_flagship_readiness_public_text(
+            reason,
+            max_length=FLAGSHIP_READINESS_REASON_MAX_LENGTH,
+        )
+    ):
+        return {}
+
+    source_sha256 = payload.get("sourceSha256")
+    snapshot_sha256 = payload.get("snapshotSha256")
+    if (
+        not isinstance(source_sha256, str)
+        or FLAGSHIP_READINESS_SHA256_RE.fullmatch(source_sha256) is None
+        or not isinstance(snapshot_sha256, str)
+        or FLAGSHIP_READINESS_SHA256_RE.fullmatch(snapshot_sha256) is None
+    ):
+        return {}
+
+    snapshot = {
+        "contractName": FLAGSHIP_READINESS_CONTRACT_NAME,
+        "generatedAt": canonical_generated_at,
+        "status": status,
+        "coverageGapKeys": coverage_gap_keys,
+        "launchBlockers": launch_blockers,
+        "desktopClientReady": desktop_client_ready,
+        "reason": reason,
+        "sourceSha256": source_sha256,
+        "snapshotSha256": snapshot_sha256,
+    }
+    if snapshot_sha256 != flagship_readiness_snapshot_sha256(snapshot):
+        return {}
+    return snapshot
+
+
 def load_flagship_readiness_snapshot(path: Path | None) -> dict[str, Any]:
     resolved_path = resolve_flagship_readiness_path(path)
     if resolved_path is None:
@@ -2039,6 +2140,8 @@ def load_flagship_readiness_snapshot(path: Path | None) -> dict[str, Any]:
         return {}
     if not isinstance(payload, dict):
         return {}
+    if FLAGSHIP_READINESS_CANONICAL_MARKER_KEYS.intersection(payload):
+        return validate_canonical_flagship_readiness_snapshot(payload)
     contract_name = str(payload.get("contract_name") or payload.get("contractName") or "").strip()
     if contract_name != FLAGSHIP_READINESS_CONTRACT_NAME:
         return {}
