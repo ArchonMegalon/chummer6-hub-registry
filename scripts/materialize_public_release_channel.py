@@ -36,6 +36,10 @@ ARTIFACT_PATTERN = re.compile(
 )
 REGISTRY_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+UUID_PATTERN = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+    r"[0-9a-f]{4}-[0-9a-f]{12}$"
+)
 REGISTRY_PRODUCER_PATHS = (
     "scripts/materialize_public_release_channel.py",
     "scripts/verify_public_release_channel.py",
@@ -61,6 +65,7 @@ CODE_DEPLOY_CURRENT_SHELF_TRANSFORM_OPTIONS = (
     "--proof",
     "--ui-localization-release-gate",
     "--flagship-readiness",
+    "--macos-flagship-evidence",
     "--product",
     "--channel",
     "--version",
@@ -181,6 +186,16 @@ DESKTOP_ROUTE_ROLES = {
 # CANONICAL_DESKTOP_PLATFORM_ORDER below: macOS remains a supported/buildable
 # platform, but it is not part of the current Windows/Linux preview candidate.
 DEFAULT_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows")
+GLOBAL_FLAGSHIP_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
+GLOBAL_FLAGSHIP_SCHEMA_VERSION = 2
+GLOBAL_FLAGSHIP_CONTRACT_VERSION = 2
+GLOBAL_FLAGSHIP_RELEASE_PROFILE = "global_flagship"
+GLOBAL_FLAGSHIP_MACOS_EVIDENCE_BINDING_CONTRACT = (
+    "chummer.registry.macos-flagship-evidence-binding"
+)
+GLOBAL_FLAGSHIP_MACOS_EVIDENCE_BINDING_VERSION = 1
+UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT = "chummer6-ui.macos-flagship-evidence"
+UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT_VERSION = 3
 WINDOWS_ONLY_PLATFORM_SCOPE = "windows_only"
 WINDOWS_WINE_COMPATIBILITY_EXECUTION_ENVIRONMENT = "wine_compatibility"
 WINDOWS_WINE_COMPATIBILITY_VERIFICATION_SCOPE = "windows_compatibility_startup"
@@ -208,6 +223,13 @@ CURRENT_PREVIEW_DESKTOP_ARTIFACTS = {
     ("avalonia", "windows", "win-x64", "installer"): (
         "avalonia-win-x64-installer",
         "chummer-avalonia-win-x64-installer.exe",
+    ),
+}
+GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS = {
+    **CURRENT_PREVIEW_DESKTOP_ARTIFACTS,
+    ("avalonia", "macos", "osx-arm64", "installer"): (
+        "avalonia-osx-arm64-installer",
+        "chummer-avalonia-osx-arm64-installer.dmg",
     ),
 }
 CANONICAL_DESKTOP_PLATFORM_ORDER = ("linux", "windows", "macos")
@@ -361,6 +383,100 @@ ARTIFACT_REVOKE_TRUTH_FIELDS = (
     "knownIssueSummary",
     "known_issue_summary",
 )
+MACOS_FLAGSHIP_EVIDENCE_AGGREGATE_KEYS = {
+    "candidate",
+    "cleanInstall",
+    "contractName",
+    "contractVersion",
+    "generatedAtUtc",
+    "github",
+    "globalCandidateIdentity",
+    "inputBindings",
+    "inventorySha256",
+    "livePredecessorAuthority",
+    "nonPublishing",
+    "references",
+    "releaseVersion",
+    "rid",
+    "signing",
+    "sourceUnsignedCandidate",
+    "status",
+    "updateDelivery",
+}
+MACOS_FLAGSHIP_EVIDENCE_REFERENCE_KEYS = {
+    "authorityReceipt",
+    "cleanStartupReceipt",
+    "completedUpdateState",
+    "inventory",
+    "liveReleaseChannel",
+    "manualUpdateState",
+    "notaryResult",
+    "pendingDeliveryReceipt",
+    "postUpdateStartupReceipt",
+    "predecessorVerification",
+    "runtimeObservations",
+    "signingIdentityReceipt",
+    "signingReceipt",
+    "stageManifest",
+    "stageOnlyReceipt",
+}
+MACOS_FLAGSHIP_EVIDENCE_INPUT_BINDING_SOURCES = {
+    "authorityReceiptSha256": "authorityReceipt",
+    "cleanStartupReceiptSha256": "cleanStartupReceipt",
+    "completedUpdateStateSha256": "completedUpdateState",
+    "manualUpdateStateSha256": "manualUpdateState",
+    "liveReleaseChannelSha256": "liveReleaseChannel",
+    "notaryResultSha256": "notaryResult",
+    "pendingDeliveryReceiptSha256": "pendingDeliveryReceipt",
+    "postUpdateStartupReceiptSha256": "postUpdateStartupReceipt",
+    "predecessorVerificationSha256": "predecessorVerification",
+    "runtimeObservationsSha256": "runtimeObservations",
+    "signingIdentityReceiptSha256": "signingIdentityReceipt",
+    "signingReceiptSha256": "signingReceipt",
+    "stageManifestSha256": "stageManifest",
+    "stageOnlyReceiptSha256": "stageOnlyReceipt",
+}
+MACOS_FLAGSHIP_SIGNING_KEYS = {
+    "candidateDmgGatekeeperStatus",
+    "certificateSha256",
+    "certificateSpkiSha256",
+    "developerIdApplicationIdentity",
+    "gatekeeperAssessmentsEnabled",
+    "installedAppGatekeeperStatus",
+    "notarizationStatus",
+    "notarySubmissionId",
+    "postUpdateAppGatekeeperStatus",
+    "staplerValidationStatus",
+    "signingStatus",
+    "teamId",
+}
+MACOS_FLAGSHIP_GITHUB_KEYS = {
+    "actor",
+    "ref",
+    "repository",
+    "rerunPolicy",
+    "runAttempt",
+    "runId",
+    "sha",
+    "triggeringActor",
+    "workflow",
+}
+MACOS_FLAGSHIP_GLOBAL_IDENTITY_KEYS = {
+    "candidateId",
+    "generationId",
+    "previousReleaseVersion",
+    "releaseVersion",
+    "sourceCommit",
+}
+MACOS_FLAGSHIP_NONPUBLISHING_POSTURE = {
+    "countsAsPublicationEvidence": False,
+    "evidenceArtifactUploadAllowed": True,
+    "publicActivationAttempted": False,
+    "publicationAttempted": False,
+    "releaseUploadCredentialAccepted": False,
+    "releaseUploadAttempted": False,
+}
+MACOS_FLAGSHIP_EVIDENCE_PASSTHROUGH_FIELDS = ("macosFlagshipEvidence",)
 
 
 def normalize_token(value: Any) -> str:
@@ -1125,6 +1241,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "downstream hub is not launch-ready."
         ),
     )
+    parser.add_argument(
+        "--macos-flagship-evidence",
+        type=Path,
+        help=(
+            "Canonical chummer6-ui.macos-flagship-evidence v3 aggregate whose exact bytes "
+            "authorize the signed/notarized macOS DMG binding for a v2 global flagship."
+        ),
+    )
     parser.add_argument("--product", default="chummer6")
     parser.add_argument("--channel", default="")
     parser.add_argument("--version", default="")
@@ -1223,6 +1347,503 @@ def read_stable_regular_file_bytes(path: Path, *, source: str) -> bytes:
     if len(content) != before.st_size:
         raise ValueError(f"{source} size changed while being read")
     return content
+
+
+def _reject_duplicate_json_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key {key!r}")
+        result[key] = value
+    return result
+
+
+def strict_json_object(raw: bytes, *, source: str) -> dict[str, Any]:
+    if not raw or len(raw) > 4 * 1024 * 1024 or b"\x00" in raw:
+        raise ValueError(f"{source} has an invalid bounded byte envelope")
+    try:
+        payload = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=_reject_duplicate_json_pairs,
+            parse_constant=lambda value: (_ for _ in ()).throw(
+                ValueError(f"non-finite JSON number {value}")
+            ),
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError(f"{source} must be valid duplicate-free UTF-8 JSON") from exc
+    if not isinstance(payload, dict):
+        raise ValueError(f"{source} must be a JSON object")
+    return payload
+
+
+def require_exact_object_keys(value: Any, expected: set[str], *, source: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != expected:
+        observed = set(value) if isinstance(value, dict) else set()
+        raise ValueError(
+            f"{source} has missing or extra keys "
+            f"(missing={sorted(expected - observed)}, extra={sorted(observed - expected)})"
+        )
+    return value
+
+
+def canonical_evidence_reference(value: Any, *, source: str) -> dict[str, Any]:
+    reference = require_exact_object_keys(
+        value,
+        {"path", "sha256", "sizeBytes"},
+        source=source,
+    )
+    path = reference.get("path")
+    if (
+        not isinstance(path, str)
+        or not path
+        or path != f"receipts/{Path(path).name}"
+        or "\\" in path
+        or re.fullmatch(
+            r"receipts/[A-Za-z0-9][A-Za-z0-9._+-]{0,255}",
+            path,
+        )
+        is None
+    ):
+        raise ValueError(
+            f"{source}.path must be a safe canonical receipts/<basename> path"
+        )
+    digest = reference.get("sha256")
+    if not isinstance(digest, str) or SHA256_PATTERN.fullmatch(digest) is None:
+        raise ValueError(f"{source}.sha256 must be an exact lowercase SHA-256")
+    size_bytes = reference.get("sizeBytes")
+    if type(size_bytes) is not int or size_bytes <= 0:
+        raise ValueError(f"{source}.sizeBytes must be a positive integer")
+    return {
+        "path": path,
+        "sha256": digest,
+        "sizeBytes": size_bytes,
+    }
+
+
+def _canonical_global_flagship_candidate(
+    value: Any,
+    *,
+    source: str,
+) -> dict[str, Any]:
+    candidate = require_exact_object_keys(
+        value,
+        {"artifactId", "fileName", "sha256", "sizeBytes"},
+        source=source,
+    )
+    if (
+        candidate.get("artifactId") != "avalonia-osx-arm64-installer"
+        or candidate.get("fileName")
+        != "chummer-avalonia-osx-arm64-installer.dmg"
+        or not isinstance(candidate.get("sha256"), str)
+        or SHA256_PATTERN.fullmatch(candidate["sha256"]) is None
+        or type(candidate.get("sizeBytes")) is not int
+        or candidate["sizeBytes"] <= 0
+    ):
+        raise ValueError(f"{source} is not the canonical macOS flagship DMG identity")
+    return dict(candidate)
+
+
+def load_macos_flagship_evidence_binding(
+    path: Path | None,
+    *,
+    expected_candidate: dict[str, Any],
+    expected_release_version: str,
+) -> dict[str, Any]:
+    if path is None:
+        raise ValueError(
+            "global flagship materialization requires --macos-flagship-evidence"
+        )
+    raw = read_stable_regular_file_bytes(
+        path,
+        source="macOS flagship evidence aggregate",
+    )
+    payload = strict_json_object(
+        raw,
+        source="macOS flagship evidence aggregate",
+    )
+    require_exact_object_keys(
+        payload,
+        MACOS_FLAGSHIP_EVIDENCE_AGGREGATE_KEYS,
+        source="macOS flagship evidence aggregate",
+    )
+    if (
+        payload.get("contractName") != UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT
+        or payload.get("contractVersion")
+        != UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT_VERSION
+        or payload.get("status") != "pass"
+        or payload.get("rid") != "osx-arm64"
+        or payload.get("releaseVersion") != expected_release_version
+    ):
+        raise ValueError(
+            "macOS flagship evidence aggregate contract, status, release, or RID is invalid"
+        )
+    candidate = _canonical_global_flagship_candidate(
+        payload.get("candidate"),
+        source="macOS flagship evidence aggregate candidate",
+    )
+    canonical_expected_candidate = _canonical_global_flagship_candidate(
+        expected_candidate,
+        source="materialized macOS flagship candidate",
+    )
+    if candidate != canonical_expected_candidate:
+        raise ValueError(
+            "macOS flagship evidence aggregate does not bind the materialized DMG bytes"
+        )
+
+    global_identity = require_exact_object_keys(
+        payload.get("globalCandidateIdentity"),
+        MACOS_FLAGSHIP_GLOBAL_IDENTITY_KEYS,
+        source="macOS flagship evidence globalCandidateIdentity",
+    )
+    if (
+        global_identity.get("releaseVersion") != expected_release_version
+        or not isinstance(global_identity.get("sourceCommit"), str)
+        or re.fullmatch(r"[0-9a-f]{40}", global_identity["sourceCommit"]) is None
+        or not isinstance(global_identity.get("previousReleaseVersion"), str)
+        or not global_identity["previousReleaseVersion"]
+    ):
+        raise ValueError(
+            "macOS flagship evidence global candidate identity is invalid"
+        )
+    for key in ("candidateId", "generationId"):
+        value = global_identity.get(key)
+        if (
+            not isinstance(value, str)
+            or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}", value)
+            is None
+        ):
+            raise ValueError(
+                f"macOS flagship evidence globalCandidateIdentity.{key} is invalid"
+            )
+
+    github = require_exact_object_keys(
+        payload.get("github"),
+        MACOS_FLAGSHIP_GITHUB_KEYS,
+        source="macOS flagship evidence github",
+    )
+    if (
+        github.get("repository") != "ArchonMegalon/chummer6-ui"
+        or github.get("ref") != "refs/heads/main"
+        or github.get("workflow")
+        != ".github/workflows/macos-flagship-evidence.yml"
+        or github.get("sha") != global_identity.get("sourceCommit")
+        or github.get("rerunPolicy") != "same-actor-only"
+        or github.get("actor") != github.get("triggeringActor")
+        or not isinstance(github.get("actor"), str)
+        or re.fullmatch(
+            r"(?:github-actions\[bot\]|[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)",
+            github["actor"],
+        )
+        is None
+        or not isinstance(github.get("runId"), (str, int))
+        or isinstance(github.get("runId"), bool)
+        or re.fullmatch(r"[1-9][0-9]*", str(github.get("runId"))) is None
+        or not isinstance(github.get("runAttempt"), (str, int))
+        or isinstance(github.get("runAttempt"), bool)
+        or re.fullmatch(r"[1-9][0-9]*", str(github.get("runAttempt"))) is None
+    ):
+        raise ValueError("macOS flagship evidence GitHub provenance is invalid")
+
+    if payload.get("nonPublishing") != MACOS_FLAGSHIP_NONPUBLISHING_POSTURE:
+        raise ValueError(
+            "macOS flagship evidence must retain its exact non-publishing posture"
+        )
+
+    references = require_exact_object_keys(
+        payload.get("references"),
+        MACOS_FLAGSHIP_EVIDENCE_REFERENCE_KEYS,
+        source="macOS flagship evidence references",
+    )
+    canonical_references = {
+        key: canonical_evidence_reference(
+            references[key],
+            source=f"macOS flagship evidence references.{key}",
+        )
+        for key in sorted(MACOS_FLAGSHIP_EVIDENCE_REFERENCE_KEYS)
+    }
+    reference_paths = [
+        reference["path"] for reference in canonical_references.values()
+    ]
+    if len(set(reference_paths)) != len(reference_paths):
+        raise ValueError("macOS flagship evidence reference paths must be unique")
+    if payload.get("inventorySha256") != canonical_references["inventory"]["sha256"]:
+        raise ValueError(
+            "macOS flagship evidence inventorySha256 does not bind references.inventory"
+        )
+
+    input_bindings = require_exact_object_keys(
+        payload.get("inputBindings"),
+        set(MACOS_FLAGSHIP_EVIDENCE_INPUT_BINDING_SOURCES),
+        source="macOS flagship evidence inputBindings",
+    )
+    for binding_key, reference_key in (
+        MACOS_FLAGSHIP_EVIDENCE_INPUT_BINDING_SOURCES.items()
+    ):
+        if input_bindings.get(binding_key) != canonical_references[reference_key]["sha256"]:
+            raise ValueError(
+                f"macOS flagship evidence {binding_key} does not bind its reference"
+            )
+
+    signing = require_exact_object_keys(
+        payload.get("signing"),
+        MACOS_FLAGSHIP_SIGNING_KEYS,
+        source="macOS flagship evidence signing",
+    )
+    team_id = signing.get("teamId")
+    identity = signing.get("developerIdApplicationIdentity")
+    if (
+        not isinstance(team_id, str)
+        or re.fullmatch(r"[A-Z0-9]{10}", team_id) is None
+        or not isinstance(identity, str)
+        or not identity.startswith("Developer ID Application:")
+        or not identity.endswith(f"({team_id})")
+        or not isinstance(signing.get("certificateSha256"), str)
+        or SHA256_PATTERN.fullmatch(signing["certificateSha256"]) is None
+        or not isinstance(signing.get("certificateSpkiSha256"), str)
+        or SHA256_PATTERN.fullmatch(signing["certificateSpkiSha256"]) is None
+        or not isinstance(signing.get("notarySubmissionId"), str)
+        or UUID_PATTERN.fullmatch(signing["notarySubmissionId"]) is None
+        or signing.get("notarizationStatus") != "Accepted"
+        or signing.get("gatekeeperAssessmentsEnabled") is not True
+        or any(
+            signing.get(key) != "pass"
+            for key in (
+                "candidateDmgGatekeeperStatus",
+                "installedAppGatekeeperStatus",
+                "postUpdateAppGatekeeperStatus",
+                "staplerValidationStatus",
+                "signingStatus",
+            )
+        )
+    ):
+        raise ValueError(
+            "macOS flagship evidence signing, notarization, stapling, or Gatekeeper authority is invalid"
+        )
+
+    source_sha256 = hashlib.sha256(raw).hexdigest()
+    return {
+        "contractName": GLOBAL_FLAGSHIP_MACOS_EVIDENCE_BINDING_CONTRACT,
+        "contractVersion": GLOBAL_FLAGSHIP_MACOS_EVIDENCE_BINDING_VERSION,
+        "source": {
+            "contractName": UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT,
+            "contractVersion": UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT_VERSION,
+            "sha256": source_sha256,
+            "sizeBytes": len(raw),
+        },
+        "candidate": candidate,
+        "globalCandidateIdentity": dict(global_identity),
+        "github": {
+            "actor": github["actor"],
+            "ref": github["ref"],
+            "repository": github["repository"],
+            "rerunPolicy": github["rerunPolicy"],
+            "runAttempt": int(github["runAttempt"]),
+            "runId": int(github["runId"]),
+            "sha": github["sha"],
+            "triggeringActor": github["triggeringActor"],
+            "workflow": github["workflow"],
+        },
+        "signingIdentity": {
+            "certificateSha256": signing["certificateSha256"],
+            "certificateSpkiSha256": signing["certificateSpkiSha256"],
+            "developerIdApplicationIdentity": identity,
+            "teamId": team_id,
+        },
+        "notarization": {
+            "status": "Accepted",
+            "submissionId": signing["notarySubmissionId"],
+        },
+        "receiptBindings": {
+            key: canonical_references[key]
+            for key in (
+                "notaryResult",
+                "signingIdentityReceipt",
+                "signingReceipt",
+            )
+        },
+    }
+
+
+def global_flagship_platform_request(raw: Any) -> bool:
+    if raw in (None, ""):
+        return False
+    values = (
+        list(raw)
+        if isinstance(raw, list)
+        else str(raw).split(",")
+    )
+    normalized = [normalize_platform_token(value) for value in values]
+    normalized = [value for value in normalized if value]
+    global_platforms = set(GLOBAL_FLAGSHIP_REQUIRED_DESKTOP_PLATFORMS)
+    if "macos" not in normalized:
+        return False
+    if (
+        len(normalized) != len(global_platforms)
+        or len(set(normalized)) != len(normalized)
+        or set(normalized) != global_platforms
+    ):
+        raise ValueError(
+            "a macOS flagship request must name each required desktop platform exactly once: "
+            + ", ".join(GLOBAL_FLAGSHIP_REQUIRED_DESKTOP_PLATFORMS)
+        )
+    return True
+
+
+def validate_global_flagship_source_artifacts(
+    raw_artifacts: Any,
+) -> list[dict[str, Any]]:
+    if not isinstance(raw_artifacts, list):
+        raise ValueError(
+            "global flagship materialization requires a canonical source artifacts array"
+        )
+    if len(raw_artifacts) != len(GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS):
+        raise ValueError(
+            "global flagship source must contain exactly Linux, Windows, and macOS artifacts"
+        )
+    normalized_rows: list[dict[str, Any]] = []
+    seen_tuples: set[tuple[str, str, str, str]] = set()
+    seen_ids: set[str] = set()
+    seen_names: set[str] = set()
+    for index, item in enumerate(raw_artifacts):
+        if not isinstance(item, dict):
+            raise ValueError(f"global flagship source artifact {index} must be an object")
+        if "macosFlagshipEvidence" in item:
+            raise ValueError(
+                "global flagship source rows cannot self-assert macOS flagship evidence"
+            )
+        artifact_id = item.get("artifactId")
+        if item.get("id") != artifact_id or not isinstance(artifact_id, str):
+            raise ValueError(
+                f"global flagship source artifact {index} id/artifactId aliases must agree"
+            )
+        file_name = item.get("fileName")
+        if not isinstance(file_name, str):
+            raise ValueError(
+                f"global flagship source artifact {index} fileName must be a string"
+            )
+        platform = normalize_platform_token(item.get("platform"))
+        scope_tuple = (
+            normalize_token(item.get("head")),
+            platform,
+            normalize_token(item.get("rid")),
+            normalize_token(item.get("kind")),
+        )
+        expected_identity = GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS.get(scope_tuple)
+        if expected_identity != (artifact_id, file_name):
+            raise ValueError(
+                f"global flagship source artifact {index} is outside the exact "
+                f"three-platform inventory: {scope_tuple}"
+            )
+        expected_arch = "arm64" if platform == "macos" else "x64"
+        if item.get("arch") != expected_arch:
+            raise ValueError(
+                f"global flagship source artifact {index} arch must be {expected_arch}"
+            )
+        if item.get("compatibilityState") != "compatible":
+            raise ValueError(
+                f"global flagship source artifact {index} compatibilityState must be compatible"
+            )
+        if item.get("installAccessClass") != "open_public":
+            raise ValueError(
+                f"global flagship source artifact {index} installAccessClass must be open_public"
+            )
+        digest = item.get("sha256")
+        size_bytes = item.get("sizeBytes")
+        if not isinstance(digest, str) or SHA256_PATTERN.fullmatch(digest) is None:
+            raise ValueError(
+                f"global flagship source artifact {index} sha256 must be lowercase hex"
+            )
+        if type(size_bytes) is not int or size_bytes <= 0:
+            raise ValueError(
+                f"global flagship source artifact {index} sizeBytes must be a positive integer"
+            )
+        expected_url = (
+            "https://chummer.run/downloads/files/"
+            f"{file_name}"
+        )
+        if (
+            item.get("downloadUrl") != expected_url
+            or item.get("url") != expected_url
+        ):
+            raise ValueError(
+                f"global flagship source artifact {index} URL aliases must bind the canonical public file URL"
+            )
+        if scope_tuple in seen_tuples or artifact_id in seen_ids or file_name in seen_names:
+            raise ValueError(
+                "global flagship source artifacts must have unique tuples, ids, and file names"
+            )
+        seen_tuples.add(scope_tuple)
+        seen_ids.add(artifact_id)
+        seen_names.add(file_name)
+        normalized_rows.append(
+            {
+                "artifactId": artifact_id,
+                "fileName": file_name,
+                "sha256": digest,
+                "sizeBytes": size_bytes,
+                "downloadUrl": expected_url,
+            }
+        )
+    if seen_tuples != set(GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS):
+        raise ValueError(
+            "global flagship source must contain exactly the canonical three-platform tuple set"
+        )
+    return normalized_rows
+
+
+def validate_global_flagship_refreshed_artifacts(
+    source_rows: list[dict[str, Any]],
+    artifacts: list[dict[str, Any]],
+) -> None:
+    if len(artifacts) != len(source_rows):
+        raise ValueError(
+            "global flagship artifact bytes are incomplete after local shelf refresh"
+        )
+    source_by_id = {row["artifactId"]: row for row in source_rows}
+    observed_ids: set[str] = set()
+    for artifact in artifacts:
+        artifact_id = normalize_token(
+            artifact.get("artifactId") or artifact.get("id")
+        )
+        source = source_by_id.get(artifact_id)
+        if source is None or artifact_id in observed_ids:
+            raise ValueError(
+                "global flagship artifact inventory changed during local shelf refresh"
+            )
+        observed_ids.add(artifact_id)
+        observed = {
+            "artifactId": artifact_id,
+            "fileName": artifact.get("fileName"),
+            "sha256": artifact.get("sha256"),
+            "sizeBytes": artifact.get("sizeBytes"),
+            "downloadUrl": artifact.get("downloadUrl"),
+        }
+        if observed != source:
+            raise ValueError(
+                f"global flagship artifact {artifact_id} bytes or canonical URL "
+                "do not match the candidate-bound source row"
+            )
+    if observed_ids != set(source_by_id):
+        raise ValueError(
+            "global flagship artifact inventory is missing a candidate-bound source row"
+        )
+
+
+def attach_macos_flagship_evidence_binding(
+    artifacts: list[dict[str, Any]],
+    binding: dict[str, Any],
+) -> None:
+    macos_rows = [
+        artifact
+        for artifact in artifacts
+        if normalize_token(artifact.get("artifactId"))
+        == "avalonia-osx-arm64-installer"
+    ]
+    if len(macos_rows) != 1:
+        raise ValueError(
+            "global flagship materialization requires exactly one macOS DMG row"
+        )
+    macos_rows[0]["macosFlagshipEvidence"] = json.loads(json.dumps(binding))
 
 
 def code_deploy_artifact_inventory_rows(artifacts: Any, *, source: str) -> list[dict[str, Any]]:
@@ -1718,6 +2339,9 @@ def refresh_artifacts_from_downloads_dir(
         for field_name in ARTIFACT_REVOKE_TRUTH_FIELDS:
             if field_name in item:
                 refreshed[field_name] = item.get(field_name)
+        for field_name in MACOS_FLAGSHIP_EVIDENCE_PASSTHROUGH_FIELDS:
+            if field_name in item:
+                refreshed[field_name] = json.loads(json.dumps(item.get(field_name)))
         refreshed["installAccessClass"] = effective_install_access_class(
             str(refreshed.get("platform") or ""),
             str(refreshed.get("kind") or ""),
@@ -2196,6 +2820,9 @@ def parse_download_row(
         if field_name in item:
             value = item.get(field_name)
             row[field_name] = dict(value) if isinstance(value, dict) else value
+    for field_name in MACOS_FLAGSHIP_EVIDENCE_PASSTHROUGH_FIELDS:
+        if field_name in item:
+            row[field_name] = json.loads(json.dumps(item.get(field_name)))
     return row
 
 
@@ -2899,6 +3526,7 @@ def materialization_required_platforms(
     *,
     platform_scope: Any = None,
     channel: Any = None,
+    global_flagship: bool = False,
 ) -> list[str]:
     if platform_scope is not None:
         if platform_scope != WINDOWS_ONLY_PLATFORM_SCOPE:
@@ -2942,10 +3570,14 @@ def materialization_required_platforms(
             )
         return ["windows"]
 
+    if global_flagship:
+        return list(GLOBAL_FLAGSHIP_REQUIRED_DESKTOP_PLATFORMS)
+
     # Current release scope is an authority boundary, not a projection of
     # whichever artifacts or stale configuration happened to reach a staging
-    # bundle.  Without an explicit narrow preview authority, the active
-    # platform floor remains exactly Linux + Windows.
+    # bundle. The legacy v1 profile remains exactly Linux + Windows; the v2
+    # global flagship profile is selected only by the explicit exact
+    # three-platform request above.
     del artifacts, configured_required_platforms, channel
     return list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS)
 
@@ -2954,6 +3586,7 @@ def verify_current_release_desktop_artifact_scope(
     artifacts: list[dict[str, Any]],
     *,
     product: Any,
+    global_flagship: bool = False,
 ) -> None:
     product_token = normalized_token(product)
     chummer_identity_present = any(
@@ -2967,6 +3600,16 @@ def verify_current_release_desktop_artifact_scope(
         )
     if product_token not in {"", "chummer", "chummer6"}:
         return
+    allowed_artifacts = (
+        GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS
+        if global_flagship
+        else CURRENT_PREVIEW_DESKTOP_ARTIFACTS
+    )
+    scope_label = (
+        "Avalonia Linux/Windows/macOS global flagship"
+        if global_flagship
+        else "Avalonia Linux/Windows preview"
+    )
     seen_tuples: set[tuple[str, str, str, str]] = set()
     for index, artifact in enumerate(artifacts):
         scope_tuple = (
@@ -2975,13 +3618,13 @@ def verify_current_release_desktop_artifact_scope(
             normalized_token(artifact.get("rid")),
             normalized_token(artifact.get("kind")),
         )
-        expected_identity = CURRENT_PREVIEW_DESKTOP_ARTIFACTS.get(scope_tuple)
+        expected_identity = allowed_artifacts.get(scope_tuple)
         artifact_id = normalized_token(artifact.get("artifactId") or artifact.get("id"))
         file_name = str(artifact.get("fileName") or "").strip()
         if expected_identity is None:
             raise ValueError(
                 "Chummer6 current release artifact row "
-                f"{index} is outside the exact Avalonia Linux/Windows preview scope: {scope_tuple}"
+                f"{index} is outside the exact {scope_label} scope: {scope_tuple}"
             )
         if (artifact_id, file_name) != expected_identity:
             raise ValueError(
@@ -2993,6 +3636,11 @@ def verify_current_release_desktop_artifact_scope(
                 f"Chummer6 current release artifact tuple is duplicated: {scope_tuple}"
             )
         seen_tuples.add(scope_tuple)
+    if global_flagship and seen_tuples != set(GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS):
+        raise ValueError(
+            "Chummer6 global flagship source must contain exactly one canonical "
+            "Linux, Windows, and macOS artifact"
+        )
 
 
 def verify_required_desktop_heads(required_heads: list[str], *, source: str) -> None:
@@ -5420,6 +6068,46 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     requested_channel = str(args.channel or "").strip()
     raw_channel = requested_channel or loaded_channel or "preview"
     channel = raw_channel
+    loaded_desktop_coverage = (
+        loaded.get("desktopTupleCoverage")
+        if isinstance(loaded.get("desktopTupleCoverage"), dict)
+        else {}
+    )
+    configured_required_platforms = (
+        getattr(args, "required_desktop_platforms", None)
+        or loaded_desktop_coverage.get("requiredDesktopPlatforms")
+    )
+    global_flagship = global_flagship_platform_request(
+        configured_required_platforms
+    )
+    macos_flagship_evidence_path = getattr(
+        args,
+        "macos_flagship_evidence",
+        None,
+    )
+    if global_flagship:
+        if args.downloads_prefix.rstrip("/") != "https://chummer.run/downloads/files":
+            raise ValueError(
+                "global flagship downloads must use the canonical "
+                "https://chummer.run/downloads/files prefix"
+            )
+        if (
+            getattr(args, "startup_smoke_dir", None) is None
+            or bool(getattr(args, "skip_startup_smoke_filter", False))
+        ):
+            raise ValueError(
+                "global flagship materialization requires native startup-smoke "
+                "receipts for all three platforms and forbids the smoke-filter bypass"
+            )
+        global_flagship_source_rows = validate_global_flagship_source_artifacts(
+            loaded.get("artifacts")
+        )
+    else:
+        global_flagship_source_rows = []
+        if macos_flagship_evidence_path is not None:
+            raise ValueError(
+                "--macos-flagship-evidence is valid only for the explicit v2 global flagship contract"
+            )
 
     if isinstance(loaded.get("artifacts"), list):
         artifacts = [parse_download_row(item) for item in loaded.get("artifacts") or [] if isinstance(item, dict)]
@@ -5434,6 +6122,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     verify_current_release_desktop_artifact_scope(
         artifacts,
         product=args.product,
+        global_flagship=global_flagship,
     )
     artifacts = refresh_artifacts_from_downloads_dir(
         artifacts,
@@ -5446,6 +6135,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     verify_current_release_desktop_artifact_scope(
         artifacts,
         product=args.product,
+        global_flagship=global_flagship,
     )
     artifacts = [
         artifact
@@ -5465,6 +6155,33 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     else:
         startup_smoke_receipts = None
     artifacts = filter_unproven_installers(artifacts, startup_smoke_receipts)
+    if global_flagship:
+        validate_global_flagship_refreshed_artifacts(
+            global_flagship_source_rows,
+            artifacts,
+        )
+        for artifact in artifacts:
+            artifact["installAccessClass"] = "open_public"
+        macos_artifact = next(
+            artifact
+            for artifact in artifacts
+            if normalize_token(artifact.get("artifactId"))
+            == "avalonia-osx-arm64-installer"
+        )
+        macos_evidence_binding = load_macos_flagship_evidence_binding(
+            macos_flagship_evidence_path,
+            expected_candidate={
+                "artifactId": macos_artifact.get("artifactId"),
+                "fileName": macos_artifact.get("fileName"),
+                "sha256": macos_artifact.get("sha256"),
+                "sizeBytes": macos_artifact.get("sizeBytes"),
+            },
+            expected_release_version=version,
+        )
+        attach_macos_flagship_evidence_binding(
+            artifacts,
+            macos_evidence_binding,
+        )
     artifacts.sort(key=lambda row: (0 if row.get("kind") == "installer" else 1, row.get("platform"), row.get("arch"), row.get("head"), row.get("fileName")))
     loaded_published_at = str(loaded.get("publishedAt") or "").strip()
     published_at = str(args.published_at or loaded_published_at or "").strip()
@@ -5573,20 +6290,12 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     if not required_heads:
         required_heads = list(DEFAULT_REQUIRED_DESKTOP_HEADS)
     verify_required_desktop_heads(required_heads, source="required_desktop_heads")
-    loaded_desktop_coverage = (
-        loaded.get("desktopTupleCoverage")
-        if isinstance(loaded.get("desktopTupleCoverage"), dict)
-        else {}
-    )
-    configured_required_platforms = (
-        getattr(args, "required_desktop_platforms", None)
-        or loaded_desktop_coverage.get("requiredDesktopPlatforms")
-    )
     required_platforms = materialization_required_platforms(
         artifacts,
         configured_required_platforms,
         platform_scope=platform_scope,
         channel=raw_channel,
+        global_flagship=global_flagship,
     )
     loaded_rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip()
     loaded_rollout_reason = str(loaded.get("rolloutReason") or loaded.get("rollout_reason") or "").strip()
@@ -5652,6 +6361,17 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         proof_freshness_status_value=freshness_status,
     )
     channel = normalize_effective_channel_id(raw_channel, rollout_state)
+    if global_flagship and (
+        status != "published"
+        or not desktop_coverage_complete
+        or normalize_token(channel) not in {"stable", "public_stable"}
+        or normalize_token(rollout_state) not in {"stable", "public_stable"}
+        or normalize_token(supportability_state) != "gold_supported"
+    ):
+        raise ValueError(
+            "global flagship materialization requires published, complete, "
+            "gold-supported stable authority"
+        )
     if channel != raw_channel or rollout_state != loaded_rollout_state:
         for artifact in artifacts:
             if isinstance(artifact, dict):
@@ -5809,7 +6529,11 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     payload = {
         "generated_at": generated_at,
         "generatedAt": generated_at,
-        "schemaVersion": 1,
+        "schemaVersion": (
+            GLOBAL_FLAGSHIP_SCHEMA_VERSION
+            if global_flagship
+            else 1
+        ),
         "product": str(loaded.get("product") or args.product).strip() or "chummer6",
         "contract_name": contract_name,
         "contractName": contract_name,
@@ -5840,6 +6564,9 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     }
     if loaded_public_version:
         payload["publicVersion"] = loaded_public_version
+    if global_flagship:
+        payload["contractVersion"] = GLOBAL_FLAGSHIP_CONTRACT_VERSION
+        payload["releaseProfile"] = GLOBAL_FLAGSHIP_RELEASE_PROFILE
     if platform_scope is not None:
         payload["platformScope"] = platform_scope
     payload["publicTrustMetrics"] = expected_public_trust_metrics(payload)
@@ -5929,6 +6656,11 @@ def compatibility_artifact_row(
             for field_name in STARTUP_EXECUTION_TRUTH_FIELDS
             if field_name in artifact
         },
+        **{
+            field_name: json.loads(json.dumps(artifact[field_name]))
+            for field_name in MACOS_FLAGSHIP_EVIDENCE_PASSTHROUGH_FIELDS
+            if field_name in artifact
+        },
         "installAccessClass": (
             str(artifact.get("installAccessClass") or "").strip()
             or default_install_access_class(platform, kind)
@@ -5975,8 +6707,19 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
     return {
         "generated_at": canonical.get("generated_at") or canonical.get("generatedAt"),
         "generatedAt": canonical.get("generatedAt") or canonical.get("generated_at"),
+        **(
+            {"schemaVersion": canonical.get("schemaVersion")}
+            if canonical.get("releaseProfile")
+            == GLOBAL_FLAGSHIP_RELEASE_PROFILE
+            else {}
+        ),
         "contract_name": contract_name,
         "contractName": contract_name,
+        **{
+            field: canonical[field]
+            for field in ("contractVersion", "releaseProfile")
+            if field in canonical
+        },
         "registry_commit": registry_commit,
         "registryCommit": registry_commit,
         "version": canonical.get("version") or "unpublished",

@@ -1,0 +1,614 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chummer.run/contracts/global-flagship-release-channel-v2.schema.json",
+  "title": "Chummer Registry global flagship release channel v2",
+  "type": "object",
+  "required": [
+    "schemaVersion",
+    "contractVersion",
+    "releaseProfile",
+    "contractName",
+    "registryCommit",
+    "channel",
+    "version",
+    "releaseVersion",
+    "status",
+    "rolloutState",
+    "supportabilityState",
+    "desktopTupleCoverage"
+  ],
+  "properties": {
+    "schemaVersion": {
+      "const": 2
+    },
+    "contractVersion": {
+      "const": 2
+    },
+    "releaseProfile": {
+      "const": "global_flagship"
+    },
+    "contractName": {
+      "const": "Chummer.Hub.Registry.Contracts"
+    },
+    "contract_name": {
+      "const": "Chummer.Hub.Registry.Contracts"
+    },
+    "registryCommit": {
+      "$ref": "#/$defs/commit"
+    },
+    "registry_commit": {
+      "$ref": "#/$defs/commit"
+    },
+    "channel": {
+      "enum": [
+        "stable",
+        "public_stable"
+      ]
+    },
+    "channelId": {
+      "enum": [
+        "stable",
+        "public_stable"
+      ]
+    },
+    "version": {
+      "type": "string",
+      "minLength": 1
+    },
+    "releaseVersion": {
+      "type": "string",
+      "minLength": 1
+    },
+    "status": {
+      "const": "published"
+    },
+    "rolloutState": {
+      "enum": [
+        "stable",
+        "public_stable"
+      ]
+    },
+    "supportabilityState": {
+      "const": "gold_supported"
+    },
+    "desktopTupleCoverage": {
+      "type": "object",
+      "required": [
+        "requiredDesktopPlatforms",
+        "requiredDesktopHeads",
+        "missingRequiredPlatforms",
+        "missingRequiredHeads",
+        "missingRequiredPlatformHeadPairs",
+        "missingRequiredPlatformHeadRidTuples",
+        "complete"
+      ],
+      "properties": {
+        "requiredDesktopPlatforms": {
+          "const": [
+            "linux",
+            "windows",
+            "macos"
+          ]
+        },
+        "requiredDesktopHeads": {
+          "const": [
+            "avalonia"
+          ]
+        },
+        "missingRequiredPlatforms": {
+          "const": []
+        },
+        "missingRequiredHeads": {
+          "const": []
+        },
+        "missingRequiredPlatformHeadPairs": {
+          "const": []
+        },
+        "missingRequiredPlatformHeadRidTuples": {
+          "const": []
+        },
+        "complete": {
+          "const": true
+        }
+      }
+    },
+    "artifacts": {
+      "$ref": "#/$defs/globalArtifactInventory"
+    },
+    "downloads": {
+      "$ref": "#/$defs/globalArtifactInventory"
+    }
+  },
+  "oneOf": [
+    {
+      "required": [
+        "artifacts"
+      ],
+      "not": {
+        "required": [
+          "downloads"
+        ]
+      }
+    },
+    {
+      "required": [
+        "downloads"
+      ],
+      "not": {
+        "required": [
+          "artifacts"
+        ]
+      }
+    }
+  ],
+  "$defs": {
+    "commit": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{40}$"
+    },
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "positiveInteger": {
+      "type": "integer",
+      "minimum": 1
+    },
+    "evidenceReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "sizeBytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "pattern": "^receipts/[A-Za-z0-9][A-Za-z0-9._+-]{0,255}$"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sizeBytes": {
+          "$ref": "#/$defs/positiveInteger"
+        }
+      }
+    },
+    "macosFlagshipEvidence": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractName",
+        "contractVersion",
+        "source",
+        "candidate",
+        "globalCandidateIdentity",
+        "github",
+        "signingIdentity",
+        "notarization",
+        "receiptBindings"
+      ],
+      "properties": {
+        "contractName": {
+          "const": "chummer.registry.macos-flagship-evidence-binding"
+        },
+        "contractVersion": {
+          "const": 1
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contractName",
+            "contractVersion",
+            "sha256",
+            "sizeBytes"
+          ],
+          "properties": {
+            "contractName": {
+              "const": "chummer6-ui.macos-flagship-evidence"
+            },
+            "contractVersion": {
+              "const": 3
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "sizeBytes": {
+              "$ref": "#/$defs/positiveInteger"
+            }
+          }
+        },
+        "candidate": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "artifactId",
+            "fileName",
+            "sha256",
+            "sizeBytes"
+          ],
+          "properties": {
+            "artifactId": {
+              "const": "avalonia-osx-arm64-installer"
+            },
+            "fileName": {
+              "const": "chummer-avalonia-osx-arm64-installer.dmg"
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "sizeBytes": {
+              "$ref": "#/$defs/positiveInteger"
+            }
+          }
+        },
+        "globalCandidateIdentity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "candidateId",
+            "generationId",
+            "previousReleaseVersion",
+            "releaseVersion",
+            "sourceCommit"
+          ],
+          "properties": {
+            "candidateId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+            },
+            "generationId": {
+              "type": "string",
+              "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+            },
+            "previousReleaseVersion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "releaseVersion": {
+              "type": "string",
+              "minLength": 1
+            },
+            "sourceCommit": {
+              "$ref": "#/$defs/commit"
+            }
+          }
+        },
+        "github": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "actor",
+            "ref",
+            "repository",
+            "rerunPolicy",
+            "runAttempt",
+            "runId",
+            "sha",
+            "triggeringActor",
+            "workflow"
+          ],
+          "properties": {
+            "actor": {
+              "type": "string",
+              "minLength": 1
+            },
+            "ref": {
+              "const": "refs/heads/main"
+            },
+            "repository": {
+              "const": "ArchonMegalon/chummer6-ui"
+            },
+            "rerunPolicy": {
+              "const": "same-actor-only"
+            },
+            "runAttempt": {
+              "$ref": "#/$defs/positiveInteger"
+            },
+            "runId": {
+              "$ref": "#/$defs/positiveInteger"
+            },
+            "sha": {
+              "$ref": "#/$defs/commit"
+            },
+            "triggeringActor": {
+              "type": "string",
+              "minLength": 1
+            },
+            "workflow": {
+              "const": ".github/workflows/macos-flagship-evidence.yml"
+            }
+          }
+        },
+        "signingIdentity": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "certificateSha256",
+            "certificateSpkiSha256",
+            "developerIdApplicationIdentity",
+            "teamId"
+          ],
+          "properties": {
+            "certificateSha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "certificateSpkiSha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "developerIdApplicationIdentity": {
+              "type": "string",
+              "pattern": "^Developer ID Application:.+\\([A-Z0-9]{10}\\)$"
+            },
+            "teamId": {
+              "type": "string",
+              "pattern": "^[A-Z0-9]{10}$"
+            }
+          }
+        },
+        "notarization": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "status",
+            "submissionId"
+          ],
+          "properties": {
+            "status": {
+              "const": "Accepted"
+            },
+            "submissionId": {
+              "type": "string",
+              "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$"
+            }
+          }
+        },
+        "receiptBindings": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "notaryResult",
+            "signingIdentityReceipt",
+            "signingReceipt"
+          ],
+          "properties": {
+            "notaryResult": {
+              "$ref": "#/$defs/evidenceReference"
+            },
+            "signingIdentityReceipt": {
+              "$ref": "#/$defs/evidenceReference"
+            },
+            "signingReceipt": {
+              "$ref": "#/$defs/evidenceReference"
+            }
+          }
+        }
+      }
+    },
+    "artifactBase": {
+      "type": "object",
+      "required": [
+        "artifactId",
+        "head",
+        "platform",
+        "rid",
+        "arch",
+        "kind",
+        "fileName",
+        "downloadUrl",
+        "sha256",
+        "sizeBytes",
+        "version",
+        "releaseVersion",
+        "compatibilityState",
+        "installAccessClass"
+      ],
+      "properties": {
+        "artifactId": {
+          "type": "string",
+          "minLength": 1
+        },
+        "head": {
+          "const": "avalonia"
+        },
+        "platform": {
+          "enum": [
+            "linux",
+            "windows",
+            "macos"
+          ]
+        },
+        "rid": {
+          "enum": [
+            "linux-x64",
+            "win-x64",
+            "osx-arm64"
+          ]
+        },
+        "arch": {
+          "enum": [
+            "x64",
+            "arm64"
+          ]
+        },
+        "kind": {
+          "const": "installer"
+        },
+        "fileName": {
+          "type": "string",
+          "minLength": 1
+        },
+        "downloadUrl": {
+          "type": "string",
+          "pattern": "^https://chummer\\.run/downloads/files/chummer-avalonia-"
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sizeBytes": {
+          "$ref": "#/$defs/positiveInteger"
+        },
+        "version": {
+          "type": "string",
+          "minLength": 1
+        },
+        "releaseVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "compatibilityState": {
+          "const": "compatible"
+        },
+        "installAccessClass": {
+          "const": "open_public"
+        },
+        "macosFlagshipEvidence": {
+          "$ref": "#/$defs/macosFlagshipEvidence"
+        }
+      }
+    },
+    "linuxArtifact": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/artifactBase"
+        },
+        {
+          "properties": {
+            "artifactId": {
+              "const": "avalonia-linux-x64-installer"
+            },
+            "platform": {
+              "const": "linux"
+            },
+            "rid": {
+              "const": "linux-x64"
+            },
+            "arch": {
+              "const": "x64"
+            },
+            "fileName": {
+              "const": "chummer-avalonia-linux-x64-installer.deb"
+            },
+            "downloadUrl": {
+              "const": "https://chummer.run/downloads/files/chummer-avalonia-linux-x64-installer.deb"
+            }
+          },
+          "not": {
+            "required": [
+              "macosFlagshipEvidence"
+            ]
+          }
+        }
+      ]
+    },
+    "windowsArtifact": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/artifactBase"
+        },
+        {
+          "properties": {
+            "artifactId": {
+              "const": "avalonia-win-x64-installer"
+            },
+            "platform": {
+              "const": "windows"
+            },
+            "rid": {
+              "const": "win-x64"
+            },
+            "arch": {
+              "const": "x64"
+            },
+            "fileName": {
+              "const": "chummer-avalonia-win-x64-installer.exe"
+            },
+            "downloadUrl": {
+              "const": "https://chummer.run/downloads/files/chummer-avalonia-win-x64-installer.exe"
+            }
+          },
+          "not": {
+            "required": [
+              "macosFlagshipEvidence"
+            ]
+          }
+        }
+      ]
+    },
+    "macosArtifact": {
+      "allOf": [
+        {
+          "$ref": "#/$defs/artifactBase"
+        },
+        {
+          "required": [
+            "macosFlagshipEvidence"
+          ],
+          "properties": {
+            "artifactId": {
+              "const": "avalonia-osx-arm64-installer"
+            },
+            "platform": {
+              "const": "macos"
+            },
+            "rid": {
+              "const": "osx-arm64"
+            },
+            "arch": {
+              "const": "arm64"
+            },
+            "fileName": {
+              "const": "chummer-avalonia-osx-arm64-installer.dmg"
+            },
+            "downloadUrl": {
+              "const": "https://chummer.run/downloads/files/chummer-avalonia-osx-arm64-installer.dmg"
+            }
+          }
+        }
+      ]
+    },
+    "globalArtifactInventory": {
+      "type": "array",
+      "minItems": 3,
+      "maxItems": 3,
+      "items": {
+        "oneOf": [
+          {
+            "$ref": "#/$defs/linuxArtifact"
+          },
+          {
+            "$ref": "#/$defs/windowsArtifact"
+          },
+          {
+            "$ref": "#/$defs/macosArtifact"
+          }
+        ]
+      },
+      "allOf": [
+        {
+          "contains": {
+            "$ref": "#/$defs/linuxArtifact"
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "$ref": "#/$defs/windowsArtifact"
+          },
+          "minContains": 1,
+          "maxContains": 1
+        },
+        {
+          "contains": {
+            "$ref": "#/$defs/macosArtifact"
+          },
+          "minContains": 1,
+          "maxContains": 1
+        }
+      ]
+    }
+  }
+}

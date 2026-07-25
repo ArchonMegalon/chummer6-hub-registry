@@ -207,6 +207,16 @@ SUPPORTED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
 # Mutable current-release scope. macOS remains supported/buildable but is not
 # a required platform in the active Windows/Linux preview transaction.
 REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows")
+GLOBAL_FLAGSHIP_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
+GLOBAL_FLAGSHIP_SCHEMA_VERSION = 2
+GLOBAL_FLAGSHIP_CONTRACT_VERSION = 2
+GLOBAL_FLAGSHIP_RELEASE_PROFILE = "global_flagship"
+GLOBAL_FLAGSHIP_MACOS_EVIDENCE_BINDING_CONTRACT = (
+    "chummer.registry.macos-flagship-evidence-binding"
+)
+GLOBAL_FLAGSHIP_MACOS_EVIDENCE_BINDING_VERSION = 1
+UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT = "chummer6-ui.macos-flagship-evidence"
+UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT_VERSION = 3
 WINDOWS_ONLY_PLATFORM_SCOPE = "windows_only"
 REQUIRED_DESKTOP_HEADS = ("avalonia",)
 CURRENT_PREVIEW_DESKTOP_ARTIFACTS = {
@@ -217,6 +227,13 @@ CURRENT_PREVIEW_DESKTOP_ARTIFACTS = {
     ("avalonia", "windows", "win-x64", "installer"): (
         "avalonia-win-x64-installer",
         "chummer-avalonia-win-x64-installer.exe",
+    ),
+}
+GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS = {
+    **CURRENT_PREVIEW_DESKTOP_ARTIFACTS,
+    ("avalonia", "macos", "osx-arm64", "installer"): (
+        "avalonia-osx-arm64-installer",
+        "chummer-avalonia-osx-arm64-installer.dmg",
     ),
 }
 CODE_DEPLOY_CURRENT_SHELF_CONTRACT = "chummer.registry.code-deploy-current-shelf/v1"
@@ -335,6 +352,13 @@ CODE_DEPLOY_CURRENT_SHELF_AUTHORITY_KEYS = frozenset(
     }
 )
 RAW_SHA256_RE = re.compile(r"^[0-9a-f]{64}$")
+UUID_RE = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+    r"[0-9a-f]{4}-[0-9a-f]{12}$"
+)
+GITHUB_LOGIN_RE = re.compile(
+    r"^(?:github-actions\[bot\]|[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)$"
+)
 DESKTOP_ROUTE_TRUTH_HEADS = ("avalonia", "blazor-desktop")
 DESKTOP_ROUTE_ROLES = {
     "avalonia": "primary",
@@ -1156,10 +1180,48 @@ def verify_directory_projection_alignment(raw_target: str) -> None:
         return
     release_path = root / "RELEASE_CHANNEL.generated.json"
     compat_path = root / "releases.json"
-    if not release_path.is_file() or not compat_path.is_file():
+    if not release_path.is_file() and not compat_path.is_file():
         return
-    release_payload = json.loads(release_path.read_text(encoding="utf-8"))
-    compat_payload = json.loads(compat_path.read_text(encoding="utf-8"))
+    release_payload = (
+        strict_json_loads(release_path.read_bytes(), source=str(release_path))
+        if release_path.is_file()
+        else None
+    )
+    compat_payload = (
+        strict_json_loads(compat_path.read_bytes(), source=str(compat_path))
+        if compat_path.is_file()
+        else None
+    )
+    global_flagship_projection = any(
+        isinstance(payload, dict) and is_global_flagship_contract(payload)
+        for payload in (release_payload, compat_payload)
+    )
+    if global_flagship_projection:
+        if not isinstance(release_payload, dict) or not isinstance(compat_payload, dict):
+            raise SystemExit(
+                f"{root} global flagship publication requires both "
+                "RELEASE_CHANNEL.generated.json and releases.json"
+            )
+        verify_global_flagship_contract_identity(release_payload, str(release_path))
+        verify_global_flagship_contract_identity(compat_payload, str(compat_path))
+        verify_global_flagship_artifact_contract(release_payload, str(release_path))
+        verify_global_flagship_artifact_contract(compat_payload, str(compat_path))
+        materializer = release_channel_materializer_module()
+        expected_compatibility = materializer.compatibility_payload(release_payload)
+        expected_compatibility["publicTrustMetrics"] = (
+            materializer.expected_public_trust_metrics(expected_compatibility)
+        )
+        expected_compatibility["registryBoundaryCoverage"] = (
+            materializer.expected_registry_boundary_coverage(expected_compatibility)
+        )
+        if compat_payload != expected_compatibility:
+            raise SystemExit(
+                f"{compat_path} is not the exact canonical compatibility projection "
+                f"of {release_path}; regenerate both projections together"
+            )
+        return
+    if not isinstance(release_payload, dict) or not isinstance(compat_payload, dict):
+        return
     if route_truth_alignment_floor(release_payload) != route_truth_alignment_floor(compat_payload):
         raise SystemExit(
             f"{compat_path} desktop route truth does not match {release_path}; regenerate both projections together"
@@ -1429,6 +1491,449 @@ def normalized_token(value: object) -> str:
 def normalized_platform_token(value: object) -> str:
     token = normalized_token(value)
     return PLATFORM_ALIASES.get(token, token)
+
+
+def is_global_flagship_contract(payload: dict[str, Any]) -> bool:
+    return (
+        payload.get("schemaVersion") == GLOBAL_FLAGSHIP_SCHEMA_VERSION
+        or payload.get("contractVersion") == GLOBAL_FLAGSHIP_CONTRACT_VERSION
+        or payload.get("releaseProfile") == GLOBAL_FLAGSHIP_RELEASE_PROFILE
+    )
+
+
+def verify_global_flagship_contract_identity(
+    payload: dict[str, Any],
+    source: str,
+) -> bool:
+    if not is_global_flagship_contract(payload):
+        return False
+    if type(payload.get("schemaVersion")) is not int or (
+        payload["schemaVersion"] != GLOBAL_FLAGSHIP_SCHEMA_VERSION
+    ):
+        raise SystemExit(
+            f"{source} global flagship schemaVersion must be exactly "
+            f"{GLOBAL_FLAGSHIP_SCHEMA_VERSION}"
+        )
+    if type(payload.get("contractVersion")) is not int or (
+        payload["contractVersion"] != GLOBAL_FLAGSHIP_CONTRACT_VERSION
+    ):
+        raise SystemExit(
+            f"{source} global flagship contractVersion must be exactly "
+            f"{GLOBAL_FLAGSHIP_CONTRACT_VERSION}"
+        )
+    if payload.get("releaseProfile") != GLOBAL_FLAGSHIP_RELEASE_PROFILE:
+        raise SystemExit(
+            f"{source} global flagship releaseProfile must be exactly "
+            f"{GLOBAL_FLAGSHIP_RELEASE_PROFILE!r}"
+        )
+    channel = expected_channel_id(payload)
+    rollout_state = normalized_token(payload.get("rolloutState"))
+    if (
+        channel not in {"stable", "public_stable"}
+        or rollout_state not in {"stable", "public_stable"}
+        or normalized_token(payload.get("status")) != "published"
+        or normalized_token(payload.get("supportabilityState")) != "gold_supported"
+    ):
+        raise SystemExit(
+            f"{source} global flagship authority must be published, "
+            "gold-supported, and stable/public_stable"
+        )
+    return True
+
+
+def _verify_global_flagship_reference(
+    value: Any,
+    *,
+    source: str,
+) -> dict[str, Any]:
+    expected_keys = {"path", "sha256", "sizeBytes"}
+    if not isinstance(value, dict) or set(value) != expected_keys:
+        raise SystemExit(
+            f"{source} must contain exactly path, sha256, and sizeBytes"
+        )
+    path = value.get("path")
+    digest = value.get("sha256")
+    size_bytes = value.get("sizeBytes")
+    if (
+        not isinstance(path, str)
+        or not path
+        or path != f"receipts/{Path(path).name}"
+        or "\\" in path
+        or re.fullmatch(
+            r"receipts/[A-Za-z0-9][A-Za-z0-9._+-]{0,255}",
+            path,
+        )
+        is None
+    ):
+        raise SystemExit(
+            f"{source}.path must be a safe canonical receipts/<basename> path"
+        )
+    if not isinstance(digest, str) or RAW_SHA256_RE.fullmatch(digest) is None:
+        raise SystemExit(f"{source}.sha256 must be exact lowercase SHA-256")
+    if type(size_bytes) is not int or size_bytes <= 0:
+        raise SystemExit(f"{source}.sizeBytes must be a positive integer")
+    return {
+        "path": path,
+        "sha256": digest,
+        "sizeBytes": size_bytes,
+    }
+
+
+def verify_macos_flagship_evidence_binding(
+    value: Any,
+    *,
+    expected_candidate: dict[str, Any],
+    expected_release_version: str,
+    source: str,
+) -> None:
+    expected_top_level_keys = {
+        "contractName",
+        "contractVersion",
+        "source",
+        "candidate",
+        "globalCandidateIdentity",
+        "github",
+        "signingIdentity",
+        "notarization",
+        "receiptBindings",
+    }
+    if not isinstance(value, dict) or set(value) != expected_top_level_keys:
+        raise SystemExit(
+            f"{source} macosFlagshipEvidence has missing or extra authority fields"
+        )
+    if (
+        value.get("contractName")
+        != GLOBAL_FLAGSHIP_MACOS_EVIDENCE_BINDING_CONTRACT
+        or type(value.get("contractVersion")) is not int
+        or value.get("contractVersion")
+        != GLOBAL_FLAGSHIP_MACOS_EVIDENCE_BINDING_VERSION
+    ):
+        raise SystemExit(
+            f"{source} macosFlagshipEvidence binding contract identity is invalid"
+        )
+
+    source_binding = value.get("source")
+    expected_source_keys = {
+        "contractName",
+        "contractVersion",
+        "sha256",
+        "sizeBytes",
+    }
+    if not isinstance(source_binding, dict) or set(source_binding) != expected_source_keys:
+        raise SystemExit(
+            f"{source} macosFlagshipEvidence.source has missing or extra fields"
+        )
+    if (
+        source_binding.get("contractName") != UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT
+        or type(source_binding.get("contractVersion")) is not int
+        or source_binding.get("contractVersion")
+        != UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT_VERSION
+        or not isinstance(source_binding.get("sha256"), str)
+        or RAW_SHA256_RE.fullmatch(source_binding["sha256"]) is None
+        or type(source_binding.get("sizeBytes")) is not int
+        or source_binding["sizeBytes"] <= 0
+    ):
+        raise SystemExit(
+            f"{source} macosFlagshipEvidence.source does not bind a canonical UI evidence aggregate"
+        )
+
+    candidate = value.get("candidate")
+    if not isinstance(candidate, dict) or set(candidate) != {
+        "artifactId",
+        "fileName",
+        "sha256",
+        "sizeBytes",
+    }:
+        raise SystemExit(
+            f"{source} macosFlagshipEvidence.candidate has missing or extra fields"
+        )
+    if candidate != expected_candidate:
+        raise SystemExit(
+            f"{source} macosFlagshipEvidence.candidate does not bind the published DMG bytes"
+        )
+
+    global_identity = value.get("globalCandidateIdentity")
+    expected_global_identity_keys = {
+        "candidateId",
+        "generationId",
+        "previousReleaseVersion",
+        "releaseVersion",
+        "sourceCommit",
+    }
+    if (
+        not isinstance(global_identity, dict)
+        or set(global_identity) != expected_global_identity_keys
+    ):
+        raise SystemExit(
+            f"{source} macosFlagshipEvidence.globalCandidateIdentity has missing or extra fields"
+        )
+    for key in ("candidateId", "generationId"):
+        token = global_identity.get(key)
+        if (
+            not isinstance(token, str)
+            or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}", token) is None
+        ):
+            raise SystemExit(
+                f"{source} macosFlagshipEvidence.globalCandidateIdentity.{key} is invalid"
+            )
+    if (
+        not isinstance(global_identity.get("previousReleaseVersion"), str)
+        or not global_identity["previousReleaseVersion"]
+        or global_identity.get("releaseVersion")
+        != expected_release_version
+        or not isinstance(global_identity.get("sourceCommit"), str)
+        or re.fullmatch(r"[0-9a-f]{40}", global_identity["sourceCommit"]) is None
+    ):
+        raise SystemExit(
+            f"{source} macosFlagshipEvidence global candidate release identity is invalid"
+        )
+
+    github = value.get("github")
+    expected_github_keys = {
+        "actor",
+        "ref",
+        "repository",
+        "rerunPolicy",
+        "runAttempt",
+        "runId",
+        "sha",
+        "triggeringActor",
+        "workflow",
+    }
+    if not isinstance(github, dict) or set(github) != expected_github_keys:
+        raise SystemExit(
+            f"{source} macosFlagshipEvidence.github has missing or extra fields"
+        )
+    actor = github.get("actor")
+    if (
+        not isinstance(actor, str)
+        or GITHUB_LOGIN_RE.fullmatch(actor) is None
+        or github.get("triggeringActor") != actor
+        or github.get("repository") != "ArchonMegalon/chummer6-ui"
+        or github.get("ref") != "refs/heads/main"
+        or github.get("workflow")
+        != ".github/workflows/macos-flagship-evidence.yml"
+        or github.get("sha") != global_identity.get("sourceCommit")
+        or github.get("rerunPolicy") != "same-actor-only"
+        or type(github.get("runId")) is not int
+        or github["runId"] <= 0
+        or type(github.get("runAttempt")) is not int
+        or github["runAttempt"] <= 0
+    ):
+        raise SystemExit(
+            f"{source} macosFlagshipEvidence GitHub provenance is invalid"
+        )
+
+    signing_identity = value.get("signingIdentity")
+    expected_signing_keys = {
+        "certificateSha256",
+        "certificateSpkiSha256",
+        "developerIdApplicationIdentity",
+        "teamId",
+    }
+    if (
+        not isinstance(signing_identity, dict)
+        or set(signing_identity) != expected_signing_keys
+    ):
+        raise SystemExit(
+            f"{source} macosFlagshipEvidence.signingIdentity has missing or extra fields"
+        )
+    team_id = signing_identity.get("teamId")
+    developer_identity = signing_identity.get("developerIdApplicationIdentity")
+    if (
+        not isinstance(signing_identity.get("certificateSha256"), str)
+        or RAW_SHA256_RE.fullmatch(signing_identity["certificateSha256"]) is None
+        or not isinstance(signing_identity.get("certificateSpkiSha256"), str)
+        or RAW_SHA256_RE.fullmatch(signing_identity["certificateSpkiSha256"]) is None
+        or not isinstance(team_id, str)
+        or re.fullmatch(r"[A-Z0-9]{10}", team_id) is None
+        or not isinstance(developer_identity, str)
+        or not developer_identity.startswith("Developer ID Application:")
+        or not developer_identity.endswith(f"({team_id})")
+    ):
+        raise SystemExit(
+            f"{source} macosFlagshipEvidence signing identity is invalid"
+        )
+
+    notarization = value.get("notarization")
+    if not isinstance(notarization, dict) or set(notarization) != {
+        "status",
+        "submissionId",
+    }:
+        raise SystemExit(
+            f"{source} macosFlagshipEvidence.notarization has missing or extra fields"
+        )
+    if (
+        notarization.get("status") != "Accepted"
+        or not isinstance(notarization.get("submissionId"), str)
+        or UUID_RE.fullmatch(notarization["submissionId"]) is None
+    ):
+        raise SystemExit(
+            f"{source} macosFlagshipEvidence notarization authority is invalid"
+        )
+
+    receipt_bindings = value.get("receiptBindings")
+    expected_receipt_keys = {
+        "notaryResult",
+        "signingIdentityReceipt",
+        "signingReceipt",
+    }
+    if (
+        not isinstance(receipt_bindings, dict)
+        or set(receipt_bindings) != expected_receipt_keys
+    ):
+        raise SystemExit(
+            f"{source} macosFlagshipEvidence.receiptBindings has missing or extra fields"
+        )
+    references = [
+        _verify_global_flagship_reference(
+            receipt_bindings[key],
+            source=f"{source} macosFlagshipEvidence.receiptBindings.{key}",
+        )
+        for key in sorted(expected_receipt_keys)
+    ]
+    if len({reference["path"] for reference in references}) != len(references):
+        raise SystemExit(
+            f"{source} macosFlagshipEvidence receipt binding paths must be unique"
+        )
+
+
+def verify_global_flagship_artifact_contract(
+    payload: dict[str, Any],
+    source: str,
+) -> None:
+    if not is_global_flagship_contract(payload):
+        return
+    entries = list(iter_manifest_download_entries(payload))
+    entry_name = "artifacts" if isinstance(payload.get("artifacts"), list) else "downloads"
+    if len(entries) != len(GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS):
+        raise SystemExit(
+            f"{source} global flagship must contain exactly three desktop artifacts"
+        )
+    payload_version = str(
+        resolve_alias_value(
+            payload,
+            primary_key="version",
+            secondary_key="releaseVersion",
+            field_path="version",
+            source=source,
+        )
+        or ""
+    ).strip()
+    if not payload_version:
+        raise SystemExit(f"{source} global flagship version must not be blank")
+
+    seen_tuples: set[tuple[str, str, str, str]] = set()
+    seen_ids: set[str] = set()
+    seen_names: set[str] = set()
+    macos_evidence_count = 0
+    for index, item in enumerate(entries):
+        if not isinstance(item, dict):
+            raise SystemExit(f"{entry_name}[{index}] must be an object in {source}")
+        scope_tuple = parse_manifest_tuple_fields(item)
+        expected_identity = GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS.get(scope_tuple)
+        artifact_id = normalized_token(item.get("artifactId") or item.get("id"))
+        file_name = normalize_file_name(item)
+        if expected_identity != (artifact_id, file_name):
+            raise SystemExit(
+                f"{source} global flagship {entry_name}[{index}] is outside the exact "
+                f"Linux/Windows/macOS inventory: {scope_tuple}"
+            )
+        if scope_tuple in seen_tuples or artifact_id in seen_ids or file_name in seen_names:
+            raise SystemExit(
+                f"{source} global flagship tuples, artifact ids, and file names must be unique"
+            )
+        seen_tuples.add(scope_tuple)
+        seen_ids.add(artifact_id)
+        seen_names.add(file_name)
+
+        expected_arch = "arm64" if scope_tuple[1] == "macos" else "x64"
+        if normalized_token(item.get("arch")) != expected_arch:
+            raise SystemExit(
+                f"{source} global flagship {entry_name}[{index}] arch must be {expected_arch}"
+            )
+        expected_url = f"https://chummer.run/downloads/files/{file_name}"
+        download_url = item.get("downloadUrl")
+        compatibility_url = item.get("url")
+        if download_url != expected_url or (
+            entry_name == "downloads" and compatibility_url != expected_url
+        ):
+            raise SystemExit(
+                f"{source} global flagship {entry_name}[{index}] must use the canonical public URL"
+            )
+        if entry_name == "downloads" and item.get("id") != item.get("artifactId"):
+            raise SystemExit(
+                f"{source} global flagship downloads[{index}] id aliases must agree"
+            )
+        digest = item.get("sha256")
+        size_bytes = item.get("sizeBytes")
+        if not isinstance(digest, str) or RAW_SHA256_RE.fullmatch(digest) is None:
+            raise SystemExit(
+                f"{source} global flagship {entry_name}[{index}] sha256 is invalid"
+            )
+        if type(size_bytes) is not int or size_bytes <= 0:
+            raise SystemExit(
+                f"{source} global flagship {entry_name}[{index}] sizeBytes is invalid"
+            )
+        if item.get("compatibilityState") != "compatible":
+            raise SystemExit(
+                f"{source} global flagship {entry_name}[{index}] must be compatible"
+            )
+        if item.get("installAccessClass") != "open_public":
+            raise SystemExit(
+                f"{source} global flagship {entry_name}[{index}] must be open_public"
+            )
+        if (
+            item.get("version") != payload_version
+            or item.get("releaseVersion") != payload_version
+        ):
+            raise SystemExit(
+                f"{source} global flagship {entry_name}[{index}] release versions must match"
+            )
+        if entry_name == "downloads":
+            expected_format = (
+                "tar.gz"
+                if file_name.endswith(".tar.gz")
+                else Path(file_name).suffix.lstrip(".")
+            )
+            if (
+                item.get("platform")
+                != scope_tuple[1]
+                or item.get("platformId")
+                != f"{scope_tuple[1]}-{expected_arch}"
+                or item.get("format") != expected_format
+                or item.get("flavor") != "installer"
+            ):
+                raise SystemExit(
+                    f"{source} global flagship downloads[{index}] compatibility metadata is invalid"
+                )
+
+        evidence = item.get("macosFlagshipEvidence")
+        if scope_tuple[1] == "macos":
+            macos_evidence_count += 1
+            verify_macos_flagship_evidence_binding(
+                evidence,
+                expected_candidate={
+                    "artifactId": artifact_id,
+                    "fileName": file_name,
+                    "sha256": digest,
+                    "sizeBytes": size_bytes,
+                },
+                expected_release_version=payload_version,
+                source=f"{source} {entry_name}[{index}]",
+            )
+        elif evidence is not None:
+            raise SystemExit(
+                f"{source} only the macOS DMG may carry macosFlagshipEvidence"
+            )
+    if seen_tuples != set(GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS):
+        raise SystemExit(
+            f"{source} global flagship artifact tuple inventory is incomplete"
+        )
+    if macos_evidence_count != 1:
+        raise SystemExit(
+            f"{source} global flagship must bind exactly one macOS evidence aggregate"
+        )
 
 
 def code_deploy_artifact_inventory_rows(payload: dict[str, Any], source: str) -> list[dict[str, Any]]:
@@ -2504,7 +3009,16 @@ def verify_current_preview_desktop_artifact_scope(
     if not requires_chummer6_desktop_platform_floor(payload):
         return
 
-    allowed_artifacts = CURRENT_PREVIEW_DESKTOP_ARTIFACTS
+    allowed_artifacts = (
+        GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS
+        if is_global_flagship_contract(payload)
+        else CURRENT_PREVIEW_DESKTOP_ARTIFACTS
+    )
+    scope_label = (
+        "Avalonia Linux/Windows/macOS global flagship scope"
+        if is_global_flagship_contract(payload)
+        else "Avalonia Linux/Windows preview scope"
+    )
     if platform_scope == WINDOWS_ONLY_PLATFORM_SCOPE:
         allowed_artifacts = {
             scope_tuple: identity
@@ -2527,7 +3041,7 @@ def verify_current_preview_desktop_artifact_scope(
         if expected_identity is None:
             raise SystemExit(
                 f"{source} Chummer6 current release artifact row {index} is outside the exact "
-                f"Avalonia Linux/Windows preview scope: {scope_tuple}"
+                f"{scope_label}: {scope_tuple}"
             )
         if (artifact_id, file_name) != expected_identity:
             raise SystemExit(
@@ -2539,9 +3053,15 @@ def verify_current_preview_desktop_artifact_scope(
                 f"{source} Chummer6 current release artifact tuple is duplicated: {scope_tuple}"
             )
         seen_tuples.add(scope_tuple)
-    if platform_scope == WINDOWS_ONLY_PLATFORM_SCOPE and seen_tuples != set(allowed_artifacts):
+    if (
+        (
+            platform_scope == WINDOWS_ONLY_PLATFORM_SCOPE
+            or is_global_flagship_contract(payload)
+        )
+        and seen_tuples != set(allowed_artifacts)
+    ):
         raise SystemExit(
-            f"{source} platformScope='windows_only' requires the exact current Windows preview artifact inventory"
+            f"{source} requires its exact declared desktop artifact inventory"
         )
 
 
@@ -3278,7 +3798,7 @@ def expected_desktop_route_truth_rows(payload: dict) -> list[dict[str, str]]:
         and payload.get("projectionStage") == CODE_DEPLOY_CURRENT_SHELF_PROJECTION_STAGE
         and payload.get("releaseUploadAuthority") is False
     )
-    if code_deploy_current_shelf:
+    if code_deploy_current_shelf or is_global_flagship_contract(payload):
         required_platforms = [
             normalized_platform_token(platform)
             for platform in (configured_required_platforms or [])
@@ -3856,15 +4376,25 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
             source,
             platform_scope=platform_scope,
         )
+    expected_required_platforms = (
+        GLOBAL_FLAGSHIP_REQUIRED_DESKTOP_PLATFORMS
+        if is_global_flagship_contract(payload)
+        else REQUIRED_DESKTOP_PLATFORMS
+    )
+    platform_target_label = (
+        "the global flagship platform target"
+        if is_global_flagship_contract(payload)
+        else "the current preview platform target"
+    )
     if (
         requires_chummer6_desktop_platform_floor(payload)
         and not code_deploy_current_shelf
         and platform_scope != WINDOWS_ONLY_PLATFORM_SCOPE
-        and tuple(normalized_required_platforms) != REQUIRED_DESKTOP_PLATFORMS
+        and tuple(normalized_required_platforms) != expected_required_platforms
     ):
         raise SystemExit(
             f"{source} Chummer6 desktopTupleCoverage.requiredDesktopPlatforms must be exactly "
-            f"the current preview platform target {list(REQUIRED_DESKTOP_PLATFORMS)}"
+            f"{platform_target_label} {list(expected_required_platforms)}"
         )
     verify_required_desktop_heads(normalized_required_heads, source)
     normalized_channel_id = expected_channel_id(payload)
@@ -7359,6 +7889,8 @@ def verify_artifacts(
         )
         or ""
     ).strip()
+    verify_global_flagship_contract_identity(payload, source)
+    verify_global_flagship_artifact_contract(payload, source)
     if isinstance(payload.get("artifacts"), list):
         artifacts = payload.get("artifacts") or []
         if not artifacts and status == "unpublished":
@@ -8234,6 +8766,7 @@ def verify_generated_timestamp(payload: dict, source: str) -> None:
 
 
 def verify_contract_identity(payload: dict, source: str) -> None:
+    verify_global_flagship_contract_identity(payload, source)
     contract_name = str(
         resolve_alias_value(
             payload,

@@ -64,8 +64,374 @@ def compatibility_payload(canonical: dict) -> dict:
     return MODULE.compatibility_payload(canonical)
 
 
+def _write_canonical_macos_flagship_evidence(
+    path: Path,
+    *,
+    candidate: dict,
+    release_version: str,
+    generated_at: str,
+) -> None:
+    references = {}
+    for index, key in enumerate(
+        sorted(MODULE.MACOS_FLAGSHIP_EVIDENCE_REFERENCE_KEYS),
+        start=1,
+    ):
+        references[key] = {
+            "path": f"receipts/{key}.json",
+            "sha256": f"{index:064x}",
+            "sizeBytes": index,
+        }
+    payload = {
+        "candidate": candidate,
+        "cleanInstall": {},
+        "contractName": MODULE.UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT,
+        "contractVersion": MODULE.UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT_VERSION,
+        "generatedAtUtc": generated_at,
+        "github": {
+            "actor": "tibor",
+            "ref": "refs/heads/main",
+            "repository": "ArchonMegalon/chummer6-ui",
+            "rerunPolicy": "same-actor-only",
+            "runAttempt": "1",
+            "runId": "123456789",
+            "sha": "a" * 40,
+            "triggeringActor": "tibor",
+            "workflow": ".github/workflows/macos-flagship-evidence.yml",
+        },
+        "globalCandidateIdentity": {
+            "candidateId": "global-candidate-20260725",
+            "generationId": "generation-20260725",
+            "previousReleaseVersion": "run-20260715-140426",
+            "releaseVersion": release_version,
+            "sourceCommit": "a" * 40,
+        },
+        "inputBindings": {
+            binding_key: references[reference_key]["sha256"]
+            for binding_key, reference_key in (
+                MODULE.MACOS_FLAGSHIP_EVIDENCE_INPUT_BINDING_SOURCES.items()
+            )
+        },
+        "inventorySha256": references["inventory"]["sha256"],
+        "livePredecessorAuthority": {},
+        "nonPublishing": dict(MODULE.MACOS_FLAGSHIP_NONPUBLISHING_POSTURE),
+        "references": references,
+        "releaseVersion": release_version,
+        "rid": "osx-arm64",
+        "signing": {
+            "candidateDmgGatekeeperStatus": "pass",
+            "certificateSha256": "b" * 64,
+            "certificateSpkiSha256": "c" * 64,
+            "developerIdApplicationIdentity": (
+                "Developer ID Application: Chummer Project (ABCDE12345)"
+            ),
+            "gatekeeperAssessmentsEnabled": True,
+            "installedAppGatekeeperStatus": "pass",
+            "notarizationStatus": "Accepted",
+            "notarySubmissionId": "12345678-1234-1234-1234-123456789abc",
+            "postUpdateAppGatekeeperStatus": "pass",
+            "signingStatus": "pass",
+            "staplerValidationStatus": "pass",
+            "teamId": "ABCDE12345",
+        },
+        "sourceUnsignedCandidate": {},
+        "status": "pass",
+        "updateDelivery": {},
+    }
+    path.write_bytes(
+        (
+            json.dumps(
+                payload,
+                sort_keys=True,
+                indent=2,
+                ensure_ascii=False,
+            )
+            + "\n"
+        ).encode("utf-8")
+    )
+
+
+def _global_flagship_materialization_fixture(
+    root: Path,
+) -> tuple[argparse.Namespace, str]:
+    release_version = "run-20260725-120000"
+    generated_at = (
+        MODULE.dt.datetime.now(MODULE.UTC)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+    downloads_dir = root / "public-bundle" / "files"
+    downloads_dir.mkdir(parents=True)
+    artifact_specs = (
+        (
+            "avalonia-linux-x64-installer",
+            "chummer-avalonia-linux-x64-installer.deb",
+            "linux",
+            "linux-x64",
+            "x64",
+        ),
+        (
+            "avalonia-win-x64-installer",
+            "chummer-avalonia-win-x64-installer.exe",
+            "windows",
+            "win-x64",
+            "x64",
+        ),
+        (
+            "avalonia-osx-arm64-installer",
+            "chummer-avalonia-osx-arm64-installer.dmg",
+            "macos",
+            "osx-arm64",
+            "arm64",
+        ),
+    )
+    artifacts = []
+    candidate = {}
+    startup_smoke_dir = root / "startup-smoke"
+    startup_smoke_dir.mkdir()
+    os_names = {
+        "linux": "Linux 6.8",
+        "windows": "Windows 11",
+        "macos": "macOS 15.0",
+    }
+    for artifact_id, file_name, platform, rid, arch in artifact_specs:
+        artifact_path = downloads_dir / file_name
+        artifact_path.write_bytes(f"flagship-bytes:{artifact_id}".encode("utf-8"))
+        digest = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+        size_bytes = artifact_path.stat().st_size
+        url = f"https://chummer.run/downloads/files/{file_name}"
+        artifacts.append(
+            {
+                "id": artifact_id,
+                "artifactId": artifact_id,
+                "head": "avalonia",
+                "platform": platform,
+                "rid": rid,
+                "arch": arch,
+                "kind": "installer",
+                "fileName": file_name,
+                "url": url,
+                "downloadUrl": url,
+                "sha256": digest,
+                "sizeBytes": size_bytes,
+                "compatibilityState": "compatible",
+                "installAccessClass": "open_public",
+            }
+        )
+        (startup_smoke_dir / f"startup-smoke-avalonia-{rid}.receipt.json").write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": generated_at,
+                    "headId": "avalonia",
+                    "platform": platform,
+                    "rid": rid,
+                    "arch": arch,
+                    "hostClass": f"{platform}-host",
+                    "operatingSystem": os_names[platform],
+                    "channelId": "stable",
+                    "releaseVersion": release_version,
+                    "artifactDigest": f"sha256:{digest}",
+                    "artifactId": artifact_id,
+                    "artifactPath": str(artifact_path),
+                }
+            ),
+            encoding="utf-8",
+        )
+        if platform == "macos":
+            candidate = {
+                "artifactId": artifact_id,
+                "fileName": file_name,
+                "sha256": digest,
+                "sizeBytes": size_bytes,
+            }
+
+    manifest_path = root / "seed.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "contractName": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+                "product": "chummer6",
+                "status": "published",
+                "artifacts": artifacts,
+            }
+        ),
+        encoding="utf-8",
+    )
+    proof_path = root / "proof.json"
+    proof_path.write_text(
+        json.dumps(complete_release_proof(generated_at)),
+        encoding="utf-8",
+    )
+    readiness_path = root / "flagship-readiness.json"
+    readiness_path.write_text(
+        json.dumps(
+            {
+                "contract_name": MODULE.FLAGSHIP_READINESS_CONTRACT_NAME,
+                "status": "pass",
+                "generated_at_utc": generated_at,
+                "reason": "All launch-critical flagship readiness checks pass.",
+                "summary": {
+                    "scoped_coverage_gap_keys": [],
+                    "launch_critical_nested_blockers": [],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence_path = root / "macos-flagship-evidence.json"
+    _write_canonical_macos_flagship_evidence(
+        evidence_path,
+        candidate=candidate,
+        release_version=release_version,
+        generated_at=generated_at,
+    )
+    return (
+        materializer_args(
+            manifest=manifest_path,
+            downloads_dir=downloads_dir,
+            startup_smoke_dir=startup_smoke_dir,
+            startup_smoke_max_age_seconds=MODULE.STARTUP_SMOKE_MAX_AGE_SECONDS,
+            startup_smoke_max_future_skew_seconds=(
+                MODULE.STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS
+            ),
+            skip_startup_smoke_filter=False,
+            output=root / "RELEASE_CHANNEL.generated.json",
+            compat_output=root / "releases.json",
+            runtime_bundles=None,
+            proof=proof_path,
+            ui_localization_release_gate=None,
+            flagship_readiness=readiness_path,
+            macos_flagship_evidence=evidence_path,
+            product="chummer6",
+            channel="stable",
+            version=release_version,
+            contract_name="",
+            published_at=generated_at,
+            artifact_source="ui_desktop_bundle",
+            downloads_prefix="https://chummer.run/downloads/files",
+            required_desktop_heads="avalonia",
+            required_desktop_platforms="linux,windows,macos",
+        ),
+        release_version,
+    )
+
+
 def load_tests(loader, tests, pattern):
     return tests
+
+
+def test_global_flagship_v2_materialization_and_verifier_projection_parity() -> None:
+    from jsonschema import Draft202012Validator
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, release_version = _global_flagship_materialization_fixture(root)
+        canonical = MODULE.canonical_payload(args)
+        canonical["publicTrustMetrics"] = MODULE.expected_public_trust_metrics(
+            canonical
+        )
+        canonical["registryBoundaryCoverage"] = (
+            MODULE.expected_registry_boundary_coverage(canonical)
+        )
+        compatibility = MODULE.compatibility_payload(canonical)
+        compatibility["publicTrustMetrics"] = MODULE.expected_public_trust_metrics(
+            compatibility
+        )
+        compatibility["registryBoundaryCoverage"] = (
+            MODULE.expected_registry_boundary_coverage(compatibility)
+        )
+
+        assert canonical["schemaVersion"] == 2
+        assert canonical["contractVersion"] == 2
+        assert canonical["releaseProfile"] == "global_flagship"
+        assert canonical["version"] == release_version
+        assert len(canonical["artifacts"]) == 3
+        macos = next(
+            row for row in canonical["artifacts"] if row["platform"] == "macos"
+        )
+        assert macos["fileName"].endswith(".dmg")
+        assert macos["macosFlagshipEvidence"]["github"]["runId"] == 123456789
+        evidence_bytes = args.macos_flagship_evidence.read_bytes()
+        assert evidence_bytes.endswith(b"\n")
+        assert macos["macosFlagshipEvidence"]["source"] == {
+            "contractName": MODULE.UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT,
+            "contractVersion": MODULE.UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT_VERSION,
+            "sha256": hashlib.sha256(evidence_bytes).hexdigest(),
+            "sizeBytes": len(evidence_bytes),
+        }
+        assert (
+            macos["macosFlagshipEvidence"]["receiptBindings"]["notaryResult"][
+                "path"
+            ]
+            == "receipts/notaryResult.json"
+        )
+
+        VERIFY_MODULE.verify_contract_identity(canonical, "canonical")
+        VERIFY_MODULE.verify_artifacts(
+            canonical,
+            "canonical",
+            require_complete_desktop_coverage=True,
+        )
+        VERIFY_MODULE.verify_contract_identity(compatibility, "compatibility")
+        VERIFY_MODULE.verify_artifacts(
+            compatibility,
+            "compatibility",
+            require_complete_desktop_coverage=True,
+        )
+        schema = json.loads(
+            (
+                SCRIPT.parents[1]
+                / "contracts"
+                / "global-flagship-release-channel-v2.schema.json"
+            ).read_text(encoding="utf-8")
+        )
+        Draft202012Validator(schema).validate(canonical)
+        Draft202012Validator(schema).validate(compatibility)
+
+        args.output.write_text(
+            json.dumps(canonical, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        args.compat_output.write_text(
+            json.dumps(compatibility, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        VERIFY_MODULE.verify_directory_projection_alignment(str(root))
+
+        tampered = json.loads(json.dumps(canonical))
+        tampered_macos = next(
+            row for row in tampered["artifacts"] if row["platform"] == "macos"
+        )
+        tampered_macos["macosFlagshipEvidence"]["candidate"]["sha256"] = "f" * 64
+        with pytest.raises(SystemExit, match="does not bind the published DMG bytes"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                tampered,
+                "tampered",
+            )
+        missing_macos = json.loads(json.dumps(canonical))
+        missing_macos["artifacts"] = [
+            row
+            for row in missing_macos["artifacts"]
+            if row["platform"] != "macos"
+        ]
+        with pytest.raises(SystemExit, match="exactly three desktop artifacts"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                missing_macos,
+                "missing-macos",
+            )
+        duplicate_macos = json.loads(json.dumps(canonical))
+        duplicate_macos["artifacts"][0] = json.loads(json.dumps(macos))
+        with pytest.raises(SystemExit, match="unique"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                duplicate_macos,
+                "duplicate-macos",
+            )
+        bypass_args = argparse.Namespace(**vars(args))
+        bypass_args.skip_startup_smoke_filter = True
+        with pytest.raises(ValueError, match="forbids the smoke-filter bypass"):
+            MODULE.canonical_payload(bypass_args)
 
 
 def test_registry_commit_requires_external_full_canonical_commit() -> None:
