@@ -434,6 +434,115 @@ def test_global_flagship_v2_materialization_and_verifier_projection_parity() -> 
             MODULE.canonical_payload(bypass_args)
 
 
+def test_global_flagship_verifier_rejects_projection_and_alias_ambiguity() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(root)
+        canonical = MODULE.canonical_payload(args)
+
+        conflicting_id = json.loads(json.dumps(canonical))
+        conflicting_id["artifacts"][0]["id"] = "conflicting-artifact-id"
+        with pytest.raises(SystemExit, match="id aliases must agree"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                conflicting_id,
+                "conflicting-id",
+            )
+
+        conflicting_url = json.loads(json.dumps(canonical))
+        conflicting_url["artifacts"][0]["url"] = (
+            "https://chummer.run/downloads/files/conflicting-installer.deb"
+        )
+        with pytest.raises(SystemExit, match="canonical public URL"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                conflicting_url,
+                "conflicting-url",
+            )
+
+        conflicting_projection = json.loads(json.dumps(canonical))
+        conflicting_projection["downloads"] = [{"arbitrary": "ignored-before-fix"}]
+        with pytest.raises(SystemExit, match="exactly one artifacts/downloads projection"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                conflicting_projection,
+                "conflicting-projection",
+            )
+
+
+def test_global_flagship_verifier_requires_macos_startup_smoke_authority() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(root)
+        canonical = MODULE.canonical_payload(args)
+        expected_tuples = {
+            ("avalonia", "linux", "linux-x64"),
+            ("avalonia", "windows", "win-x64"),
+            ("avalonia", "macos", "osx-arm64"),
+        }
+
+        assert (
+            set(VERIFY_MODULE.iter_promoted_desktop_installer_tuples(canonical))
+            == expected_tuples
+        )
+        assert (
+            set(VERIFY_MODULE.promoted_desktop_installer_tuple_sha_map(canonical))
+            == expected_tuples
+        )
+        assert (
+            set(
+                VERIFY_MODULE.promoted_desktop_installer_tuple_identity_map(
+                    canonical
+                )
+            )
+            == expected_tuples
+        )
+        VERIFY_MODULE.verify_local_startup_smoke_receipts(
+            canonical,
+            root,
+            "global-flagship",
+        )
+
+        (root / "startup-smoke" / "startup-smoke-avalonia-osx-arm64.receipt.json").unlink()
+        with pytest.raises(SystemExit, match="macos:osx-arm64"):
+            VERIFY_MODULE.verify_local_startup_smoke_receipts(
+                canonical,
+                root,
+                "missing-macos-startup-smoke",
+            )
+        with pytest.raises(SystemExit, match="forbids the startup-smoke freshness bypass"):
+            VERIFY_MODULE.verify_artifacts(
+                canonical,
+                "bypass-attempt",
+                require_complete_desktop_coverage=True,
+                skip_startup_smoke_filter=True,
+            )
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda payload: payload.update(contractVersion=3.0),
+        lambda payload: payload.update(
+            nonPublishing={
+                key: int(value)
+                for key, value in payload["nonPublishing"].items()
+            }
+        ),
+    ],
+)
+def test_global_flagship_rejects_macos_evidence_type_confusion(mutate) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(root)
+        evidence = json.loads(args.macos_flagship_evidence.read_text(encoding="utf-8"))
+        mutate(evidence)
+        args.macos_flagship_evidence.write_text(
+            json.dumps(evidence, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ValueError, match="contract|non-publishing"):
+            MODULE.canonical_payload(args)
+
+
 def test_registry_commit_requires_external_full_canonical_commit() -> None:
     assert (
         MODULE.normalize_registry_commit(TEST_REGISTRY_COMMIT, source="test")

@@ -1804,8 +1804,19 @@ def verify_global_flagship_artifact_contract(
 ) -> None:
     if not is_global_flagship_contract(payload):
         return
+    has_artifacts = "artifacts" in payload
+    has_downloads = "downloads" in payload
+    if has_artifacts == has_downloads:
+        raise SystemExit(
+            f"{source} global flagship must contain exactly one artifacts/downloads projection"
+        )
+    selected_projection = "artifacts" if has_artifacts else "downloads"
+    if not isinstance(payload.get(selected_projection), list):
+        raise SystemExit(
+            f"{source} global flagship {selected_projection} projection must be a list"
+        )
     entries = list(iter_manifest_download_entries(payload))
-    entry_name = "artifacts" if isinstance(payload.get("artifacts"), list) else "downloads"
+    entry_name = selected_projection
     if len(entries) != len(GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS):
         raise SystemExit(
             f"{source} global flagship must contain exactly three desktop artifacts"
@@ -1832,7 +1843,7 @@ def verify_global_flagship_artifact_contract(
             raise SystemExit(f"{entry_name}[{index}] must be an object in {source}")
         scope_tuple = parse_manifest_tuple_fields(item)
         expected_identity = GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS.get(scope_tuple)
-        artifact_id = normalized_token(item.get("artifactId") or item.get("id"))
+        artifact_id = normalized_token(item.get("artifactId"))
         file_name = normalize_file_name(item)
         if expected_identity != (artifact_id, file_name):
             raise SystemExit(
@@ -1856,14 +1867,14 @@ def verify_global_flagship_artifact_contract(
         download_url = item.get("downloadUrl")
         compatibility_url = item.get("url")
         if download_url != expected_url or (
-            entry_name == "downloads" and compatibility_url != expected_url
+            "url" in item and compatibility_url != expected_url
         ):
             raise SystemExit(
                 f"{source} global flagship {entry_name}[{index}] must use the canonical public URL"
             )
-        if entry_name == "downloads" and item.get("id") != item.get("artifactId"):
+        if "id" in item and item.get("id") != item.get("artifactId"):
             raise SystemExit(
-                f"{source} global flagship downloads[{index}] id aliases must agree"
+                f"{source} global flagship {entry_name}[{index}] id aliases must agree"
             )
         digest = item.get("sha256")
         size_bytes = item.get("sizeBytes")
@@ -7413,13 +7424,22 @@ def verify_local_download_files(
         raise SystemExit(f"{source} exposes desktop files that are not present in manifest truth: {joined}")
 
 
+def startup_smoke_required_platforms(payload: dict) -> tuple[str, ...]:
+    return (
+        GLOBAL_FLAGSHIP_REQUIRED_DESKTOP_PLATFORMS
+        if is_global_flagship_contract(payload)
+        else REQUIRED_DESKTOP_PLATFORMS
+    )
+
+
 def iter_promoted_desktop_installer_tuples(payload: dict) -> Iterable[tuple[str, str, str]]:
     seen: set[tuple[str, str, str]] = set()
+    required_platforms = startup_smoke_required_platforms(payload)
     for item in iter_manifest_download_entries(payload):
         if not isinstance(item, dict):
             continue
         head, platform, rid, kind = parse_manifest_tuple_fields(item)
-        if platform not in REQUIRED_DESKTOP_PLATFORMS:
+        if platform not in required_platforms:
             continue
         if not is_desktop_install_media(platform, kind):
             continue
@@ -7449,11 +7469,12 @@ def expected_channel_id(payload: dict) -> str:
 
 def promoted_desktop_installer_tuple_sha_map(payload: dict) -> dict[tuple[str, str, str], str]:
     expected_sha_by_tuple: dict[tuple[str, str, str], str] = {}
+    required_platforms = startup_smoke_required_platforms(payload)
     for item in iter_manifest_download_entries(payload):
         if not isinstance(item, dict):
             continue
         head, platform, rid, kind = parse_manifest_tuple_fields(item)
-        if platform not in REQUIRED_DESKTOP_PLATFORMS:
+        if platform not in required_platforms:
             continue
         if not is_desktop_install_media(platform, kind):
             continue
@@ -7470,11 +7491,12 @@ def promoted_desktop_installer_tuple_sha_map(payload: dict) -> dict[tuple[str, s
 
 def promoted_desktop_installer_tuple_identity_map(payload: dict) -> dict[tuple[str, str, str], tuple[str, str]]:
     expected_identity_by_tuple: dict[tuple[str, str, str], tuple[str, str]] = {}
+    required_platforms = startup_smoke_required_platforms(payload)
     for item in iter_manifest_download_entries(payload):
         if not isinstance(item, dict):
             continue
         head, platform, rid, kind = parse_manifest_tuple_fields(item)
-        if platform not in REQUIRED_DESKTOP_PLATFORMS:
+        if platform not in required_platforms:
             continue
         if not is_desktop_install_media(platform, kind):
             continue
@@ -7630,6 +7652,10 @@ def verify_local_startup_smoke_receipts(
     skip_startup_smoke_filter: bool = False,
     allow_skipped_startup_smoke: bool = False,
 ) -> None:
+    if is_global_flagship_contract(payload) and skip_startup_smoke_filter:
+        raise SystemExit(
+            f"{source} global flagship forbids the startup-smoke freshness bypass"
+        )
     promoted_tuples = list(iter_promoted_desktop_installer_tuples(payload))
     if not promoted_tuples:
         return
@@ -7869,6 +7895,10 @@ def verify_artifacts(
     require_complete_desktop_coverage: bool = False,
     skip_startup_smoke_filter: bool = False,
 ) -> dict[str, list[str]] | None:
+    if is_global_flagship_contract(payload) and skip_startup_smoke_filter:
+        raise SystemExit(
+            f"{source} global flagship forbids the startup-smoke freshness bypass"
+        )
     status = str(payload.get("status") or "").strip().lower()
     channel = normalized_token(
         resolve_alias_value(

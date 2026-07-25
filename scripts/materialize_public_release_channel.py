@@ -1482,6 +1482,7 @@ def load_macos_flagship_evidence_binding(
     )
     if (
         payload.get("contractName") != UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT
+        or type(payload.get("contractVersion")) is not int
         or payload.get("contractVersion")
         != UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT_VERSION
         or payload.get("status") != "pass"
@@ -1558,7 +1559,16 @@ def load_macos_flagship_evidence_binding(
     ):
         raise ValueError("macOS flagship evidence GitHub provenance is invalid")
 
-    if payload.get("nonPublishing") != MACOS_FLAGSHIP_NONPUBLISHING_POSTURE:
+    non_publishing = require_exact_object_keys(
+        payload.get("nonPublishing"),
+        set(MACOS_FLAGSHIP_NONPUBLISHING_POSTURE),
+        source="macOS flagship evidence nonPublishing",
+    )
+    if any(
+        type(non_publishing.get(key)) is not bool
+        or non_publishing[key] is not expected
+        for key, expected in MACOS_FLAGSHIP_NONPUBLISHING_POSTURE.items()
+    ):
         raise ValueError(
             "macOS flagship evidence must retain its exact non-publishing posture"
         )
