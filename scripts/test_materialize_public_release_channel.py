@@ -117,6 +117,14 @@ def _write_canonical_macos_flagship_evidence(
         "references": references,
         "releaseVersion": release_version,
         "rid": "osx-arm64",
+        "runner": {
+            "arch": "arm64",
+            "environment": "github-hosted",
+            "imageOS": "macos15",
+            "imageVersion": "20260720.1",
+            "label": "macos-15",
+            "os": "macos-15.6",
+        },
         "signing": {
             "candidateDmgGatekeeperStatus": "pass",
             "certificateSha256": "b" * 64,
@@ -1041,6 +1049,20 @@ def test_global_flagship_v2_materialization_and_verifier_projection_parity() -> 
         bypass_args.skip_startup_smoke_filter = True
         with pytest.raises(ValueError, match="forbids the smoke-filter bypass"):
             MODULE.canonical_payload(bypass_args)
+
+        drifted_runner = json.loads(
+            args.macos_flagship_evidence.read_text(encoding="utf-8")
+        )
+        drifted_runner["runner"]["imageOS"] = "macos26"
+        args.macos_flagship_evidence.write_text(
+            json.dumps(drifted_runner, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(
+            ValueError,
+            match="hosted runner identity is invalid",
+        ):
+            MODULE.canonical_payload(args)
 
 
 def test_global_flagship_preview_to_public_stable_requires_bound_promotion_authority() -> None:

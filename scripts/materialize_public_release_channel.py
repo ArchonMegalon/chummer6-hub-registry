@@ -553,6 +553,7 @@ MACOS_FLAGSHIP_EVIDENCE_AGGREGATE_KEYS = {
     "references",
     "releaseVersion",
     "rid",
+    "runner",
     "signing",
     "sourceUnsignedCandidate",
     "status",
@@ -562,6 +563,7 @@ MACOS_FLAGSHIP_EVIDENCE_REFERENCE_KEYS = {
     "authorityReceipt",
     "cleanStartupReceipt",
     "completedUpdateState",
+    "hostedNativeProofConsumption",
     "inventory",
     "liveReleaseChannel",
     "manualUpdateState",
@@ -579,6 +581,7 @@ MACOS_FLAGSHIP_EVIDENCE_INPUT_BINDING_SOURCES = {
     "authorityReceiptSha256": "authorityReceipt",
     "cleanStartupReceiptSha256": "cleanStartupReceipt",
     "completedUpdateStateSha256": "completedUpdateState",
+    "hostedNativeProofConsumptionSha256": "hostedNativeProofConsumption",
     "manualUpdateStateSha256": "manualUpdateState",
     "liveReleaseChannelSha256": "liveReleaseChannel",
     "notaryResultSha256": "notaryResult",
@@ -1799,6 +1802,33 @@ def load_macos_flagship_evidence_binding(
         or re.fullmatch(r"[1-9][0-9]*", str(github.get("runAttempt"))) is None
     ):
         raise ValueError("macOS flagship evidence GitHub provenance is invalid")
+
+    runner = require_exact_object_keys(
+        payload.get("runner"),
+        {
+            "arch",
+            "environment",
+            "imageOS",
+            "imageVersion",
+            "label",
+            "os",
+        },
+        source="macOS flagship evidence runner",
+    )
+    if (
+        runner.get("arch") != "arm64"
+        or runner.get("environment") != "github-hosted"
+        or runner.get("imageOS") != "macos15"
+        or runner.get("label") != "macos-15"
+        or not isinstance(runner.get("imageVersion"), str)
+        or re.fullmatch(r"[0-9A-Za-z._-]{1,128}", runner["imageVersion"])
+        is None
+        or not isinstance(runner.get("os"), str)
+        or not runner["os"].startswith("macos-")
+    ):
+        raise ValueError(
+            "macOS flagship evidence hosted runner identity is invalid"
+        )
 
     non_publishing = require_exact_object_keys(
         payload.get("nonPublishing"),
