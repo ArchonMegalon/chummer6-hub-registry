@@ -66,6 +66,7 @@ CODE_DEPLOY_CURRENT_SHELF_TRANSFORM_OPTIONS = (
     "--ui-localization-release-gate",
     "--flagship-readiness",
     "--macos-flagship-evidence",
+    "--channel-promotion-authority",
     "--product",
     "--channel",
     "--version",
@@ -190,6 +191,20 @@ GLOBAL_FLAGSHIP_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
 GLOBAL_FLAGSHIP_SCHEMA_VERSION = 2
 GLOBAL_FLAGSHIP_CONTRACT_VERSION = 2
 GLOBAL_FLAGSHIP_RELEASE_PROFILE = "global_flagship"
+GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_CONTRACT = (
+    "chummer.registry.global-flagship-channel-promotion"
+)
+GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_VERSION = 1
+UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_CONTRACT = (
+    "chummer6-ui.global-flagship-channel-promotion-authority.v1"
+)
+UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_VERSION = 1
+UI_GLOBAL_FLAGSHIP_DESTINATION_INTENT_CONTRACT = (
+    "chummer6-ui.global-flagship-destination-intent.v1"
+)
+UI_GLOBAL_FLAGSHIP_DESTINATION_INTENT_VERSION = 1
+GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL = "preview"
+GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL = "public_stable"
 GLOBAL_FLAGSHIP_MACOS_EVIDENCE_BINDING_CONTRACT = (
     "chummer.registry.macos-flagship-evidence-binding"
 )
@@ -566,9 +581,21 @@ def normalize_platform_token(raw: Any) -> str:
     return token
 
 
-def startup_smoke_channel_matches_expected(expected_channel: str, actual_channel: str) -> bool:
+def startup_smoke_channel_matches_expected(
+    expected_channel: str,
+    actual_channel: str,
+    *,
+    authorized_source_channel: str = "",
+) -> bool:
     expected = normalize_token(expected_channel)
     actual = normalize_token(actual_channel)
+    authorized_source = normalize_token(authorized_source_channel)
+    if authorized_source:
+        return (
+            authorized_source == GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL
+            and expected == GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL
+            and actual == authorized_source
+        )
     if not expected:
         return True
     if not actual:
@@ -1263,6 +1290,14 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "authorize the signed/notarized macOS DMG binding for a v2 global flagship."
         ),
     )
+    parser.add_argument(
+        "--channel-promotion-authority",
+        type=Path,
+        help=(
+            "Protected-assembly preview-to-public_stable promotion authority "
+            "required by the v2 global flagship profile."
+        ),
+    )
     parser.add_argument("--product", default="chummer6")
     parser.add_argument("--channel", default="")
     parser.add_argument("--version", default="")
@@ -1315,6 +1350,19 @@ def normalize_exact_sha256(value: Any, *, source: str) -> str:
     if SHA256_PATTERN.fullmatch(digest) is None:
         raise ValueError(f"{source} must be exactly 64 lowercase hexadecimal characters")
     return digest
+
+
+def require_real_directory(path: Path | None, *, source: str) -> Path:
+    if path is None:
+        raise ValueError(f"{source} is required")
+    expanded = path.expanduser()
+    try:
+        metadata = os.lstat(expanded)
+    except OSError as exc:
+        raise ValueError(f"{source} is unavailable: {expanded}") from exc
+    if not stat.S_ISDIR(metadata.st_mode):
+        raise ValueError(f"{source} must be a real directory, not a link or special file")
+    return expanded
 
 
 def read_stable_regular_file_bytes(path: Path, *, source: str) -> bytes:
@@ -1715,6 +1763,9 @@ def global_flagship_platform_request(raw: Any) -> bool:
 
 def validate_global_flagship_source_artifacts(
     raw_artifacts: Any,
+    *,
+    expected_channel: str,
+    expected_release_version: str,
 ) -> list[dict[str, Any]]:
     if not isinstance(raw_artifacts, list):
         raise ValueError(
@@ -1752,6 +1803,19 @@ def validate_global_flagship_source_artifacts(
             normalize_token(item.get("rid")),
             normalize_token(item.get("kind")),
         )
+        if (
+            (
+                item.get("head"),
+                item.get("platform"),
+                item.get("rid"),
+                item.get("kind"),
+            )
+            != scope_tuple
+        ):
+            raise ValueError(
+                f"global flagship source artifact {index} tuple fields must use "
+                "exact canonical values"
+            )
         expected_identity = GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS.get(scope_tuple)
         if expected_identity != (artifact_id, file_name):
             raise ValueError(
@@ -1762,6 +1826,16 @@ def validate_global_flagship_source_artifacts(
         if item.get("arch") != expected_arch:
             raise ValueError(
                 f"global flagship source artifact {index} arch must be {expected_arch}"
+            )
+        if (
+            item.get("channelId") != expected_channel
+            or item.get("channel") != expected_channel
+            or item.get("version") != expected_release_version
+            or item.get("releaseVersion") != expected_release_version
+        ):
+            raise ValueError(
+                f"global flagship source artifact {index} must bind the exact "
+                "candidate channel and release version"
             )
         if item.get("compatibilityState") != "compatible":
             raise ValueError(
@@ -1803,6 +1877,8 @@ def validate_global_flagship_source_artifacts(
             {
                 "artifactId": artifact_id,
                 "fileName": file_name,
+                "platform": scope_tuple[1],
+                "rid": scope_tuple[2],
                 "sha256": digest,
                 "sizeBytes": size_bytes,
                 "downloadUrl": expected_url,
@@ -1838,6 +1914,8 @@ def validate_global_flagship_refreshed_artifacts(
         observed = {
             "artifactId": artifact_id,
             "fileName": artifact.get("fileName"),
+            "platform": normalize_platform_token(artifact.get("platform")),
+            "rid": normalize_token(artifact.get("rid")),
             "sha256": artifact.get("sha256"),
             "sizeBytes": artifact.get("sizeBytes"),
             "downloadUrl": artifact.get("downloadUrl"),
@@ -1851,6 +1929,541 @@ def validate_global_flagship_refreshed_artifacts(
         raise ValueError(
             "global flagship artifact inventory is missing a candidate-bound source row"
         )
+
+
+def global_flagship_artifact_inventory_sha256(
+    artifacts: list[dict[str, Any]],
+) -> str:
+    rows = [
+        {
+            "artifactId": artifact.get("artifactId"),
+            "fileName": artifact.get("fileName"),
+            "platform": artifact.get("platform"),
+            "rid": artifact.get("rid"),
+            "sha256": artifact.get("sha256"),
+            "sizeBytes": artifact.get("sizeBytes"),
+        }
+        for artifact in artifacts
+    ]
+    rows.sort(key=lambda row: str(row.get("platform") or ""))
+    canonical = json.dumps(
+        rows,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def validate_global_flagship_local_artifact_bytes(
+    downloads_dir: Path,
+    source_rows: list[dict[str, Any]],
+) -> None:
+    for source_row in source_rows:
+        file_name = source_row["fileName"]
+        raw = read_stable_regular_file_bytes(
+            downloads_dir / file_name,
+            source=f"global flagship local artifact {file_name}",
+        )
+        if (
+            len(raw) != source_row["sizeBytes"]
+            or hashlib.sha256(raw).hexdigest() != source_row["sha256"]
+        ):
+            raise ValueError(
+                f"global flagship local artifact {file_name} does not match "
+                "candidate-bound size and SHA-256"
+            )
+
+
+def _load_global_flagship_authority_reference(
+    value: Any,
+    *,
+    authority_root: Path,
+    source: str,
+    expected_path: str | None = None,
+) -> tuple[dict[str, Any], bytes]:
+    reference = require_exact_object_keys(
+        value,
+        {"path", "sha256", "sizeBytes"},
+        source=source,
+    )
+    relative_path = reference.get("path")
+    digest = reference.get("sha256")
+    size_bytes = reference.get("sizeBytes")
+    if (
+        not isinstance(relative_path, str)
+        or not relative_path
+        or relative_path != relative_path.strip()
+        or "\\" in relative_path
+        or Path(relative_path).is_absolute()
+        or ".." in Path(relative_path).parts
+        or (
+            expected_path is not None
+            and relative_path != expected_path
+        )
+        or not isinstance(digest, str)
+        or SHA256_PATTERN.fullmatch(digest) is None
+        or type(size_bytes) is not int
+        or size_bytes <= 0
+    ):
+        raise ValueError(f"{source} is not a canonical byte reference")
+    root = authority_root.resolve()
+    referenced_path = (authority_root / relative_path).resolve(strict=False)
+    if not referenced_path.is_relative_to(root):
+        raise ValueError(f"{source} escapes the channel-promotion authority root")
+    raw = read_stable_regular_file_bytes(
+        authority_root / relative_path,
+        source=source,
+    )
+    if len(raw) != size_bytes or hashlib.sha256(raw).hexdigest() != digest:
+        raise ValueError(f"{source} does not bind the referenced bytes")
+    return dict(reference), raw
+
+
+def _strict_referenced_json(raw: bytes, *, source: str) -> dict[str, Any]:
+    return strict_json_object(raw, source=source)
+
+
+def load_global_flagship_channel_promotion_authority(
+    path: Path | None,
+    *,
+    expected_release_version: str,
+    expected_artifacts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if path is None:
+        raise ValueError(
+            "global flagship public_stable materialization requires "
+            "--channel-promotion-authority"
+        )
+    raw = read_stable_regular_file_bytes(
+        path,
+        source="global flagship channel-promotion authority",
+    )
+    authority = strict_json_object(
+        raw,
+        source="global flagship channel-promotion authority",
+    )
+    require_exact_object_keys(
+        authority,
+        {
+            "contractName",
+            "contractVersion",
+            "generatedAt",
+            "releaseProfile",
+            "sourceChannel",
+            "targetChannel",
+            "candidateId",
+            "releaseVersion",
+            "assembly",
+            "artifactInventorySha256",
+            "destinationIntent",
+            "candidateManifest",
+            "proposal",
+            "finalApprovalReceipt",
+            "approvals",
+            "hubEvidence",
+            "startupReceipts",
+            "registryProjectionAuthorized",
+            "publicationMutationAuthorized",
+        },
+        source="global flagship channel-promotion authority",
+    )
+    generated_at = canonical_flagship_readiness_timestamp(
+        authority.get("generatedAt")
+    )
+    candidate_id = authority.get("candidateId")
+    if (
+        authority.get("contractName")
+        != UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_CONTRACT
+        or type(authority.get("contractVersion")) is not int
+        or authority.get("contractVersion")
+        != UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_VERSION
+        or generated_at is None
+        or authority.get("generatedAt") != generated_at
+        or authority.get("releaseProfile")
+        != GLOBAL_FLAGSHIP_RELEASE_PROFILE
+        or authority.get("sourceChannel")
+        != GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL
+        or authority.get("targetChannel")
+        != GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL
+        or not isinstance(candidate_id, str)
+        or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}", candidate_id)
+        is None
+        or authority.get("releaseVersion") != expected_release_version
+        or authority.get("registryProjectionAuthorized") is not True
+        or authority.get("publicationMutationAuthorized") is not False
+    ):
+        raise ValueError(
+            "global flagship channel-promotion authority posture is invalid"
+        )
+
+    assembly = require_exact_object_keys(
+        authority.get("assembly"),
+        {
+            "repository",
+            "workflow",
+            "ref",
+            "sha",
+            "runId",
+            "runAttempt",
+            "actor",
+            "triggeringActor",
+            "environment",
+        },
+        source="global flagship channel-promotion assembly provenance",
+    )
+    if (
+        assembly.get("repository") != "ArchonMegalon/chummer6-ui"
+        or assembly.get("workflow")
+        != ".github/workflows/global-flagship-publication-input-assembly.yml"
+        or assembly.get("ref") != "refs/heads/main"
+        or assembly.get("environment")
+        != "global-flagship-publication-input-assembly"
+        or not isinstance(assembly.get("sha"), str)
+        or re.fullmatch(r"[0-9a-f]{40}", assembly["sha"]) is None
+        or type(assembly.get("runId")) is not int
+        or assembly["runId"] <= 0
+        or type(assembly.get("runAttempt")) is not int
+        or assembly["runAttempt"] <= 0
+        or assembly.get("actor") != assembly.get("triggeringActor")
+        or not isinstance(assembly.get("actor"), str)
+        or re.fullmatch(
+            r"(?:github-actions\[bot\]|[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)",
+            assembly["actor"],
+        )
+        is None
+    ):
+        raise ValueError(
+            "global flagship channel-promotion assembly provenance is invalid"
+        )
+
+    authority_root = path.expanduser().resolve().parent
+    candidate_reference, candidate_raw = _load_global_flagship_authority_reference(
+        authority.get("candidateManifest"),
+        authority_root=authority_root,
+        source="global flagship candidate manifest reference",
+        expected_path="GLOBAL_FLAGSHIP_CANDIDATE.generated.json",
+    )
+    candidate_payload = _strict_referenced_json(
+        candidate_raw,
+        source="global flagship referenced candidate manifest",
+    )
+    if (
+        candidate_payload.get("contractName")
+        != "chummer6-ui.global-flagship-candidate.v1"
+        or candidate_payload.get("candidateId") != candidate_id
+        or candidate_payload.get("releaseVersion") != expected_release_version
+        or resolve_alias_value(
+            candidate_payload,
+            primary_key="channelId",
+            secondary_key="channel",
+            field_name="candidate channelId",
+            source="global flagship referenced candidate manifest",
+        )
+        != GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL
+    ):
+        raise ValueError(
+            "channel-promotion authority candidate identity is invalid"
+        )
+
+    referenced_contracts = (
+        (
+            "proposal",
+            "GLOBAL_FLAGSHIP_RELEASE_PROPOSAL.generated.json",
+            "chummer6-ui.global-flagship-release-proposal.v1",
+        ),
+        (
+            "finalApprovalReceipt",
+            "final-receipt.json",
+            "chummer6-ui.global-flagship-release-final-receipt.v1",
+        ),
+    )
+    loaded_references: dict[str, dict[str, Any]] = {
+        "candidateManifest": candidate_reference,
+    }
+    for key, expected_path, expected_contract in referenced_contracts:
+        reference, referenced_raw = _load_global_flagship_authority_reference(
+            authority.get(key),
+            authority_root=authority_root,
+            source=f"global flagship {key} reference",
+            expected_path=expected_path,
+        )
+        referenced_payload = _strict_referenced_json(
+            referenced_raw,
+            source=f"global flagship referenced {key}",
+        )
+        if referenced_payload.get("contractName") != expected_contract:
+            raise ValueError(
+                f"global flagship referenced {key} contract is invalid"
+            )
+        loaded_references[key] = reference
+
+    approvals = require_exact_object_keys(
+        authority.get("approvals"),
+        {"quality", "release", "security"},
+        source="global flagship channel-promotion approvals",
+    )
+    approval_references: dict[str, dict[str, Any]] = {}
+    for role in ("quality", "release", "security"):
+        reference, approval_raw = _load_global_flagship_authority_reference(
+            approvals.get(role),
+            authority_root=authority_root,
+            source=f"global flagship {role} approval reference",
+            expected_path=f"approvals/{role}/approval.json",
+        )
+        approval_payload = _strict_referenced_json(
+            approval_raw,
+            source=f"global flagship referenced {role} approval",
+        )
+        if (
+            approval_payload.get("contractName")
+            != "chummer6-ui.global-flagship-release-approval.v2"
+        ):
+            raise ValueError(
+                f"global flagship referenced {role} approval contract is invalid"
+            )
+        approval_references[role] = reference
+
+    hub_evidence = require_exact_object_keys(
+        authority.get("hubEvidence"),
+        {
+            "topologyRetirement",
+            "committedBoundaryReceipt",
+            "postMarkerConvergenceReceipt",
+        },
+        source="global flagship channel-promotion Hub evidence",
+    )
+    hub_expected_paths = {
+        "topologyRetirement": "topology-retirement.json",
+        "committedBoundaryReceipt": "committed-boundary-receipt.json",
+        "postMarkerConvergenceReceipt": "post-marker-convergence-receipt.json",
+    }
+    hub_references: dict[str, dict[str, Any]] = {}
+    for key, expected_path in hub_expected_paths.items():
+        reference, hub_raw = _load_global_flagship_authority_reference(
+            hub_evidence.get(key),
+            authority_root=authority_root,
+            source=f"global flagship Hub {key} reference",
+            expected_path=expected_path,
+        )
+        if key == "topologyRetirement":
+            hub_payload = _strict_referenced_json(
+                hub_raw,
+                source="global flagship topology retirement proof",
+            )
+            if (
+                hub_payload.get("contractName")
+                != "chummer6-hub.topology-b-committed-retirement.v1"
+            ):
+                raise ValueError(
+                    "global flagship topology retirement proof contract is invalid"
+                )
+        hub_references[key] = reference
+
+    expected_inventory = [
+        {
+            key: artifact.get(key)
+            for key in (
+                "platform",
+                "rid",
+                "artifactId",
+                "fileName",
+                "sha256",
+                "sizeBytes",
+            )
+        }
+        for artifact in expected_artifacts
+    ]
+    expected_inventory.sort(key=lambda row: row["platform"])
+    inventory_sha256 = global_flagship_artifact_inventory_sha256(
+        expected_artifacts
+    )
+    if authority.get("artifactInventorySha256") != inventory_sha256:
+        raise ValueError(
+            "channel-promotion authority artifact inventory digest is invalid"
+        )
+
+    startup_receipts = authority.get("startupReceipts")
+    if not isinstance(startup_receipts, list) or len(startup_receipts) != 3:
+        raise ValueError(
+            "channel-promotion authority must bind exactly three startup receipts"
+        )
+    expected_by_platform = {
+        row["platform"]: row for row in expected_inventory
+    }
+    startup_references: list[dict[str, Any]] = []
+    observed_platforms: list[str] = []
+    for row in startup_receipts:
+        startup_row = require_exact_object_keys(
+            row,
+            {
+                "path",
+                "sha256",
+                "sizeBytes",
+                "platform",
+                "rid",
+                "artifactId",
+                "fileName",
+            },
+            source="global flagship startup receipt binding",
+        )
+        platform = startup_row.get("platform")
+        expected_artifact = expected_by_platform.get(platform)
+        if expected_artifact is None:
+            raise ValueError(
+                "channel-promotion authority startup receipt platform is invalid"
+            )
+        expected_path = (
+            "public-bundle/startup-smoke/"
+            f"startup-smoke-avalonia-{expected_artifact['rid']}.receipt.json"
+        )
+        reference, receipt_raw = _load_global_flagship_authority_reference(
+            {
+                key: startup_row[key]
+                for key in ("path", "sha256", "sizeBytes")
+            },
+            authority_root=authority_root,
+            source=f"global flagship {platform} startup receipt reference",
+            expected_path=expected_path,
+        )
+        if any(
+            startup_row.get(key) != expected_artifact[key]
+            for key in ("platform", "rid", "artifactId", "fileName")
+        ):
+            raise ValueError(
+                "channel-promotion authority startup receipt identity is invalid"
+            )
+        receipt = _strict_referenced_json(
+            receipt_raw,
+            source=f"global flagship referenced {platform} startup receipt",
+        )
+        if (
+            receipt.get("headId") != "avalonia"
+            or receipt.get("platform") != expected_artifact["platform"]
+            or receipt.get("rid") != expected_artifact["rid"]
+            or receipt.get("arch")
+            != ("arm64" if platform == "macos" else "x64")
+            or receipt.get("channelId")
+            != GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL
+            or (
+                receipt.get("channel") is not None
+                and receipt.get("channel") != receipt.get("channelId")
+            )
+            or receipt.get("releaseVersion") != expected_release_version
+            or receipt.get("artifactId") != expected_artifact["artifactId"]
+            or startup_smoke_receipt_artifact_file_name(receipt)
+            != expected_artifact["fileName"]
+            or normalize_token(receipt.get("artifactDigest"))
+            not in {
+                expected_artifact["sha256"],
+                f"sha256:{expected_artifact['sha256']}",
+            }
+            or receipt.get("status") not in {"pass", "passed", "ready"}
+            or receipt.get("readyCheckpoint")
+            != STARTUP_SMOKE_REQUIRED_READY_CHECKPOINT
+            or _startup_smoke_recorded_at(receipt) is None
+            or not startup_smoke_host_class_matches_platform(
+                receipt,
+                platform=platform,
+            )
+            or not startup_smoke_operating_system_matches_platform(
+                receipt,
+                platform=platform,
+            )
+        ):
+            raise ValueError(
+                f"channel-promotion authority {platform} startup receipt is invalid"
+            )
+        observed_platforms.append(platform)
+        startup_references.append(
+            {
+                **reference,
+                "platform": platform,
+                "rid": expected_artifact["rid"],
+                "artifactId": expected_artifact["artifactId"],
+                "fileName": expected_artifact["fileName"],
+            }
+        )
+    if observed_platforms != sorted(expected_by_platform):
+        raise ValueError(
+            "channel-promotion authority startup receipts must be unique and "
+            "sorted by platform"
+        )
+
+    intent_reference, intent_raw = _load_global_flagship_authority_reference(
+        authority.get("destinationIntent"),
+        authority_root=authority_root,
+        source="global flagship destination intent reference",
+        expected_path="destination-intent.json",
+    )
+    intent = _strict_referenced_json(
+        intent_raw,
+        source="global flagship destination intent",
+    )
+    require_exact_object_keys(
+        intent,
+        {
+            "contractName",
+            "contractVersion",
+            "candidateId",
+            "releaseVersion",
+            "sourceChannel",
+            "targetChannel",
+            "baseUrl",
+            "previousManifest",
+            "topologyRetirementProof",
+            "artifactInventory",
+            "artifactInventorySha256",
+        },
+        source="global flagship destination intent",
+    )
+    if (
+        intent.get("contractName")
+        != UI_GLOBAL_FLAGSHIP_DESTINATION_INTENT_CONTRACT
+        or type(intent.get("contractVersion")) is not int
+        or intent.get("contractVersion")
+        != UI_GLOBAL_FLAGSHIP_DESTINATION_INTENT_VERSION
+        or intent.get("candidateId") != candidate_id
+        or intent.get("releaseVersion") != expected_release_version
+        or intent.get("sourceChannel")
+        != GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL
+        or intent.get("targetChannel")
+        != GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL
+        or intent.get("baseUrl") != "https://chummer.run/downloads"
+        or intent.get("artifactInventory") != expected_inventory
+        or intent.get("artifactInventorySha256") != inventory_sha256
+        or intent.get("topologyRetirementProof")
+        != hub_references["topologyRetirement"]
+    ):
+        raise ValueError("global flagship destination intent is invalid")
+    _load_global_flagship_authority_reference(
+        intent.get("previousManifest"),
+        authority_root=authority_root,
+        source="global flagship previous manifest reference",
+    )
+
+    return {
+        "contractName": GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_CONTRACT,
+        "contractVersion": GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_VERSION,
+        "source": {
+            "contractName": UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_CONTRACT,
+            "contractVersion": UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_VERSION,
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "sizeBytes": len(raw),
+        },
+        "candidateId": candidate_id,
+        "releaseVersion": expected_release_version,
+        "releaseProfile": GLOBAL_FLAGSHIP_RELEASE_PROFILE,
+        "sourceChannel": GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL,
+        "targetChannel": GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL,
+        "artifactInventorySha256": inventory_sha256,
+        "destinationIntent": intent_reference,
+        "candidateManifest": candidate_reference,
+        "finalApprovalReceipt": loaded_references["finalApprovalReceipt"],
+        "registryProjectionAuthorized": True,
+        "publicationMutationAuthorized": False,
+        "assembly": dict(assembly),
+    }
 
 
 def attach_macos_flagship_evidence_binding(
@@ -2608,8 +3221,10 @@ def load_startup_smoke_receipts(
     max_age_seconds: int = STARTUP_SMOKE_MAX_AGE_SECONDS,
     max_future_skew_seconds: int = STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
     expected_channel: str = "",
+    authorized_source_channel: str = "",
     expected_release_version: str = "",
     expected_platform_scope: str = "",
+    require_exact_global_flagship_set: bool = False,
     now: dt.datetime | None = None,
 ) -> list[dict[str, Any]] | None:
     if startup_smoke_dir is None or not startup_smoke_dir.exists():
@@ -2646,6 +3261,8 @@ def load_startup_smoke_receipts(
             "artifactId": artifact_id,
             "artifactFileName": artifact_file_name,
         }
+        if require_exact_global_flagship_set:
+            receipt_entry["rid"] = rid
         installer_mode = startup_smoke_manifest_installer_mode(loaded)
         if installer_mode:
             receipt_entry["installerMode"] = installer_mode
@@ -2694,13 +3311,58 @@ def load_startup_smoke_receipts(
             receipt_entry["payloadSizeBytes"] = payload_size_bytes
         return receipt_entry
 
-    for entry in sorted(startup_smoke_dir.rglob("startup-smoke-*.receipt.json")):
+    receipt_paths = sorted(
+        startup_smoke_dir.rglob("startup-smoke-*.receipt.json")
+    )
+    for entry in receipt_paths:
         try:
-            loaded = json.loads(entry.read_text(encoding="utf-8-sig"))
-        except (OSError, json.JSONDecodeError):
+            if require_exact_global_flagship_set and entry.is_symlink():
+                raise ValueError(
+                    f"global flagship startup-smoke receipt must be a regular file: {entry}"
+                )
+            loaded = strict_json_object(
+                entry.read_bytes(),
+                source=f"startup-smoke receipt {entry}",
+            )
+        except (OSError, ValueError):
+            if require_exact_global_flagship_set:
+                raise
             continue
-        if not isinstance(loaded, dict):
-            continue
+        if require_exact_global_flagship_set:
+            raw_tuple = (
+                loaded.get("headId"),
+                loaded.get("platform"),
+                loaded.get("rid"),
+                loaded.get("arch"),
+            )
+            expected_raw_tuples = {
+                ("avalonia", "linux", "linux-x64", "x64"),
+                ("avalonia", "windows", "win-x64", "x64"),
+                ("avalonia", "macos", "osx-arm64", "arm64"),
+            }
+            raw_channel_id = loaded.get("channelId")
+            raw_channel_alias = loaded.get("channel")
+            expected_receipt_channel = (
+                authorized_source_channel or expected_channel
+            )
+            if (
+                raw_tuple not in expected_raw_tuples
+                or raw_channel_id != expected_receipt_channel
+                or (
+                    raw_channel_alias is not None
+                    and raw_channel_alias != raw_channel_id
+                )
+                or loaded.get("releaseVersion") != expected_release_version
+                or (
+                    loaded.get("version") is not None
+                    and loaded.get("version")
+                    != loaded.get("releaseVersion")
+                )
+            ):
+                raise ValueError(
+                    "global flagship startup-smoke receipt tuple and channel fields "
+                    "must use exact canonical values"
+                )
         status = str(loaded.get("status") or "").strip().lower()
         incompatible_host_skip = startup_smoke_is_windows_incompatible_host_skip(loaded)
         wine_compatibility_declared = startup_smoke_declares_windows_wine_compatibility(loaded)
@@ -2754,7 +3416,11 @@ def load_startup_smoke_receipts(
             continue
         if not incompatible_host_skip and not startup_smoke_operating_system_matches_platform(loaded, platform=receipt_entry["platform"]):
             continue
-        if not startup_smoke_channel_matches_expected(expected_channel, receipt_entry["channelId"]):
+        if not startup_smoke_channel_matches_expected(
+            expected_channel,
+            receipt_entry["channelId"],
+            authorized_source_channel=authorized_source_channel,
+        ):
             continue
         if (
             not receipt_entry["artifactId"]
@@ -2777,6 +3443,37 @@ def load_startup_smoke_receipts(
             receipt_entry["proofFreshness"] = proof_freshness
         receipts.append(receipt_entry)
 
+    if require_exact_global_flagship_set:
+        expected_tuples = {
+            ("avalonia", "linux", "linux-x64"),
+            ("avalonia", "windows", "win-x64"),
+            ("avalonia", "macos", "osx-arm64"),
+        }
+        observed_tuples = {
+            (
+                str(receipt.get("head") or ""),
+                str(receipt.get("platform") or ""),
+                str(receipt.get("rid") or ""),
+            )
+            for receipt in receipts
+        }
+        expected_receipt_channel = (
+            authorized_source_channel or expected_channel
+        )
+        if (
+            len(receipt_paths) != len(expected_tuples)
+            or len(receipts) != len(expected_tuples)
+            or observed_tuples != expected_tuples
+            or any(
+                receipt.get("channelId") != expected_receipt_channel
+                for receipt in receipts
+            )
+        ):
+            raise ValueError(
+                "global flagship startup-smoke authority must contain exactly one "
+                "canonical receipt for each Linux, Windows, and macOS tuple on the "
+                f"exact source channel {expected_receipt_channel!r}"
+            )
     return receipts
 
 
@@ -6177,8 +6874,16 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         if requested_version and (requested_version != "unpublished" or not loaded_version)
         else loaded_version
     ) or "unpublished"
-    loaded_channel = str(loaded.get("channel") or loaded.get("channelId") or "").strip()
-    requested_channel = str(args.channel or "").strip()
+    loaded_channel_value = resolve_alias_value(
+        loaded,
+        primary_key="channelId",
+        secondary_key="channel",
+        field_name="channelId",
+        source="source manifest",
+    )
+    loaded_channel = str(loaded_channel_value or "").strip()
+    requested_channel_value = args.channel
+    requested_channel = str(requested_channel_value or "").strip()
     raw_channel = requested_channel or loaded_channel or "preview"
     channel = raw_channel
     loaded_desktop_coverage = (
@@ -6193,33 +6898,93 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     global_flagship = global_flagship_platform_request(
         configured_required_platforms
     )
+    global_flagship_authorized_source_channel = ""
+    global_flagship_promotion_binding: dict[str, Any] | None = None
     macos_flagship_evidence_path = getattr(
         args,
         "macos_flagship_evidence",
         None,
     )
+    channel_promotion_authority_path = getattr(
+        args,
+        "channel_promotion_authority",
+        None,
+    )
     if global_flagship:
+        if requested_channel_value not in {"stable", "public_stable"}:
+            raise ValueError(
+                "global flagship materialization requires an explicit exact "
+                "--channel stable or --channel public_stable"
+            )
+        if requested_channel == GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL:
+            if loaded_channel_value != GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL:
+                raise ValueError(
+                    "global flagship public_stable promotion requires an exact "
+                    "preview source manifest channel"
+                )
+            if channel_promotion_authority_path is None:
+                raise ValueError(
+                    "global flagship public_stable promotion requires "
+                    "--channel-promotion-authority"
+                )
+        elif loaded_channel_value != "stable":
+            raise ValueError(
+                "global flagship stable materialization requires an exact stable "
+                "source manifest channel"
+            )
+        elif channel_promotion_authority_path is not None:
+            raise ValueError(
+                "--channel-promotion-authority is valid only for the exact "
+                "preview-to-public_stable global flagship boundary"
+            )
         if args.downloads_prefix.rstrip("/") != "https://chummer.run/downloads/files":
             raise ValueError(
                 "global flagship downloads must use the canonical "
                 "https://chummer.run/downloads/files prefix"
             )
-        if (
-            getattr(args, "startup_smoke_dir", None) is None
-            or bool(getattr(args, "skip_startup_smoke_filter", False))
-        ):
+        if bool(getattr(args, "skip_startup_smoke_filter", False)):
             raise ValueError(
                 "global flagship materialization requires native startup-smoke "
                 "receipts for all three platforms and forbids the smoke-filter bypass"
             )
-        global_flagship_source_rows = validate_global_flagship_source_artifacts(
-            loaded.get("artifacts")
+        args.downloads_dir = require_real_directory(
+            getattr(args, "downloads_dir", None),
+            source="global flagship downloads directory",
         )
+        args.startup_smoke_dir = require_real_directory(
+            getattr(args, "startup_smoke_dir", None),
+            source="global flagship startup-smoke directory",
+        )
+        global_flagship_source_rows = validate_global_flagship_source_artifacts(
+            loaded.get("artifacts"),
+            expected_channel=loaded_channel,
+            expected_release_version=version,
+        )
+        validate_global_flagship_local_artifact_bytes(
+            args.downloads_dir,
+            global_flagship_source_rows,
+        )
+        if requested_channel == GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL:
+            global_flagship_promotion_binding = (
+                load_global_flagship_channel_promotion_authority(
+                    channel_promotion_authority_path,
+                    expected_release_version=version,
+                    expected_artifacts=global_flagship_source_rows,
+                )
+            )
+            global_flagship_authorized_source_channel = (
+                global_flagship_promotion_binding["sourceChannel"]
+            )
     else:
         global_flagship_source_rows = []
         if macos_flagship_evidence_path is not None:
             raise ValueError(
                 "--macos-flagship-evidence is valid only for the explicit v2 global flagship contract"
+            )
+        if channel_promotion_authority_path is not None:
+            raise ValueError(
+                "--channel-promotion-authority is valid only for the explicit "
+                "v2 global flagship public_stable contract"
             )
 
     if isinstance(loaded.get("artifacts"), list):
@@ -6262,16 +7027,28 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             max_age_seconds=args.startup_smoke_max_age_seconds,
             max_future_skew_seconds=args.startup_smoke_max_future_skew_seconds,
             expected_channel=normalize_token(raw_channel),
+            authorized_source_channel=(
+                global_flagship_authorized_source_channel
+            ),
             expected_release_version=version,
             expected_platform_scope=platform_scope or "",
+            require_exact_global_flagship_set=global_flagship,
         )
     else:
         startup_smoke_receipts = None
     artifacts = filter_unproven_installers(artifacts, startup_smoke_receipts)
     if global_flagship:
+        if startup_smoke_receipts is None:
+            raise ValueError(
+                "global flagship startup-smoke receipt authority is unavailable"
+            )
         validate_global_flagship_refreshed_artifacts(
             global_flagship_source_rows,
             artifacts,
+        )
+        validate_global_flagship_local_artifact_bytes(
+            args.downloads_dir,
+            global_flagship_source_rows,
         )
         for artifact in artifacts:
             artifact["installAccessClass"] = "open_public"
@@ -6480,6 +7257,10 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         or normalize_token(channel) not in {"stable", "public_stable"}
         or normalize_token(rollout_state) not in {"stable", "public_stable"}
         or normalize_token(supportability_state) != "gold_supported"
+        or (
+            channel == GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL
+            and global_flagship_promotion_binding is None
+        )
     ):
         raise ValueError(
             "global flagship materialization requires published, complete, "
@@ -6680,6 +7461,10 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     if global_flagship:
         payload["contractVersion"] = GLOBAL_FLAGSHIP_CONTRACT_VERSION
         payload["releaseProfile"] = GLOBAL_FLAGSHIP_RELEASE_PROFILE
+        if global_flagship_promotion_binding is not None:
+            payload["channelPromotionAuthority"] = (
+                global_flagship_promotion_binding
+            )
     if platform_scope is not None:
         payload["platformScope"] = platform_scope
     payload["publicTrustMetrics"] = expected_public_trust_metrics(payload)
@@ -6830,7 +7615,11 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         "contractName": contract_name,
         **{
             field: canonical[field]
-            for field in ("contractVersion", "releaseProfile")
+            for field in (
+                "contractVersion",
+                "releaseProfile",
+                "channelPromotionAuthority",
+            )
             if field in canonical
         },
         "registry_commit": registry_commit,

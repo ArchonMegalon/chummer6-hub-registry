@@ -150,8 +150,200 @@ def _write_canonical_macos_flagship_evidence(
     )
 
 
+def _file_reference(root: Path, relative_path: str) -> dict:
+    raw = (root / relative_path).read_bytes()
+    return {
+        "path": relative_path,
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "sizeBytes": len(raw),
+    }
+
+
+def _write_global_flagship_channel_promotion_authority(
+    root: Path,
+    *,
+    artifacts: list[dict],
+    release_version: str,
+    generated_at: str,
+) -> Path:
+    candidate_id = "global-candidate-20260725"
+    referenced_payloads = {
+        "GLOBAL_FLAGSHIP_CANDIDATE.generated.json": {
+            "contractName": "chummer6-ui.global-flagship-candidate.v1",
+            "candidateId": candidate_id,
+            "releaseVersion": release_version,
+            "channelId": "preview",
+            "channel": "preview",
+        },
+        "GLOBAL_FLAGSHIP_RELEASE_PROPOSAL.generated.json": {
+            "contractName": "chummer6-ui.global-flagship-release-proposal.v1",
+            "candidateId": candidate_id,
+            "releaseVersion": release_version,
+        },
+        "final-receipt.json": {
+            "contractName": "chummer6-ui.global-flagship-release-final-receipt.v1",
+            "candidateId": candidate_id,
+            "releaseVersion": release_version,
+        },
+        "topology-retirement.json": {
+            "contractName": "chummer6-hub.topology-b-committed-retirement.v1",
+            "status": "passed",
+        },
+        "committed-boundary-receipt.json": {"status": "passed"},
+        "post-marker-convergence-receipt.json": {"status": "passed"},
+        "previous-manifest.json": {
+            "contractName": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+            "channel": "preview",
+        },
+    }
+    for relative_path, payload in referenced_payloads.items():
+        (root / relative_path).write_text(
+            json.dumps(payload, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+    for role in ("quality", "release", "security"):
+        path = root / "approvals" / role / "approval.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(
+                {
+                    "contractName": "chummer6-ui.global-flagship-release-approval.v2",
+                    "candidateId": candidate_id,
+                    "role": role,
+                },
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+
+    inventory = [
+        {
+            key: artifact[key]
+            for key in (
+                "platform",
+                "rid",
+                "artifactId",
+                "fileName",
+                "sha256",
+                "sizeBytes",
+            )
+        }
+        for artifact in artifacts
+    ]
+    inventory.sort(key=lambda row: row["platform"])
+    inventory_sha256 = hashlib.sha256(
+        json.dumps(
+            inventory,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+    ).hexdigest()
+    topology_reference = _file_reference(root, "topology-retirement.json")
+    destination_intent = {
+        "contractName": MODULE.UI_GLOBAL_FLAGSHIP_DESTINATION_INTENT_CONTRACT,
+        "contractVersion": 1,
+        "candidateId": candidate_id,
+        "releaseVersion": release_version,
+        "sourceChannel": "preview",
+        "targetChannel": "public_stable",
+        "baseUrl": "https://chummer.run/downloads",
+        "previousManifest": _file_reference(root, "previous-manifest.json"),
+        "topologyRetirementProof": topology_reference,
+        "artifactInventory": inventory,
+        "artifactInventorySha256": inventory_sha256,
+    }
+    (root / "destination-intent.json").write_text(
+        json.dumps(destination_intent, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    startup_receipts = []
+    for artifact in sorted(artifacts, key=lambda row: row["platform"]):
+        relative_path = (
+            "public-bundle/startup-smoke/"
+            f"startup-smoke-avalonia-{artifact['rid']}.receipt.json"
+        )
+        startup_receipts.append(
+            {
+                **_file_reference(root, relative_path),
+                "platform": artifact["platform"],
+                "rid": artifact["rid"],
+                "artifactId": artifact["artifactId"],
+                "fileName": artifact["fileName"],
+            }
+        )
+
+    authority = {
+        "contractName": (
+            MODULE.UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_CONTRACT
+        ),
+        "contractVersion": 1,
+        "generatedAt": generated_at,
+        "releaseProfile": "global_flagship",
+        "sourceChannel": "preview",
+        "targetChannel": "public_stable",
+        "candidateId": candidate_id,
+        "releaseVersion": release_version,
+        "assembly": {
+            "repository": "ArchonMegalon/chummer6-ui",
+            "workflow": (
+                ".github/workflows/"
+                "global-flagship-publication-input-assembly.yml"
+            ),
+            "ref": "refs/heads/main",
+            "sha": "a" * 40,
+            "runId": 123456789,
+            "runAttempt": 1,
+            "actor": "tibor",
+            "triggeringActor": "tibor",
+            "environment": "global-flagship-publication-input-assembly",
+        },
+        "artifactInventorySha256": inventory_sha256,
+        "destinationIntent": _file_reference(root, "destination-intent.json"),
+        "candidateManifest": _file_reference(
+            root,
+            "GLOBAL_FLAGSHIP_CANDIDATE.generated.json",
+        ),
+        "proposal": _file_reference(
+            root,
+            "GLOBAL_FLAGSHIP_RELEASE_PROPOSAL.generated.json",
+        ),
+        "finalApprovalReceipt": _file_reference(root, "final-receipt.json"),
+        "approvals": {
+            role: _file_reference(root, f"approvals/{role}/approval.json")
+            for role in ("quality", "release", "security")
+        },
+        "hubEvidence": {
+            "topologyRetirement": topology_reference,
+            "committedBoundaryReceipt": _file_reference(
+                root,
+                "committed-boundary-receipt.json",
+            ),
+            "postMarkerConvergenceReceipt": _file_reference(
+                root,
+                "post-marker-convergence-receipt.json",
+            ),
+        },
+        "startupReceipts": startup_receipts,
+        "registryProjectionAuthorized": True,
+        "publicationMutationAuthorized": False,
+    }
+    authority_path = root / "channel-promotion-authority.json"
+    authority_path.write_text(
+        json.dumps(authority, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return authority_path
+
+
 def _global_flagship_materialization_fixture(
     root: Path,
+    *,
+    source_channel: str = "stable",
+    target_channel: str = "stable",
+    include_promotion_authority: bool = False,
 ) -> tuple[argparse.Namespace, str]:
     release_version = "run-20260725-120000"
     generated_at = (
@@ -187,7 +379,7 @@ def _global_flagship_materialization_fixture(
     )
     artifacts = []
     candidate = {}
-    startup_smoke_dir = root / "startup-smoke"
+    startup_smoke_dir = root / "public-bundle" / "startup-smoke"
     startup_smoke_dir.mkdir()
     os_names = {
         "linux": "Linux 6.8",
@@ -216,6 +408,10 @@ def _global_flagship_materialization_fixture(
                 "sizeBytes": size_bytes,
                 "compatibilityState": "compatible",
                 "installAccessClass": "open_public",
+                "channelId": source_channel,
+                "channel": source_channel,
+                "version": release_version,
+                "releaseVersion": release_version,
             }
         )
         (startup_smoke_dir / f"startup-smoke-avalonia-{rid}.receipt.json").write_text(
@@ -230,7 +426,7 @@ def _global_flagship_materialization_fixture(
                     "arch": arch,
                     "hostClass": f"{platform}-host",
                     "operatingSystem": os_names[platform],
-                    "channelId": "stable",
+                    "channelId": source_channel,
                     "releaseVersion": release_version,
                     "artifactDigest": f"sha256:{digest}",
                     "artifactId": artifact_id,
@@ -253,6 +449,8 @@ def _global_flagship_materialization_fixture(
             {
                 "contractName": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
                 "product": "chummer6",
+                "channelId": source_channel,
+                "channel": source_channel,
                 "status": "published",
                 "artifacts": artifacts,
             }
@@ -287,6 +485,16 @@ def _global_flagship_materialization_fixture(
         release_version=release_version,
         generated_at=generated_at,
     )
+    channel_promotion_authority = None
+    if include_promotion_authority:
+        channel_promotion_authority = (
+            _write_global_flagship_channel_promotion_authority(
+                root,
+                artifacts=artifacts,
+                release_version=release_version,
+                generated_at=generated_at,
+            )
+        )
     return (
         materializer_args(
             manifest=manifest_path,
@@ -304,8 +512,9 @@ def _global_flagship_materialization_fixture(
             ui_localization_release_gate=None,
             flagship_readiness=readiness_path,
             macos_flagship_evidence=evidence_path,
+            channel_promotion_authority=channel_promotion_authority,
             product="chummer6",
-            channel="stable",
+            channel=target_channel,
             version=release_version,
             contract_name="",
             published_at=generated_at,
@@ -434,6 +643,76 @@ def test_global_flagship_v2_materialization_and_verifier_projection_parity() -> 
             MODULE.canonical_payload(bypass_args)
 
 
+def test_global_flagship_preview_to_public_stable_requires_bound_promotion_authority() -> None:
+    from jsonschema import Draft202012Validator
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, release_version = _global_flagship_materialization_fixture(
+            root,
+            source_channel="preview",
+            target_channel="public_stable",
+            include_promotion_authority=True,
+        )
+        canonical = MODULE.canonical_payload(args)
+        compatibility = MODULE.compatibility_payload(canonical)
+        binding = canonical["channelPromotionAuthority"]
+
+        assert canonical["channelId"] == "public_stable"
+        assert canonical["channel"] == "public_stable"
+        assert canonical["rolloutState"] == "public_stable"
+        assert binding["sourceChannel"] == "preview"
+        assert binding["targetChannel"] == "public_stable"
+        assert binding["releaseVersion"] == release_version
+        assert binding["registryProjectionAuthorized"] is True
+        assert binding["publicationMutationAuthorized"] is False
+        assert (
+            compatibility["channelPromotionAuthority"]
+            == canonical["channelPromotionAuthority"]
+        )
+
+        VERIFY_MODULE.verify_artifacts(
+            canonical,
+            "promoted-canonical",
+            require_complete_desktop_coverage=True,
+        )
+        VERIFY_MODULE.verify_artifacts(
+            compatibility,
+            "promoted-compatibility",
+            require_complete_desktop_coverage=True,
+        )
+        VERIFY_MODULE.verify_local_download_files(
+            canonical,
+            root / "public-bundle",
+            "promoted-local-bundle",
+        )
+        schema = json.loads(
+            (
+                SCRIPT.parents[1]
+                / "contracts"
+                / "global-flagship-release-channel-v2.schema.json"
+            ).read_text(encoding="utf-8")
+        )
+        Draft202012Validator(schema).validate(canonical)
+        Draft202012Validator(schema).validate(compatibility)
+
+        missing_authority_args = argparse.Namespace(**vars(args))
+        missing_authority_args.channel_promotion_authority = None
+        with pytest.raises(ValueError, match="channel-promotion-authority"):
+            MODULE.canonical_payload(missing_authority_args)
+
+        tampered_authority = json.loads(
+            args.channel_promotion_authority.read_text(encoding="utf-8")
+        )
+        tampered_authority["sourceChannel"] = "public_edge"
+        args.channel_promotion_authority.write_text(
+            json.dumps(tampered_authority, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError, match="authority posture"):
+            MODULE.canonical_payload(args)
+
+
 def test_global_flagship_verifier_rejects_projection_and_alias_ambiguity() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
@@ -466,6 +745,48 @@ def test_global_flagship_verifier_rejects_projection_and_alias_ambiguity() -> No
                 "conflicting-projection",
             )
 
+        uppercase_identity = json.loads(json.dumps(canonical))
+        uppercase_identity["artifacts"][0]["artifactId"] = (
+            uppercase_identity["artifacts"][0]["artifactId"].upper()
+        )
+        uppercase_identity["artifacts"][0]["id"] = (
+            uppercase_identity["artifacts"][0]["artifactId"]
+        )
+        with pytest.raises(SystemExit, match="exact Linux/Windows/macOS inventory"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                uppercase_identity,
+                "uppercase-identity",
+            )
+
+        padded_file_name = json.loads(json.dumps(canonical))
+        padded_file_name["artifacts"][0]["fileName"] = (
+            f" {padded_file_name['artifacts'][0]['fileName']} "
+        )
+        with pytest.raises(SystemExit, match="exact Linux/Windows/macOS inventory"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                padded_file_name,
+                "padded-file-name",
+            )
+
+        uppercase_tuple = json.loads(json.dumps(canonical))
+        for key in ("head", "platform", "rid", "kind"):
+            uppercase_tuple["artifacts"][0][key] = (
+                uppercase_tuple["artifacts"][0][key].upper()
+            )
+        with pytest.raises(SystemExit, match="exact canonical values"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                uppercase_tuple,
+                "uppercase-tuple",
+            )
+
+        uppercase_posture = json.loads(json.dumps(canonical))
+        uppercase_posture["status"] = "PUBLISHED"
+        with pytest.raises(SystemExit, match="published, gold-supported"):
+            VERIFY_MODULE.verify_global_flagship_contract_identity(
+                uppercase_posture,
+                "uppercase-posture",
+            )
+
 
 def test_global_flagship_verifier_requires_macos_startup_smoke_authority() -> None:
     with tempfile.TemporaryDirectory() as tmp:
@@ -496,15 +817,20 @@ def test_global_flagship_verifier_requires_macos_startup_smoke_authority() -> No
         )
         VERIFY_MODULE.verify_local_startup_smoke_receipts(
             canonical,
-            root,
+            root / "public-bundle",
             "global-flagship",
         )
 
-        (root / "startup-smoke" / "startup-smoke-avalonia-osx-arm64.receipt.json").unlink()
-        with pytest.raises(SystemExit, match="macos:osx-arm64"):
+        (
+            root
+            / "public-bundle"
+            / "startup-smoke"
+            / "startup-smoke-avalonia-osx-arm64.receipt.json"
+        ).unlink()
+        with pytest.raises(SystemExit, match="exactly the three canonical receipt files"):
             VERIFY_MODULE.verify_local_startup_smoke_receipts(
                 canonical,
-                root,
+                root / "public-bundle",
                 "missing-macos-startup-smoke",
             )
         with pytest.raises(SystemExit, match="forbids the startup-smoke freshness bypass"):
@@ -513,6 +839,50 @@ def test_global_flagship_verifier_requires_macos_startup_smoke_authority() -> No
                 "bypass-attempt",
                 require_complete_desktop_coverage=True,
                 skip_startup_smoke_filter=True,
+            )
+
+
+def test_global_flagship_requires_real_local_artifact_and_startup_directories() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(root)
+
+        missing_downloads = argparse.Namespace(**vars(args))
+        missing_downloads.downloads_dir = None
+        with pytest.raises(ValueError, match="downloads directory is required"):
+            MODULE.canonical_payload(missing_downloads)
+
+        missing_startup = argparse.Namespace(**vars(args))
+        missing_startup.startup_smoke_dir = root / "does-not-exist"
+        with pytest.raises(ValueError, match="startup-smoke directory is unavailable"):
+            MODULE.canonical_payload(missing_startup)
+
+
+def test_global_flagship_startup_receipt_release_version_is_candidate_bound() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(root)
+        canonical = MODULE.canonical_payload(args)
+        receipt_path = (
+            root
+            / "public-bundle"
+            / "startup-smoke"
+            / "startup-smoke-avalonia-linux-x64.receipt.json"
+        )
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        receipt["releaseVersion"] = "run-19990101-old"
+        receipt_path.write_text(
+            json.dumps(receipt, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ValueError, match="tuple and channel fields"):
+            MODULE.canonical_payload(args)
+        with pytest.raises(SystemExit, match="releaseVersion mismatch"):
+            VERIFY_MODULE.verify_local_startup_smoke_receipts(
+                canonical,
+                root / "public-bundle",
+                "version-drift",
             )
 
 

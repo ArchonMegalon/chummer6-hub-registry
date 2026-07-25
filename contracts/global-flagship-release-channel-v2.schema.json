@@ -51,6 +51,9 @@
         "public_stable"
       ]
     },
+    "channelPromotionAuthority": {
+      "$ref": "#/$defs/channelPromotionAuthority"
+    },
     "version": {
       "type": "string",
       "minLength": 1
@@ -141,6 +144,32 @@
       }
     }
   ],
+  "allOf": [
+    {
+      "if": {
+        "properties": {
+          "channel": {
+            "const": "public_stable"
+          }
+        },
+        "required": [
+          "channel"
+        ]
+      },
+      "then": {
+        "required": [
+          "channelPromotionAuthority"
+        ]
+      },
+      "else": {
+        "not": {
+          "required": [
+            "channelPromotionAuthority"
+          ]
+        }
+      }
+    }
+  ],
   "$defs": {
     "commit": {
       "type": "string",
@@ -172,6 +201,163 @@
         },
         "sizeBytes": {
           "$ref": "#/$defs/positiveInteger"
+        }
+      }
+    },
+    "channelPromotionReference": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "path",
+        "sha256",
+        "sizeBytes"
+      ],
+      "properties": {
+        "path": {
+          "type": "string",
+          "minLength": 1
+        },
+        "sha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "sizeBytes": {
+          "$ref": "#/$defs/positiveInteger"
+        }
+      }
+    },
+    "channelPromotionAuthority": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contractName",
+        "contractVersion",
+        "source",
+        "candidateId",
+        "releaseVersion",
+        "releaseProfile",
+        "sourceChannel",
+        "targetChannel",
+        "artifactInventorySha256",
+        "destinationIntent",
+        "candidateManifest",
+        "finalApprovalReceipt",
+        "registryProjectionAuthorized",
+        "publicationMutationAuthorized",
+        "assembly"
+      ],
+      "properties": {
+        "contractName": {
+          "const": "chummer.registry.global-flagship-channel-promotion"
+        },
+        "contractVersion": {
+          "const": 1
+        },
+        "source": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "contractName",
+            "contractVersion",
+            "sha256",
+            "sizeBytes"
+          ],
+          "properties": {
+            "contractName": {
+              "const": "chummer6-ui.global-flagship-channel-promotion-authority.v1"
+            },
+            "contractVersion": {
+              "const": 1
+            },
+            "sha256": {
+              "$ref": "#/$defs/sha256"
+            },
+            "sizeBytes": {
+              "$ref": "#/$defs/positiveInteger"
+            }
+          }
+        },
+        "candidateId": {
+          "type": "string",
+          "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+        },
+        "releaseVersion": {
+          "type": "string",
+          "minLength": 1
+        },
+        "releaseProfile": {
+          "const": "global_flagship"
+        },
+        "sourceChannel": {
+          "const": "preview"
+        },
+        "targetChannel": {
+          "const": "public_stable"
+        },
+        "artifactInventorySha256": {
+          "$ref": "#/$defs/sha256"
+        },
+        "destinationIntent": {
+          "$ref": "#/$defs/channelPromotionReference"
+        },
+        "candidateManifest": {
+          "$ref": "#/$defs/channelPromotionReference"
+        },
+        "finalApprovalReceipt": {
+          "$ref": "#/$defs/channelPromotionReference"
+        },
+        "registryProjectionAuthorized": {
+          "const": true
+        },
+        "publicationMutationAuthorized": {
+          "const": false
+        },
+        "assembly": {
+          "type": "object",
+          "additionalProperties": false,
+          "required": [
+            "repository",
+            "workflow",
+            "ref",
+            "sha",
+            "runId",
+            "runAttempt",
+            "actor",
+            "triggeringActor",
+            "environment"
+          ],
+          "properties": {
+            "repository": {
+              "const": "ArchonMegalon/chummer6-ui"
+            },
+            "workflow": {
+              "const": ".github/workflows/global-flagship-publication-input-assembly.yml"
+            },
+            "ref": {
+              "const": "refs/heads/main"
+            },
+            "sha": {
+              "$ref": "#/$defs/commit"
+            },
+            "runId": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "runAttempt": {
+              "type": "integer",
+              "minimum": 1
+            },
+            "actor": {
+              "type": "string",
+              "minLength": 1
+            },
+            "triggeringActor": {
+              "type": "string",
+              "minLength": 1
+            },
+            "environment": {
+              "const": "global-flagship-publication-input-assembly"
+            }
+          }
         }
       }
     },

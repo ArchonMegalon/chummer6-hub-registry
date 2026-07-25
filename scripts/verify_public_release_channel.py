@@ -236,6 +236,16 @@ GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS = {
         "chummer-avalonia-osx-arm64-installer.dmg",
     ),
 }
+GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_CONTRACT = (
+    "chummer.registry.global-flagship-channel-promotion"
+)
+GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_VERSION = 1
+UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_CONTRACT = (
+    "chummer6-ui.global-flagship-channel-promotion-authority.v1"
+)
+UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_VERSION = 1
+GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL = "preview"
+GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL = "public_stable"
 CODE_DEPLOY_CURRENT_SHELF_CONTRACT = "chummer.registry.code-deploy-current-shelf/v1"
 CODE_DEPLOY_CURRENT_SHELF_PROJECTION_STAGE = "code_deploy_review_required"
 CODE_DEPLOY_CURRENT_SHELF_RELEASE_DECISION_STATUS = "review_required"
@@ -1501,6 +1511,204 @@ def is_global_flagship_contract(payload: dict[str, Any]) -> bool:
     )
 
 
+def global_flagship_artifact_inventory_sha256(
+    payload: dict[str, Any],
+) -> str:
+    rows = [
+        {
+            "artifactId": artifact.get("artifactId"),
+            "fileName": artifact.get("fileName"),
+            "platform": artifact.get("platform"),
+            "rid": artifact.get("rid"),
+            "sha256": artifact.get("sha256"),
+            "sizeBytes": artifact.get("sizeBytes"),
+        }
+        for artifact in iter_manifest_download_entries(payload)
+    ]
+    rows.sort(key=lambda row: str(row.get("platform") or ""))
+    canonical = json.dumps(
+        rows,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _verify_global_flagship_promotion_reference(
+    value: Any,
+    *,
+    source: str,
+    expected_path: str,
+) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != {
+        "path",
+        "sha256",
+        "sizeBytes",
+    }:
+        raise SystemExit(f"{source} must be an exact byte reference")
+    if (
+        value.get("path") != expected_path
+        or not isinstance(value.get("sha256"), str)
+        or RAW_SHA256_RE.fullmatch(value["sha256"]) is None
+        or type(value.get("sizeBytes")) is not int
+        or value["sizeBytes"] <= 0
+    ):
+        raise SystemExit(f"{source} byte reference is invalid")
+    return dict(value)
+
+
+def verify_global_flagship_channel_promotion_binding(
+    payload: dict[str, Any],
+    source: str,
+) -> str:
+    if not is_global_flagship_contract(payload):
+        return ""
+    channel = resolve_alias_value(
+        payload,
+        primary_key="channelId",
+        secondary_key="channel",
+        field_path="channelId",
+        source=source,
+    )
+    binding = payload.get("channelPromotionAuthority")
+    if channel != GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL:
+        if binding is not None:
+            raise SystemExit(
+                f"{source} channelPromotionAuthority is valid only for public_stable"
+            )
+        return ""
+    expected_keys = {
+        "contractName",
+        "contractVersion",
+        "source",
+        "candidateId",
+        "releaseVersion",
+        "releaseProfile",
+        "sourceChannel",
+        "targetChannel",
+        "artifactInventorySha256",
+        "destinationIntent",
+        "candidateManifest",
+        "finalApprovalReceipt",
+        "registryProjectionAuthorized",
+        "publicationMutationAuthorized",
+        "assembly",
+    }
+    if not isinstance(binding, dict) or set(binding) != expected_keys:
+        raise SystemExit(
+            f"{source} public_stable global flagship requires an exact "
+            "channelPromotionAuthority binding"
+        )
+    payload_version = resolve_alias_value(
+        payload,
+        primary_key="version",
+        secondary_key="releaseVersion",
+        field_path="version",
+        source=source,
+    )
+    candidate_id = binding.get("candidateId")
+    inventory_sha256 = binding.get("artifactInventorySha256")
+    if (
+        binding.get("contractName")
+        != GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_CONTRACT
+        or type(binding.get("contractVersion")) is not int
+        or binding.get("contractVersion")
+        != GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_VERSION
+        or binding.get("releaseProfile") != GLOBAL_FLAGSHIP_RELEASE_PROFILE
+        or binding.get("sourceChannel")
+        != GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL
+        or binding.get("targetChannel")
+        != GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL
+        or binding.get("releaseVersion") != payload_version
+        or not isinstance(candidate_id, str)
+        or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}", candidate_id)
+        is None
+        or not isinstance(inventory_sha256, str)
+        or RAW_SHA256_RE.fullmatch(inventory_sha256) is None
+        or inventory_sha256
+        != global_flagship_artifact_inventory_sha256(payload)
+        or binding.get("registryProjectionAuthorized") is not True
+        or binding.get("publicationMutationAuthorized") is not False
+    ):
+        raise SystemExit(
+            f"{source} channelPromotionAuthority posture or candidate binding is invalid"
+        )
+    source_binding = binding.get("source")
+    if not isinstance(source_binding, dict) or set(source_binding) != {
+        "contractName",
+        "contractVersion",
+        "sha256",
+        "sizeBytes",
+    }:
+        raise SystemExit(
+            f"{source} channelPromotionAuthority.source is invalid"
+        )
+    if (
+        source_binding.get("contractName")
+        != UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_CONTRACT
+        or type(source_binding.get("contractVersion")) is not int
+        or source_binding.get("contractVersion")
+        != UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_VERSION
+        or not isinstance(source_binding.get("sha256"), str)
+        or RAW_SHA256_RE.fullmatch(source_binding["sha256"]) is None
+        or type(source_binding.get("sizeBytes")) is not int
+        or source_binding["sizeBytes"] <= 0
+    ):
+        raise SystemExit(
+            f"{source} channelPromotionAuthority.source is not a canonical UI authority binding"
+        )
+    _verify_global_flagship_promotion_reference(
+        binding.get("destinationIntent"),
+        source=f"{source} channelPromotionAuthority.destinationIntent",
+        expected_path="destination-intent.json",
+    )
+    _verify_global_flagship_promotion_reference(
+        binding.get("candidateManifest"),
+        source=f"{source} channelPromotionAuthority.candidateManifest",
+        expected_path="GLOBAL_FLAGSHIP_CANDIDATE.generated.json",
+    )
+    _verify_global_flagship_promotion_reference(
+        binding.get("finalApprovalReceipt"),
+        source=f"{source} channelPromotionAuthority.finalApprovalReceipt",
+        expected_path="final-receipt.json",
+    )
+    assembly = binding.get("assembly")
+    if not isinstance(assembly, dict) or set(assembly) != {
+        "repository",
+        "workflow",
+        "ref",
+        "sha",
+        "runId",
+        "runAttempt",
+        "actor",
+        "triggeringActor",
+        "environment",
+    }:
+        raise SystemExit(
+            f"{source} channelPromotionAuthority assembly provenance is invalid"
+        )
+    if (
+        assembly.get("repository") != "ArchonMegalon/chummer6-ui"
+        or assembly.get("workflow")
+        != ".github/workflows/global-flagship-publication-input-assembly.yml"
+        or assembly.get("ref") != "refs/heads/main"
+        or assembly.get("environment")
+        != "global-flagship-publication-input-assembly"
+        or not isinstance(assembly.get("sha"), str)
+        or re.fullmatch(r"[0-9a-f]{40}", assembly["sha"]) is None
+        or type(assembly.get("runId")) is not int
+        or assembly["runId"] <= 0
+        or type(assembly.get("runAttempt")) is not int
+        or assembly["runAttempt"] <= 0
+        or assembly.get("actor") != assembly.get("triggeringActor")
+    ):
+        raise SystemExit(
+            f"{source} channelPromotionAuthority assembly provenance is invalid"
+        )
+    return GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL
+
+
 def verify_global_flagship_contract_identity(
     payload: dict[str, Any],
     source: str,
@@ -1526,17 +1734,41 @@ def verify_global_flagship_contract_identity(
             f"{source} global flagship releaseProfile must be exactly "
             f"{GLOBAL_FLAGSHIP_RELEASE_PROFILE!r}"
         )
-    channel = expected_channel_id(payload)
-    rollout_state = normalized_token(payload.get("rolloutState"))
+    channel = resolve_alias_value(
+        payload,
+        primary_key="channelId",
+        secondary_key="channel",
+        field_path="channelId",
+        source=source,
+    )
+    rollout_state = payload.get("rolloutState")
     if (
-        channel not in {"stable", "public_stable"}
+        not isinstance(channel, str)
+        or channel not in {"stable", "public_stable"}
+        or not isinstance(rollout_state, str)
         or rollout_state not in {"stable", "public_stable"}
-        or normalized_token(payload.get("status")) != "published"
-        or normalized_token(payload.get("supportabilityState")) != "gold_supported"
+        or rollout_state != channel
+        or payload.get("status") != "published"
+        or payload.get("supportabilityState") != "gold_supported"
     ):
         raise SystemExit(
             f"{source} global flagship authority must be published, "
             "gold-supported, and stable/public_stable"
+        )
+    if (
+        channel == GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL
+        and not isinstance(payload.get("channelPromotionAuthority"), dict)
+    ):
+        raise SystemExit(
+            f"{source} public_stable global flagship requires "
+            "channelPromotionAuthority"
+        )
+    if (
+        channel != GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL
+        and payload.get("channelPromotionAuthority") is not None
+    ):
+        raise SystemExit(
+            f"{source} channelPromotionAuthority is valid only for public_stable"
         )
     return True
 
@@ -1815,6 +2047,7 @@ def verify_global_flagship_artifact_contract(
         raise SystemExit(
             f"{source} global flagship {selected_projection} projection must be a list"
         )
+    verify_global_flagship_channel_promotion_binding(payload, source)
     entries = list(iter_manifest_download_entries(payload))
     entry_name = selected_projection
     if len(entries) != len(GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS):
@@ -1843,8 +2076,19 @@ def verify_global_flagship_artifact_contract(
             raise SystemExit(f"{entry_name}[{index}] must be an object in {source}")
         scope_tuple = parse_manifest_tuple_fields(item)
         expected_identity = GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS.get(scope_tuple)
-        artifact_id = normalized_token(item.get("artifactId"))
-        file_name = normalize_file_name(item)
+        raw_scope_tuple = (
+            item.get("head"),
+            item.get("platform"),
+            item.get("rid"),
+            item.get("kind"),
+        )
+        artifact_id = item.get("artifactId")
+        file_name = item.get("fileName")
+        if raw_scope_tuple != scope_tuple:
+            raise SystemExit(
+                f"{source} global flagship {entry_name}[{index}] tuple fields "
+                "must use exact canonical values"
+            )
         if expected_identity != (artifact_id, file_name):
             raise SystemExit(
                 f"{source} global flagship {entry_name}[{index}] is outside the exact "
@@ -1859,7 +2103,7 @@ def verify_global_flagship_artifact_contract(
         seen_names.add(file_name)
 
         expected_arch = "arm64" if scope_tuple[1] == "macos" else "x64"
-        if normalized_token(item.get("arch")) != expected_arch:
+        if item.get("arch") != expected_arch:
             raise SystemExit(
                 f"{source} global flagship {entry_name}[{index}] arch must be {expected_arch}"
             )
@@ -3076,9 +3320,21 @@ def verify_current_preview_desktop_artifact_scope(
         )
 
 
-def startup_smoke_channel_matches_expected(expected_channel: str, actual_channel: str) -> bool:
+def startup_smoke_channel_matches_expected(
+    expected_channel: str,
+    actual_channel: str,
+    *,
+    authorized_source_channel: str = "",
+) -> bool:
     expected = normalized_token(expected_channel)
     actual = normalized_token(actual_channel)
+    authorized_source = normalized_token(authorized_source_channel)
+    if authorized_source:
+        return (
+            authorized_source == GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL
+            and expected == GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL
+            and actual == authorized_source
+        )
     if not expected:
         return True
     if not actual:
@@ -4421,7 +4677,6 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         )
         or ""
     ).strip()
-
     expected_promoted_tuples: list[str] = []
     expected_promoted_tuple_rows: list[dict[str, str]] = []
     expected_promoted_platform_heads: dict[str, set[str]] = {platform: set() for platform in normalized_required_platforms}
@@ -7360,7 +7615,13 @@ def verify_local_release_artifact_bytes(payload: dict, files_dir: Path, source: 
             raise SystemExit(f"manifest entry {index} is missing fileName/download URL basename in {source}")
 
         local_path = files_dir / file_name
-        if not local_path.is_file():
+        if (
+            not local_path.is_file()
+            or (
+                is_global_flagship_contract(payload)
+                and local_path.is_symlink()
+            )
+        ):
             raise SystemExit(f"{source} manifest artifact is missing local file bytes: {file_name}")
 
         expected_size = parse_positive_int(item.get("sizeBytes"))
@@ -7392,6 +7653,12 @@ def verify_local_download_files(
         return
 
     files_dir = root / "files"
+    if is_global_flagship_contract(payload) and (
+        not files_dir.is_dir() or files_dir.is_symlink()
+    ):
+        raise SystemExit(
+            f"{source} global flagship requires a real local files directory: {files_dir}"
+        )
     if not files_dir.is_dir():
         return
 
@@ -7656,6 +7923,10 @@ def verify_local_startup_smoke_receipts(
         raise SystemExit(
             f"{source} global flagship forbids the startup-smoke freshness bypass"
         )
+    if is_global_flagship_contract(payload) and allow_skipped_startup_smoke:
+        raise SystemExit(
+            f"{source} global flagship forbids skipped startup-smoke authority"
+        )
     promoted_tuples = list(iter_promoted_desktop_installer_tuples(payload))
     if not promoted_tuples:
         return
@@ -7669,14 +7940,41 @@ def verify_local_startup_smoke_receipts(
         )
         or ""
     ).strip()
+    authorized_source_channel = (
+        verify_global_flagship_channel_promotion_binding(payload, source)
+        if is_global_flagship_contract(payload)
+        else ""
+    )
     expected_sha_by_tuple = promoted_desktop_installer_tuple_sha_map(payload)
     expected_identity_by_tuple = promoted_desktop_installer_tuple_identity_map(payload)
 
     startup_smoke_dir = root / "startup-smoke"
-    if not startup_smoke_dir.is_dir():
+    if (
+        not startup_smoke_dir.is_dir()
+        or (
+            is_global_flagship_contract(payload)
+            and startup_smoke_dir.is_symlink()
+        )
+    ):
         raise SystemExit(
             f"{source} is missing startup-smoke receipt directory required for promoted desktop installer tuples: {startup_smoke_dir}"
         )
+    if is_global_flagship_contract(payload):
+        expected_receipt_names = {
+            f"startup-smoke-{head}-{rid}.receipt.json"
+            for head, _platform, rid in promoted_tuples
+        }
+        observed_receipt_names = {
+            entry.name
+            for entry in startup_smoke_dir.iterdir()
+            if entry.name.startswith("startup-smoke-")
+            and entry.name.endswith(".receipt.json")
+        }
+        if observed_receipt_names != expected_receipt_names:
+            raise SystemExit(
+                f"{source} global flagship startup-smoke directory must contain "
+                "exactly the three canonical receipt files"
+            )
 
     max_age_seconds = parse_startup_smoke_max_age_seconds(
         os.environ.get("CHUMMER_VERIFY_STARTUP_SMOKE_MAX_AGE_SECONDS")
@@ -7690,16 +7988,75 @@ def verify_local_startup_smoke_receipts(
     now = datetime.now(timezone.utc)
     for head, platform, rid in promoted_tuples:
         receipt_path = startup_smoke_dir / f"startup-smoke-{head}-{rid}.receipt.json"
-        if not receipt_path.is_file():
+        if (
+            not receipt_path.is_file()
+            or (
+                is_global_flagship_contract(payload)
+                and receipt_path.is_symlink()
+            )
+        ):
             raise SystemExit(
                 f"{source} is missing startup-smoke receipt for promoted desktop installer tuple {head}:{platform}:{rid}"
             )
         try:
-            receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
-        except json.JSONDecodeError as exc:
-            raise SystemExit(f"{source} startup-smoke receipt is not valid JSON: {receipt_path}") from exc
+            receipt = strict_json_loads(
+                receipt_path.read_bytes(),
+                source=str(receipt_path),
+            )
+        except OSError as exc:
+            raise SystemExit(
+                f"{source} startup-smoke receipt could not be read: {receipt_path}"
+            ) from exc
         if not isinstance(receipt, dict):
             raise SystemExit(f"{source} startup-smoke receipt is not an object: {receipt_path}")
+        if (
+            is_global_flagship_contract(payload)
+            and not startup_smoke_receipt_matches_release_version(
+                receipt,
+                payload_version,
+            )
+        ):
+            raise SystemExit(
+                f"{source} startup-smoke receipt releaseVersion mismatch for "
+                f"promoted desktop installer tuple {head}:{platform}:{rid}"
+            )
+        if is_global_flagship_contract(payload):
+            expected_arch = expected_arch_from_rid(rid)
+            expected_artifact_id, expected_file_name = (
+                expected_identity_by_tuple.get((head, platform, rid), ("", ""))
+            )
+            expected_digest = expected_sha_by_tuple.get(
+                (head, platform, rid),
+                "",
+            )
+            expected_receipt_channel = (
+                authorized_source_channel or channel_id
+            )
+            if (
+                receipt.get("headId") != head
+                or receipt.get("platform") != platform
+                or receipt.get("rid") != rid
+                or receipt.get("arch") != expected_arch
+                or receipt.get("channelId") != expected_receipt_channel
+                or (
+                    receipt.get("channel") is not None
+                    and receipt.get("channel") != receipt.get("channelId")
+                )
+                or receipt.get("artifactId") != expected_artifact_id
+                or startup_smoke_artifact_file_name_from_path(
+                    receipt.get("artifactPath")
+                )
+                != expected_file_name
+                or receipt.get("artifactDigest")
+                != f"sha256:{expected_digest}"
+                or receipt.get("status") not in {"pass", "passed", "ready"}
+                or receipt.get("readyCheckpoint")
+                != REQUIRED_STARTUP_SMOKE_READY_CHECKPOINT
+            ):
+                raise SystemExit(
+                    f"{source} global flagship startup-smoke receipt fields are "
+                    f"not canonical for {head}:{platform}:{rid}"
+                )
 
         materializer = release_channel_materializer_module()
         wine_compatibility_declared = (
@@ -7861,7 +8218,11 @@ def verify_local_startup_smoke_receipts(
                 raise SystemExit(
                     f"{source} startup-smoke receipt channelId is missing for promoted desktop installer tuple {head}:{platform}:{rid}"
                 )
-            if not startup_smoke_channel_matches_expected(channel_id, receipt_channel):
+            if not startup_smoke_channel_matches_expected(
+                channel_id,
+                receipt_channel,
+                authorized_source_channel=authorized_source_channel,
+            ):
                 raise SystemExit(
                     f"{source} startup-smoke receipt channelId mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
                 )
