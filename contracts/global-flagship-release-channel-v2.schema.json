@@ -343,16 +343,15 @@
               "minimum": 1
             },
             "runAttempt": {
-              "type": "integer",
-              "minimum": 1
+              "const": 1
             },
             "actor": {
               "type": "string",
-              "minLength": 1
+              "pattern": "^(?:github-actions\\[bot\\]|[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)$"
             },
             "triggeringActor": {
               "type": "string",
-              "minLength": 1
+              "pattern": "^(?:github-actions\\[bot\\]|[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)$"
             },
             "environment": {
               "const": "global-flagship-publication-input-assembly"

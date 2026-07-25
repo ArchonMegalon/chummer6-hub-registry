@@ -1700,8 +1700,13 @@ def verify_global_flagship_channel_promotion_binding(
         or type(assembly.get("runId")) is not int
         or assembly["runId"] <= 0
         or type(assembly.get("runAttempt")) is not int
-        or assembly["runAttempt"] <= 0
-        or assembly.get("actor") != assembly.get("triggeringActor")
+        or assembly["runAttempt"] != 1
+        or not isinstance(assembly.get("actor"), str)
+        or GITHUB_LOGIN_RE.fullmatch(assembly["actor"]) is None
+        or not isinstance(assembly.get("triggeringActor"), str)
+        or GITHUB_LOGIN_RE.fullmatch(assembly["triggeringActor"]) is None
+        or assembly["actor"].casefold()
+        != assembly["triggeringActor"].casefold()
     ):
         raise SystemExit(
             f"{source} channelPromotionAuthority assembly provenance is invalid"
@@ -3363,20 +3368,58 @@ def startup_smoke_artifact_file_name_from_path(raw_path: object) -> str:
     return normalized_token(tokens[-1])
 
 
+def exact_startup_smoke_string_alias(
+    receipt: dict[str, Any],
+    field_names: tuple[str, ...],
+) -> tuple[bool, str | None]:
+    present_values = [
+        receipt[field_name]
+        for field_name in field_names
+        if field_name in receipt
+    ]
+    if not present_values:
+        return False, None
+    if any(
+        type(value) is not str
+        or not value
+        or value != value.strip()
+        for value in present_values
+    ):
+        return True, None
+    first_value = present_values[0]
+    if any(value != first_value for value in present_values[1:]):
+        return True, None
+    return True, first_value
+
+
+def exact_receipt_artifact_relative_path(
+    receipt: dict[str, Any],
+) -> str:
+    _present, value = exact_startup_smoke_string_alias(
+        receipt,
+        ("artifactRelativePath", "artifact_relative_path"),
+    )
+    return value or ""
+
+
 def normalized_receipt_artifact_relative_path(receipt: dict[str, Any]) -> str:
-    explicit_path = str(
-        receipt.get("artifactRelativePath")
-        or receipt.get("artifact_relative_path")
-        or ""
-    ).strip()
+    explicit_present, explicit_value = exact_startup_smoke_string_alias(
+        receipt,
+        ("artifactRelativePath", "artifact_relative_path"),
+    )
+    if explicit_present and explicit_value is None:
+        return ""
+    explicit_path = explicit_value or ""
     if explicit_path:
         tokens = [normalized_token(token) for token in re.split(r"[\\/]+", explicit_path) if token]
         return "/".join(tokens)
-    raw_path = str(
-        receipt.get("artifactPath")
-        or receipt.get("artifact_path")
-        or ""
-    ).strip()
+    raw_path_present, raw_path_value = exact_startup_smoke_string_alias(
+        receipt,
+        ("artifactPath", "artifact_path"),
+    )
+    if raw_path_present and raw_path_value is None:
+        return ""
+    raw_path = raw_path_value or ""
     if not raw_path:
         return ""
     tokens = [normalized_token(token) for token in re.split(r"[\\/]+", raw_path) if token]
@@ -3389,26 +3432,57 @@ def normalized_receipt_artifact_relative_path(receipt: dict[str, Any]) -> str:
 
 
 def normalized_receipt_artifact_id(receipt: dict[str, Any]) -> str:
-    return normalized_token(
-        receipt.get("artifactId")
-        or receipt.get("artifact_id")
-        or receipt.get("artifact")
+    _present, value = exact_startup_smoke_string_alias(
+        receipt,
+        ("artifactId", "artifact_id", "artifact"),
     )
+    return normalized_token(value)
 
 
 def normalized_receipt_artifact_file_name(receipt: dict[str, Any]) -> str:
-    explicit_file_name = normalized_token(
-        receipt.get("artifactFileName")
-        or receipt.get("artifact_file_name")
-        or receipt.get("fileName")
-        or receipt.get("file_name")
+    explicit_present, explicit_value = exact_startup_smoke_string_alias(
+        receipt,
+        (
+            "artifactFileName",
+            "artifact_file_name",
+            "fileName",
+            "file_name",
+        ),
     )
-    if explicit_file_name:
-        return explicit_file_name
-    return startup_smoke_artifact_file_name_from_path(
-        receipt.get("artifactPath")
-        or receipt.get("artifact_path")
+    if explicit_present and explicit_value is None:
+        return ""
+    explicit_file_name = normalized_token(explicit_value)
+    artifact_path_present, artifact_path_value = (
+        exact_startup_smoke_string_alias(
+            receipt,
+            ("artifactPath", "artifact_path"),
+        )
     )
+    if artifact_path_present and artifact_path_value is None:
+        return ""
+    relative_path_present, relative_path_value = (
+        exact_startup_smoke_string_alias(
+            receipt,
+            ("artifactRelativePath", "artifact_relative_path"),
+        )
+    )
+    if relative_path_present and relative_path_value is None:
+        return ""
+    path_file_names = {
+        startup_smoke_artifact_file_name_from_path(value)
+        for value in (artifact_path_value, relative_path_value)
+        if value
+    }
+    if "" in path_file_names or len(path_file_names) > 1:
+        return ""
+    path_file_name = next(iter(path_file_names), "")
+    if (
+        explicit_file_name
+        and path_file_name
+        and explicit_file_name != path_file_name
+    ):
+        return ""
+    return explicit_file_name or path_file_name
 
 
 def verify_startup_smoke_receipt_artifact_identity(
@@ -7788,11 +7862,26 @@ def promoted_desktop_installer_tuple_identity_map(payload: dict) -> dict[tuple[s
 
 
 def parse_startup_smoke_receipt_timestamp(receipt: dict[str, Any]) -> datetime | None:
-    for key in ("completedAtUtc", "recordedAtUtc", "startedAtUtc", "generated_at", "generatedAt"):
-        parsed = parse_iso_timestamp(receipt.get(key))
-        if parsed is not None:
-            return parsed
-    return None
+    timestamps: list[datetime] = []
+    for key in (
+        "recordedAtUtc",
+        "completedAtUtc",
+        "startedAtUtc",
+        "generatedAt",
+        "generated_at",
+    ):
+        if key not in receipt:
+            continue
+        raw = receipt[key]
+        if type(raw) is not str or raw != raw.strip():
+            return None
+        parsed = parse_iso_timestamp(raw)
+        if parsed is None:
+            return None
+        timestamps.append(parsed)
+    if not timestamps or any(value != timestamps[0] for value in timestamps[1:]):
+        return None
+    return timestamps[0]
 
 
 def startup_smoke_receipt_matches_release_version(receipt: dict[str, Any], payload_version: str) -> bool:
@@ -7965,10 +8054,10 @@ def verify_local_startup_smoke_receipts(
             for head, _platform, rid in promoted_tuples
         }
         observed_receipt_names = {
-            entry.name
-            for entry in startup_smoke_dir.iterdir()
-            if entry.name.startswith("startup-smoke-")
-            and entry.name.endswith(".receipt.json")
+            entry.relative_to(startup_smoke_dir).as_posix()
+            for entry in startup_smoke_dir.rglob(
+                "startup-smoke-*.receipt.json"
+            )
         }
         if observed_receipt_names != expected_receipt_names:
             raise SystemExit(
@@ -8043,8 +8132,12 @@ def verify_local_startup_smoke_receipts(
                     and receipt.get("channel") != receipt.get("channelId")
                 )
                 or receipt.get("artifactId") != expected_artifact_id
+                or normalized_receipt_artifact_id(receipt)
+                != expected_artifact_id
                 or normalized_receipt_artifact_file_name(receipt)
                 != expected_file_name
+                or exact_receipt_artifact_relative_path(receipt)
+                != f"files/{expected_file_name}"
                 or receipt.get("artifactDigest")
                 != f"sha256:{expected_digest}"
                 or receipt.get("status") not in {"pass", "passed", "ready"}
