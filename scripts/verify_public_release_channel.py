@@ -8043,9 +8043,7 @@ def verify_local_startup_smoke_receipts(
                     and receipt.get("channel") != receipt.get("channelId")
                 )
                 or receipt.get("artifactId") != expected_artifact_id
-                or startup_smoke_artifact_file_name_from_path(
-                    receipt.get("artifactPath")
-                )
+                or normalized_receipt_artifact_file_name(receipt)
                 != expected_file_name
                 or receipt.get("artifactDigest")
                 != f"sha256:{expected_digest}"

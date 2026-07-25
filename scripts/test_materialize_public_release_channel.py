@@ -430,7 +430,8 @@ def _global_flagship_materialization_fixture(
                     "releaseVersion": release_version,
                     "artifactDigest": f"sha256:{digest}",
                     "artifactId": artifact_id,
-                    "artifactPath": str(artifact_path),
+                    "artifactFileName": file_name,
+                    "artifactRelativePath": f"files/{file_name}",
                 }
             ),
             encoding="utf-8",
@@ -819,6 +820,46 @@ def test_global_flagship_verifier_requires_macos_startup_smoke_authority() -> No
             canonical,
             root / "public-bundle",
             "global-flagship",
+        )
+
+        linux_receipt_path = (
+            root
+            / "public-bundle"
+            / "startup-smoke"
+            / "startup-smoke-avalonia-linux-x64.receipt.json"
+        )
+        linux_receipt = json.loads(
+            linux_receipt_path.read_text(encoding="utf-8")
+        )
+        tampered_file_name = dict(linux_receipt)
+        tampered_file_name["artifactFileName"] = "forged-installer.deb"
+        linux_receipt_path.write_text(
+            json.dumps(tampered_file_name),
+            encoding="utf-8",
+        )
+        with pytest.raises(SystemExit, match="fields are not canonical"):
+            VERIFY_MODULE.verify_local_startup_smoke_receipts(
+                canonical,
+                root / "public-bundle",
+                "tampered-file-name",
+            )
+        tampered_relative_path = dict(linux_receipt)
+        tampered_relative_path["artifactRelativePath"] = (
+            "files/forged-installer.deb"
+        )
+        linux_receipt_path.write_text(
+            json.dumps(tampered_relative_path),
+            encoding="utf-8",
+        )
+        with pytest.raises(SystemExit, match="artifact relative path mismatch"):
+            VERIFY_MODULE.verify_local_startup_smoke_receipts(
+                canonical,
+                root / "public-bundle",
+                "tampered-relative-path",
+            )
+        linux_receipt_path.write_text(
+            json.dumps(linux_receipt),
+            encoding="utf-8",
         )
 
         (
