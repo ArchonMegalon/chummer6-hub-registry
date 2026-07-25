@@ -246,6 +246,46 @@ UI_GLOBAL_FLAGSHIP_APPROVAL_ENVIRONMENT = "global-flagship-release-review"
 UI_GLOBAL_FLAGSHIP_APPROVAL_RERUN_POLICY = "fresh-dispatch-only"
 UI_GLOBAL_FLAGSHIP_AUTHORITY_LEVEL = "local-structural-validation-only"
 UI_GLOBAL_FLAGSHIP_ALLOWED_SIDE_EFFECTS = ["write_local_receipts"]
+UI_GLOBAL_FLAGSHIP_EXTERNAL_REQUIREMENTS = (
+    {
+        "platform": "windows",
+        "requirement": (
+            "A native Windows runner plus DigiCert KeyLocker credentials and "
+            "public signer pins must produce the existing signing and exit-gate "
+            "contracts for the exact installer bytes."
+        ),
+    },
+    {
+        "platform": "linux",
+        "requirement": (
+            "A native Linux runner with noninteractive system-package authority "
+            "must perform a clean install, core workflow, dpkg package "
+            "verification, N-1 update, and normal purge execution."
+        ),
+    },
+    {
+        "platform": "macos",
+        "requirement": (
+            "A native macOS arm64 runner with a Developer ID identity and "
+            "notary profile must sign, notarize, staple, clean-install, run the "
+            "core workflow, and exercise the N-1 update. The exact resulting "
+            "DMG must be recovered from the pinned encrypted escrow only after "
+            "a protected downstream workflow authenticates the GitHub run and "
+            "artifact digest through the provider API."
+        ),
+    },
+    {
+        "platform": "global",
+        "requirement": (
+            "Quality, release, and security approvals must come from three "
+            "different authorized actors, all independent of the candidate "
+            "producer and native evidence actors. The separate publisher "
+            "must authenticate detailed main-branch protection through a "
+            "read-only administration authority unavailable to the approval "
+            "workflow."
+        ),
+    },
+)
 UI_GLOBAL_FLAGSHIP_FINAL_REQUIRED_NEXT_AUTHORITY = (
     "A protected workflow must authenticate every referenced GitHub run, "
     "artifact, signer identity, and approval actor via the provider API. A "
@@ -2560,8 +2600,8 @@ def _validate_global_flagship_proposal_semantics(
         or proposal.get("publicationAuthorized") is not False
         or proposal.get("allowedSideEffects")
         != UI_GLOBAL_FLAGSHIP_ALLOWED_SIDE_EFFECTS
-        or not isinstance(proposal.get("externalRequirements"), list)
-        or not proposal["externalRequirements"]
+        or proposal.get("externalRequirements")
+        != list(UI_GLOBAL_FLAGSHIP_EXTERNAL_REQUIREMENTS)
         or generated_at > now + dt.timedelta(minutes=5)
         or now - generated_at > dt.timedelta(days=1)
         or expires_at <= now

@@ -374,10 +374,8 @@ def _write_global_flagship_channel_promotion_authority(
         "sizeBytes": len(candidate_raw),
     }
     external_requirements = [
-        {
-            "platform": "global",
-            "requirement": "Protected provider evidence is required.",
-        }
+        dict(requirement)
+        for requirement in MODULE.UI_GLOBAL_FLAGSHIP_EXTERNAL_REQUIREMENTS
     ]
     proposal = {
         "contractName": MODULE.UI_GLOBAL_FLAGSHIP_RELEASE_PROPOSAL_CONTRACT,
@@ -1068,6 +1066,15 @@ def test_global_flagship_preview_to_public_stable_requires_bound_promotion_autho
         assert binding["releaseVersion"] == release_version
         assert binding["registryProjectionAuthorized"] is True
         assert binding["publicationMutationAuthorized"] is False
+        proposal = json.loads(
+            (
+                root / "GLOBAL_FLAGSHIP_RELEASE_PROPOSAL.generated.json"
+            ).read_text(encoding="utf-8")
+        )
+        assert proposal["externalRequirements"] == [
+            dict(requirement)
+            for requirement in MODULE.UI_GLOBAL_FLAGSHIP_EXTERNAL_REQUIREMENTS
+        ]
         assert (
             compatibility["channelPromotionAuthority"]
             == canonical["channelPromotionAuthority"]
@@ -1112,6 +1119,42 @@ def test_global_flagship_preview_to_public_stable_requires_bound_promotion_autho
             encoding="utf-8",
         )
         with pytest.raises(ValueError, match="authority posture"):
+            MODULE.canonical_payload(args)
+
+
+def test_global_flagship_proposal_rejects_external_requirement_drift() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(
+            root,
+            source_channel="preview",
+            target_channel="public_stable",
+            include_promotion_authority=True,
+        )
+        MODULE.canonical_payload(args)
+        authority = json.loads(
+            args.channel_promotion_authority.read_text(encoding="utf-8")
+        )
+        proposal_path = root / "GLOBAL_FLAGSHIP_RELEASE_PROPOSAL.generated.json"
+        proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+        proposal["externalRequirements"][0]["requirement"] += " Drifted."
+        proposal_path.write_text(
+            json.dumps(proposal, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        authority["proposal"] = _file_reference(
+            root,
+            "GLOBAL_FLAGSHIP_RELEASE_PROPOSAL.generated.json",
+        )
+        args.channel_promotion_authority.write_text(
+            json.dumps(authority, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="global flagship referenced proposal posture is invalid",
+        ):
             MODULE.canonical_payload(args)
 
 
@@ -1563,6 +1606,56 @@ def test_global_flagship_verifier_rejects_promotion_assembly_actor_type_confusio
             VERIFY_MODULE.verify_global_flagship_artifact_contract(
                 tampered,
                 "tampered-assembly-actor",
+            )
+
+
+@pytest.mark.parametrize(
+    ("projection_path", "replacement"),
+    [
+        (("candidateId",), "different-global-candidate"),
+        (("releaseVersion",), "run-20260725-120001"),
+        (("assembly", "sha"), "f" * 40),
+    ],
+)
+def test_global_flagship_verifier_cross_checks_promotion_projection_against_macos_identity(
+    projection_path: tuple[str, ...],
+    replacement: str,
+) -> None:
+    from jsonschema import Draft202012Validator
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(
+            root,
+            source_channel="preview",
+            target_channel="public_stable",
+            include_promotion_authority=True,
+        )
+        canonical = MODULE.canonical_payload(args)
+        tampered = json.loads(json.dumps(canonical))
+        projection = tampered["channelPromotionAuthority"]
+        for component in projection_path[:-1]:
+            projection = projection[component]
+        projection[projection_path[-1]] = replacement
+
+        schema = json.loads(
+            (
+                SCRIPT.parents[1]
+                / "contracts"
+                / "global-flagship-release-channel-v2.schema.json"
+            ).read_text(encoding="utf-8")
+        )
+        Draft202012Validator(schema).validate(tampered)
+        with pytest.raises(
+            SystemExit,
+            match=(
+                "must match the macOS "
+                "macosFlagshipEvidence.globalCandidateIdentity"
+            ),
+        ):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                tampered,
+                "tampered-promotion-projection",
             )
 
 

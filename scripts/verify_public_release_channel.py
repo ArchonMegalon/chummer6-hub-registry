@@ -1561,6 +1561,8 @@ def _verify_global_flagship_promotion_reference(
 def verify_global_flagship_channel_promotion_binding(
     payload: dict[str, Any],
     source: str,
+    *,
+    expected_macos_global_candidate_identity: dict[str, Any] | None = None,
 ) -> str:
     if not is_global_flagship_contract(payload):
         return ""
@@ -1620,7 +1622,6 @@ def verify_global_flagship_channel_promotion_binding(
         != GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL
         or binding.get("targetChannel")
         != GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL
-        or binding.get("releaseVersion") != payload_version
         or not isinstance(candidate_id, str)
         or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}", candidate_id)
         is None
@@ -1710,6 +1711,23 @@ def verify_global_flagship_channel_promotion_binding(
     ):
         raise SystemExit(
             f"{source} channelPromotionAuthority assembly provenance is invalid"
+        )
+    if expected_macos_global_candidate_identity is not None and (
+        binding.get("candidateId")
+        != expected_macos_global_candidate_identity.get("candidateId")
+        or binding.get("releaseVersion")
+        != expected_macos_global_candidate_identity.get("releaseVersion")
+        or assembly.get("sha")
+        != expected_macos_global_candidate_identity.get("sourceCommit")
+    ):
+        raise SystemExit(
+            f"{source} channelPromotionAuthority candidateId, releaseVersion, "
+            "and assembly.sha must match the macOS "
+            "macosFlagshipEvidence.globalCandidateIdentity"
+        )
+    if binding.get("releaseVersion") != payload_version:
+        raise SystemExit(
+            f"{source} channelPromotionAuthority posture or candidate binding is invalid"
         )
     return GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL
 
@@ -1822,7 +1840,7 @@ def verify_macos_flagship_evidence_binding(
     expected_candidate: dict[str, Any],
     expected_release_version: str,
     source: str,
-) -> None:
+) -> dict[str, Any]:
     expected_top_level_keys = {
         "contractName",
         "contractVersion",
@@ -2033,6 +2051,7 @@ def verify_macos_flagship_evidence_binding(
         raise SystemExit(
             f"{source} macosFlagshipEvidence receipt binding paths must be unique"
         )
+    return dict(global_identity)
 
 
 def verify_global_flagship_artifact_contract(
@@ -2052,7 +2071,6 @@ def verify_global_flagship_artifact_contract(
         raise SystemExit(
             f"{source} global flagship {selected_projection} projection must be a list"
         )
-    verify_global_flagship_channel_promotion_binding(payload, source)
     entries = list(iter_manifest_download_entries(payload))
     entry_name = selected_projection
     if len(entries) != len(GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS):
@@ -2076,6 +2094,7 @@ def verify_global_flagship_artifact_contract(
     seen_ids: set[str] = set()
     seen_names: set[str] = set()
     macos_evidence_count = 0
+    macos_global_candidate_identity: dict[str, Any] | None = None
     for index, item in enumerate(entries):
         if not isinstance(item, dict):
             raise SystemExit(f"{entry_name}[{index}] must be an object in {source}")
@@ -2171,7 +2190,7 @@ def verify_global_flagship_artifact_contract(
         evidence = item.get("macosFlagshipEvidence")
         if scope_tuple[1] == "macos":
             macos_evidence_count += 1
-            verify_macos_flagship_evidence_binding(
+            macos_global_candidate_identity = verify_macos_flagship_evidence_binding(
                 evidence,
                 expected_candidate={
                     "artifactId": artifact_id,
@@ -2194,6 +2213,13 @@ def verify_global_flagship_artifact_contract(
         raise SystemExit(
             f"{source} global flagship must bind exactly one macOS evidence aggregate"
         )
+    verify_global_flagship_channel_promotion_binding(
+        payload,
+        source,
+        expected_macos_global_candidate_identity=(
+            macos_global_candidate_identity
+        ),
+    )
 
 
 def code_deploy_artifact_inventory_rows(payload: dict[str, Any], source: str) -> list[dict[str, Any]]:
@@ -10170,8 +10196,6 @@ def verify_prepared_directory_bundle(
         "runtimeBundleHeads",
     }
     expected_compatibility_only_keys = {
-        "codeDeployCurrentShelfAuthority",
-        "codeDeploymentAuthority",
         "downloads",
         "publicVersion",
         "source",
