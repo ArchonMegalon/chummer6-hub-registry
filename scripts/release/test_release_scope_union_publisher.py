@@ -122,8 +122,9 @@ def preparation_fixture(
     tmp_path: Path,
 ) -> tuple[Path, Path, list[dict[str, Any]]]:
     snapshot_root = tmp_path / "snapshot"
+    snapshot_root.mkdir(mode=0o700)
     objects_root = snapshot_root / "objects"
-    objects_root.mkdir(parents=True, mode=0o700)
+    objects_root.mkdir(mode=0o700)
     artifacts: list[dict[str, Any]] = []
     projection: list[dict[str, Any]] = []
     platform_rows = [
