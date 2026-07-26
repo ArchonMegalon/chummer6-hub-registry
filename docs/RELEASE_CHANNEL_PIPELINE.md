@@ -145,6 +145,8 @@ Publication writes all three immutable files to a temporary sibling, flushes fil
 
 ## Shape
 
+`releaseProof.journeysPassed` is an exact ordered contract, not a set-like summary. Materialization and verification require the six journey IDs shown below in that order; a missing, unexpected, duplicate, or reordered ID fails closed.
+
 Minimum canonical payload:
 
 ```json
@@ -170,6 +172,7 @@ Minimum canonical payload:
       "install_claim_restore_continue",
       "build_explain_publish",
       "campaign_session_recover_recap",
+      "recover_from_sync_conflict",
       "report_cluster_release_notify",
       "organize_community_and_close_loop"
     ],

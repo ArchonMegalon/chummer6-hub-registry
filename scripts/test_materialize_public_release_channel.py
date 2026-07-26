@@ -48,6 +48,14 @@ VERIFY_MODULE = importlib.util.module_from_spec(VERIFY_MODULE_SPEC)
 VERIFY_MODULE_SPEC.loader.exec_module(VERIFY_MODULE)
 
 TEST_REGISTRY_COMMIT = "0123456789abcdef0123456789abcdef01234567"
+CANONICAL_RELEASE_PROOF_JOURNEYS = (
+    "install_claim_restore_continue",
+    "build_explain_publish",
+    "campaign_session_recover_recap",
+    "recover_from_sync_conflict",
+    "report_cluster_release_notify",
+    "organize_community_and_close_loop",
+)
 
 
 def materializer_args(**kwargs) -> argparse.Namespace:
@@ -2303,6 +2311,53 @@ def complete_release_proof(
             ],
         },
     }
+
+
+def test_normalize_release_proof_payload_accepts_exact_canonical_six_journeys() -> None:
+    proof = complete_release_proof("2026-07-26T12:00:00Z")
+    proof["journeysPassed"] = list(CANONICAL_RELEASE_PROOF_JOURNEYS)
+
+    normalized = MODULE.normalize_release_proof_payload(
+        proof,
+        source="release-proof.json",
+    )
+
+    assert MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS == CANONICAL_RELEASE_PROOF_JOURNEYS
+    assert normalized is not None
+    assert normalized["journeysPassed"] == list(CANONICAL_RELEASE_PROOF_JOURNEYS)
+
+
+def test_normalize_release_proof_payload_rejects_missing_sync_conflict_journey() -> None:
+    proof = complete_release_proof("2026-07-26T12:00:00Z")
+    proof["journeysPassed"] = [
+        journey
+        for journey in CANONICAL_RELEASE_PROOF_JOURNEYS
+        if journey != "recover_from_sync_conflict"
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="journeys_passed is missing required baseline golden journey ids",
+    ):
+        MODULE.normalize_release_proof_payload(
+            proof,
+            source="release-proof.json",
+        )
+
+
+def test_normalize_release_proof_payload_rejects_reordered_canonical_journeys() -> None:
+    proof = complete_release_proof("2026-07-26T12:00:00Z")
+    proof["journeysPassed"] = list(CANONICAL_RELEASE_PROOF_JOURNEYS)
+    proof["journeysPassed"][3:5] = reversed(proof["journeysPassed"][3:5])
+
+    with pytest.raises(
+        ValueError,
+        match="journeys_passed must preserve canonical baseline journey ordering",
+    ):
+        MODULE.normalize_release_proof_payload(
+            proof,
+            source="release-proof.json",
+        )
 
 
 def test_load_flagship_readiness_snapshot_is_digest_bound_and_redacts_private_material() -> None:
