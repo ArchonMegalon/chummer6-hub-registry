@@ -22,6 +22,18 @@ Registry-owned generated artifacts:
 
 Both projections carry `registryCommit` and `registry_commit`. The aliases must agree and contain the externally reviewed, full 40-character lowercase commit for the Registry source that generated them. Materialization never derives this authority identity from the current checkout or inherits it from an older manifest.
 
+### Global flagship v2
+
+The public stable desktop shelf uses `schemaVersion: 2`, `contractVersion: 2`, and `releaseProfile: "global_flagship"`. It contains exactly the Avalonia Linux x64 installer, Windows x64 installer, and macOS arm64 DMG. Every row is byte-bound to the seed candidate and the local download shelf, is `compatible`, and is `open_public`; both generated projections use the canonical absolute `https://chummer.run/downloads/files/<fileName>` URLs.
+
+Select this profile with the exact required-platform request `linux,windows,macos` and provide `--macos-flagship-evidence <path>`. Registry requires real, non-symlink download and startup-smoke directories, opens all three installer files as regular files, and verifies their size and SHA-256 against the candidate. It requires exactly one duplicate-free native startup receipt for each canonical Linux, Windows, and macOS tuple, with the exact candidate release version, and rejects missing directories, extra receipts, skipped proof, and every smoke-filter bypass. The macOS input is the duplicate-free UTF-8 `chummer6-ui.macos-flagship-evidence` v3 aggregate. Pretty JSON and its final newline are accepted because Registry binds the SHA-256 and byte length of the exact source file; semantic validation rejects missing or extra evidence fields, unsafe reference paths, candidate-byte drift, non-passing signing/Gatekeeper/stapling facts, non-accepted notarization, or GitHub provenance that does not bind the global candidate source commit.
+
+The only cross-channel promotion is an explicit protected-assembly boundary. A `preview` candidate may become `public_stable` only when `--channel-promotion-authority <path>` names a duplicate-free `chummer6-ui.global-flagship-channel-promotion-authority.v1` document produced on protected UI `main` in the `global-flagship-publication-input-assembly` environment. Registry byte-validates its candidate, proposal, final receipt, three role-keyed approvals, three Hub topology receipts, three startup receipts, and destination intent; recomputes the compact six-field artifact inventory digest; and requires `registryProjectionAuthorized: true` with `publicationMutationAuthorized: false`. The resulting `chummer.registry.global-flagship-channel-promotion` binding is embedded identically in both projections. No generic channel matcher can turn a preview execution receipt into publication authority.
+
+Registry projects a strict `chummer.registry.macos-flagship-evidence-binding` v1 object only onto the macOS DMG row. It carries the exact source aggregate digest/size, DMG identity, global candidate identity, normalized GitHub run identity, Developer ID certificate/SPKI identity, notarization submission, and digest/size bindings for the signing/notary receipts. It does not copy self-asserted evidence from the seed manifest.
+
+`RELEASE_CHANNEL.generated.json` and `releases.json` are one transaction for v2. The verifier requires both files and recomputes the complete compatibility projection, so missing rows, duplicate identities, evidence drift, or any artifact/download mismatch fails closed. The portable schema is [`contracts/global-flagship-release-channel-v2.schema.json`](../contracts/global-flagship-release-channel-v2.schema.json).
+
 ## Immutable runtime authority
 
 The registry runtime reads release authority only from the absolute directory configured by `CHUMMER_RELEASE_AUTHORITY_ROOT`. It does not fall back to a repository-local `RELEASE_CHANNEL.generated.json`, and the former direct-manifest input `CHUMMER_RELEASE_CHANNEL_MANIFEST` is rejected.
@@ -133,6 +145,8 @@ Publication writes all three immutable files to a temporary sibling, flushes fil
 
 ## Shape
 
+`releaseProof.journeysPassed` is an exact ordered contract, not a set-like summary. Materialization and verification require the six journey IDs shown below in that order; a missing, unexpected, duplicate, or reordered ID fails closed.
+
 Minimum canonical payload:
 
 ```json
@@ -158,6 +172,7 @@ Minimum canonical payload:
       "install_claim_restore_continue",
       "build_explain_publish",
       "campaign_session_recover_recap",
+      "recover_from_sync_conflict",
       "report_cluster_release_notify",
       "organize_community_and_close_loop"
     ],

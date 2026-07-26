@@ -6,6 +6,7 @@ import importlib.util
 import json
 import os
 import shutil
+import stat
 import struct
 import subprocess
 import sys
@@ -132,7 +133,32 @@ def prepare_args(module, source_root: Path, output_root: Path) -> list[str]:
 def copy_source(tmp_path: Path, name: str = "source") -> Path:
     source = tmp_path / name
     shutil.copytree(FIXTURE_ROOT, source)
+    source.chmod(0o755)
+    for path in sorted(source.rglob("*")):
+        if path.is_symlink():
+            raise AssertionError(
+                f"preview publication fixture must not contain symlinks: {path}"
+            )
+        if path.is_dir():
+            path.chmod(0o755)
+        elif path.is_file():
+            path.chmod(0o644)
     return source
+
+
+def test_copy_source_normalizes_fixture_modes_under_restrictive_umask(
+    tmp_path: Path,
+) -> None:
+    previous_umask = os.umask(0o077)
+    try:
+        source = copy_source(tmp_path)
+    finally:
+        os.umask(previous_umask)
+
+    assert stat.S_IMODE(source.stat().st_mode) == 0o755
+    for path in sorted(source.rglob("*")):
+        expected_mode = 0o755 if path.is_dir() else 0o644
+        assert stat.S_IMODE(path.stat().st_mode) == expected_mode
 
 
 def run_prepare(module, tmp_path: Path, name: str = "prepared") -> tuple[Path, Path]:
@@ -1361,23 +1387,7 @@ def build_authenticode_fixture(module, root: Path, installer: dict) -> tuple[dic
 def build_finalize_fixture(module, tmp_path: Path) -> dict:
     scope_root = tmp_path / "sealed-final-scope"
     scope_root.mkdir()
-    source = scope_root / "registry-prepare"
-    shutil.copytree(FIXTURE_ROOT, source)
-    for path in (
-        source / "composition.json",
-        source / "incumbent" / "RELEASE_CHANNEL.generated.json",
-        source / "incumbent" / "releases.json",
-        source / "incumbent" / "aur-packages.json",
-        source / "incumbent" / "files" / "chummer-avalonia-osx-arm64-installer.dmg",
-        source / "incumbent" / "files" / "chummer6-bin.PKGBUILD",
-        source / "incumbent" / "release-evidence" / "incumbent-macos.json",
-        source / "delta" / "files" / "chummer-avalonia-win-x64-installer.exe",
-        source / "delta" / "files" / "chummer-avalonia-win-x64-payload.zip",
-        source / "delta" / "release-evidence" / "windows-build.json",
-        source / "evidence" / "files" / "chummer-avalonia-linux-x64-installer.deb",
-        source / "evidence" / "release-evidence" / "linux-build.json",
-    ):
-        path.chmod(0o644)
+    source = copy_source(scope_root, "registry-prepare")
     candidate_root = source / "output"
     candidate_root.mkdir()
     assert module.main(prepare_args(module, source, candidate_root)) == 0

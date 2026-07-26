@@ -46,6 +46,14 @@ MATERIALIZER_SPEC = importlib.util.spec_from_file_location("materialize_public_r
 assert MATERIALIZER_SPEC and MATERIALIZER_SPEC.loader
 MATERIALIZER = importlib.util.module_from_spec(MATERIALIZER_SPEC)
 MATERIALIZER_SPEC.loader.exec_module(MATERIALIZER)
+CANONICAL_RELEASE_PROOF_JOURNEYS = (
+    "install_claim_restore_continue",
+    "build_explain_publish",
+    "campaign_session_recover_recap",
+    "recover_from_sync_conflict",
+    "report_cluster_release_notify",
+    "organize_community_and_close_loop",
+)
 
 
 def load_tests(loader, tests, pattern):
@@ -532,6 +540,64 @@ def add_public_trust_metrics(payload: dict) -> None:
         },
     }
     payload["publicTrustMetrics"] = MODULE.expected_public_trust_metrics(payload)
+
+
+def release_truth_payload_with_journeys(journeys: list[str]) -> dict:
+    payload = complete_primary_desktop_tuple_payload()
+    add_public_trust_metrics(payload)
+    generated_at = (
+        datetime.now(timezone.utc)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+    payload["releaseProof"]["generatedAt"] = generated_at
+    payload["releaseProof"]["journeysPassed"] = journeys
+    payload["releaseProof"]["flagshipReadiness"] = flagship_readiness_snapshot(
+        generated_at=generated_at,
+    )
+    payload["releaseProof"]["uiLocalizationReleaseGate"]["generatedAt"] = generated_at
+    return payload
+
+
+def test_verify_release_truth_accepts_exact_canonical_six_journeys() -> None:
+    payload = release_truth_payload_with_journeys(
+        list(CANONICAL_RELEASE_PROOF_JOURNEYS),
+    )
+
+    assert MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS == CANONICAL_RELEASE_PROOF_JOURNEYS
+    MODULE.verify_release_truth(payload, "release-channel.json")
+
+
+def test_verify_release_truth_rejects_missing_sync_conflict_journey() -> None:
+    payload = release_truth_payload_with_journeys(
+        [
+            journey
+            for journey in CANONICAL_RELEASE_PROOF_JOURNEYS
+            if journey != "recover_from_sync_conflict"
+        ],
+    )
+
+    with pytest.raises(
+        SystemExit,
+        match="releaseProof.journeysPassed is missing required baseline journey ids",
+    ):
+        MODULE.verify_release_truth(payload, "release-channel.json")
+
+
+def test_verify_release_truth_rejects_reordered_canonical_journeys() -> None:
+    journeys = list(CANONICAL_RELEASE_PROOF_JOURNEYS)
+    journeys[3:5] = reversed(journeys[3:5])
+    payload = release_truth_payload_with_journeys(journeys)
+
+    with pytest.raises(
+        SystemExit,
+        match=(
+            "releaseProof.journeysPassed must preserve canonical baseline "
+            "journey ordering"
+        ),
+    ):
+        MODULE.verify_release_truth(payload, "release-channel.json")
 
 
 def test_artifact_bound_registries_ignore_route_rows_without_produced_artifacts() -> None:

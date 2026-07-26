@@ -36,6 +36,10 @@ ARTIFACT_PATTERN = re.compile(
 )
 REGISTRY_COMMIT_PATTERN = re.compile(r"^[0-9a-f]{40}$")
 SHA256_PATTERN = re.compile(r"^[0-9a-f]{64}$")
+UUID_PATTERN = re.compile(
+    r"^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-"
+    r"[0-9a-f]{4}-[0-9a-f]{12}$"
+)
 REGISTRY_PRODUCER_PATHS = (
     "scripts/materialize_public_release_channel.py",
     "scripts/verify_public_release_channel.py",
@@ -61,6 +65,8 @@ CODE_DEPLOY_CURRENT_SHELF_TRANSFORM_OPTIONS = (
     "--proof",
     "--ui-localization-release-gate",
     "--flagship-readiness",
+    "--macos-flagship-evidence",
+    "--channel-promotion-authority",
     "--product",
     "--channel",
     "--version",
@@ -181,6 +187,158 @@ DESKTOP_ROUTE_ROLES = {
 # CANONICAL_DESKTOP_PLATFORM_ORDER below: macOS remains a supported/buildable
 # platform, but it is not part of the current Windows/Linux preview candidate.
 DEFAULT_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows")
+GLOBAL_FLAGSHIP_REQUIRED_DESKTOP_PLATFORMS = ("linux", "windows", "macos")
+GLOBAL_FLAGSHIP_SCHEMA_VERSION = 2
+GLOBAL_FLAGSHIP_CONTRACT_VERSION = 2
+GLOBAL_FLAGSHIP_RELEASE_PROFILE = "global_flagship"
+GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_CONTRACT = (
+    "chummer.registry.global-flagship-channel-promotion"
+)
+GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_VERSION = 1
+UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_CONTRACT = (
+    "chummer6-ui.global-flagship-channel-promotion-authority.v1"
+)
+UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_VERSION = 1
+UI_GLOBAL_FLAGSHIP_DESTINATION_INTENT_CONTRACT = (
+    "chummer6-ui.global-flagship-destination-intent.v1"
+)
+UI_GLOBAL_FLAGSHIP_DESTINATION_INTENT_VERSION = 1
+GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL = "preview"
+GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL = "public_stable"
+UI_GLOBAL_FLAGSHIP_CANDIDATE_CONTRACT = (
+    "chummer6-ui.global-flagship-candidate.v1"
+)
+UI_GLOBAL_FLAGSHIP_RELEASE_PROPOSAL_CONTRACT = (
+    "chummer6-ui.global-flagship-release-proposal.v1"
+)
+UI_GLOBAL_FLAGSHIP_RELEASE_FINAL_RECEIPT_CONTRACT = (
+    "chummer6-ui.global-flagship-release-final-receipt.v1"
+)
+UI_GLOBAL_FLAGSHIP_RELEASE_APPROVAL_CONTRACT = (
+    "chummer6-ui.global-flagship-release-approval.v2"
+)
+UI_GLOBAL_FLAGSHIP_RELEASE_REVIEWER_POLICY_CONTRACT = (
+    "chummer6-ui.global-flagship-release-reviewer-policy.v1"
+)
+UI_GLOBAL_FLAGSHIP_RELEASE_CONTRACT_VERSION = 1
+UI_GLOBAL_FLAGSHIP_RELEASE_APPROVAL_VERSION = 2
+UI_GLOBAL_FLAGSHIP_CANDIDATE_PRODUCER_WORKFLOW = (
+    ".github/workflows/global-flagship-candidate.yml"
+)
+UI_GLOBAL_FLAGSHIP_PROVIDER_ACTOR_ROLES = (
+    "windows-export",
+    "windows-capture",
+    "windows-evidence",
+    "linux-export",
+    "linux-evidence",
+    "macos-escrow",
+    "macos-handoff",
+)
+UI_GLOBAL_FLAGSHIP_REQUIRED_APPROVAL_ROLES = (
+    "quality",
+    "release",
+    "security",
+)
+UI_GLOBAL_FLAGSHIP_APPROVAL_WORKFLOW = (
+    ".github/workflows/global-flagship-release-approval.yml"
+)
+UI_GLOBAL_FLAGSHIP_APPROVAL_ENVIRONMENT = "global-flagship-release-review"
+UI_GLOBAL_FLAGSHIP_APPROVAL_RERUN_POLICY = "fresh-dispatch-only"
+UI_GLOBAL_FLAGSHIP_AUTHORITY_LEVEL = "local-structural-validation-only"
+UI_GLOBAL_FLAGSHIP_ALLOWED_SIDE_EFFECTS = ["write_local_receipts"]
+UI_GLOBAL_FLAGSHIP_EXTERNAL_REQUIREMENTS = (
+    {
+        "platform": "windows",
+        "requirement": (
+            "A native Windows runner plus DigiCert KeyLocker credentials and "
+            "public signer pins must produce the existing signing and exit-gate "
+            "contracts for the exact installer bytes."
+        ),
+    },
+    {
+        "platform": "linux",
+        "requirement": (
+            "A protected Linux signer must origin-sign the exact xz-compressed "
+            "Debian candidate with the pinned OpenPGP primary key. A separate "
+            "native Linux runner must independently verify debsig policy, "
+            "public keyring, signature, and tamper rejection before clean "
+            "install, core workflow, N-1 update, and normal purge execution."
+        ),
+    },
+    {
+        "platform": "macos",
+        "requirement": (
+            "A native macOS arm64 runner with a Developer ID identity and "
+            "notary profile must sign, notarize, staple, clean-install, run the "
+            "core workflow, and exercise the N-1 update. The exact resulting "
+            "DMG must be recovered from the pinned encrypted escrow only after "
+            "a protected downstream workflow authenticates the GitHub run and "
+            "artifact digest through the provider API."
+        ),
+    },
+    {
+        "platform": "global",
+        "requirement": (
+            "Quality, release, and security approvals must come from three "
+            "different authorized actors, all independent of the candidate "
+            "producer and native evidence actors. The separate publisher "
+            "must authenticate detailed main-branch protection through a "
+            "read-only administration authority unavailable to the approval "
+            "workflow."
+        ),
+    },
+)
+UI_GLOBAL_FLAGSHIP_FINAL_REQUIRED_NEXT_AUTHORITY = (
+    "A protected workflow must authenticate every referenced GitHub run, "
+    "artifact, signer identity, and approval actor via the provider API. A "
+    "separate immutable publication transaction must then revalidate that "
+    "authenticated handoff and all bound bytes before any upload or "
+    "activation."
+)
+UI_GLOBAL_FLAGSHIP_PLATFORM_EVIDENCE_CONTRACTS = {
+    "linux": {
+        "exitGateReceipt": "chummer6-ui.linux_desktop_exit_gate",
+        "nativeE2eReceipt": "chummer6-ui.flagship-native-e2e.linux.v2",
+    },
+    "windows": {
+        "exitGateReceipt": "chummer6-ui.windows_desktop_exit_gate",
+        "nativeE2eReceipt": "chummer6-ui.flagship-native-e2e.windows.v2",
+    },
+    "macos": {
+        "exitGateReceipt": "chummer6-ui.macos_desktop_exit_gate",
+        "nativeE2eReceipt": "chummer6-ui.flagship-native-e2e.macos.v1",
+    },
+}
+UI_GLOBAL_FLAGSHIP_SIGNING_CONTRACT = "chummer6-ui.desktop_artifact_signing"
+UI_GLOBAL_FLAGSHIP_INTEGRITY_POLICIES = {
+    "linux": "debsigs-origin-openpgp-and-manifest-sha256",
+    "windows": "signed-authenticode-and-manifest-sha256",
+    "macos": (
+        "developer-id-signed-notarized-stapled-and-manifest-sha256"
+    ),
+}
+HUB_GLOBAL_FLAGSHIP_TOPOLOGY_CONTRACT = (
+    "chummer6-hub.topology-b-committed-retirement.v1"
+)
+HUB_GLOBAL_FLAGSHIP_TERMINAL_CONTRACT = (
+    "chummer.public-download-committed-retirement/v1"
+)
+HUB_GLOBAL_FLAGSHIP_TERMINAL_OPERATION = (
+    "initial-release-shelf-public-download-cutover-retire"
+)
+HUB_GLOBAL_FLAGSHIP_POST_MARKER_CONTRACT = (
+    "chummer.public-download-retirement-connector-boundary/v1"
+)
+GLOBAL_FLAGSHIP_GITHUB_LOGIN_PATTERN = re.compile(
+    r"^(?:[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?"
+    r"|github-actions\[bot\])$"
+)
+GLOBAL_FLAGSHIP_MACOS_EVIDENCE_BINDING_CONTRACT = (
+    "chummer.registry.macos-flagship-evidence-binding"
+)
+GLOBAL_FLAGSHIP_MACOS_EVIDENCE_BINDING_VERSION = 1
+UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT = "chummer6-ui.macos-flagship-evidence"
+UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT_VERSION = 3
 WINDOWS_ONLY_PLATFORM_SCOPE = "windows_only"
 WINDOWS_WINE_COMPATIBILITY_EXECUTION_ENVIRONMENT = "wine_compatibility"
 WINDOWS_WINE_COMPATIBILITY_VERIFICATION_SCOPE = "windows_compatibility_startup"
@@ -210,11 +368,19 @@ CURRENT_PREVIEW_DESKTOP_ARTIFACTS = {
         "chummer-avalonia-win-x64-installer.exe",
     ),
 }
+GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS = {
+    **CURRENT_PREVIEW_DESKTOP_ARTIFACTS,
+    ("avalonia", "macos", "osx-arm64", "installer"): (
+        "avalonia-osx-arm64-installer",
+        "chummer-avalonia-osx-arm64-installer.dmg",
+    ),
+}
 CANONICAL_DESKTOP_PLATFORM_ORDER = ("linux", "windows", "macos")
 REQUIRED_RELEASE_PROOF_JOURNEYS = (
     "install_claim_restore_continue",
     "build_explain_publish",
     "campaign_session_recover_recap",
+    "recover_from_sync_conflict",
     "report_cluster_release_notify",
     "organize_community_and_close_loop",
 )
@@ -321,6 +487,20 @@ FLAGSHIP_READINESS_SNAPSHOT_BODY_KEYS = (
     "sourceSha256",
     "status",
 )
+ALLOWED_FLAGSHIP_READINESS_SNAPSHOT_KEYS = (
+    *FLAGSHIP_READINESS_SNAPSHOT_BODY_KEYS,
+    "snapshotSha256",
+)
+FLAGSHIP_READINESS_CANONICAL_MARKER_KEYS = frozenset(
+    {
+        "coverageGapKeys",
+        "desktopClientReady",
+        "launchBlockers",
+        "snapshotSha256",
+        "sourceSha256",
+    }
+)
+FLAGSHIP_READINESS_SHA256_RE = re.compile(r"^sha256:[0-9a-f]{64}$")
 FLAGSHIP_READINESS_EMAIL_RE = re.compile(
     r"(?<![A-Za-z0-9._%+-])[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}(?![A-Za-z0-9_%+-])"
 )
@@ -361,6 +541,103 @@ ARTIFACT_REVOKE_TRUTH_FIELDS = (
     "knownIssueSummary",
     "known_issue_summary",
 )
+MACOS_FLAGSHIP_EVIDENCE_AGGREGATE_KEYS = {
+    "candidate",
+    "cleanInstall",
+    "contractName",
+    "contractVersion",
+    "generatedAtUtc",
+    "github",
+    "globalCandidateIdentity",
+    "inputBindings",
+    "inventorySha256",
+    "livePredecessorAuthority",
+    "nonPublishing",
+    "references",
+    "releaseVersion",
+    "rid",
+    "runner",
+    "signing",
+    "sourceUnsignedCandidate",
+    "status",
+    "updateDelivery",
+}
+MACOS_FLAGSHIP_EVIDENCE_REFERENCE_KEYS = {
+    "authorityReceipt",
+    "cleanStartupReceipt",
+    "completedUpdateState",
+    "hostedNativeProofConsumption",
+    "inventory",
+    "liveReleaseChannel",
+    "manualUpdateState",
+    "notaryResult",
+    "pendingDeliveryReceipt",
+    "postUpdateStartupReceipt",
+    "predecessorVerification",
+    "runtimeObservations",
+    "signingIdentityReceipt",
+    "signingReceipt",
+    "stageManifest",
+    "stageOnlyReceipt",
+}
+MACOS_FLAGSHIP_EVIDENCE_INPUT_BINDING_SOURCES = {
+    "authorityReceiptSha256": "authorityReceipt",
+    "cleanStartupReceiptSha256": "cleanStartupReceipt",
+    "completedUpdateStateSha256": "completedUpdateState",
+    "hostedNativeProofConsumptionSha256": "hostedNativeProofConsumption",
+    "manualUpdateStateSha256": "manualUpdateState",
+    "liveReleaseChannelSha256": "liveReleaseChannel",
+    "notaryResultSha256": "notaryResult",
+    "pendingDeliveryReceiptSha256": "pendingDeliveryReceipt",
+    "postUpdateStartupReceiptSha256": "postUpdateStartupReceipt",
+    "predecessorVerificationSha256": "predecessorVerification",
+    "runtimeObservationsSha256": "runtimeObservations",
+    "signingIdentityReceiptSha256": "signingIdentityReceipt",
+    "signingReceiptSha256": "signingReceipt",
+    "stageManifestSha256": "stageManifest",
+    "stageOnlyReceiptSha256": "stageOnlyReceipt",
+}
+MACOS_FLAGSHIP_SIGNING_KEYS = {
+    "candidateDmgGatekeeperStatus",
+    "certificateSha256",
+    "certificateSpkiSha256",
+    "developerIdApplicationIdentity",
+    "gatekeeperAssessmentsEnabled",
+    "installedAppGatekeeperStatus",
+    "notarizationStatus",
+    "notarySubmissionId",
+    "postUpdateAppGatekeeperStatus",
+    "staplerValidationStatus",
+    "signingStatus",
+    "teamId",
+}
+MACOS_FLAGSHIP_GITHUB_KEYS = {
+    "actor",
+    "ref",
+    "repository",
+    "rerunPolicy",
+    "runAttempt",
+    "runId",
+    "sha",
+    "triggeringActor",
+    "workflow",
+}
+MACOS_FLAGSHIP_GLOBAL_IDENTITY_KEYS = {
+    "candidateId",
+    "generationId",
+    "previousReleaseVersion",
+    "releaseVersion",
+    "sourceCommit",
+}
+MACOS_FLAGSHIP_NONPUBLISHING_POSTURE = {
+    "countsAsPublicationEvidence": False,
+    "evidenceArtifactUploadAllowed": True,
+    "publicActivationAttempted": False,
+    "publicationAttempted": False,
+    "releaseUploadCredentialAccepted": False,
+    "releaseUploadAttempted": False,
+}
+MACOS_FLAGSHIP_EVIDENCE_PASSTHROUGH_FIELDS = ("macosFlagshipEvidence",)
 
 
 def normalize_token(value: Any) -> str:
@@ -436,9 +713,21 @@ def normalize_platform_token(raw: Any) -> str:
     return token
 
 
-def startup_smoke_channel_matches_expected(expected_channel: str, actual_channel: str) -> bool:
+def startup_smoke_channel_matches_expected(
+    expected_channel: str,
+    actual_channel: str,
+    *,
+    authorized_source_channel: str = "",
+) -> bool:
     expected = normalize_token(expected_channel)
     actual = normalize_token(actual_channel)
+    authorized_source = normalize_token(authorized_source_channel)
+    if authorized_source:
+        return (
+            authorized_source == GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL
+            and expected == GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL
+            and actual == authorized_source
+        )
     if not expected:
         return True
     if not actual:
@@ -588,27 +877,94 @@ def startup_smoke_artifact_file_name_from_path(raw_path: Any) -> str:
     return normalize_token(tokens[-1])
 
 
+def _exact_startup_smoke_string_alias(
+    loaded: dict[str, Any],
+    field_names: tuple[str, ...],
+) -> tuple[bool, str | None]:
+    present_values = [
+        loaded[field_name]
+        for field_name in field_names
+        if field_name in loaded
+    ]
+    if not present_values:
+        return False, None
+    if any(
+        type(value) is not str
+        or not value
+        or value != value.strip()
+        for value in present_values
+    ):
+        return True, None
+    first_value = present_values[0]
+    if any(value != first_value for value in present_values[1:]):
+        return True, None
+    return True, first_value
+
+
 def startup_smoke_receipt_artifact_id(loaded: dict[str, Any]) -> str:
-    return normalize_token(
-        loaded.get("artifactId")
-        or loaded.get("artifact_id")
-        or loaded.get("artifact")
+    _present, value = _exact_startup_smoke_string_alias(
+        loaded,
+        ("artifactId", "artifact_id", "artifact"),
     )
+    return normalize_token(value)
+
+
+def startup_smoke_receipt_artifact_relative_path(
+    loaded: dict[str, Any],
+) -> str:
+    _present, value = _exact_startup_smoke_string_alias(
+        loaded,
+        ("artifactRelativePath", "artifact_relative_path"),
+    )
+    return value or ""
 
 
 def startup_smoke_receipt_artifact_file_name(loaded: dict[str, Any]) -> str:
-    explicit_file_name = normalize_token(
-        loaded.get("artifactFileName")
-        or loaded.get("artifact_file_name")
-        or loaded.get("fileName")
-        or loaded.get("file_name")
+    explicit_present, explicit_value = _exact_startup_smoke_string_alias(
+        loaded,
+        (
+            "artifactFileName",
+            "artifact_file_name",
+            "fileName",
+            "file_name",
+        ),
     )
-    if explicit_file_name:
-        return explicit_file_name
-    return startup_smoke_artifact_file_name_from_path(
-        loaded.get("artifactPath")
-        or loaded.get("artifact_path")
+    if explicit_present and explicit_value is None:
+        return ""
+    explicit_file_name = normalize_token(explicit_value)
+    artifact_path_present, artifact_path_value = (
+        _exact_startup_smoke_string_alias(
+            loaded,
+            ("artifactPath", "artifact_path"),
+        )
     )
+    if artifact_path_present and artifact_path_value is None:
+        return ""
+    relative_path_present, relative_path_value = (
+        _exact_startup_smoke_string_alias(
+            loaded,
+            ("artifactRelativePath", "artifact_relative_path"),
+        )
+    )
+    if relative_path_present and relative_path_value is None:
+        return ""
+    artifact_path = artifact_path_value or ""
+    relative_path = relative_path_value or ""
+    path_file_names = {
+        startup_smoke_artifact_file_name_from_path(value)
+        for value in (artifact_path, relative_path)
+        if value
+    }
+    if "" in path_file_names or len(path_file_names) > 1:
+        return ""
+    path_file_name = next(iter(path_file_names), "")
+    if (
+        explicit_file_name
+        and path_file_name
+        and explicit_file_name != path_file_name
+    ):
+        return ""
+    return explicit_file_name or path_file_name
 
 
 def startup_smoke_manifest_installer_mode(loaded: dict[str, Any]) -> str:
@@ -1125,6 +1481,22 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "downstream hub is not launch-ready."
         ),
     )
+    parser.add_argument(
+        "--macos-flagship-evidence",
+        type=Path,
+        help=(
+            "Canonical chummer6-ui.macos-flagship-evidence v3 aggregate whose exact bytes "
+            "authorize the signed/notarized macOS DMG binding for a v2 global flagship."
+        ),
+    )
+    parser.add_argument(
+        "--channel-promotion-authority",
+        type=Path,
+        help=(
+            "Protected-assembly preview-to-public_stable promotion authority "
+            "required by the v2 global flagship profile."
+        ),
+    )
     parser.add_argument("--product", default="chummer6")
     parser.add_argument("--channel", default="")
     parser.add_argument("--version", default="")
@@ -1179,6 +1551,19 @@ def normalize_exact_sha256(value: Any, *, source: str) -> str:
     return digest
 
 
+def require_real_directory(path: Path | None, *, source: str) -> Path:
+    if path is None:
+        raise ValueError(f"{source} is required")
+    expanded = path.expanduser()
+    try:
+        metadata = os.lstat(expanded)
+    except OSError as exc:
+        raise ValueError(f"{source} is unavailable: {expanded}") from exc
+    if not stat.S_ISDIR(metadata.st_mode):
+        raise ValueError(f"{source} must be a real directory, not a link or special file")
+    return expanded
+
+
 def read_stable_regular_file_bytes(path: Path, *, source: str) -> bytes:
     expanded = path.expanduser()
     canonical = expanded.parent.resolve(strict=False) / expanded.name
@@ -1223,6 +1608,2352 @@ def read_stable_regular_file_bytes(path: Path, *, source: str) -> bytes:
     if len(content) != before.st_size:
         raise ValueError(f"{source} size changed while being read")
     return content
+
+
+def _reject_duplicate_json_pairs(pairs: list[tuple[str, Any]]) -> dict[str, Any]:
+    result: dict[str, Any] = {}
+    for key, value in pairs:
+        if key in result:
+            raise ValueError(f"duplicate JSON key {key!r}")
+        result[key] = value
+    return result
+
+
+def strict_json_object(raw: bytes, *, source: str) -> dict[str, Any]:
+    if not raw or len(raw) > 4 * 1024 * 1024 or b"\x00" in raw:
+        raise ValueError(f"{source} has an invalid bounded byte envelope")
+    try:
+        payload = json.loads(
+            raw.decode("utf-8"),
+            object_pairs_hook=_reject_duplicate_json_pairs,
+            parse_constant=lambda value: (_ for _ in ()).throw(
+                ValueError(f"non-finite JSON number {value}")
+            ),
+        )
+    except (UnicodeDecodeError, json.JSONDecodeError, ValueError) as exc:
+        raise ValueError(f"{source} must be valid duplicate-free UTF-8 JSON") from exc
+    if not isinstance(payload, dict):
+        raise ValueError(f"{source} must be a JSON object")
+    return payload
+
+
+def require_exact_object_keys(value: Any, expected: set[str], *, source: str) -> dict[str, Any]:
+    if not isinstance(value, dict) or set(value) != expected:
+        observed = set(value) if isinstance(value, dict) else set()
+        raise ValueError(
+            f"{source} has missing or extra keys "
+            f"(missing={sorted(expected - observed)}, extra={sorted(observed - expected)})"
+        )
+    return value
+
+
+def canonical_evidence_reference(value: Any, *, source: str) -> dict[str, Any]:
+    reference = require_exact_object_keys(
+        value,
+        {"path", "sha256", "sizeBytes"},
+        source=source,
+    )
+    path = reference.get("path")
+    if (
+        not isinstance(path, str)
+        or not path
+        or path != f"receipts/{Path(path).name}"
+        or "\\" in path
+        or re.fullmatch(
+            r"receipts/[A-Za-z0-9][A-Za-z0-9._+-]{0,255}",
+            path,
+        )
+        is None
+    ):
+        raise ValueError(
+            f"{source}.path must be a safe canonical receipts/<basename> path"
+        )
+    digest = reference.get("sha256")
+    if not isinstance(digest, str) or SHA256_PATTERN.fullmatch(digest) is None:
+        raise ValueError(f"{source}.sha256 must be an exact lowercase SHA-256")
+    size_bytes = reference.get("sizeBytes")
+    if type(size_bytes) is not int or size_bytes <= 0:
+        raise ValueError(f"{source}.sizeBytes must be a positive integer")
+    return {
+        "path": path,
+        "sha256": digest,
+        "sizeBytes": size_bytes,
+    }
+
+
+def _canonical_global_flagship_candidate(
+    value: Any,
+    *,
+    source: str,
+) -> dict[str, Any]:
+    candidate = require_exact_object_keys(
+        value,
+        {"artifactId", "fileName", "sha256", "sizeBytes"},
+        source=source,
+    )
+    if (
+        candidate.get("artifactId") != "avalonia-osx-arm64-installer"
+        or candidate.get("fileName")
+        != "chummer-avalonia-osx-arm64-installer.dmg"
+        or not isinstance(candidate.get("sha256"), str)
+        or SHA256_PATTERN.fullmatch(candidate["sha256"]) is None
+        or type(candidate.get("sizeBytes")) is not int
+        or candidate["sizeBytes"] <= 0
+    ):
+        raise ValueError(f"{source} is not the canonical macOS flagship DMG identity")
+    return dict(candidate)
+
+
+def load_macos_flagship_evidence_binding(
+    path: Path | None,
+    *,
+    expected_candidate: dict[str, Any],
+    expected_release_version: str,
+) -> dict[str, Any]:
+    if path is None:
+        raise ValueError(
+            "global flagship materialization requires --macos-flagship-evidence"
+        )
+    raw = read_stable_regular_file_bytes(
+        path,
+        source="macOS flagship evidence aggregate",
+    )
+    payload = strict_json_object(
+        raw,
+        source="macOS flagship evidence aggregate",
+    )
+    require_exact_object_keys(
+        payload,
+        MACOS_FLAGSHIP_EVIDENCE_AGGREGATE_KEYS,
+        source="macOS flagship evidence aggregate",
+    )
+    if (
+        payload.get("contractName") != UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT
+        or type(payload.get("contractVersion")) is not int
+        or payload.get("contractVersion")
+        != UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT_VERSION
+        or payload.get("status") != "pass"
+        or payload.get("rid") != "osx-arm64"
+        or payload.get("releaseVersion") != expected_release_version
+    ):
+        raise ValueError(
+            "macOS flagship evidence aggregate contract, status, release, or RID is invalid"
+        )
+    candidate = _canonical_global_flagship_candidate(
+        payload.get("candidate"),
+        source="macOS flagship evidence aggregate candidate",
+    )
+    canonical_expected_candidate = _canonical_global_flagship_candidate(
+        expected_candidate,
+        source="materialized macOS flagship candidate",
+    )
+    if candidate != canonical_expected_candidate:
+        raise ValueError(
+            "macOS flagship evidence aggregate does not bind the materialized DMG bytes"
+        )
+
+    global_identity = require_exact_object_keys(
+        payload.get("globalCandidateIdentity"),
+        MACOS_FLAGSHIP_GLOBAL_IDENTITY_KEYS,
+        source="macOS flagship evidence globalCandidateIdentity",
+    )
+    if (
+        global_identity.get("releaseVersion") != expected_release_version
+        or not isinstance(global_identity.get("sourceCommit"), str)
+        or re.fullmatch(r"[0-9a-f]{40}", global_identity["sourceCommit"]) is None
+        or not isinstance(global_identity.get("previousReleaseVersion"), str)
+        or not global_identity["previousReleaseVersion"]
+    ):
+        raise ValueError(
+            "macOS flagship evidence global candidate identity is invalid"
+        )
+    for key in ("candidateId", "generationId"):
+        value = global_identity.get(key)
+        if (
+            not isinstance(value, str)
+            or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}", value)
+            is None
+        ):
+            raise ValueError(
+                f"macOS flagship evidence globalCandidateIdentity.{key} is invalid"
+            )
+
+    github = require_exact_object_keys(
+        payload.get("github"),
+        MACOS_FLAGSHIP_GITHUB_KEYS,
+        source="macOS flagship evidence github",
+    )
+    if (
+        github.get("repository") != "ArchonMegalon/chummer6-ui"
+        or github.get("ref") != "refs/heads/main"
+        or github.get("workflow")
+        != ".github/workflows/macos-flagship-evidence.yml"
+        or github.get("sha") != global_identity.get("sourceCommit")
+        or github.get("rerunPolicy") != "same-actor-only"
+        or github.get("actor") != github.get("triggeringActor")
+        or not isinstance(github.get("actor"), str)
+        or re.fullmatch(
+            r"(?:github-actions\[bot\]|[A-Za-z0-9](?:[A-Za-z0-9-]{0,37}[A-Za-z0-9])?)",
+            github["actor"],
+        )
+        is None
+        or not isinstance(github.get("runId"), (str, int))
+        or isinstance(github.get("runId"), bool)
+        or re.fullmatch(r"[1-9][0-9]*", str(github.get("runId"))) is None
+        or not isinstance(github.get("runAttempt"), (str, int))
+        or isinstance(github.get("runAttempt"), bool)
+        or re.fullmatch(r"[1-9][0-9]*", str(github.get("runAttempt"))) is None
+    ):
+        raise ValueError("macOS flagship evidence GitHub provenance is invalid")
+
+    runner = require_exact_object_keys(
+        payload.get("runner"),
+        {
+            "arch",
+            "environment",
+            "imageOS",
+            "imageVersion",
+            "label",
+            "os",
+        },
+        source="macOS flagship evidence runner",
+    )
+    if (
+        runner.get("arch") != "arm64"
+        or runner.get("environment") != "github-hosted"
+        or runner.get("imageOS") != "macos15"
+        or runner.get("label") != "macos-15"
+        or not isinstance(runner.get("imageVersion"), str)
+        or re.fullmatch(r"[0-9A-Za-z._-]{1,128}", runner["imageVersion"])
+        is None
+        or not isinstance(runner.get("os"), str)
+        or not runner["os"].startswith("macos-")
+    ):
+        raise ValueError(
+            "macOS flagship evidence hosted runner identity is invalid"
+        )
+
+    non_publishing = require_exact_object_keys(
+        payload.get("nonPublishing"),
+        set(MACOS_FLAGSHIP_NONPUBLISHING_POSTURE),
+        source="macOS flagship evidence nonPublishing",
+    )
+    if any(
+        type(non_publishing.get(key)) is not bool
+        or non_publishing[key] is not expected
+        for key, expected in MACOS_FLAGSHIP_NONPUBLISHING_POSTURE.items()
+    ):
+        raise ValueError(
+            "macOS flagship evidence must retain its exact non-publishing posture"
+        )
+
+    references = require_exact_object_keys(
+        payload.get("references"),
+        MACOS_FLAGSHIP_EVIDENCE_REFERENCE_KEYS,
+        source="macOS flagship evidence references",
+    )
+    canonical_references = {
+        key: canonical_evidence_reference(
+            references[key],
+            source=f"macOS flagship evidence references.{key}",
+        )
+        for key in sorted(MACOS_FLAGSHIP_EVIDENCE_REFERENCE_KEYS)
+    }
+    reference_paths = [
+        reference["path"] for reference in canonical_references.values()
+    ]
+    if len(set(reference_paths)) != len(reference_paths):
+        raise ValueError("macOS flagship evidence reference paths must be unique")
+    if payload.get("inventorySha256") != canonical_references["inventory"]["sha256"]:
+        raise ValueError(
+            "macOS flagship evidence inventorySha256 does not bind references.inventory"
+        )
+
+    input_bindings = require_exact_object_keys(
+        payload.get("inputBindings"),
+        set(MACOS_FLAGSHIP_EVIDENCE_INPUT_BINDING_SOURCES),
+        source="macOS flagship evidence inputBindings",
+    )
+    for binding_key, reference_key in (
+        MACOS_FLAGSHIP_EVIDENCE_INPUT_BINDING_SOURCES.items()
+    ):
+        if input_bindings.get(binding_key) != canonical_references[reference_key]["sha256"]:
+            raise ValueError(
+                f"macOS flagship evidence {binding_key} does not bind its reference"
+            )
+
+    signing = require_exact_object_keys(
+        payload.get("signing"),
+        MACOS_FLAGSHIP_SIGNING_KEYS,
+        source="macOS flagship evidence signing",
+    )
+    team_id = signing.get("teamId")
+    identity = signing.get("developerIdApplicationIdentity")
+    if (
+        not isinstance(team_id, str)
+        or re.fullmatch(r"[A-Z0-9]{10}", team_id) is None
+        or not isinstance(identity, str)
+        or not identity.startswith("Developer ID Application:")
+        or not identity.endswith(f"({team_id})")
+        or not isinstance(signing.get("certificateSha256"), str)
+        or SHA256_PATTERN.fullmatch(signing["certificateSha256"]) is None
+        or not isinstance(signing.get("certificateSpkiSha256"), str)
+        or SHA256_PATTERN.fullmatch(signing["certificateSpkiSha256"]) is None
+        or not isinstance(signing.get("notarySubmissionId"), str)
+        or UUID_PATTERN.fullmatch(signing["notarySubmissionId"]) is None
+        or signing.get("notarizationStatus") != "Accepted"
+        or signing.get("gatekeeperAssessmentsEnabled") is not True
+        or any(
+            signing.get(key) != "pass"
+            for key in (
+                "candidateDmgGatekeeperStatus",
+                "installedAppGatekeeperStatus",
+                "postUpdateAppGatekeeperStatus",
+                "staplerValidationStatus",
+                "signingStatus",
+            )
+        )
+    ):
+        raise ValueError(
+            "macOS flagship evidence signing, notarization, stapling, or Gatekeeper authority is invalid"
+        )
+
+    source_sha256 = hashlib.sha256(raw).hexdigest()
+    return {
+        "contractName": GLOBAL_FLAGSHIP_MACOS_EVIDENCE_BINDING_CONTRACT,
+        "contractVersion": GLOBAL_FLAGSHIP_MACOS_EVIDENCE_BINDING_VERSION,
+        "source": {
+            "contractName": UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT,
+            "contractVersion": UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT_VERSION,
+            "sha256": source_sha256,
+            "sizeBytes": len(raw),
+        },
+        "candidate": candidate,
+        "globalCandidateIdentity": dict(global_identity),
+        "github": {
+            "actor": github["actor"],
+            "ref": github["ref"],
+            "repository": github["repository"],
+            "rerunPolicy": github["rerunPolicy"],
+            "runAttempt": int(github["runAttempt"]),
+            "runId": int(github["runId"]),
+            "sha": github["sha"],
+            "triggeringActor": github["triggeringActor"],
+            "workflow": github["workflow"],
+        },
+        "signingIdentity": {
+            "certificateSha256": signing["certificateSha256"],
+            "certificateSpkiSha256": signing["certificateSpkiSha256"],
+            "developerIdApplicationIdentity": identity,
+            "teamId": team_id,
+        },
+        "notarization": {
+            "status": "Accepted",
+            "submissionId": signing["notarySubmissionId"],
+        },
+        "receiptBindings": {
+            key: canonical_references[key]
+            for key in (
+                "notaryResult",
+                "signingIdentityReceipt",
+                "signingReceipt",
+            )
+        },
+    }
+
+
+def global_flagship_platform_request(raw: Any) -> bool:
+    if raw in (None, ""):
+        return False
+    values = (
+        list(raw)
+        if isinstance(raw, list)
+        else str(raw).split(",")
+    )
+    normalized = [normalize_platform_token(value) for value in values]
+    normalized = [value for value in normalized if value]
+    global_platforms = set(GLOBAL_FLAGSHIP_REQUIRED_DESKTOP_PLATFORMS)
+    if "macos" not in normalized:
+        return False
+    if (
+        len(normalized) != len(global_platforms)
+        or len(set(normalized)) != len(normalized)
+        or set(normalized) != global_platforms
+    ):
+        raise ValueError(
+            "a macOS flagship request must name each required desktop platform exactly once: "
+            + ", ".join(GLOBAL_FLAGSHIP_REQUIRED_DESKTOP_PLATFORMS)
+        )
+    return True
+
+
+def validate_global_flagship_source_artifacts(
+    raw_artifacts: Any,
+    *,
+    expected_channel: str,
+    expected_release_version: str,
+) -> list[dict[str, Any]]:
+    if not isinstance(raw_artifacts, list):
+        raise ValueError(
+            "global flagship materialization requires a canonical source artifacts array"
+        )
+    if len(raw_artifacts) != len(GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS):
+        raise ValueError(
+            "global flagship source must contain exactly Linux, Windows, and macOS artifacts"
+        )
+    normalized_rows: list[dict[str, Any]] = []
+    seen_tuples: set[tuple[str, str, str, str]] = set()
+    seen_ids: set[str] = set()
+    seen_names: set[str] = set()
+    for index, item in enumerate(raw_artifacts):
+        if not isinstance(item, dict):
+            raise ValueError(f"global flagship source artifact {index} must be an object")
+        if "macosFlagshipEvidence" in item:
+            raise ValueError(
+                "global flagship source rows cannot self-assert macOS flagship evidence"
+            )
+        artifact_id = item.get("artifactId")
+        if item.get("id") != artifact_id or not isinstance(artifact_id, str):
+            raise ValueError(
+                f"global flagship source artifact {index} id/artifactId aliases must agree"
+            )
+        file_name = item.get("fileName")
+        if not isinstance(file_name, str):
+            raise ValueError(
+                f"global flagship source artifact {index} fileName must be a string"
+            )
+        platform = normalize_platform_token(item.get("platform"))
+        scope_tuple = (
+            normalize_token(item.get("head")),
+            platform,
+            normalize_token(item.get("rid")),
+            normalize_token(item.get("kind")),
+        )
+        if (
+            (
+                item.get("head"),
+                item.get("platform"),
+                item.get("rid"),
+                item.get("kind"),
+            )
+            != scope_tuple
+        ):
+            raise ValueError(
+                f"global flagship source artifact {index} tuple fields must use "
+                "exact canonical values"
+            )
+        expected_identity = GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS.get(scope_tuple)
+        if expected_identity != (artifact_id, file_name):
+            raise ValueError(
+                f"global flagship source artifact {index} is outside the exact "
+                f"three-platform inventory: {scope_tuple}"
+            )
+        expected_arch = "arm64" if platform == "macos" else "x64"
+        if item.get("arch") != expected_arch:
+            raise ValueError(
+                f"global flagship source artifact {index} arch must be {expected_arch}"
+            )
+        if (
+            item.get("channelId") != expected_channel
+            or item.get("channel") != expected_channel
+            or item.get("version") != expected_release_version
+            or item.get("releaseVersion") != expected_release_version
+        ):
+            raise ValueError(
+                f"global flagship source artifact {index} must bind the exact "
+                "candidate channel and release version"
+            )
+        if item.get("compatibilityState") != "compatible":
+            raise ValueError(
+                f"global flagship source artifact {index} compatibilityState must be compatible"
+            )
+        if item.get("installAccessClass") != "open_public":
+            raise ValueError(
+                f"global flagship source artifact {index} installAccessClass must be open_public"
+            )
+        digest = item.get("sha256")
+        size_bytes = item.get("sizeBytes")
+        if not isinstance(digest, str) or SHA256_PATTERN.fullmatch(digest) is None:
+            raise ValueError(
+                f"global flagship source artifact {index} sha256 must be lowercase hex"
+            )
+        if type(size_bytes) is not int or size_bytes <= 0:
+            raise ValueError(
+                f"global flagship source artifact {index} sizeBytes must be a positive integer"
+            )
+        expected_url = (
+            "https://chummer.run/downloads/files/"
+            f"{file_name}"
+        )
+        if (
+            item.get("downloadUrl") != expected_url
+            or item.get("url") != expected_url
+        ):
+            raise ValueError(
+                f"global flagship source artifact {index} URL aliases must bind the canonical public file URL"
+            )
+        if scope_tuple in seen_tuples or artifact_id in seen_ids or file_name in seen_names:
+            raise ValueError(
+                "global flagship source artifacts must have unique tuples, ids, and file names"
+            )
+        seen_tuples.add(scope_tuple)
+        seen_ids.add(artifact_id)
+        seen_names.add(file_name)
+        normalized_rows.append(
+            {
+                "artifactId": artifact_id,
+                "fileName": file_name,
+                "platform": scope_tuple[1],
+                "rid": scope_tuple[2],
+                "sha256": digest,
+                "sizeBytes": size_bytes,
+                "downloadUrl": expected_url,
+            }
+        )
+    if seen_tuples != set(GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS):
+        raise ValueError(
+            "global flagship source must contain exactly the canonical three-platform tuple set"
+        )
+    return normalized_rows
+
+
+def validate_global_flagship_refreshed_artifacts(
+    source_rows: list[dict[str, Any]],
+    artifacts: list[dict[str, Any]],
+) -> None:
+    if len(artifacts) != len(source_rows):
+        raise ValueError(
+            "global flagship artifact bytes are incomplete after local shelf refresh"
+        )
+    source_by_id = {row["artifactId"]: row for row in source_rows}
+    observed_ids: set[str] = set()
+    for artifact in artifacts:
+        artifact_id = normalize_token(
+            artifact.get("artifactId") or artifact.get("id")
+        )
+        source = source_by_id.get(artifact_id)
+        if source is None or artifact_id in observed_ids:
+            raise ValueError(
+                "global flagship artifact inventory changed during local shelf refresh"
+            )
+        observed_ids.add(artifact_id)
+        observed = {
+            "artifactId": artifact_id,
+            "fileName": artifact.get("fileName"),
+            "platform": normalize_platform_token(artifact.get("platform")),
+            "rid": normalize_token(artifact.get("rid")),
+            "sha256": artifact.get("sha256"),
+            "sizeBytes": artifact.get("sizeBytes"),
+            "downloadUrl": artifact.get("downloadUrl"),
+        }
+        if observed != source:
+            raise ValueError(
+                f"global flagship artifact {artifact_id} bytes or canonical URL "
+                "do not match the candidate-bound source row"
+            )
+    if observed_ids != set(source_by_id):
+        raise ValueError(
+            "global flagship artifact inventory is missing a candidate-bound source row"
+        )
+
+
+def global_flagship_artifact_inventory_sha256(
+    artifacts: list[dict[str, Any]],
+) -> str:
+    rows = [
+        {
+            "artifactId": artifact.get("artifactId"),
+            "fileName": artifact.get("fileName"),
+            "platform": artifact.get("platform"),
+            "rid": artifact.get("rid"),
+            "sha256": artifact.get("sha256"),
+            "sizeBytes": artifact.get("sizeBytes"),
+        }
+        for artifact in artifacts
+    ]
+    rows.sort(key=lambda row: str(row.get("platform") or ""))
+    canonical = json.dumps(
+        rows,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def validate_global_flagship_local_artifact_bytes(
+    downloads_dir: Path,
+    source_rows: list[dict[str, Any]],
+) -> None:
+    for source_row in source_rows:
+        file_name = source_row["fileName"]
+        raw = read_stable_regular_file_bytes(
+            downloads_dir / file_name,
+            source=f"global flagship local artifact {file_name}",
+        )
+        if (
+            len(raw) != source_row["sizeBytes"]
+            or hashlib.sha256(raw).hexdigest() != source_row["sha256"]
+        ):
+            raise ValueError(
+                f"global flagship local artifact {file_name} does not match "
+                "candidate-bound size and SHA-256"
+            )
+
+
+def _load_global_flagship_authority_reference(
+    value: Any,
+    *,
+    authority_root: Path,
+    source: str,
+    expected_path: str | None = None,
+) -> tuple[dict[str, Any], bytes]:
+    reference = require_exact_object_keys(
+        value,
+        {"path", "sha256", "sizeBytes"},
+        source=source,
+    )
+    relative_path = reference.get("path")
+    digest = reference.get("sha256")
+    size_bytes = reference.get("sizeBytes")
+    if (
+        not isinstance(relative_path, str)
+        or not relative_path
+        or relative_path != relative_path.strip()
+        or "\\" in relative_path
+        or Path(relative_path).is_absolute()
+        or ".." in Path(relative_path).parts
+        or (
+            expected_path is not None
+            and relative_path != expected_path
+        )
+        or not isinstance(digest, str)
+        or SHA256_PATTERN.fullmatch(digest) is None
+        or type(size_bytes) is not int
+        or size_bytes <= 0
+    ):
+        raise ValueError(f"{source} is not a canonical byte reference")
+    root = authority_root.resolve()
+    parent = authority_root
+    for part in Path(relative_path).parts[:-1]:
+        parent = parent / part
+        try:
+            parent_metadata = os.lstat(parent)
+        except OSError as exc:
+            raise ValueError(f"{source} parent directory is unavailable") from exc
+        if not stat.S_ISDIR(parent_metadata.st_mode):
+            raise ValueError(
+                f"{source} parent path must contain only real directories"
+            )
+    referenced_path = (authority_root / relative_path).resolve(strict=False)
+    if not referenced_path.is_relative_to(root):
+        raise ValueError(f"{source} escapes the channel-promotion authority root")
+    raw = read_stable_regular_file_bytes(
+        authority_root / relative_path,
+        source=source,
+    )
+    if len(raw) != size_bytes or hashlib.sha256(raw).hexdigest() != digest:
+        raise ValueError(f"{source} does not bind the referenced bytes")
+    return dict(reference), raw
+
+
+def _strict_referenced_json(raw: bytes, *, source: str) -> dict[str, Any]:
+    return strict_json_object(raw, source=source)
+
+
+def _global_flagship_contract_time(value: Any, *, source: str) -> dt.datetime:
+    canonical = canonical_flagship_readiness_timestamp(value)
+    if not isinstance(value, str) or canonical is None or value != canonical:
+        raise ValueError(f"{source} must be an exact UTC whole-second timestamp")
+    parsed = parse_iso(value)
+    if parsed is None:
+        raise ValueError(f"{source} is invalid")
+    return parsed.astimezone(UTC).replace(microsecond=0)
+
+
+def _global_flagship_portable_string(value: Any, *, source: str) -> str:
+    if (
+        not isinstance(value, str)
+        or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}", value) is None
+    ):
+        raise ValueError(f"{source} is not a canonical portable identifier")
+    return value
+
+
+def _global_flagship_github_actor(value: Any, *, source: str) -> str:
+    if (
+        not isinstance(value, str)
+        or GLOBAL_FLAGSHIP_GITHUB_LOGIN_PATTERN.fullmatch(value) is None
+    ):
+        raise ValueError(f"{source} is not a canonical GitHub actor")
+    return value
+
+
+def _global_flagship_relative_path(value: Any, *, source: str) -> str:
+    if (
+        not isinstance(value, str)
+        or not value
+        or value != value.strip()
+        or "\\" in value
+        or Path(value).is_absolute()
+        or ".." in Path(value).parts
+        or any(part in {"", "."} for part in Path(value).parts)
+    ):
+        raise ValueError(f"{source} is not a canonical relative path")
+    return value
+
+
+def _global_flagship_sha_size_reference(
+    value: Any,
+    *,
+    source: str,
+    path_key: str,
+    expected_sha256: str | None = None,
+    expected_size_bytes: int | None = None,
+    expected_basename: str | None = None,
+    extra_keys: set[str] | None = None,
+) -> dict[str, Any]:
+    expected_keys = {path_key, "sha256", "sizeBytes"} | (extra_keys or set())
+    reference = require_exact_object_keys(
+        value,
+        expected_keys,
+        source=source,
+    )
+    relative_path = _global_flagship_relative_path(
+        reference.get(path_key),
+        source=f"{source}.{path_key}",
+    )
+    if expected_basename is not None and Path(relative_path).name != expected_basename:
+        raise ValueError(f"{source}.{path_key} has the wrong file name")
+    digest = reference.get("sha256")
+    size_bytes = reference.get("sizeBytes")
+    if (
+        not isinstance(digest, str)
+        or SHA256_PATTERN.fullmatch(digest) is None
+        or type(size_bytes) is not int
+        or size_bytes <= 0
+        or (expected_sha256 is not None and digest != expected_sha256)
+        or (
+            expected_size_bytes is not None
+            and size_bytes != expected_size_bytes
+        )
+    ):
+        raise ValueError(f"{source} byte identity is invalid")
+    return dict(reference)
+
+
+def _validate_global_flagship_evidence_projection(
+    value: Any,
+    *,
+    candidate_reference: Any,
+    expected_contract: str,
+    source: str,
+) -> None:
+    if candidate_reference is None:
+        if value is not None:
+            raise ValueError(f"{source} must be null")
+        return
+    if not isinstance(candidate_reference, dict) or not isinstance(value, dict):
+        raise ValueError(f"{source} is not an evidence binding")
+    required_keys = {
+        "relativePath",
+        "sha256",
+        "sizeBytes",
+        "contractName",
+        "generatedAt",
+    }
+    if not required_keys.issubset(value):
+        raise ValueError(f"{source} is missing its producer binding fields")
+    relative_path = _global_flagship_relative_path(
+        value.get("relativePath"),
+        source=f"{source}.relativePath",
+    )
+    _global_flagship_contract_time(
+        value.get("generatedAt"),
+        source=f"{source}.generatedAt",
+    )
+    if (
+        relative_path != candidate_reference.get("path")
+        or value.get("sha256") != candidate_reference.get("sha256")
+        or value.get("sizeBytes") != candidate_reference.get("sizeBytes")
+        or value.get("contractName") != expected_contract
+    ):
+        raise ValueError(f"{source} does not match the candidate evidence")
+
+
+def _validate_global_flagship_candidate_semantics(
+    candidate: dict[str, Any],
+    *,
+    candidate_raw: bytes,
+    expected_candidate_id: str,
+    expected_release_version: str,
+    expected_artifacts: list[dict[str, Any]],
+    assembly: dict[str, Any],
+    now: dt.datetime,
+) -> tuple[dict[str, Any], dict[str, Any]]:
+    require_exact_object_keys(
+        candidate,
+        {
+            "contractName",
+            "contractVersion",
+            "generatedAt",
+            "expiresAt",
+            "candidateId",
+            "generationId",
+            "releaseVersion",
+            "previousReleaseVersion",
+            "channelId",
+            "source",
+            "producer",
+            "providerActors",
+            "platforms",
+        },
+        source="global flagship referenced candidate manifest",
+    )
+    generated_at = _global_flagship_contract_time(
+        candidate.get("generatedAt"),
+        source="global flagship candidate.generatedAt",
+    )
+    expires_at = _global_flagship_contract_time(
+        candidate.get("expiresAt"),
+        source="global flagship candidate.expiresAt",
+    )
+    generation_id = _global_flagship_portable_string(
+        candidate.get("generationId"),
+        source="global flagship candidate.generationId",
+    )
+    previous_release_version = _global_flagship_portable_string(
+        candidate.get("previousReleaseVersion"),
+        source="global flagship candidate.previousReleaseVersion",
+    )
+    if (
+        candidate.get("contractName") != UI_GLOBAL_FLAGSHIP_CANDIDATE_CONTRACT
+        or type(candidate.get("contractVersion")) is not int
+        or candidate.get("contractVersion")
+        != UI_GLOBAL_FLAGSHIP_RELEASE_CONTRACT_VERSION
+        or candidate.get("candidateId") != expected_candidate_id
+        or candidate.get("releaseVersion") != expected_release_version
+        or previous_release_version == expected_release_version
+        or candidate.get("channelId")
+        != GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL
+        or generated_at > now + dt.timedelta(minutes=5)
+        or expires_at <= now
+        or expires_at <= generated_at
+        or expires_at > generated_at + dt.timedelta(days=7)
+    ):
+        raise ValueError("global flagship referenced candidate posture is invalid")
+
+    source = require_exact_object_keys(
+        candidate.get("source"),
+        {"repository", "ref", "commit"},
+        source="global flagship candidate source",
+    )
+    if (
+        source.get("repository") != "ArchonMegalon/chummer6-ui"
+        or source.get("ref") != "refs/heads/main"
+        or not isinstance(source.get("commit"), str)
+        or re.fullmatch(r"[0-9a-f]{40}", source["commit"]) is None
+        or source.get("commit") != assembly.get("sha")
+    ):
+        raise ValueError("global flagship candidate source is invalid")
+    producer = require_exact_object_keys(
+        candidate.get("producer"),
+        {"actor", "artifactName", "workflow", "runId", "runAttempt"},
+        source="global flagship candidate producer",
+    )
+    producer_actor = _global_flagship_github_actor(
+        producer.get("actor"),
+        source="global flagship candidate producer.actor",
+    )
+    producer_run_id = producer.get("runId")
+    expected_payload_artifact_name = (
+        "global-flagship-candidate-payload-"
+        f"{expected_candidate_id}-{producer_run_id}-1"
+    )
+    if (
+        producer.get("workflow")
+        != UI_GLOBAL_FLAGSHIP_CANDIDATE_PRODUCER_WORKFLOW
+        or type(producer_run_id) is not int
+        or producer_run_id <= 0
+        or type(producer.get("runAttempt")) is not int
+        or producer["runAttempt"] != 1
+        or producer.get("artifactName")
+        != expected_payload_artifact_name
+    ):
+        raise ValueError("global flagship candidate producer is invalid")
+    provider_actors = require_exact_object_keys(
+        candidate.get("providerActors"),
+        set(UI_GLOBAL_FLAGSHIP_PROVIDER_ACTOR_ROLES),
+        source="global flagship candidate providerActors",
+    )
+    canonical_provider_actors = {
+        role: _global_flagship_github_actor(
+            provider_actors.get(role),
+            source=f"global flagship candidate providerActors.{role}",
+        )
+        for role in UI_GLOBAL_FLAGSHIP_PROVIDER_ACTOR_ROLES
+    }
+    if producer_actor.casefold() in {
+        actor.casefold() for actor in canonical_provider_actors.values()
+    }:
+        raise ValueError(
+            "global flagship candidate producer overlaps a provider actor"
+        )
+
+    platforms = require_exact_object_keys(
+        candidate.get("platforms"),
+        set(GLOBAL_FLAGSHIP_REQUIRED_DESKTOP_PLATFORMS),
+        source="global flagship candidate platforms",
+    )
+    expected_by_platform = {
+        artifact["platform"]: artifact for artifact in expected_artifacts
+    }
+    for platform in GLOBAL_FLAGSHIP_REQUIRED_DESKTOP_PLATFORMS:
+        expected = expected_by_platform[platform]
+        row = require_exact_object_keys(
+            platforms.get(platform),
+            {
+                "rid",
+                "artifact",
+                "exitGateReceipt",
+                "signingReceipt",
+                "nativeE2eReceipt",
+            },
+            source=f"global flagship candidate {platform} platform",
+        )
+        if row.get("rid") != expected["rid"]:
+            raise ValueError(
+                f"global flagship candidate {platform} rid is invalid"
+            )
+        artifact = _global_flagship_sha_size_reference(
+            row.get("artifact"),
+            source=f"global flagship candidate {platform} artifact",
+            path_key="path",
+            expected_sha256=expected["sha256"],
+            expected_size_bytes=expected["sizeBytes"],
+            expected_basename=expected["fileName"],
+            extra_keys={"artifactId", "fileName"},
+        )
+        if (
+            artifact.get("artifactId") != expected["artifactId"]
+            or artifact.get("fileName") != expected["fileName"]
+        ):
+            raise ValueError(
+                f"global flagship candidate {platform} artifact identity is invalid"
+            )
+        for key in ("exitGateReceipt", "nativeE2eReceipt"):
+            _global_flagship_sha_size_reference(
+                row.get(key),
+                source=f"global flagship candidate {platform} {key}",
+                path_key="path",
+            )
+        _global_flagship_sha_size_reference(
+            row.get("signingReceipt"),
+            source=f"global flagship candidate {platform} signingReceipt",
+            path_key="path",
+        )
+
+    projection = {
+        "candidateId": expected_candidate_id,
+        "generationId": generation_id,
+        "releaseVersion": expected_release_version,
+        "previousReleaseVersion": previous_release_version,
+        "channelId": GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL,
+        "source": dict(source),
+        "producer": dict(producer),
+        "providerActors": canonical_provider_actors,
+        "generatedAt": candidate["generatedAt"],
+        "expiresAt": candidate["expiresAt"],
+    }
+    if not candidate_raw:
+        raise ValueError("global flagship candidate bytes are empty")
+    return projection, dict(platforms)
+
+
+def _validate_global_flagship_proposal_semantics(
+    proposal: dict[str, Any],
+    *,
+    proposal_raw: bytes,
+    candidate_projection: dict[str, Any],
+    candidate_platforms: dict[str, Any],
+    candidate_raw: bytes,
+    expected_artifacts: list[dict[str, Any]],
+    now: dt.datetime,
+) -> dict[str, Any]:
+    require_exact_object_keys(
+        proposal,
+        {
+            "contractName",
+            "contractVersion",
+            "generatedAt",
+            "expiresAt",
+            "status",
+            "candidate",
+            "candidateManifest",
+            "platforms",
+            "requiredApprovals",
+            "excludedApprovalActors",
+            "externalRequirements",
+            "authorityLevel",
+            "provenanceAuthenticated",
+            "nonPublishing",
+            "publicationAuthorized",
+            "allowedSideEffects",
+        },
+        source="global flagship referenced proposal",
+    )
+    generated_at = _global_flagship_contract_time(
+        proposal.get("generatedAt"),
+        source="global flagship proposal.generatedAt",
+    )
+    expires_at = _global_flagship_contract_time(
+        proposal.get("expiresAt"),
+        source="global flagship proposal.expiresAt",
+    )
+    if (
+        proposal.get("contractName")
+        != UI_GLOBAL_FLAGSHIP_RELEASE_PROPOSAL_CONTRACT
+        or type(proposal.get("contractVersion")) is not int
+        or proposal.get("contractVersion")
+        != UI_GLOBAL_FLAGSHIP_RELEASE_CONTRACT_VERSION
+        or proposal.get("status") != "ready_for_independent_approval"
+        or proposal.get("candidate") != candidate_projection
+        or proposal.get("requiredApprovals")
+        != list(UI_GLOBAL_FLAGSHIP_REQUIRED_APPROVAL_ROLES)
+        or proposal.get("authorityLevel")
+        != UI_GLOBAL_FLAGSHIP_AUTHORITY_LEVEL
+        or proposal.get("provenanceAuthenticated") is not False
+        or proposal.get("nonPublishing") is not True
+        or proposal.get("publicationAuthorized") is not False
+        or proposal.get("allowedSideEffects")
+        != UI_GLOBAL_FLAGSHIP_ALLOWED_SIDE_EFFECTS
+        or proposal.get("externalRequirements")
+        != list(UI_GLOBAL_FLAGSHIP_EXTERNAL_REQUIREMENTS)
+        or generated_at > now + dt.timedelta(minutes=5)
+        or now - generated_at > dt.timedelta(days=1)
+        or expires_at <= now
+        or expires_at <= generated_at
+        or expires_at > generated_at + dt.timedelta(days=1)
+    ):
+        raise ValueError("global flagship referenced proposal posture is invalid")
+    candidate_reference = _global_flagship_sha_size_reference(
+        proposal.get("candidateManifest"),
+        source="global flagship proposal candidateManifest",
+        path_key="relativePath",
+        expected_sha256=hashlib.sha256(candidate_raw).hexdigest(),
+        expected_size_bytes=len(candidate_raw),
+        expected_basename="GLOBAL_FLAGSHIP_CANDIDATE.generated.json",
+    )
+    if not candidate_reference:
+        raise ValueError("global flagship proposal candidate binding is invalid")
+
+    excluded = proposal.get("excludedApprovalActors")
+    if (
+        not isinstance(excluded, list)
+        or not excluded
+        or len({str(actor).casefold() for actor in excluded}) != len(excluded)
+    ):
+        raise ValueError(
+            "global flagship proposal excludedApprovalActors is invalid"
+        )
+    for actor in excluded:
+        _global_flagship_github_actor(
+            actor,
+            source="global flagship proposal excluded approval actor",
+        )
+    producer_actor = candidate_projection["producer"]["actor"]
+    expected_excluded_by_identity = {
+        str(producer_actor).casefold(): str(producer_actor)
+    }
+    for actor in candidate_projection["providerActors"].values():
+        expected_excluded_by_identity.setdefault(
+            str(actor).casefold(),
+            str(actor),
+        )
+    expected_excluded = sorted(
+        expected_excluded_by_identity.values(),
+        key=str.casefold,
+    )
+    if excluded != expected_excluded:
+        raise ValueError(
+            "global flagship proposal excludedApprovalActors does not match "
+            "the producer and provider actor boundary"
+        )
+
+    platforms = require_exact_object_keys(
+        proposal.get("platforms"),
+        set(GLOBAL_FLAGSHIP_REQUIRED_DESKTOP_PLATFORMS),
+        source="global flagship proposal platforms",
+    )
+    expected_by_platform = {
+        artifact["platform"]: artifact for artifact in expected_artifacts
+    }
+    for platform in GLOBAL_FLAGSHIP_REQUIRED_DESKTOP_PLATFORMS:
+        row = require_exact_object_keys(
+            platforms.get(platform),
+            {
+                "rid",
+                "artifact",
+                "exitGateReceipt",
+                "signingReceipt",
+                "nativeE2eReceipt",
+                "nativeE2eEvidence",
+                "nativeLifecycleEvidence",
+                "integrityPolicy",
+            },
+            source=f"global flagship proposal {platform} platform",
+        )
+        candidate_row = candidate_platforms[platform]
+        expected = expected_by_platform[platform]
+        if row.get("rid") != expected["rid"]:
+            raise ValueError(
+                f"global flagship proposal {platform} rid is invalid"
+            )
+        artifact = _global_flagship_sha_size_reference(
+            row.get("artifact"),
+            source=f"global flagship proposal {platform} artifact",
+            path_key="relativePath",
+            expected_sha256=expected["sha256"],
+            expected_size_bytes=expected["sizeBytes"],
+            expected_basename=expected["fileName"],
+            extra_keys={"artifactId", "fileName"},
+        )
+        candidate_artifact = candidate_row["artifact"]
+        if (
+            artifact.get("artifactId") != expected["artifactId"]
+            or artifact.get("fileName") != expected["fileName"]
+            or artifact.get("relativePath") != candidate_artifact.get("path")
+        ):
+            raise ValueError(
+                f"global flagship proposal {platform} artifact binding is invalid"
+            )
+        for key in ("exitGateReceipt", "nativeE2eReceipt"):
+            _validate_global_flagship_evidence_projection(
+                row.get(key),
+                candidate_reference=candidate_row.get(key),
+                expected_contract=(
+                    UI_GLOBAL_FLAGSHIP_PLATFORM_EVIDENCE_CONTRACTS[platform][
+                        key
+                    ]
+                ),
+                source=f"global flagship proposal {platform} {key}",
+            )
+        _validate_global_flagship_evidence_projection(
+            row.get("signingReceipt"),
+            candidate_reference=candidate_row.get("signingReceipt"),
+            expected_contract=UI_GLOBAL_FLAGSHIP_SIGNING_CONTRACT,
+            source=f"global flagship proposal {platform} signingReceipt",
+        )
+        if not isinstance(row.get("nativeE2eEvidence"), dict) or not row.get(
+            "nativeE2eEvidence"
+        ) or not isinstance(
+            row.get("nativeLifecycleEvidence"), dict
+        ) or not row.get("nativeLifecycleEvidence"):
+            raise ValueError(
+                f"global flagship proposal {platform} lifecycle evidence is invalid"
+            )
+        if (
+            row.get("integrityPolicy")
+            != UI_GLOBAL_FLAGSHIP_INTEGRITY_POLICIES[platform]
+        ):
+            raise ValueError(
+                f"global flagship proposal {platform} integrity policy is invalid"
+            )
+    if not proposal_raw:
+        raise ValueError("global flagship proposal bytes are empty")
+    return proposal
+
+
+def _validate_global_flagship_approval_semantics(
+    approval: dict[str, Any],
+    *,
+    role: str,
+    approval_raw: bytes,
+    approval_path: str,
+    proposal: dict[str, Any],
+    proposal_raw: bytes,
+    candidate_projection: dict[str, Any],
+    now: dt.datetime,
+) -> dict[str, Any]:
+    source = f"global flagship referenced {role} approval"
+    require_exact_object_keys(
+        approval,
+        {
+            "contractName",
+            "contractVersion",
+            "proposalSha256",
+            "proposalSizeBytes",
+            "candidateId",
+            "generationId",
+            "role",
+            "decision",
+            "approvalConfirmed",
+            "approvedAt",
+            "expiresAt",
+            "actor",
+            "triggeringActor",
+            "rerunPolicy",
+            "environmentApproval",
+            "reviewerPolicy",
+            "authority",
+        },
+        source=source,
+    )
+    approved_at = _global_flagship_contract_time(
+        approval.get("approvedAt"),
+        source=f"{source}.approvedAt",
+    )
+    expires_at = _global_flagship_contract_time(
+        approval.get("expiresAt"),
+        source=f"{source}.expiresAt",
+    )
+    proposal_generated_at = _global_flagship_contract_time(
+        proposal.get("generatedAt"),
+        source="global flagship proposal.generatedAt",
+    )
+    proposal_expires_at = _global_flagship_contract_time(
+        proposal.get("expiresAt"),
+        source="global flagship proposal.expiresAt",
+    )
+    actor = _global_flagship_github_actor(
+        approval.get("actor"),
+        source=f"{source}.actor",
+    )
+    triggering_actor = _global_flagship_github_actor(
+        approval.get("triggeringActor"),
+        source=f"{source}.triggeringActor",
+    )
+    if (
+        approval.get("contractName")
+        != UI_GLOBAL_FLAGSHIP_RELEASE_APPROVAL_CONTRACT
+        or type(approval.get("contractVersion")) is not int
+        or approval.get("contractVersion")
+        != UI_GLOBAL_FLAGSHIP_RELEASE_APPROVAL_VERSION
+        or approval.get("proposalSha256")
+        != hashlib.sha256(proposal_raw).hexdigest()
+        or type(approval.get("proposalSizeBytes")) is not int
+        or approval.get("proposalSizeBytes") != len(proposal_raw)
+        or approval.get("candidateId")
+        != candidate_projection["candidateId"]
+        or approval.get("generationId")
+        != candidate_projection["generationId"]
+        or approval.get("role") != role
+        or approval.get("decision") != "approve"
+        or approval.get("approvalConfirmed") is not True
+        or actor.casefold() == "github-actions[bot]"
+        or triggering_actor.casefold() != actor.casefold()
+        or approval.get("rerunPolicy")
+        != UI_GLOBAL_FLAGSHIP_APPROVAL_RERUN_POLICY
+        or approved_at < proposal_generated_at
+        or approved_at > now + dt.timedelta(minutes=5)
+        or expires_at <= now
+        or expires_at <= approved_at
+        or expires_at > proposal_expires_at
+    ):
+        raise ValueError(f"{source} posture or proposal binding is invalid")
+    excluded = {
+        str(value).casefold()
+        for value in proposal["excludedApprovalActors"]
+    }
+    if actor.casefold() in excluded:
+        raise ValueError(f"{source} actor is not independent")
+
+    environment_approval = require_exact_object_keys(
+        approval.get("environmentApproval"),
+        {"state", "reviewer"},
+        source=f"{source}.environmentApproval",
+    )
+    reviewer = _global_flagship_github_actor(
+        environment_approval.get("reviewer"),
+        source=f"{source}.environmentApproval.reviewer",
+    )
+    if (
+        environment_approval.get("state") != "approved"
+        or reviewer.casefold() == "github-actions[bot]"
+        or reviewer.casefold() == actor.casefold()
+        or reviewer.casefold() in excluded
+    ):
+        raise ValueError(f"{source} environment approval is invalid")
+
+    reviewer_policy = require_exact_object_keys(
+        approval.get("reviewerPolicy"),
+        {
+            "contractName",
+            "sha256",
+            "sizeBytes",
+            "role",
+            "actorAuthorized",
+            "rolesDisjoint",
+            "authorizedRoleMembers",
+        },
+        source=f"{source}.reviewerPolicy",
+    )
+    if (
+        reviewer_policy.get("contractName")
+        != UI_GLOBAL_FLAGSHIP_RELEASE_REVIEWER_POLICY_CONTRACT
+        or not isinstance(reviewer_policy.get("sha256"), str)
+        or SHA256_PATTERN.fullmatch(reviewer_policy["sha256"]) is None
+        or type(reviewer_policy.get("sizeBytes")) is not int
+        or reviewer_policy["sizeBytes"] <= 0
+        or reviewer_policy["sizeBytes"] > 64 * 1024
+        or reviewer_policy.get("role") != role
+        or reviewer_policy.get("actorAuthorized") is not True
+        or reviewer_policy.get("rolesDisjoint") is not True
+        or type(reviewer_policy.get("authorizedRoleMembers")) is not int
+        or not 1 <= reviewer_policy["authorizedRoleMembers"] <= 32
+    ):
+        raise ValueError(f"{source} reviewer policy is invalid")
+
+    authority = require_exact_object_keys(
+        approval.get("authority"),
+        {
+            "repository",
+            "workflow",
+            "ref",
+            "sha",
+            "runId",
+            "runAttempt",
+            "environment",
+        },
+        source=f"{source}.authority",
+    )
+    candidate_source = candidate_projection["source"]
+    if (
+        authority.get("repository") != candidate_source["repository"]
+        or authority.get("workflow")
+        != UI_GLOBAL_FLAGSHIP_APPROVAL_WORKFLOW
+        or authority.get("ref") != candidate_source["ref"]
+        or authority.get("sha") != candidate_source["commit"]
+        or type(authority.get("runId")) is not int
+        or authority["runId"] <= 0
+        or type(authority.get("runAttempt")) is not int
+        or authority["runAttempt"] != 1
+        or authority.get("environment")
+        != UI_GLOBAL_FLAGSHIP_APPROVAL_ENVIRONMENT
+    ):
+        raise ValueError(f"{source} workflow authority is invalid")
+
+    return {
+        "role": role,
+        "actor": actor,
+        "triggeringActor": triggering_actor,
+        "rerunPolicy": UI_GLOBAL_FLAGSHIP_APPROVAL_RERUN_POLICY,
+        "environmentApproval": dict(environment_approval),
+        "approvedAt": approval["approvedAt"],
+        "expiresAt": approval["expiresAt"],
+        "reviewerPolicy": dict(reviewer_policy),
+        "authority": dict(authority),
+        "receipt": {
+            "relativePath": approval_path,
+            "sha256": hashlib.sha256(approval_raw).hexdigest(),
+            "sizeBytes": len(approval_raw),
+        },
+    }
+
+
+def _validate_global_flagship_final_receipt_semantics(
+    final_receipt: dict[str, Any],
+    *,
+    candidate_projection: dict[str, Any],
+    candidate_platforms: dict[str, Any],
+    candidate_raw: bytes,
+    proposal: dict[str, Any],
+    proposal_raw: bytes,
+    approval_projections: list[dict[str, Any]],
+    now: dt.datetime,
+) -> None:
+    require_exact_object_keys(
+        final_receipt,
+        {
+            "contractName",
+            "contractVersion",
+            "generatedAt",
+            "status",
+            "candidate",
+            "candidateManifest",
+            "proposal",
+            "platforms",
+            "approvals",
+            "externalRequirements",
+            "authorityLevel",
+            "provenanceAuthenticated",
+            "nonPublishing",
+            "publicationAuthorized",
+            "allowedSideEffects",
+            "handoff",
+        },
+        source="global flagship referenced final approval receipt",
+    )
+    generated_at = _global_flagship_contract_time(
+        final_receipt.get("generatedAt"),
+        source="global flagship final receipt.generatedAt",
+    )
+    proposal_expires_at = _global_flagship_contract_time(
+        proposal.get("expiresAt"),
+        source="global flagship proposal.expiresAt",
+    )
+    latest_approval = max(
+        _global_flagship_contract_time(
+            approval["approvedAt"],
+            source="global flagship final approval approvedAt",
+        )
+        for approval in approval_projections
+    )
+    if (
+        final_receipt.get("contractName")
+        != UI_GLOBAL_FLAGSHIP_RELEASE_FINAL_RECEIPT_CONTRACT
+        or type(final_receipt.get("contractVersion")) is not int
+        or final_receipt.get("contractVersion")
+        != UI_GLOBAL_FLAGSHIP_RELEASE_CONTRACT_VERSION
+        or final_receipt.get("status") != "passed"
+        or final_receipt.get("candidate") != candidate_projection
+        or final_receipt.get("platforms") != proposal.get("platforms")
+        or final_receipt.get("approvals") != approval_projections
+        or final_receipt.get("externalRequirements")
+        != proposal.get("externalRequirements")
+        or final_receipt.get("authorityLevel")
+        != proposal.get("authorityLevel")
+        or final_receipt.get("provenanceAuthenticated")
+        is not proposal.get("provenanceAuthenticated")
+        or final_receipt.get("nonPublishing")
+        is not proposal.get("nonPublishing")
+        or final_receipt.get("publicationAuthorized")
+        is not proposal.get("publicationAuthorized")
+        or final_receipt.get("allowedSideEffects")
+        != proposal.get("allowedSideEffects")
+        or generated_at > now + dt.timedelta(minutes=5)
+        or generated_at > proposal_expires_at
+        or generated_at < latest_approval
+    ):
+        raise ValueError("global flagship final approval receipt is invalid")
+    _global_flagship_sha_size_reference(
+        final_receipt.get("candidateManifest"),
+        source="global flagship final receipt candidateManifest",
+        path_key="relativePath",
+        expected_sha256=hashlib.sha256(candidate_raw).hexdigest(),
+        expected_size_bytes=len(candidate_raw),
+        expected_basename="GLOBAL_FLAGSHIP_CANDIDATE.generated.json",
+    )
+    proposal_reference = _global_flagship_sha_size_reference(
+        final_receipt.get("proposal"),
+        source="global flagship final receipt proposal",
+        path_key="relativePath",
+        expected_sha256=hashlib.sha256(proposal_raw).hexdigest(),
+        expected_size_bytes=len(proposal_raw),
+        expected_basename="GLOBAL_FLAGSHIP_RELEASE_PROPOSAL.generated.json",
+        extra_keys={"contractName"},
+    )
+    if (
+        proposal_reference.get("contractName")
+        != UI_GLOBAL_FLAGSHIP_RELEASE_PROPOSAL_CONTRACT
+    ):
+        raise ValueError("global flagship final receipt proposal contract is invalid")
+    handoff = require_exact_object_keys(
+        final_receipt.get("handoff"),
+        {"eligibleForSeparatePublicationReview", "requiredNextAuthority"},
+        source="global flagship final receipt handoff",
+    )
+    if (
+        handoff.get("eligibleForSeparatePublicationReview") is not True
+        or handoff.get("requiredNextAuthority")
+        != UI_GLOBAL_FLAGSHIP_FINAL_REQUIRED_NEXT_AUTHORITY
+    ):
+        raise ValueError("global flagship final receipt handoff is invalid")
+    if not candidate_platforms:
+        raise ValueError("global flagship final receipt candidate platforms are empty")
+
+
+def _global_flagship_canonical_object_sha256(value: Any) -> str:
+    canonical = json.dumps(
+        value,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+        allow_nan=False,
+    ).encode("utf-8")
+    return hashlib.sha256(canonical).hexdigest()
+
+
+def _validate_global_flagship_hub_semantics(
+    topology: dict[str, Any],
+    *,
+    topology_raw: bytes,
+    committed_boundary: dict[str, Any],
+    committed_boundary_raw: bytes,
+    post_marker: dict[str, Any],
+    post_marker_raw: bytes,
+    now: dt.datetime,
+) -> None:
+    require_exact_object_keys(
+        topology,
+        {
+            "contractName",
+            "contractVersion",
+            "generatedAt",
+            "status",
+            "source",
+            "sidecarAuthorityRetired",
+            "activeSidecarMarkerCount",
+            "activeSidecarMarkers",
+            "retiredAuthoritySha256",
+            "committedBoundaryReceipt",
+            "postMarkerConvergenceReceipt",
+            "canonicalAuthority",
+        },
+        source="global flagship topology retirement proof",
+    )
+    generated_at = _global_flagship_contract_time(
+        topology.get("generatedAt"),
+        source="global flagship topology generatedAt",
+    )
+    topology_source = require_exact_object_keys(
+        topology.get("source"),
+        {"repository", "ref", "commit"},
+        source="global flagship topology source",
+    )
+    if (
+        topology.get("contractName") != HUB_GLOBAL_FLAGSHIP_TOPOLOGY_CONTRACT
+        or type(topology.get("contractVersion")) is not int
+        or topology.get("contractVersion") != 1
+        or topology.get("status") != "passed"
+        or generated_at > now + dt.timedelta(minutes=5)
+        or now - generated_at > dt.timedelta(days=1)
+        or topology_source.get("repository")
+        != "ArchonMegalon/chummer6-hub"
+        or topology_source.get("ref") != "refs/heads/main"
+        or not isinstance(topology_source.get("commit"), str)
+        or re.fullmatch(r"[0-9a-f]{40}", topology_source["commit"]) is None
+        or topology.get("sidecarAuthorityRetired") is not True
+        or type(topology.get("activeSidecarMarkerCount")) is not int
+        or topology.get("activeSidecarMarkerCount") != 0
+        or topology.get("activeSidecarMarkers") != []
+        or not isinstance(topology.get("retiredAuthoritySha256"), str)
+        or SHA256_PATTERN.fullmatch(topology["retiredAuthoritySha256"]) is None
+        or not topology_raw
+    ):
+        raise ValueError("global flagship topology retirement proof is invalid")
+    for key, raw in (
+        ("committedBoundaryReceipt", committed_boundary_raw),
+        ("postMarkerConvergenceReceipt", post_marker_raw),
+    ):
+        reference = require_exact_object_keys(
+            topology.get(key),
+            {"sha256", "sizeBytes"},
+            source=f"global flagship topology {key}",
+        )
+        if (
+            reference.get("sha256") != hashlib.sha256(raw).hexdigest()
+            or type(reference.get("sizeBytes")) is not int
+            or reference.get("sizeBytes") != len(raw)
+        ):
+            raise ValueError(
+                f"global flagship topology {key} byte binding is invalid"
+            )
+    canonical_authority = require_exact_object_keys(
+        topology.get("canonicalAuthority"),
+        {"baseUrl", "manifestUrl", "publisherPath", "publisherSha256"},
+        source="global flagship topology canonical authority",
+    )
+    if (
+        canonical_authority.get("baseUrl")
+        != "https://chummer.run/downloads"
+        or canonical_authority.get("manifestUrl")
+        != "https://chummer.run/downloads/RELEASE_CHANNEL.generated.json"
+        or canonical_authority.get("publisherPath")
+        != "scripts/publish-download-bundle-http.sh"
+        or not isinstance(canonical_authority.get("publisherSha256"), str)
+        or SHA256_PATTERN.fullmatch(canonical_authority["publisherSha256"])
+        is None
+    ):
+        raise ValueError("global flagship topology canonical authority is invalid")
+
+    terminal_fields = {
+        "contractName",
+        "status",
+        "operation",
+        "operationRoot",
+        "projectName",
+        "operationSourceHead",
+        "controllerSourceHead",
+        "retiredAuthorityPath",
+        "retiredAuthoritySha256",
+        "retirementEvidencePath",
+        "retirementEvidenceSha256",
+        "connectorGateSha256",
+        "postMarkerConnectorGateSha256",
+        "latestConnectorGateSha256",
+        "priorConfigSha256",
+        "restoredVersion",
+        "incumbentBaselineSha256",
+        "incumbentObservationSha256",
+        "cleanupSha256",
+        "completedAtUtc",
+    }
+    require_exact_object_keys(
+        committed_boundary,
+        terminal_fields,
+        source="global flagship committed topology boundary",
+    )
+    terminal_completed_at = _global_flagship_contract_time(
+        committed_boundary.get("completedAtUtc"),
+        source="global flagship committed topology boundary completedAtUtc",
+    )
+    if (
+        committed_boundary.get("contractName")
+        != HUB_GLOBAL_FLAGSHIP_TERMINAL_CONTRACT
+        or committed_boundary.get("status") != "retired"
+        or committed_boundary.get("operation")
+        != HUB_GLOBAL_FLAGSHIP_TERMINAL_OPERATION
+        or committed_boundary.get("controllerSourceHead")
+        != topology_source["commit"]
+        or not isinstance(committed_boundary.get("operationSourceHead"), str)
+        or re.fullmatch(
+            r"[0-9a-f]{40}",
+            committed_boundary["operationSourceHead"],
+        )
+        is None
+        or type(committed_boundary.get("restoredVersion")) is not int
+        or committed_boundary["restoredVersion"] < 0
+        or committed_boundary.get("incumbentObservationSha256")
+        != committed_boundary.get("incumbentBaselineSha256")
+        or committed_boundary.get("retiredAuthoritySha256")
+        != topology.get("retiredAuthoritySha256")
+        or terminal_completed_at > generated_at
+    ):
+        raise ValueError("global flagship committed topology boundary is invalid")
+    for field in (
+        "operationRoot",
+        "projectName",
+        "retiredAuthorityPath",
+        "retirementEvidencePath",
+    ):
+        if not isinstance(committed_boundary.get(field), str) or not committed_boundary[
+            field
+        ]:
+            raise ValueError(
+                f"global flagship committed topology boundary {field} is invalid"
+            )
+    for field in (
+        "retiredAuthoritySha256",
+        "retirementEvidenceSha256",
+        "connectorGateSha256",
+        "postMarkerConnectorGateSha256",
+        "latestConnectorGateSha256",
+        "priorConfigSha256",
+        "incumbentBaselineSha256",
+        "incumbentObservationSha256",
+        "cleanupSha256",
+    ):
+        if (
+            not isinstance(committed_boundary.get(field), str)
+            or SHA256_PATTERN.fullmatch(committed_boundary[field]) is None
+        ):
+            raise ValueError(
+                f"global flagship committed topology boundary {field} is invalid"
+            )
+
+    require_exact_object_keys(
+        post_marker,
+        {
+            "contractName",
+            "status",
+            "boundary",
+            "operationRoot",
+            "restoredVersion",
+            "retiredAuthoritySha256",
+            "markerConnectorGateSha256",
+            "connectorConvergence",
+            "connectorConvergenceSha256",
+            "verifiedAtUtc",
+        },
+        source="global flagship post-marker convergence boundary",
+    )
+    post_marker_verified_at = _global_flagship_contract_time(
+        post_marker.get("verifiedAtUtc"),
+        source="global flagship post-marker verifiedAtUtc",
+    )
+    convergence = post_marker.get("connectorConvergence")
+    post_marker_sha256 = _global_flagship_canonical_object_sha256(post_marker)
+    if (
+        post_marker.get("contractName")
+        != HUB_GLOBAL_FLAGSHIP_POST_MARKER_CONTRACT
+        or post_marker.get("status") != "pass"
+        or post_marker.get("boundary") not in {"post-marker", "resume-post-marker"}
+        or post_marker.get("operationRoot")
+        != committed_boundary.get("operationRoot")
+        or post_marker.get("restoredVersion")
+        != committed_boundary.get("restoredVersion")
+        or post_marker.get("retiredAuthoritySha256")
+        != committed_boundary.get("retiredAuthoritySha256")
+        or post_marker.get("markerConnectorGateSha256")
+        != committed_boundary.get("connectorGateSha256")
+        or not isinstance(convergence, dict)
+        or convergence.get("targetVersion")
+        != committed_boundary.get("restoredVersion")
+        or post_marker.get("connectorConvergenceSha256")
+        != _global_flagship_canonical_object_sha256(convergence)
+        or post_marker_verified_at > terminal_completed_at
+        or post_marker_sha256
+        != committed_boundary.get("latestConnectorGateSha256")
+    ):
+        raise ValueError("global flagship post-marker convergence boundary is invalid")
+    if (
+        post_marker.get("boundary") == "post-marker"
+        and post_marker_sha256
+        != committed_boundary.get("postMarkerConnectorGateSha256")
+    ):
+        raise ValueError(
+            "global flagship original post-marker convergence digest is invalid"
+        )
+    if (
+        post_marker.get("boundary") == "resume-post-marker"
+        and post_marker_sha256
+        == committed_boundary.get("postMarkerConnectorGateSha256")
+    ):
+        raise ValueError(
+            "global flagship resumed post-marker convergence did not advance"
+        )
+
+
+def _validate_global_flagship_previous_manifest(
+    payload: dict[str, Any],
+    *,
+    expected_release_version: str,
+) -> None:
+    schema_version = payload.get("schemaVersion")
+    if (
+        payload.get("contractName")
+        != DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
+        or type(schema_version) is not int
+        or schema_version not in {1, 2}
+        or payload.get("status") != "published"
+        or payload.get("version") != expected_release_version
+        or payload.get("releaseVersion") != expected_release_version
+    ):
+        raise ValueError(
+            "global flagship previous manifest release identity is invalid"
+        )
+    generation_id = payload.get("generationId")
+    if (
+        not isinstance(generation_id, str)
+        or re.fullmatch(
+            r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}",
+            generation_id,
+        )
+        is None
+    ):
+        raise ValueError(
+            "global flagship previous manifest generationId is invalid"
+        )
+    if payload.get("product") not in {None, "chummer6"}:
+        raise ValueError(
+            "global flagship previous manifest product is invalid"
+        )
+    if payload.get("publishedAt") is not None:
+        _global_flagship_contract_time(
+            payload.get("publishedAt"),
+            source="global flagship previous manifest publishedAt",
+        )
+
+    has_channel_id = "channelId" in payload
+    has_channel_alias = "channel" in payload
+    if has_channel_id or has_channel_alias:
+        if (
+            not has_channel_id
+            or not has_channel_alias
+            or payload.get("channelId")
+            != GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL
+            or payload.get("channel")
+            != GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL
+        ):
+            raise ValueError(
+                "global flagship previous manifest channel identity is invalid"
+            )
+    if schema_version == 2 and (
+        payload.get("contractVersion")
+        != GLOBAL_FLAGSHIP_CONTRACT_VERSION
+        or payload.get("releaseProfile")
+        != GLOBAL_FLAGSHIP_RELEASE_PROFILE
+        or not has_channel_id
+        or not has_channel_alias
+        or payload.get("rolloutState")
+        != GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL
+    ):
+        raise ValueError(
+            "global flagship v2 previous manifest posture is invalid"
+        )
+
+    artifacts = payload.get("artifacts")
+    if (
+        not isinstance(artifacts, list)
+        or len(artifacts) != len(GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS)
+    ):
+        raise ValueError(
+            "global flagship previous manifest artifact inventory is invalid"
+        )
+    observed_tuples: set[tuple[str, str, str, str]] = set()
+    for index, artifact in enumerate(artifacts):
+        if not isinstance(artifact, dict):
+            raise ValueError(
+                f"global flagship previous manifest artifact {index} is invalid"
+            )
+        platform = normalize_platform_token(artifact.get("platform"))
+        rid = normalize_token(artifact.get("rid"))
+        artifact_id = artifact.get("artifactId")
+        file_name = artifact.get("fileName")
+        scope_tuple = ("avalonia", platform, rid, "installer")
+        if (
+            artifact.get("id") != artifact_id
+            or GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS.get(scope_tuple)
+            != (artifact_id, file_name)
+            or artifact.get("version") != expected_release_version
+            or artifact.get("releaseVersion") != expected_release_version
+            or not isinstance(artifact.get("sha256"), str)
+            or SHA256_PATTERN.fullmatch(artifact["sha256"]) is None
+            or type(artifact.get("sizeBytes")) is not int
+            or artifact["sizeBytes"] <= 0
+            or scope_tuple in observed_tuples
+        ):
+            raise ValueError(
+                f"global flagship previous manifest artifact {index} "
+                "identity is invalid"
+            )
+        observed_tuples.add(scope_tuple)
+    if observed_tuples != set(GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS):
+        raise ValueError(
+            "global flagship previous manifest does not contain the exact "
+            "Linux, Windows, and macOS predecessor inventory"
+        )
+
+
+def load_global_flagship_channel_promotion_authority(
+    path: Path | None,
+    *,
+    expected_release_version: str,
+    expected_artifacts: list[dict[str, Any]],
+) -> dict[str, Any]:
+    if path is None:
+        raise ValueError(
+            "global flagship public_stable materialization requires "
+            "--channel-promotion-authority"
+        )
+    raw = read_stable_regular_file_bytes(
+        path,
+        source="global flagship channel-promotion authority",
+    )
+    authority = strict_json_object(
+        raw,
+        source="global flagship channel-promotion authority",
+    )
+    require_exact_object_keys(
+        authority,
+        {
+            "contractName",
+            "contractVersion",
+            "generatedAt",
+            "releaseProfile",
+            "sourceChannel",
+            "targetChannel",
+            "candidateId",
+            "releaseVersion",
+            "assembly",
+            "artifactInventorySha256",
+            "destinationIntent",
+            "candidateManifest",
+            "proposal",
+            "finalApprovalReceipt",
+            "approvals",
+            "hubEvidence",
+            "startupReceipts",
+            "registryProjectionAuthorized",
+            "publicationMutationAuthorized",
+        },
+        source="global flagship channel-promotion authority",
+    )
+    generated_at = canonical_flagship_readiness_timestamp(
+        authority.get("generatedAt")
+    )
+    generated_at_value = parse_iso(generated_at)
+    now = utc_now()
+    candidate_id = authority.get("candidateId")
+    if (
+        authority.get("contractName")
+        != UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_CONTRACT
+        or type(authority.get("contractVersion")) is not int
+        or authority.get("contractVersion")
+        != UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_VERSION
+        or generated_at is None
+        or generated_at_value is None
+        or authority.get("generatedAt") != generated_at
+        or generated_at_value
+        > now + dt.timedelta(
+            seconds=STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS
+        )
+        or authority.get("releaseProfile")
+        != GLOBAL_FLAGSHIP_RELEASE_PROFILE
+        or authority.get("sourceChannel")
+        != GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL
+        or authority.get("targetChannel")
+        != GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL
+        or not isinstance(candidate_id, str)
+        or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._+-]{0,127}", candidate_id)
+        is None
+        or authority.get("releaseVersion") != expected_release_version
+        or authority.get("registryProjectionAuthorized") is not True
+        or authority.get("publicationMutationAuthorized") is not False
+    ):
+        raise ValueError(
+            "global flagship channel-promotion authority posture is invalid"
+        )
+
+    assembly = require_exact_object_keys(
+        authority.get("assembly"),
+        {
+            "repository",
+            "workflow",
+            "ref",
+            "sha",
+            "runId",
+            "runAttempt",
+            "actor",
+            "triggeringActor",
+            "environment",
+        },
+        source="global flagship channel-promotion assembly provenance",
+    )
+    if (
+        assembly.get("repository") != "ArchonMegalon/chummer6-ui"
+        or assembly.get("workflow")
+        != ".github/workflows/global-flagship-publication-input-assembly.yml"
+        or assembly.get("ref") != "refs/heads/main"
+        or assembly.get("environment")
+        != "global-flagship-publication-input-assembly"
+        or not isinstance(assembly.get("sha"), str)
+        or re.fullmatch(r"[0-9a-f]{40}", assembly["sha"]) is None
+        or type(assembly.get("runId")) is not int
+        or assembly["runId"] <= 0
+        or type(assembly.get("runAttempt")) is not int
+        or assembly["runAttempt"] != 1
+        or not isinstance(assembly.get("actor"), str)
+        or GLOBAL_FLAGSHIP_GITHUB_LOGIN_PATTERN.fullmatch(assembly["actor"])
+        is None
+        or not isinstance(assembly.get("triggeringActor"), str)
+        or GLOBAL_FLAGSHIP_GITHUB_LOGIN_PATTERN.fullmatch(
+            assembly["triggeringActor"]
+        )
+        is None
+        or assembly["actor"].casefold()
+        != assembly["triggeringActor"].casefold()
+    ):
+        raise ValueError(
+            "global flagship channel-promotion assembly provenance is invalid"
+        )
+
+    authority_root = path.expanduser().resolve().parent
+    candidate_reference, candidate_raw = _load_global_flagship_authority_reference(
+        authority.get("candidateManifest"),
+        authority_root=authority_root,
+        source="global flagship candidate manifest reference",
+        expected_path="GLOBAL_FLAGSHIP_CANDIDATE.generated.json",
+    )
+    candidate_payload = _strict_referenced_json(
+        candidate_raw,
+        source="global flagship referenced candidate manifest",
+    )
+    candidate_projection, candidate_platforms = (
+        _validate_global_flagship_candidate_semantics(
+            candidate_payload,
+            candidate_raw=candidate_raw,
+            expected_candidate_id=candidate_id,
+            expected_release_version=expected_release_version,
+            expected_artifacts=expected_artifacts,
+            assembly=assembly,
+            now=now,
+        )
+    )
+
+    loaded_references: dict[str, dict[str, Any]] = {
+        "candidateManifest": candidate_reference,
+    }
+    proposal_reference, proposal_raw = _load_global_flagship_authority_reference(
+        authority.get("proposal"),
+        authority_root=authority_root,
+        source="global flagship proposal reference",
+        expected_path="GLOBAL_FLAGSHIP_RELEASE_PROPOSAL.generated.json",
+    )
+    proposal_payload = _strict_referenced_json(
+        proposal_raw,
+        source="global flagship referenced proposal",
+    )
+    proposal_payload = _validate_global_flagship_proposal_semantics(
+        proposal_payload,
+        proposal_raw=proposal_raw,
+        candidate_projection=candidate_projection,
+        candidate_platforms=candidate_platforms,
+        candidate_raw=candidate_raw,
+        expected_artifacts=expected_artifacts,
+        now=now,
+    )
+    loaded_references["proposal"] = proposal_reference
+
+    approvals = require_exact_object_keys(
+        authority.get("approvals"),
+        {"quality", "release", "security"},
+        source="global flagship channel-promotion approvals",
+    )
+    approval_references: dict[str, dict[str, Any]] = {}
+    for role in ("quality", "release", "security"):
+        reference, approval_raw = _load_global_flagship_authority_reference(
+            approvals.get(role),
+            authority_root=authority_root,
+            source=f"global flagship {role} approval reference",
+            expected_path=f"approvals/{role}/approval.json",
+        )
+        approval_payload = _strict_referenced_json(
+            approval_raw,
+            source=f"global flagship referenced {role} approval",
+        )
+        approval_projection = _validate_global_flagship_approval_semantics(
+            approval_payload,
+            role=role,
+            approval_raw=approval_raw,
+            approval_path="approval.json",
+            proposal=proposal_payload,
+            proposal_raw=proposal_raw,
+            candidate_projection=candidate_projection,
+            now=now,
+        )
+        approval_references[role] = reference
+        approval_references[role]["projection"] = approval_projection
+
+    approval_projections = [
+        approval_references[role].pop("projection")
+        for role in UI_GLOBAL_FLAGSHIP_REQUIRED_APPROVAL_ROLES
+    ]
+    approval_actors = [
+        str(projection["actor"]).casefold()
+        for projection in approval_projections
+    ]
+    approval_run_ids = [
+        projection["authority"]["runId"]
+        for projection in approval_projections
+    ]
+    reviewer_policies = {
+        (
+            projection["reviewerPolicy"]["sha256"],
+            projection["reviewerPolicy"]["sizeBytes"],
+        )
+        for projection in approval_projections
+    }
+    if (
+        len(set(approval_actors)) != len(approval_actors)
+        or len(set(approval_run_ids)) != len(approval_run_ids)
+        or len(reviewer_policies) != 1
+    ):
+        raise ValueError(
+            "global flagship approvals are not three independent role authorities"
+        )
+
+    final_reference, final_raw = _load_global_flagship_authority_reference(
+        authority.get("finalApprovalReceipt"),
+        authority_root=authority_root,
+        source="global flagship final approval receipt reference",
+        expected_path="final-receipt.json",
+    )
+    final_payload = _strict_referenced_json(
+        final_raw,
+        source="global flagship referenced final approval receipt",
+    )
+    _validate_global_flagship_final_receipt_semantics(
+        final_payload,
+        candidate_projection=candidate_projection,
+        candidate_platforms=candidate_platforms,
+        candidate_raw=candidate_raw,
+        proposal=proposal_payload,
+        proposal_raw=proposal_raw,
+        approval_projections=approval_projections,
+        now=now,
+    )
+    loaded_references["finalApprovalReceipt"] = final_reference
+
+    hub_evidence = require_exact_object_keys(
+        authority.get("hubEvidence"),
+        {
+            "topologyRetirement",
+            "committedBoundaryReceipt",
+            "postMarkerConvergenceReceipt",
+        },
+        source="global flagship channel-promotion Hub evidence",
+    )
+    hub_expected_paths = {
+        "topologyRetirement": "topology-retirement.json",
+        "committedBoundaryReceipt": "committed-boundary-receipt.json",
+        "postMarkerConvergenceReceipt": "post-marker-convergence-receipt.json",
+    }
+    hub_references: dict[str, dict[str, Any]] = {}
+    hub_raw_by_key: dict[str, bytes] = {}
+    hub_payload_by_key: dict[str, dict[str, Any]] = {}
+    for key, expected_path in hub_expected_paths.items():
+        reference, hub_raw = _load_global_flagship_authority_reference(
+            hub_evidence.get(key),
+            authority_root=authority_root,
+            source=f"global flagship Hub {key} reference",
+            expected_path=expected_path,
+        )
+        hub_payload = _strict_referenced_json(
+            hub_raw,
+            source=f"global flagship Hub {key}",
+        )
+        hub_references[key] = reference
+        hub_raw_by_key[key] = hub_raw
+        hub_payload_by_key[key] = hub_payload
+    _validate_global_flagship_hub_semantics(
+        hub_payload_by_key["topologyRetirement"],
+        topology_raw=hub_raw_by_key["topologyRetirement"],
+        committed_boundary=hub_payload_by_key["committedBoundaryReceipt"],
+        committed_boundary_raw=hub_raw_by_key["committedBoundaryReceipt"],
+        post_marker=hub_payload_by_key["postMarkerConvergenceReceipt"],
+        post_marker_raw=hub_raw_by_key["postMarkerConvergenceReceipt"],
+        now=now,
+    )
+
+    expected_inventory = [
+        {
+            key: artifact.get(key)
+            for key in (
+                "platform",
+                "rid",
+                "artifactId",
+                "fileName",
+                "sha256",
+                "sizeBytes",
+            )
+        }
+        for artifact in expected_artifacts
+    ]
+    expected_inventory.sort(key=lambda row: row["platform"])
+    inventory_sha256 = global_flagship_artifact_inventory_sha256(
+        expected_artifacts
+    )
+    if authority.get("artifactInventorySha256") != inventory_sha256:
+        raise ValueError(
+            "channel-promotion authority artifact inventory digest is invalid"
+        )
+
+    startup_receipts = authority.get("startupReceipts")
+    if not isinstance(startup_receipts, list) or len(startup_receipts) != 3:
+        raise ValueError(
+            "channel-promotion authority must bind exactly three startup receipts"
+        )
+    expected_by_platform = {
+        row["platform"]: row for row in expected_inventory
+    }
+    startup_references: list[dict[str, Any]] = []
+    observed_platforms: list[str] = []
+    for row in startup_receipts:
+        startup_row = require_exact_object_keys(
+            row,
+            {
+                "path",
+                "sha256",
+                "sizeBytes",
+                "platform",
+                "rid",
+                "artifactId",
+                "fileName",
+            },
+            source="global flagship startup receipt binding",
+        )
+        platform = startup_row.get("platform")
+        expected_artifact = expected_by_platform.get(platform)
+        if expected_artifact is None:
+            raise ValueError(
+                "channel-promotion authority startup receipt platform is invalid"
+            )
+        expected_path = (
+            "public-bundle/startup-smoke/"
+            f"startup-smoke-avalonia-{expected_artifact['rid']}.receipt.json"
+        )
+        reference, receipt_raw = _load_global_flagship_authority_reference(
+            {
+                key: startup_row[key]
+                for key in ("path", "sha256", "sizeBytes")
+            },
+            authority_root=authority_root,
+            source=f"global flagship {platform} startup receipt reference",
+            expected_path=expected_path,
+        )
+        if any(
+            startup_row.get(key) != expected_artifact[key]
+            for key in ("platform", "rid", "artifactId", "fileName")
+        ):
+            raise ValueError(
+                "channel-promotion authority startup receipt identity is invalid"
+            )
+        receipt = _strict_referenced_json(
+            receipt_raw,
+            source=f"global flagship referenced {platform} startup receipt",
+        )
+        if (
+            receipt.get("headId") != "avalonia"
+            or receipt.get("platform") != expected_artifact["platform"]
+            or receipt.get("rid") != expected_artifact["rid"]
+            or receipt.get("arch")
+            != ("arm64" if platform == "macos" else "x64")
+            or receipt.get("channelId")
+            != GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL
+            or (
+                receipt.get("channel") is not None
+                and receipt.get("channel") != receipt.get("channelId")
+            )
+            or receipt.get("releaseVersion") != expected_release_version
+            or receipt.get("artifactId") != expected_artifact["artifactId"]
+            or startup_smoke_receipt_artifact_id(receipt)
+            != expected_artifact["artifactId"]
+            or startup_smoke_receipt_artifact_file_name(receipt)
+            != expected_artifact["fileName"]
+            or startup_smoke_receipt_artifact_relative_path(receipt)
+            != f"files/{expected_artifact['fileName']}"
+            or normalize_token(receipt.get("artifactDigest"))
+            not in {
+                expected_artifact["sha256"],
+                f"sha256:{expected_artifact['sha256']}",
+            }
+            or receipt.get("status") not in {"pass", "passed", "ready"}
+            or receipt.get("readyCheckpoint")
+            != STARTUP_SMOKE_REQUIRED_READY_CHECKPOINT
+            or _startup_smoke_recorded_at(receipt) is None
+            or not startup_smoke_host_class_matches_platform(
+                receipt,
+                platform=platform,
+            )
+            or not startup_smoke_operating_system_matches_platform(
+                receipt,
+                platform=platform,
+            )
+        ):
+            raise ValueError(
+                f"channel-promotion authority {platform} startup receipt is invalid"
+            )
+        observed_platforms.append(platform)
+        startup_references.append(
+            {
+                **reference,
+                "platform": platform,
+                "rid": expected_artifact["rid"],
+                "artifactId": expected_artifact["artifactId"],
+                "fileName": expected_artifact["fileName"],
+            }
+        )
+    if observed_platforms != sorted(expected_by_platform):
+        raise ValueError(
+            "channel-promotion authority startup receipts must be unique and "
+            "sorted by platform"
+        )
+
+    intent_reference, intent_raw = _load_global_flagship_authority_reference(
+        authority.get("destinationIntent"),
+        authority_root=authority_root,
+        source="global flagship destination intent reference",
+        expected_path="destination-intent.json",
+    )
+    intent = _strict_referenced_json(
+        intent_raw,
+        source="global flagship destination intent",
+    )
+    require_exact_object_keys(
+        intent,
+        {
+            "contractName",
+            "contractVersion",
+            "candidateId",
+            "releaseVersion",
+            "sourceChannel",
+            "targetChannel",
+            "baseUrl",
+            "previousManifest",
+            "topologyRetirementProof",
+            "artifactInventory",
+            "artifactInventorySha256",
+        },
+        source="global flagship destination intent",
+    )
+    if (
+        intent.get("contractName")
+        != UI_GLOBAL_FLAGSHIP_DESTINATION_INTENT_CONTRACT
+        or type(intent.get("contractVersion")) is not int
+        or intent.get("contractVersion")
+        != UI_GLOBAL_FLAGSHIP_DESTINATION_INTENT_VERSION
+        or intent.get("candidateId") != candidate_id
+        or intent.get("releaseVersion") != expected_release_version
+        or intent.get("sourceChannel")
+        != GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL
+        or intent.get("targetChannel")
+        != GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL
+        or intent.get("baseUrl") != "https://chummer.run/downloads"
+        or intent.get("artifactInventory") != expected_inventory
+        or intent.get("artifactInventorySha256") != inventory_sha256
+        or intent.get("topologyRetirementProof")
+        != hub_references["topologyRetirement"]
+    ):
+        raise ValueError("global flagship destination intent is invalid")
+    _previous_reference, previous_raw = (
+        _load_global_flagship_authority_reference(
+            intent.get("previousManifest"),
+            authority_root=authority_root,
+            source="global flagship previous manifest reference",
+        )
+    )
+    previous_payload = _strict_referenced_json(
+        previous_raw,
+        source="global flagship previous manifest",
+    )
+    _validate_global_flagship_previous_manifest(
+        previous_payload,
+        expected_release_version=candidate_projection[
+            "previousReleaseVersion"
+        ],
+    )
+
+    return {
+        "contractName": GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_CONTRACT,
+        "contractVersion": GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_VERSION,
+        "source": {
+            "contractName": UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_CONTRACT,
+            "contractVersion": UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_VERSION,
+            "sha256": hashlib.sha256(raw).hexdigest(),
+            "sizeBytes": len(raw),
+        },
+        "candidateId": candidate_id,
+        "releaseVersion": expected_release_version,
+        "releaseProfile": GLOBAL_FLAGSHIP_RELEASE_PROFILE,
+        "sourceChannel": GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL,
+        "targetChannel": GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL,
+        "artifactInventorySha256": inventory_sha256,
+        "destinationIntent": intent_reference,
+        "candidateManifest": candidate_reference,
+        "finalApprovalReceipt": loaded_references["finalApprovalReceipt"],
+        "registryProjectionAuthorized": True,
+        "publicationMutationAuthorized": False,
+        "assembly": dict(assembly),
+    }
+
+
+def attach_macos_flagship_evidence_binding(
+    artifacts: list[dict[str, Any]],
+    binding: dict[str, Any],
+) -> None:
+    macos_rows = [
+        artifact
+        for artifact in artifacts
+        if normalize_token(artifact.get("artifactId"))
+        == "avalonia-osx-arm64-installer"
+    ]
+    if len(macos_rows) != 1:
+        raise ValueError(
+            "global flagship materialization requires exactly one macOS DMG row"
+        )
+    macos_rows[0]["macosFlagshipEvidence"] = json.loads(json.dumps(binding))
 
 
 def code_deploy_artifact_inventory_rows(artifacts: Any, *, source: str) -> list[dict[str, Any]]:
@@ -1407,6 +4138,93 @@ def flagship_readiness_snapshot_sha256(snapshot: dict[str, Any]) -> str:
     return "sha256:" + hashlib.sha256(canonical_bytes).hexdigest()
 
 
+def validate_canonical_flagship_readiness_snapshot(
+    payload: dict[str, Any],
+) -> dict[str, Any]:
+    if set(payload) != set(ALLOWED_FLAGSHIP_READINESS_SNAPSHOT_KEYS):
+        return {}
+    if payload.get("contractName") != FLAGSHIP_READINESS_CONTRACT_NAME:
+        return {}
+
+    generated_at = payload.get("generatedAt")
+    if not isinstance(generated_at, str):
+        return {}
+    canonical_generated_at = canonical_flagship_readiness_timestamp(generated_at)
+    if canonical_generated_at is None or generated_at != canonical_generated_at:
+        return {}
+
+    status = payload.get("status")
+    if (
+        not isinstance(status, str)
+        or status != normalize_token(status)
+        or status not in {"pass", "fail"}
+    ):
+        return {}
+
+    raw_coverage_gap_keys = payload.get("coverageGapKeys")
+    coverage_gap_keys = normalize_flagship_readiness_coverage_gap_keys(
+        raw_coverage_gap_keys
+    )
+    if coverage_gap_keys is None or raw_coverage_gap_keys != coverage_gap_keys:
+        return {}
+
+    raw_launch_blockers = payload.get("launchBlockers")
+    launch_blockers = normalize_flagship_readiness_launch_blockers(
+        raw_launch_blockers
+    )
+    if launch_blockers is None or raw_launch_blockers != launch_blockers:
+        return {}
+
+    desktop_client_ready = payload.get("desktopClientReady")
+    expected_desktop_client_ready = (
+        status == FLAGSHIP_READINESS_PASSING_STATUS
+        and not coverage_gap_keys
+        and not launch_blockers
+    )
+    if (
+        type(desktop_client_ready) is not bool
+        or desktop_client_ready is not expected_desktop_client_ready
+    ):
+        return {}
+
+    reason = payload.get("reason")
+    if (
+        not isinstance(reason, str)
+        or not reason
+        or reason
+        != sanitize_flagship_readiness_public_text(
+            reason,
+            max_length=FLAGSHIP_READINESS_REASON_MAX_LENGTH,
+        )
+    ):
+        return {}
+
+    source_sha256 = payload.get("sourceSha256")
+    snapshot_sha256 = payload.get("snapshotSha256")
+    if (
+        not isinstance(source_sha256, str)
+        or FLAGSHIP_READINESS_SHA256_RE.fullmatch(source_sha256) is None
+        or not isinstance(snapshot_sha256, str)
+        or FLAGSHIP_READINESS_SHA256_RE.fullmatch(snapshot_sha256) is None
+    ):
+        return {}
+
+    snapshot = {
+        "contractName": FLAGSHIP_READINESS_CONTRACT_NAME,
+        "generatedAt": canonical_generated_at,
+        "status": status,
+        "coverageGapKeys": coverage_gap_keys,
+        "launchBlockers": launch_blockers,
+        "desktopClientReady": desktop_client_ready,
+        "reason": reason,
+        "sourceSha256": source_sha256,
+        "snapshotSha256": snapshot_sha256,
+    }
+    if snapshot_sha256 != flagship_readiness_snapshot_sha256(snapshot):
+        return {}
+    return snapshot
+
+
 def load_flagship_readiness_snapshot(path: Path | None) -> dict[str, Any]:
     resolved_path = resolve_flagship_readiness_path(path)
     if resolved_path is None:
@@ -1418,6 +4236,8 @@ def load_flagship_readiness_snapshot(path: Path | None) -> dict[str, Any]:
         return {}
     if not isinstance(payload, dict):
         return {}
+    if FLAGSHIP_READINESS_CANONICAL_MARKER_KEYS.intersection(payload):
+        return validate_canonical_flagship_readiness_snapshot(payload)
     contract_name = str(payload.get("contract_name") or payload.get("contractName") or "").strip()
     if contract_name != FLAGSHIP_READINESS_CONTRACT_NAME:
         return {}
@@ -1718,6 +4538,9 @@ def refresh_artifacts_from_downloads_dir(
         for field_name in ARTIFACT_REVOKE_TRUTH_FIELDS:
             if field_name in item:
                 refreshed[field_name] = item.get(field_name)
+        for field_name in MACOS_FLAGSHIP_EVIDENCE_PASSTHROUGH_FIELDS:
+            if field_name in item:
+                refreshed[field_name] = json.loads(json.dumps(item.get(field_name)))
         refreshed["installAccessClass"] = effective_install_access_class(
             str(refreshed.get("platform") or ""),
             str(refreshed.get("kind") or ""),
@@ -1747,11 +4570,26 @@ def parse_iso(value: Any) -> dt.datetime | None:
 
 
 def _startup_smoke_recorded_at(loaded: dict[str, Any]) -> dt.datetime | None:
-    for key in ("recordedAtUtc", "completedAtUtc", "generatedAt", "generated_at", "startedAtUtc"):
-        parsed = parse_iso(loaded.get(key))
-        if parsed is not None:
-            return parsed
-    return None
+    timestamps: list[dt.datetime] = []
+    for key in (
+        "recordedAtUtc",
+        "completedAtUtc",
+        "startedAtUtc",
+        "generatedAt",
+        "generated_at",
+    ):
+        if key not in loaded:
+            continue
+        raw = loaded[key]
+        if type(raw) is not str or raw != raw.strip():
+            return None
+        parsed = parse_iso(raw)
+        if parsed is None:
+            return None
+        timestamps.append(parsed)
+    if not timestamps or any(value != timestamps[0] for value in timestamps[1:]):
+        return None
+    return timestamps[0]
 
 
 def startup_smoke_release_version_matches_expected(loaded: dict[str, Any], expected_release_version: str) -> bool:
@@ -1871,8 +4709,10 @@ def load_startup_smoke_receipts(
     max_age_seconds: int = STARTUP_SMOKE_MAX_AGE_SECONDS,
     max_future_skew_seconds: int = STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS,
     expected_channel: str = "",
+    authorized_source_channel: str = "",
     expected_release_version: str = "",
     expected_platform_scope: str = "",
+    require_exact_global_flagship_set: bool = False,
     now: dt.datetime | None = None,
 ) -> list[dict[str, Any]] | None:
     if startup_smoke_dir is None or not startup_smoke_dir.exists():
@@ -1909,6 +4749,8 @@ def load_startup_smoke_receipts(
             "artifactId": artifact_id,
             "artifactFileName": artifact_file_name,
         }
+        if require_exact_global_flagship_set:
+            receipt_entry["rid"] = rid
         installer_mode = startup_smoke_manifest_installer_mode(loaded)
         if installer_mode:
             receipt_entry["installerMode"] = installer_mode
@@ -1957,13 +4799,65 @@ def load_startup_smoke_receipts(
             receipt_entry["payloadSizeBytes"] = payload_size_bytes
         return receipt_entry
 
-    for entry in sorted(startup_smoke_dir.rglob("startup-smoke-*.receipt.json")):
+    receipt_paths = sorted(
+        startup_smoke_dir.rglob("startup-smoke-*.receipt.json")
+    )
+    for entry in receipt_paths:
         try:
-            loaded = json.loads(entry.read_text(encoding="utf-8-sig"))
-        except (OSError, json.JSONDecodeError):
+            if require_exact_global_flagship_set and entry.is_symlink():
+                raise ValueError(
+                    f"global flagship startup-smoke receipt must be a regular file: {entry}"
+                )
+            loaded = strict_json_object(
+                entry.read_bytes(),
+                source=f"startup-smoke receipt {entry}",
+            )
+        except (OSError, ValueError):
+            if require_exact_global_flagship_set:
+                raise
             continue
-        if not isinstance(loaded, dict):
-            continue
+        if require_exact_global_flagship_set:
+            raw_tuple = (
+                loaded.get("headId"),
+                loaded.get("platform"),
+                loaded.get("rid"),
+                loaded.get("arch"),
+            )
+            expected_raw_tuples = {
+                ("avalonia", "linux", "linux-x64", "x64"),
+                ("avalonia", "windows", "win-x64", "x64"),
+                ("avalonia", "macos", "osx-arm64", "arm64"),
+            }
+            raw_channel_id = loaded.get("channelId")
+            raw_channel_alias = loaded.get("channel")
+            expected_receipt_channel = (
+                authorized_source_channel or expected_channel
+            )
+            if (
+                raw_tuple not in expected_raw_tuples
+                or raw_channel_id != expected_receipt_channel
+                or (
+                    raw_channel_alias is not None
+                    and raw_channel_alias != raw_channel_id
+                )
+                or loaded.get("releaseVersion") != expected_release_version
+                or startup_smoke_receipt_artifact_id(loaded)
+                != loaded.get("artifactId")
+                or (
+                    loaded.get("version") is not None
+                    and loaded.get("version")
+                    != loaded.get("releaseVersion")
+                )
+                or startup_smoke_receipt_artifact_relative_path(loaded)
+                != (
+                    "files/"
+                    f"{startup_smoke_receipt_artifact_file_name(loaded)}"
+                )
+            ):
+                raise ValueError(
+                    "global flagship startup-smoke receipt tuple and channel fields "
+                    "must use exact canonical values"
+                )
         status = str(loaded.get("status") or "").strip().lower()
         incompatible_host_skip = startup_smoke_is_windows_incompatible_host_skip(loaded)
         wine_compatibility_declared = startup_smoke_declares_windows_wine_compatibility(loaded)
@@ -2017,7 +4911,11 @@ def load_startup_smoke_receipts(
             continue
         if not incompatible_host_skip and not startup_smoke_operating_system_matches_platform(loaded, platform=receipt_entry["platform"]):
             continue
-        if not startup_smoke_channel_matches_expected(expected_channel, receipt_entry["channelId"]):
+        if not startup_smoke_channel_matches_expected(
+            expected_channel,
+            receipt_entry["channelId"],
+            authorized_source_channel=authorized_source_channel,
+        ):
             continue
         if (
             not receipt_entry["artifactId"]
@@ -2040,6 +4938,37 @@ def load_startup_smoke_receipts(
             receipt_entry["proofFreshness"] = proof_freshness
         receipts.append(receipt_entry)
 
+    if require_exact_global_flagship_set:
+        expected_tuples = {
+            ("avalonia", "linux", "linux-x64"),
+            ("avalonia", "windows", "win-x64"),
+            ("avalonia", "macos", "osx-arm64"),
+        }
+        observed_tuples = {
+            (
+                str(receipt.get("head") or ""),
+                str(receipt.get("platform") or ""),
+                str(receipt.get("rid") or ""),
+            )
+            for receipt in receipts
+        }
+        expected_receipt_channel = (
+            authorized_source_channel or expected_channel
+        )
+        if (
+            len(receipt_paths) != len(expected_tuples)
+            or len(receipts) != len(expected_tuples)
+            or observed_tuples != expected_tuples
+            or any(
+                receipt.get("channelId") != expected_receipt_channel
+                for receipt in receipts
+            )
+        ):
+            raise ValueError(
+                "global flagship startup-smoke authority must contain exactly one "
+                "canonical receipt for each Linux, Windows, and macOS tuple on the "
+                f"exact source channel {expected_receipt_channel!r}"
+            )
     return receipts
 
 
@@ -2196,6 +5125,9 @@ def parse_download_row(
         if field_name in item:
             value = item.get(field_name)
             row[field_name] = dict(value) if isinstance(value, dict) else value
+    for field_name in MACOS_FLAGSHIP_EVIDENCE_PASSTHROUGH_FIELDS:
+        if field_name in item:
+            row[field_name] = json.loads(json.dumps(item.get(field_name)))
     return row
 
 
@@ -2899,6 +5831,7 @@ def materialization_required_platforms(
     *,
     platform_scope: Any = None,
     channel: Any = None,
+    global_flagship: bool = False,
 ) -> list[str]:
     if platform_scope is not None:
         if platform_scope != WINDOWS_ONLY_PLATFORM_SCOPE:
@@ -2942,10 +5875,14 @@ def materialization_required_platforms(
             )
         return ["windows"]
 
+    if global_flagship:
+        return list(GLOBAL_FLAGSHIP_REQUIRED_DESKTOP_PLATFORMS)
+
     # Current release scope is an authority boundary, not a projection of
     # whichever artifacts or stale configuration happened to reach a staging
-    # bundle.  Without an explicit narrow preview authority, the active
-    # platform floor remains exactly Linux + Windows.
+    # bundle. The legacy v1 profile remains exactly Linux + Windows; the v2
+    # global flagship profile is selected only by the explicit exact
+    # three-platform request above.
     del artifacts, configured_required_platforms, channel
     return list(DEFAULT_REQUIRED_DESKTOP_PLATFORMS)
 
@@ -2954,6 +5891,7 @@ def verify_current_release_desktop_artifact_scope(
     artifacts: list[dict[str, Any]],
     *,
     product: Any,
+    global_flagship: bool = False,
 ) -> None:
     product_token = normalized_token(product)
     chummer_identity_present = any(
@@ -2967,6 +5905,16 @@ def verify_current_release_desktop_artifact_scope(
         )
     if product_token not in {"", "chummer", "chummer6"}:
         return
+    allowed_artifacts = (
+        GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS
+        if global_flagship
+        else CURRENT_PREVIEW_DESKTOP_ARTIFACTS
+    )
+    scope_label = (
+        "Avalonia Linux/Windows/macOS global flagship"
+        if global_flagship
+        else "Avalonia Linux/Windows preview"
+    )
     seen_tuples: set[tuple[str, str, str, str]] = set()
     for index, artifact in enumerate(artifacts):
         scope_tuple = (
@@ -2975,13 +5923,13 @@ def verify_current_release_desktop_artifact_scope(
             normalized_token(artifact.get("rid")),
             normalized_token(artifact.get("kind")),
         )
-        expected_identity = CURRENT_PREVIEW_DESKTOP_ARTIFACTS.get(scope_tuple)
+        expected_identity = allowed_artifacts.get(scope_tuple)
         artifact_id = normalized_token(artifact.get("artifactId") or artifact.get("id"))
         file_name = str(artifact.get("fileName") or "").strip()
         if expected_identity is None:
             raise ValueError(
                 "Chummer6 current release artifact row "
-                f"{index} is outside the exact Avalonia Linux/Windows preview scope: {scope_tuple}"
+                f"{index} is outside the exact {scope_label} scope: {scope_tuple}"
             )
         if (artifact_id, file_name) != expected_identity:
             raise ValueError(
@@ -2993,6 +5941,11 @@ def verify_current_release_desktop_artifact_scope(
                 f"Chummer6 current release artifact tuple is duplicated: {scope_tuple}"
             )
         seen_tuples.add(scope_tuple)
+    if global_flagship and seen_tuples != set(GLOBAL_FLAGSHIP_DESKTOP_ARTIFACTS):
+        raise ValueError(
+            "Chummer6 global flagship source must contain exactly one canonical "
+            "Linux, Windows, and macOS artifact"
+        )
 
 
 def verify_required_desktop_heads(required_heads: list[str], *, source: str) -> None:
@@ -5416,10 +8369,118 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         if requested_version and (requested_version != "unpublished" or not loaded_version)
         else loaded_version
     ) or "unpublished"
-    loaded_channel = str(loaded.get("channel") or loaded.get("channelId") or "").strip()
-    requested_channel = str(args.channel or "").strip()
+    loaded_channel_value = resolve_alias_value(
+        loaded,
+        primary_key="channelId",
+        secondary_key="channel",
+        field_name="channelId",
+        source="source manifest",
+    )
+    loaded_channel = str(loaded_channel_value or "").strip()
+    requested_channel_value = args.channel
+    requested_channel = str(requested_channel_value or "").strip()
     raw_channel = requested_channel or loaded_channel or "preview"
     channel = raw_channel
+    loaded_desktop_coverage = (
+        loaded.get("desktopTupleCoverage")
+        if isinstance(loaded.get("desktopTupleCoverage"), dict)
+        else {}
+    )
+    configured_required_platforms = (
+        getattr(args, "required_desktop_platforms", None)
+        or loaded_desktop_coverage.get("requiredDesktopPlatforms")
+    )
+    global_flagship = global_flagship_platform_request(
+        configured_required_platforms
+    )
+    global_flagship_authorized_source_channel = ""
+    global_flagship_promotion_binding: dict[str, Any] | None = None
+    macos_flagship_evidence_path = getattr(
+        args,
+        "macos_flagship_evidence",
+        None,
+    )
+    channel_promotion_authority_path = getattr(
+        args,
+        "channel_promotion_authority",
+        None,
+    )
+    if global_flagship:
+        if requested_channel_value not in {"stable", "public_stable"}:
+            raise ValueError(
+                "global flagship materialization requires an explicit exact "
+                "--channel stable or --channel public_stable"
+            )
+        if requested_channel == GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL:
+            if loaded_channel_value != GLOBAL_FLAGSHIP_PROMOTION_SOURCE_CHANNEL:
+                raise ValueError(
+                    "global flagship public_stable promotion requires an exact "
+                    "preview source manifest channel"
+                )
+            if channel_promotion_authority_path is None:
+                raise ValueError(
+                    "global flagship public_stable promotion requires "
+                    "--channel-promotion-authority"
+                )
+        elif loaded_channel_value != "stable":
+            raise ValueError(
+                "global flagship stable materialization requires an exact stable "
+                "source manifest channel"
+            )
+        elif channel_promotion_authority_path is not None:
+            raise ValueError(
+                "--channel-promotion-authority is valid only for the exact "
+                "preview-to-public_stable global flagship boundary"
+            )
+        if args.downloads_prefix.rstrip("/") != "https://chummer.run/downloads/files":
+            raise ValueError(
+                "global flagship downloads must use the canonical "
+                "https://chummer.run/downloads/files prefix"
+            )
+        if bool(getattr(args, "skip_startup_smoke_filter", False)):
+            raise ValueError(
+                "global flagship materialization requires native startup-smoke "
+                "receipts for all three platforms and forbids the smoke-filter bypass"
+            )
+        args.downloads_dir = require_real_directory(
+            getattr(args, "downloads_dir", None),
+            source="global flagship downloads directory",
+        )
+        args.startup_smoke_dir = require_real_directory(
+            getattr(args, "startup_smoke_dir", None),
+            source="global flagship startup-smoke directory",
+        )
+        global_flagship_source_rows = validate_global_flagship_source_artifacts(
+            loaded.get("artifacts"),
+            expected_channel=loaded_channel,
+            expected_release_version=version,
+        )
+        validate_global_flagship_local_artifact_bytes(
+            args.downloads_dir,
+            global_flagship_source_rows,
+        )
+        if requested_channel == GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL:
+            global_flagship_promotion_binding = (
+                load_global_flagship_channel_promotion_authority(
+                    channel_promotion_authority_path,
+                    expected_release_version=version,
+                    expected_artifacts=global_flagship_source_rows,
+                )
+            )
+            global_flagship_authorized_source_channel = (
+                global_flagship_promotion_binding["sourceChannel"]
+            )
+    else:
+        global_flagship_source_rows = []
+        if macos_flagship_evidence_path is not None:
+            raise ValueError(
+                "--macos-flagship-evidence is valid only for the explicit v2 global flagship contract"
+            )
+        if channel_promotion_authority_path is not None:
+            raise ValueError(
+                "--channel-promotion-authority is valid only for the explicit "
+                "v2 global flagship public_stable contract"
+            )
 
     if isinstance(loaded.get("artifacts"), list):
         artifacts = [parse_download_row(item) for item in loaded.get("artifacts") or [] if isinstance(item, dict)]
@@ -5434,6 +8495,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     verify_current_release_desktop_artifact_scope(
         artifacts,
         product=args.product,
+        global_flagship=global_flagship,
     )
     artifacts = refresh_artifacts_from_downloads_dir(
         artifacts,
@@ -5446,6 +8508,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     verify_current_release_desktop_artifact_scope(
         artifacts,
         product=args.product,
+        global_flagship=global_flagship,
     )
     artifacts = [
         artifact
@@ -5459,12 +8522,70 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             max_age_seconds=args.startup_smoke_max_age_seconds,
             max_future_skew_seconds=args.startup_smoke_max_future_skew_seconds,
             expected_channel=normalize_token(raw_channel),
+            authorized_source_channel=(
+                global_flagship_authorized_source_channel
+            ),
             expected_release_version=version,
             expected_platform_scope=platform_scope or "",
+            require_exact_global_flagship_set=global_flagship,
         )
     else:
         startup_smoke_receipts = None
     artifacts = filter_unproven_installers(artifacts, startup_smoke_receipts)
+    if global_flagship:
+        if startup_smoke_receipts is None:
+            raise ValueError(
+                "global flagship startup-smoke receipt authority is unavailable"
+            )
+        validate_global_flagship_refreshed_artifacts(
+            global_flagship_source_rows,
+            artifacts,
+        )
+        validate_global_flagship_local_artifact_bytes(
+            args.downloads_dir,
+            global_flagship_source_rows,
+        )
+        for artifact in artifacts:
+            artifact["installAccessClass"] = "open_public"
+        macos_artifact = next(
+            artifact
+            for artifact in artifacts
+            if normalize_token(artifact.get("artifactId"))
+            == "avalonia-osx-arm64-installer"
+        )
+        macos_evidence_binding = load_macos_flagship_evidence_binding(
+            macos_flagship_evidence_path,
+            expected_candidate={
+                "artifactId": macos_artifact.get("artifactId"),
+                "fileName": macos_artifact.get("fileName"),
+                "sha256": macos_artifact.get("sha256"),
+                "sizeBytes": macos_artifact.get("sizeBytes"),
+            },
+            expected_release_version=version,
+        )
+        if global_flagship_promotion_binding is not None:
+            global_identity = macos_evidence_binding[
+                "globalCandidateIdentity"
+            ]
+            promotion_assembly = global_flagship_promotion_binding[
+                "assembly"
+            ]
+            if (
+                global_identity.get("candidateId")
+                != global_flagship_promotion_binding.get("candidateId")
+                or global_identity.get("releaseVersion")
+                != global_flagship_promotion_binding.get("releaseVersion")
+                or global_identity.get("sourceCommit")
+                != promotion_assembly.get("sha")
+            ):
+                raise ValueError(
+                    "macOS flagship evidence global candidate identity does "
+                    "not match the promotion authority and candidate manifest"
+                )
+        attach_macos_flagship_evidence_binding(
+            artifacts,
+            macos_evidence_binding,
+        )
     artifacts.sort(key=lambda row: (0 if row.get("kind") == "installer" else 1, row.get("platform"), row.get("arch"), row.get("head"), row.get("fileName")))
     loaded_published_at = str(loaded.get("publishedAt") or "").strip()
     published_at = str(args.published_at or loaded_published_at or "").strip()
@@ -5573,20 +8694,12 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     if not required_heads:
         required_heads = list(DEFAULT_REQUIRED_DESKTOP_HEADS)
     verify_required_desktop_heads(required_heads, source="required_desktop_heads")
-    loaded_desktop_coverage = (
-        loaded.get("desktopTupleCoverage")
-        if isinstance(loaded.get("desktopTupleCoverage"), dict)
-        else {}
-    )
-    configured_required_platforms = (
-        getattr(args, "required_desktop_platforms", None)
-        or loaded_desktop_coverage.get("requiredDesktopPlatforms")
-    )
     required_platforms = materialization_required_platforms(
         artifacts,
         configured_required_platforms,
         platform_scope=platform_scope,
         channel=raw_channel,
+        global_flagship=global_flagship,
     )
     loaded_rollout_state = str(loaded.get("rolloutState") or loaded.get("rollout_state") or "").strip()
     loaded_rollout_reason = str(loaded.get("rolloutReason") or loaded.get("rollout_reason") or "").strip()
@@ -5652,6 +8765,21 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         proof_freshness_status_value=freshness_status,
     )
     channel = normalize_effective_channel_id(raw_channel, rollout_state)
+    if global_flagship and (
+        status != "published"
+        or not desktop_coverage_complete
+        or normalize_token(channel) not in {"stable", "public_stable"}
+        or normalize_token(rollout_state) not in {"stable", "public_stable"}
+        or normalize_token(supportability_state) != "gold_supported"
+        or (
+            channel == GLOBAL_FLAGSHIP_PROMOTION_TARGET_CHANNEL
+            and global_flagship_promotion_binding is None
+        )
+    ):
+        raise ValueError(
+            "global flagship materialization requires published, complete, "
+            "gold-supported stable authority"
+        )
     if channel != raw_channel or rollout_state != loaded_rollout_state:
         for artifact in artifacts:
             if isinstance(artifact, dict):
@@ -5809,7 +8937,11 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     payload = {
         "generated_at": generated_at,
         "generatedAt": generated_at,
-        "schemaVersion": 1,
+        "schemaVersion": (
+            GLOBAL_FLAGSHIP_SCHEMA_VERSION
+            if global_flagship
+            else 1
+        ),
         "product": str(loaded.get("product") or args.product).strip() or "chummer6",
         "contract_name": contract_name,
         "contractName": contract_name,
@@ -5840,6 +8972,13 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     }
     if loaded_public_version:
         payload["publicVersion"] = loaded_public_version
+    if global_flagship:
+        payload["contractVersion"] = GLOBAL_FLAGSHIP_CONTRACT_VERSION
+        payload["releaseProfile"] = GLOBAL_FLAGSHIP_RELEASE_PROFILE
+        if global_flagship_promotion_binding is not None:
+            payload["channelPromotionAuthority"] = (
+                global_flagship_promotion_binding
+            )
     if platform_scope is not None:
         payload["platformScope"] = platform_scope
     payload["publicTrustMetrics"] = expected_public_trust_metrics(payload)
@@ -5929,6 +9068,11 @@ def compatibility_artifact_row(
             for field_name in STARTUP_EXECUTION_TRUTH_FIELDS
             if field_name in artifact
         },
+        **{
+            field_name: json.loads(json.dumps(artifact[field_name]))
+            for field_name in MACOS_FLAGSHIP_EVIDENCE_PASSTHROUGH_FIELDS
+            if field_name in artifact
+        },
         "installAccessClass": (
             str(artifact.get("installAccessClass") or "").strip()
             or default_install_access_class(platform, kind)
@@ -5975,8 +9119,23 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
     return {
         "generated_at": canonical.get("generated_at") or canonical.get("generatedAt"),
         "generatedAt": canonical.get("generatedAt") or canonical.get("generated_at"),
+        **(
+            {"schemaVersion": canonical.get("schemaVersion")}
+            if canonical.get("releaseProfile")
+            == GLOBAL_FLAGSHIP_RELEASE_PROFILE
+            else {}
+        ),
         "contract_name": contract_name,
         "contractName": contract_name,
+        **{
+            field: canonical[field]
+            for field in (
+                "contractVersion",
+                "releaseProfile",
+                "channelPromotionAuthority",
+            )
+            if field in canonical
+        },
         "registry_commit": registry_commit,
         "registryCommit": registry_commit,
         "version": canonical.get("version") or "unpublished",

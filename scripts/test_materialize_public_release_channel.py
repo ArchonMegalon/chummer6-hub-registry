@@ -48,6 +48,14 @@ VERIFY_MODULE = importlib.util.module_from_spec(VERIFY_MODULE_SPEC)
 VERIFY_MODULE_SPEC.loader.exec_module(VERIFY_MODULE)
 
 TEST_REGISTRY_COMMIT = "0123456789abcdef0123456789abcdef01234567"
+CANONICAL_RELEASE_PROOF_JOURNEYS = (
+    "install_claim_restore_continue",
+    "build_explain_publish",
+    "campaign_session_recover_recap",
+    "recover_from_sync_conflict",
+    "report_cluster_release_notify",
+    "organize_community_and_close_loop",
+)
 
 
 def materializer_args(**kwargs) -> argparse.Namespace:
@@ -64,8 +72,2033 @@ def compatibility_payload(canonical: dict) -> dict:
     return MODULE.compatibility_payload(canonical)
 
 
+def _write_canonical_macos_flagship_evidence(
+    path: Path,
+    *,
+    candidate: dict,
+    release_version: str,
+    generated_at: str,
+) -> None:
+    references = {}
+    for index, key in enumerate(
+        sorted(MODULE.MACOS_FLAGSHIP_EVIDENCE_REFERENCE_KEYS),
+        start=1,
+    ):
+        references[key] = {
+            "path": f"receipts/{key}.json",
+            "sha256": f"{index:064x}",
+            "sizeBytes": index,
+        }
+    payload = {
+        "candidate": candidate,
+        "cleanInstall": {},
+        "contractName": MODULE.UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT,
+        "contractVersion": MODULE.UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT_VERSION,
+        "generatedAtUtc": generated_at,
+        "github": {
+            "actor": "tibor",
+            "ref": "refs/heads/main",
+            "repository": "ArchonMegalon/chummer6-ui",
+            "rerunPolicy": "same-actor-only",
+            "runAttempt": "1",
+            "runId": "123456789",
+            "sha": "a" * 40,
+            "triggeringActor": "tibor",
+            "workflow": ".github/workflows/macos-flagship-evidence.yml",
+        },
+        "globalCandidateIdentity": {
+            "candidateId": "global-candidate-20260725",
+            "generationId": "generation-20260725",
+            "previousReleaseVersion": "run-20260715-140426",
+            "releaseVersion": release_version,
+            "sourceCommit": "a" * 40,
+        },
+        "inputBindings": {
+            binding_key: references[reference_key]["sha256"]
+            for binding_key, reference_key in (
+                MODULE.MACOS_FLAGSHIP_EVIDENCE_INPUT_BINDING_SOURCES.items()
+            )
+        },
+        "inventorySha256": references["inventory"]["sha256"],
+        "livePredecessorAuthority": {},
+        "nonPublishing": dict(MODULE.MACOS_FLAGSHIP_NONPUBLISHING_POSTURE),
+        "references": references,
+        "releaseVersion": release_version,
+        "rid": "osx-arm64",
+        "runner": {
+            "arch": "arm64",
+            "environment": "github-hosted",
+            "imageOS": "macos15",
+            "imageVersion": "20260720.1",
+            "label": "macos-15",
+            "os": "macos-15.6",
+        },
+        "signing": {
+            "candidateDmgGatekeeperStatus": "pass",
+            "certificateSha256": "b" * 64,
+            "certificateSpkiSha256": "c" * 64,
+            "developerIdApplicationIdentity": (
+                "Developer ID Application: Chummer Project (ABCDE12345)"
+            ),
+            "gatekeeperAssessmentsEnabled": True,
+            "installedAppGatekeeperStatus": "pass",
+            "notarizationStatus": "Accepted",
+            "notarySubmissionId": "12345678-1234-1234-1234-123456789abc",
+            "postUpdateAppGatekeeperStatus": "pass",
+            "signingStatus": "pass",
+            "staplerValidationStatus": "pass",
+            "teamId": "ABCDE12345",
+        },
+        "sourceUnsignedCandidate": {},
+        "status": "pass",
+        "updateDelivery": {},
+    }
+    path.write_bytes(
+        (
+            json.dumps(
+                payload,
+                sort_keys=True,
+                indent=2,
+                ensure_ascii=False,
+            )
+            + "\n"
+        ).encode("utf-8")
+    )
+
+
+def _file_reference(root: Path, relative_path: str) -> dict:
+    raw = (root / relative_path).read_bytes()
+    return {
+        "path": relative_path,
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "sizeBytes": len(raw),
+    }
+
+
+def _write_global_flagship_channel_promotion_authority(
+    root: Path,
+    *,
+    artifacts: list[dict],
+    release_version: str,
+    generated_at: str,
+) -> Path:
+    candidate_id = "global-candidate-20260725"
+    generation_id = "generation-20260725"
+    previous_release_version = "run-20260715-140426"
+    generated = MODULE.parse_iso(generated_at)
+    assert generated is not None
+    expires_at = (
+        generated + MODULE.dt.timedelta(hours=4)
+    ).isoformat().replace("+00:00", "Z")
+    source = {
+        "repository": "ArchonMegalon/chummer6-ui",
+        "ref": "refs/heads/main",
+        "commit": "a" * 40,
+    }
+    producer = {
+        "actor": "candidate-producer",
+        "artifactName": (
+            "global-flagship-candidate-payload-"
+            f"{candidate_id}-987654321-1"
+        ),
+        "workflow": ".github/workflows/global-flagship-candidate.yml",
+        "runId": 987654321,
+        "runAttempt": 1,
+    }
+    provider_actors = {
+        "windows-export": "shared-provider",
+        "windows-capture": "github-actions[bot]",
+        "windows-evidence": "shared-provider",
+        "linux-export": "shared-provider",
+        "linux-evidence": "github-actions[bot]",
+        "macos-escrow": "release-operator",
+        "macos-handoff": "release-operator",
+    }
+
+    inventory = [
+        {
+            key: artifact[key]
+            for key in (
+                "platform",
+                "rid",
+                "artifactId",
+                "fileName",
+                "sha256",
+                "sizeBytes",
+            )
+        }
+        for artifact in artifacts
+    ]
+    inventory.sort(key=lambda row: row["platform"])
+    inventory_sha256 = hashlib.sha256(
+        json.dumps(
+            inventory,
+            sort_keys=True,
+            separators=(",", ":"),
+            ensure_ascii=False,
+        ).encode("utf-8")
+    ).hexdigest()
+
+    artifact_by_platform = {
+        artifact["platform"]: artifact for artifact in artifacts
+    }
+    candidate_platforms = {}
+    proposal_platforms = {}
+    for platform in ("linux", "windows", "macos"):
+        artifact = artifact_by_platform[platform]
+        evidence_root = root / "candidate-evidence" / platform
+        evidence_root.mkdir(parents=True)
+        evidence_references = {}
+        for key in ("exit-gate", "native-e2e"):
+            evidence_path = evidence_root / f"{key}.json"
+            evidence_path.write_text(
+                json.dumps(
+                    {
+                        "contractName": f"fixture.{platform}.{key}",
+                        "status": "passed",
+                    },
+                    sort_keys=True,
+                )
+                + "\n",
+                encoding="utf-8",
+            )
+            evidence_references[key] = _file_reference(
+                root,
+                evidence_path.relative_to(root).as_posix(),
+            )
+        signing_path = evidence_root / "signing.json"
+        signing_path.write_text(
+            json.dumps(
+                {
+                    "contractName": f"fixture.{platform}.signing",
+                    "status": "passed",
+                },
+                sort_keys=True,
+            )
+            + "\n",
+            encoding="utf-8",
+        )
+        signing_reference = _file_reference(
+            root,
+            signing_path.relative_to(root).as_posix(),
+        )
+        artifact_path = f"public-bundle/files/{artifact['fileName']}"
+        candidate_artifact = {
+            "artifactId": artifact["artifactId"],
+            "fileName": artifact["fileName"],
+            "path": artifact_path,
+            "sha256": artifact["sha256"],
+            "sizeBytes": artifact["sizeBytes"],
+        }
+        candidate_platforms[platform] = {
+            "rid": artifact["rid"],
+            "artifact": candidate_artifact,
+            "exitGateReceipt": evidence_references["exit-gate"],
+            "signingReceipt": signing_reference,
+            "nativeE2eReceipt": evidence_references["native-e2e"],
+        }
+
+        def projected_reference(
+            reference: dict | None,
+            *,
+            contract_name: str,
+        ) -> dict | None:
+            if reference is None:
+                return None
+            return {
+                "relativePath": reference["path"],
+                "sha256": reference["sha256"],
+                "sizeBytes": reference["sizeBytes"],
+                "contractName": contract_name,
+                "generatedAt": generated_at,
+            }
+
+        proposal_platforms[platform] = {
+            "rid": artifact["rid"],
+            "artifact": {
+                "relativePath": artifact_path,
+                "sha256": artifact["sha256"],
+                "sizeBytes": artifact["sizeBytes"],
+                "artifactId": artifact["artifactId"],
+                "fileName": artifact["fileName"],
+            },
+            "exitGateReceipt": projected_reference(
+                evidence_references["exit-gate"],
+                contract_name=(
+                    MODULE.UI_GLOBAL_FLAGSHIP_PLATFORM_EVIDENCE_CONTRACTS[
+                        platform
+                    ]["exitGateReceipt"]
+                ),
+            ),
+            "signingReceipt": projected_reference(
+                signing_reference,
+                contract_name=MODULE.UI_GLOBAL_FLAGSHIP_SIGNING_CONTRACT,
+            ),
+            "nativeE2eReceipt": projected_reference(
+                evidence_references["native-e2e"],
+                contract_name=(
+                    MODULE.UI_GLOBAL_FLAGSHIP_PLATFORM_EVIDENCE_CONTRACTS[
+                        platform
+                    ]["nativeE2eReceipt"]
+                ),
+            ),
+            "nativeE2eEvidence": {"startup": "passed"},
+            "nativeLifecycleEvidence": {"lifecycle": "passed"},
+            "integrityPolicy": (
+                MODULE.UI_GLOBAL_FLAGSHIP_INTEGRITY_POLICIES[platform]
+            ),
+        }
+
+    candidate_projection = {
+        "candidateId": candidate_id,
+        "generationId": generation_id,
+        "releaseVersion": release_version,
+        "previousReleaseVersion": previous_release_version,
+        "channelId": "preview",
+        "source": source,
+        "producer": producer,
+        "providerActors": provider_actors,
+        "generatedAt": generated_at,
+        "expiresAt": expires_at,
+    }
+    candidate = {
+        "contractName": MODULE.UI_GLOBAL_FLAGSHIP_CANDIDATE_CONTRACT,
+        "contractVersion": 1,
+        "generatedAt": generated_at,
+        "expiresAt": expires_at,
+        "candidateId": candidate_id,
+        "generationId": generation_id,
+        "releaseVersion": release_version,
+        "previousReleaseVersion": previous_release_version,
+        "channelId": "preview",
+        "source": source,
+        "producer": producer,
+        "providerActors": provider_actors,
+        "platforms": candidate_platforms,
+    }
+    candidate_path = root / "GLOBAL_FLAGSHIP_CANDIDATE.generated.json"
+    candidate_path.write_text(
+        json.dumps(candidate, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    candidate_raw = candidate_path.read_bytes()
+    candidate_binding = {
+        "relativePath": "candidate/GLOBAL_FLAGSHIP_CANDIDATE.generated.json",
+        "sha256": hashlib.sha256(candidate_raw).hexdigest(),
+        "sizeBytes": len(candidate_raw),
+    }
+    external_requirements = [
+        dict(requirement)
+        for requirement in MODULE.UI_GLOBAL_FLAGSHIP_EXTERNAL_REQUIREMENTS
+    ]
+    proposal = {
+        "contractName": MODULE.UI_GLOBAL_FLAGSHIP_RELEASE_PROPOSAL_CONTRACT,
+        "contractVersion": 1,
+        "generatedAt": generated_at,
+        "expiresAt": expires_at,
+        "status": "ready_for_independent_approval",
+        "candidate": candidate_projection,
+        "candidateManifest": candidate_binding,
+        "platforms": proposal_platforms,
+        "requiredApprovals": ["quality", "release", "security"],
+        "excludedApprovalActors": sorted(
+            {
+                producer["actor"],
+                *provider_actors.values(),
+            },
+            key=str.casefold,
+        ),
+        "externalRequirements": external_requirements,
+        "authorityLevel": MODULE.UI_GLOBAL_FLAGSHIP_AUTHORITY_LEVEL,
+        "provenanceAuthenticated": False,
+        "nonPublishing": True,
+        "publicationAuthorized": False,
+        "allowedSideEffects": ["write_local_receipts"],
+    }
+    proposal_path = root / "GLOBAL_FLAGSHIP_RELEASE_PROPOSAL.generated.json"
+    proposal_path.write_text(
+        json.dumps(proposal, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    proposal_raw = proposal_path.read_bytes()
+
+    approval_projections = []
+    approval_actors = {
+        "quality": ("quality-actor", "quality-reviewer", 1001),
+        "release": ("release-actor", "release-reviewer", 1002),
+        "security": ("security-actor", "security-reviewer", 1003),
+    }
+    for role in ("quality", "release", "security"):
+        actor, reviewer, run_id = approval_actors[role]
+        reviewer_policy = {
+            "contractName": (
+                MODULE.UI_GLOBAL_FLAGSHIP_RELEASE_REVIEWER_POLICY_CONTRACT
+            ),
+            "sha256": "9" * 64,
+            "sizeBytes": 128,
+            "role": role,
+            "actorAuthorized": True,
+            "rolesDisjoint": True,
+            "authorizedRoleMembers": 2,
+        }
+        authority = {
+            "repository": source["repository"],
+            "workflow": MODULE.UI_GLOBAL_FLAGSHIP_APPROVAL_WORKFLOW,
+            "ref": source["ref"],
+            "sha": source["commit"],
+            "runId": run_id,
+            "runAttempt": 1,
+            "environment": MODULE.UI_GLOBAL_FLAGSHIP_APPROVAL_ENVIRONMENT,
+        }
+        approval = {
+            "contractName": MODULE.UI_GLOBAL_FLAGSHIP_RELEASE_APPROVAL_CONTRACT,
+            "contractVersion": 2,
+            "proposalSha256": hashlib.sha256(proposal_raw).hexdigest(),
+            "proposalSizeBytes": len(proposal_raw),
+            "candidateId": candidate_id,
+            "generationId": generation_id,
+            "role": role,
+            "decision": "approve",
+            "approvalConfirmed": True,
+            "approvedAt": generated_at,
+            "expiresAt": expires_at,
+            "actor": actor,
+            "triggeringActor": actor,
+            "rerunPolicy": MODULE.UI_GLOBAL_FLAGSHIP_APPROVAL_RERUN_POLICY,
+            "environmentApproval": {
+                "state": "approved",
+                "reviewer": reviewer,
+            },
+            "reviewerPolicy": reviewer_policy,
+            "authority": authority,
+        }
+        path = root / "approvals" / role / "approval.json"
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_text(
+            json.dumps(approval, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        approval_raw = path.read_bytes()
+        approval_projections.append(
+            {
+                "role": role,
+                "actor": actor,
+                "triggeringActor": actor,
+                "rerunPolicy": MODULE.UI_GLOBAL_FLAGSHIP_APPROVAL_RERUN_POLICY,
+                "environmentApproval": approval["environmentApproval"],
+                "approvedAt": generated_at,
+                "expiresAt": expires_at,
+                "reviewerPolicy": reviewer_policy,
+                "authority": authority,
+                "receipt": {
+                    "relativePath": "approval.json",
+                    "sha256": hashlib.sha256(approval_raw).hexdigest(),
+                    "sizeBytes": len(approval_raw),
+                },
+            }
+        )
+
+    final_receipt = {
+        "contractName": MODULE.UI_GLOBAL_FLAGSHIP_RELEASE_FINAL_RECEIPT_CONTRACT,
+        "contractVersion": 1,
+        "generatedAt": generated_at,
+        "status": "passed",
+        "candidate": candidate_projection,
+        "candidateManifest": candidate_binding,
+        "proposal": {
+            "relativePath": "GLOBAL_FLAGSHIP_RELEASE_PROPOSAL.generated.json",
+            "sha256": hashlib.sha256(proposal_raw).hexdigest(),
+            "sizeBytes": len(proposal_raw),
+            "contractName": MODULE.UI_GLOBAL_FLAGSHIP_RELEASE_PROPOSAL_CONTRACT,
+        },
+        "platforms": proposal_platforms,
+        "approvals": approval_projections,
+        "externalRequirements": external_requirements,
+        "authorityLevel": MODULE.UI_GLOBAL_FLAGSHIP_AUTHORITY_LEVEL,
+        "provenanceAuthenticated": False,
+        "nonPublishing": True,
+        "publicationAuthorized": False,
+        "allowedSideEffects": ["write_local_receipts"],
+        "handoff": {
+            "eligibleForSeparatePublicationReview": True,
+            "requiredNextAuthority": (
+                MODULE.UI_GLOBAL_FLAGSHIP_FINAL_REQUIRED_NEXT_AUTHORITY
+            ),
+        },
+    }
+    (root / "final-receipt.json").write_text(
+        json.dumps(final_receipt, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    convergence = {"targetVersion": 1}
+    post_marker = {
+        "contractName": MODULE.HUB_GLOBAL_FLAGSHIP_POST_MARKER_CONTRACT,
+        "status": "pass",
+        "boundary": "post-marker",
+        "operationRoot": "/operation",
+        "restoredVersion": 1,
+        "retiredAuthoritySha256": "b" * 64,
+        "markerConnectorGateSha256": "d" * 64,
+        "connectorConvergence": convergence,
+        "connectorConvergenceSha256": (
+            MODULE._global_flagship_canonical_object_sha256(convergence)
+        ),
+        "verifiedAtUtc": generated_at,
+    }
+    post_marker_sha256 = MODULE._global_flagship_canonical_object_sha256(
+        post_marker
+    )
+    (root / "post-marker-convergence-receipt.json").write_text(
+        json.dumps(post_marker, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    committed_boundary = {
+        "contractName": MODULE.HUB_GLOBAL_FLAGSHIP_TERMINAL_CONTRACT,
+        "status": "retired",
+        "operation": MODULE.HUB_GLOBAL_FLAGSHIP_TERMINAL_OPERATION,
+        "operationRoot": "/operation",
+        "projectName": "chummer",
+        "operationSourceHead": "c" * 40,
+        "controllerSourceHead": "b" * 40,
+        "retiredAuthorityPath": "retired-authority.json",
+        "retiredAuthoritySha256": "b" * 64,
+        "retirementEvidencePath": "retirement-evidence.json",
+        "retirementEvidenceSha256": "c" * 64,
+        "connectorGateSha256": "d" * 64,
+        "postMarkerConnectorGateSha256": post_marker_sha256,
+        "latestConnectorGateSha256": post_marker_sha256,
+        "priorConfigSha256": "f" * 64,
+        "restoredVersion": 1,
+        "incumbentBaselineSha256": "1" * 64,
+        "incumbentObservationSha256": "1" * 64,
+        "cleanupSha256": "2" * 64,
+        "completedAtUtc": generated_at,
+    }
+    (root / "committed-boundary-receipt.json").write_text(
+        json.dumps(committed_boundary, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    topology = {
+        "contractName": MODULE.HUB_GLOBAL_FLAGSHIP_TOPOLOGY_CONTRACT,
+        "contractVersion": 1,
+        "generatedAt": generated_at,
+        "status": "passed",
+        "source": {
+            "repository": "ArchonMegalon/chummer6-hub",
+            "ref": "refs/heads/main",
+            "commit": "b" * 40,
+        },
+        "sidecarAuthorityRetired": True,
+        "activeSidecarMarkerCount": 0,
+        "activeSidecarMarkers": [],
+        "retiredAuthoritySha256": "b" * 64,
+        "committedBoundaryReceipt": {
+            "sha256": hashlib.sha256(
+                (root / "committed-boundary-receipt.json").read_bytes()
+            ).hexdigest(),
+            "sizeBytes": (
+                root / "committed-boundary-receipt.json"
+            ).stat().st_size,
+        },
+        "postMarkerConvergenceReceipt": {
+            "sha256": hashlib.sha256(
+                (root / "post-marker-convergence-receipt.json").read_bytes()
+            ).hexdigest(),
+            "sizeBytes": (
+                root / "post-marker-convergence-receipt.json"
+            ).stat().st_size,
+        },
+        "canonicalAuthority": {
+            "baseUrl": "https://chummer.run/downloads",
+            "manifestUrl": (
+                "https://chummer.run/downloads/"
+                "RELEASE_CHANNEL.generated.json"
+            ),
+            "publisherPath": "scripts/publish-download-bundle-http.sh",
+            "publisherSha256": "e" * 64,
+        },
+    }
+    (root / "topology-retirement.json").write_text(
+        json.dumps(topology, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    (root / "previous-manifest.json").write_text(
+        json.dumps(
+            {
+                "contractName": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+                "schemaVersion": 1,
+                "generationId": "previous-generation-20260715",
+                "status": "published",
+                "version": previous_release_version,
+                "releaseVersion": previous_release_version,
+                "artifacts": [
+                    {
+                        "id": artifact["artifactId"],
+                        "artifactId": artifact["artifactId"],
+                        "platform": artifact["platform"],
+                        "rid": artifact["rid"],
+                        "fileName": artifact["fileName"],
+                        "version": previous_release_version,
+                        "releaseVersion": previous_release_version,
+                        "sha256": artifact["sha256"],
+                        "sizeBytes": artifact["sizeBytes"],
+                    }
+                    for artifact in artifacts
+                ],
+            },
+            sort_keys=True,
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    topology_reference = _file_reference(root, "topology-retirement.json")
+    destination_intent = {
+        "contractName": MODULE.UI_GLOBAL_FLAGSHIP_DESTINATION_INTENT_CONTRACT,
+        "contractVersion": 1,
+        "candidateId": candidate_id,
+        "releaseVersion": release_version,
+        "sourceChannel": "preview",
+        "targetChannel": "public_stable",
+        "baseUrl": "https://chummer.run/downloads",
+        "previousManifest": _file_reference(root, "previous-manifest.json"),
+        "topologyRetirementProof": topology_reference,
+        "artifactInventory": inventory,
+        "artifactInventorySha256": inventory_sha256,
+    }
+    (root / "destination-intent.json").write_text(
+        json.dumps(destination_intent, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+
+    startup_receipts = []
+    for artifact in sorted(artifacts, key=lambda row: row["platform"]):
+        relative_path = (
+            "public-bundle/startup-smoke/"
+            f"startup-smoke-avalonia-{artifact['rid']}.receipt.json"
+        )
+        startup_receipts.append(
+            {
+                **_file_reference(root, relative_path),
+                "platform": artifact["platform"],
+                "rid": artifact["rid"],
+                "artifactId": artifact["artifactId"],
+                "fileName": artifact["fileName"],
+            }
+        )
+
+    authority = {
+        "contractName": (
+            MODULE.UI_GLOBAL_FLAGSHIP_CHANNEL_PROMOTION_AUTHORITY_CONTRACT
+        ),
+        "contractVersion": 1,
+        "generatedAt": generated_at,
+        "releaseProfile": "global_flagship",
+        "sourceChannel": "preview",
+        "targetChannel": "public_stable",
+        "candidateId": candidate_id,
+        "releaseVersion": release_version,
+        "assembly": {
+            "repository": "ArchonMegalon/chummer6-ui",
+            "workflow": (
+                ".github/workflows/"
+                "global-flagship-publication-input-assembly.yml"
+            ),
+            "ref": "refs/heads/main",
+            "sha": "a" * 40,
+            "runId": 123456789,
+            "runAttempt": 1,
+            "actor": "tibor",
+            "triggeringActor": "tibor",
+            "environment": "global-flagship-publication-input-assembly",
+        },
+        "artifactInventorySha256": inventory_sha256,
+        "destinationIntent": _file_reference(root, "destination-intent.json"),
+        "candidateManifest": _file_reference(
+            root,
+            "GLOBAL_FLAGSHIP_CANDIDATE.generated.json",
+        ),
+        "proposal": _file_reference(
+            root,
+            "GLOBAL_FLAGSHIP_RELEASE_PROPOSAL.generated.json",
+        ),
+        "finalApprovalReceipt": _file_reference(root, "final-receipt.json"),
+        "approvals": {
+            role: _file_reference(root, f"approvals/{role}/approval.json")
+            for role in ("quality", "release", "security")
+        },
+        "hubEvidence": {
+            "topologyRetirement": topology_reference,
+            "committedBoundaryReceipt": _file_reference(
+                root,
+                "committed-boundary-receipt.json",
+            ),
+            "postMarkerConvergenceReceipt": _file_reference(
+                root,
+                "post-marker-convergence-receipt.json",
+            ),
+        },
+        "startupReceipts": startup_receipts,
+        "registryProjectionAuthorized": True,
+        "publicationMutationAuthorized": False,
+    }
+    authority_path = root / "channel-promotion-authority.json"
+    authority_path.write_text(
+        json.dumps(authority, sort_keys=True) + "\n",
+        encoding="utf-8",
+    )
+    return authority_path
+
+
+def _global_flagship_materialization_fixture(
+    root: Path,
+    *,
+    source_channel: str = "stable",
+    target_channel: str = "stable",
+    include_promotion_authority: bool = False,
+) -> tuple[argparse.Namespace, str]:
+    release_version = "run-20260725-120000"
+    generated_at = (
+        MODULE.dt.datetime.now(MODULE.UTC)
+        .replace(microsecond=0)
+        .isoformat()
+        .replace("+00:00", "Z")
+    )
+    downloads_dir = root / "public-bundle" / "files"
+    downloads_dir.mkdir(parents=True)
+    artifact_specs = (
+        (
+            "avalonia-linux-x64-installer",
+            "chummer-avalonia-linux-x64-installer.deb",
+            "linux",
+            "linux-x64",
+            "x64",
+        ),
+        (
+            "avalonia-win-x64-installer",
+            "chummer-avalonia-win-x64-installer.exe",
+            "windows",
+            "win-x64",
+            "x64",
+        ),
+        (
+            "avalonia-osx-arm64-installer",
+            "chummer-avalonia-osx-arm64-installer.dmg",
+            "macos",
+            "osx-arm64",
+            "arm64",
+        ),
+    )
+    artifacts = []
+    candidate = {}
+    startup_smoke_dir = root / "public-bundle" / "startup-smoke"
+    startup_smoke_dir.mkdir()
+    os_names = {
+        "linux": "Linux 6.8",
+        "windows": "Windows 11",
+        "macos": "macOS 15.0",
+    }
+    for artifact_id, file_name, platform, rid, arch in artifact_specs:
+        artifact_path = downloads_dir / file_name
+        artifact_path.write_bytes(f"flagship-bytes:{artifact_id}".encode("utf-8"))
+        digest = hashlib.sha256(artifact_path.read_bytes()).hexdigest()
+        size_bytes = artifact_path.stat().st_size
+        url = f"https://chummer.run/downloads/files/{file_name}"
+        artifacts.append(
+            {
+                "id": artifact_id,
+                "artifactId": artifact_id,
+                "head": "avalonia",
+                "platform": platform,
+                "rid": rid,
+                "arch": arch,
+                "kind": "installer",
+                "fileName": file_name,
+                "url": url,
+                "downloadUrl": url,
+                "sha256": digest,
+                "sizeBytes": size_bytes,
+                "compatibilityState": "compatible",
+                "installAccessClass": "open_public",
+                "channelId": source_channel,
+                "channel": source_channel,
+                "version": release_version,
+                "releaseVersion": release_version,
+            }
+        )
+        (startup_smoke_dir / f"startup-smoke-avalonia-{rid}.receipt.json").write_text(
+            json.dumps(
+                {
+                    "status": "pass",
+                    "readyCheckpoint": "pre_ui_event_loop",
+                    "recordedAtUtc": generated_at,
+                    "headId": "avalonia",
+                    "platform": platform,
+                    "rid": rid,
+                    "arch": arch,
+                    "hostClass": f"{platform}-host",
+                    "operatingSystem": os_names[platform],
+                    "channelId": source_channel,
+                    "releaseVersion": release_version,
+                    "artifactDigest": f"sha256:{digest}",
+                    "artifactId": artifact_id,
+                    "artifactFileName": file_name,
+                    "artifactRelativePath": f"files/{file_name}",
+                }
+            ),
+            encoding="utf-8",
+        )
+        if platform == "macos":
+            candidate = {
+                "artifactId": artifact_id,
+                "fileName": file_name,
+                "sha256": digest,
+                "sizeBytes": size_bytes,
+            }
+
+    manifest_path = root / "seed.json"
+    manifest_path.write_text(
+        json.dumps(
+            {
+                "contractName": MODULE.DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME,
+                "product": "chummer6",
+                "channelId": source_channel,
+                "channel": source_channel,
+                "status": "published",
+                "artifacts": artifacts,
+            }
+        ),
+        encoding="utf-8",
+    )
+    proof_path = root / "proof.json"
+    proof_path.write_text(
+        json.dumps(complete_release_proof(generated_at)),
+        encoding="utf-8",
+    )
+    readiness_path = root / "flagship-readiness.json"
+    readiness_path.write_text(
+        json.dumps(
+            {
+                "contract_name": MODULE.FLAGSHIP_READINESS_CONTRACT_NAME,
+                "status": "pass",
+                "generated_at_utc": generated_at,
+                "reason": "All launch-critical flagship readiness checks pass.",
+                "summary": {
+                    "scoped_coverage_gap_keys": [],
+                    "launch_critical_nested_blockers": [],
+                },
+            }
+        ),
+        encoding="utf-8",
+    )
+    evidence_path = root / "macos-flagship-evidence.json"
+    _write_canonical_macos_flagship_evidence(
+        evidence_path,
+        candidate=candidate,
+        release_version=release_version,
+        generated_at=generated_at,
+    )
+    channel_promotion_authority = None
+    if include_promotion_authority:
+        channel_promotion_authority = (
+            _write_global_flagship_channel_promotion_authority(
+                root,
+                artifacts=artifacts,
+                release_version=release_version,
+                generated_at=generated_at,
+            )
+        )
+    return (
+        materializer_args(
+            manifest=manifest_path,
+            downloads_dir=downloads_dir,
+            startup_smoke_dir=startup_smoke_dir,
+            startup_smoke_max_age_seconds=MODULE.STARTUP_SMOKE_MAX_AGE_SECONDS,
+            startup_smoke_max_future_skew_seconds=(
+                MODULE.STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS
+            ),
+            skip_startup_smoke_filter=False,
+            output=root / "RELEASE_CHANNEL.generated.json",
+            compat_output=root / "releases.json",
+            runtime_bundles=None,
+            proof=proof_path,
+            ui_localization_release_gate=None,
+            flagship_readiness=readiness_path,
+            macos_flagship_evidence=evidence_path,
+            channel_promotion_authority=channel_promotion_authority,
+            product="chummer6",
+            channel=target_channel,
+            version=release_version,
+            contract_name="",
+            published_at=generated_at,
+            artifact_source="ui_desktop_bundle",
+            downloads_prefix="https://chummer.run/downloads/files",
+            required_desktop_heads="avalonia",
+            required_desktop_platforms="linux,windows,macos",
+        ),
+        release_version,
+    )
+
+
 def load_tests(loader, tests, pattern):
     return tests
+
+
+def test_global_flagship_v2_materialization_and_verifier_projection_parity() -> None:
+    from jsonschema import Draft202012Validator
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, release_version = _global_flagship_materialization_fixture(root)
+        canonical = MODULE.canonical_payload(args)
+        canonical["publicTrustMetrics"] = MODULE.expected_public_trust_metrics(
+            canonical
+        )
+        canonical["registryBoundaryCoverage"] = (
+            MODULE.expected_registry_boundary_coverage(canonical)
+        )
+        compatibility = MODULE.compatibility_payload(canonical)
+        compatibility["publicTrustMetrics"] = MODULE.expected_public_trust_metrics(
+            compatibility
+        )
+        compatibility["registryBoundaryCoverage"] = (
+            MODULE.expected_registry_boundary_coverage(compatibility)
+        )
+
+        assert canonical["schemaVersion"] == 2
+        assert canonical["contractVersion"] == 2
+        assert canonical["releaseProfile"] == "global_flagship"
+        assert canonical["version"] == release_version
+        assert len(canonical["artifacts"]) == 3
+        macos = next(
+            row for row in canonical["artifacts"] if row["platform"] == "macos"
+        )
+        assert macos["fileName"].endswith(".dmg")
+        assert macos["macosFlagshipEvidence"]["github"]["runId"] == 123456789
+        evidence_bytes = args.macos_flagship_evidence.read_bytes()
+        assert evidence_bytes.endswith(b"\n")
+        assert macos["macosFlagshipEvidence"]["source"] == {
+            "contractName": MODULE.UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT,
+            "contractVersion": MODULE.UI_MACOS_FLAGSHIP_EVIDENCE_CONTRACT_VERSION,
+            "sha256": hashlib.sha256(evidence_bytes).hexdigest(),
+            "sizeBytes": len(evidence_bytes),
+        }
+        assert (
+            macos["macosFlagshipEvidence"]["receiptBindings"]["notaryResult"][
+                "path"
+            ]
+            == "receipts/notaryResult.json"
+        )
+
+        VERIFY_MODULE.verify_contract_identity(canonical, "canonical")
+        VERIFY_MODULE.verify_artifacts(
+            canonical,
+            "canonical",
+            require_complete_desktop_coverage=True,
+        )
+        VERIFY_MODULE.verify_contract_identity(compatibility, "compatibility")
+        VERIFY_MODULE.verify_artifacts(
+            compatibility,
+            "compatibility",
+            require_complete_desktop_coverage=True,
+        )
+        schema = json.loads(
+            (
+                SCRIPT.parents[1]
+                / "contracts"
+                / "global-flagship-release-channel-v2.schema.json"
+            ).read_text(encoding="utf-8")
+        )
+        Draft202012Validator(schema).validate(canonical)
+        Draft202012Validator(schema).validate(compatibility)
+
+        args.output.write_text(
+            json.dumps(canonical, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        args.compat_output.write_text(
+            json.dumps(compatibility, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        VERIFY_MODULE.verify_directory_projection_alignment(str(root))
+
+        tampered = json.loads(json.dumps(canonical))
+        tampered_macos = next(
+            row for row in tampered["artifacts"] if row["platform"] == "macos"
+        )
+        tampered_macos["macosFlagshipEvidence"]["candidate"]["sha256"] = "f" * 64
+        with pytest.raises(SystemExit, match="does not bind the published DMG bytes"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                tampered,
+                "tampered",
+            )
+        missing_macos = json.loads(json.dumps(canonical))
+        missing_macos["artifacts"] = [
+            row
+            for row in missing_macos["artifacts"]
+            if row["platform"] != "macos"
+        ]
+        with pytest.raises(SystemExit, match="exactly three desktop artifacts"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                missing_macos,
+                "missing-macos",
+            )
+        duplicate_macos = json.loads(json.dumps(canonical))
+        duplicate_macos["artifacts"][0] = json.loads(json.dumps(macos))
+        with pytest.raises(SystemExit, match="unique"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                duplicate_macos,
+                "duplicate-macos",
+            )
+        bypass_args = argparse.Namespace(**vars(args))
+        bypass_args.skip_startup_smoke_filter = True
+        with pytest.raises(ValueError, match="forbids the smoke-filter bypass"):
+            MODULE.canonical_payload(bypass_args)
+
+        drifted_runner = json.loads(
+            args.macos_flagship_evidence.read_text(encoding="utf-8")
+        )
+        drifted_runner["runner"]["imageOS"] = "macos26"
+        args.macos_flagship_evidence.write_text(
+            json.dumps(drifted_runner, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(
+            ValueError,
+            match="hosted runner identity is invalid",
+        ):
+            MODULE.canonical_payload(args)
+
+
+def test_global_flagship_preview_to_public_stable_requires_bound_promotion_authority() -> None:
+    from jsonschema import Draft202012Validator
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, release_version = _global_flagship_materialization_fixture(
+            root,
+            source_channel="preview",
+            target_channel="public_stable",
+            include_promotion_authority=True,
+        )
+        canonical = MODULE.canonical_payload(args)
+        compatibility = MODULE.compatibility_payload(canonical)
+        binding = canonical["channelPromotionAuthority"]
+
+        assert canonical["channelId"] == "public_stable"
+        assert canonical["channel"] == "public_stable"
+        assert canonical["rolloutState"] == "public_stable"
+        assert binding["sourceChannel"] == "preview"
+        assert binding["targetChannel"] == "public_stable"
+        assert binding["releaseVersion"] == release_version
+        assert binding["registryProjectionAuthorized"] is True
+        assert binding["publicationMutationAuthorized"] is False
+        proposal = json.loads(
+            (
+                root / "GLOBAL_FLAGSHIP_RELEASE_PROPOSAL.generated.json"
+            ).read_text(encoding="utf-8")
+        )
+        assert proposal["externalRequirements"] == [
+            dict(requirement)
+            for requirement in MODULE.UI_GLOBAL_FLAGSHIP_EXTERNAL_REQUIREMENTS
+        ]
+        assert (
+            compatibility["channelPromotionAuthority"]
+            == canonical["channelPromotionAuthority"]
+        )
+
+        VERIFY_MODULE.verify_artifacts(
+            canonical,
+            "promoted-canonical",
+            require_complete_desktop_coverage=True,
+        )
+        VERIFY_MODULE.verify_artifacts(
+            compatibility,
+            "promoted-compatibility",
+            require_complete_desktop_coverage=True,
+        )
+        VERIFY_MODULE.verify_local_download_files(
+            canonical,
+            root / "public-bundle",
+            "promoted-local-bundle",
+        )
+        schema = json.loads(
+            (
+                SCRIPT.parents[1]
+                / "contracts"
+                / "global-flagship-release-channel-v2.schema.json"
+            ).read_text(encoding="utf-8")
+        )
+        Draft202012Validator(schema).validate(canonical)
+        Draft202012Validator(schema).validate(compatibility)
+
+        missing_authority_args = argparse.Namespace(**vars(args))
+        missing_authority_args.channel_promotion_authority = None
+        with pytest.raises(ValueError, match="channel-promotion-authority"):
+            MODULE.canonical_payload(missing_authority_args)
+
+        tampered_authority = json.loads(
+            args.channel_promotion_authority.read_text(encoding="utf-8")
+        )
+        tampered_authority["sourceChannel"] = "public_edge"
+        args.channel_promotion_authority.write_text(
+            json.dumps(tampered_authority, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError, match="authority posture"):
+            MODULE.canonical_payload(args)
+
+
+def test_global_flagship_proposal_rejects_external_requirement_drift() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(
+            root,
+            source_channel="preview",
+            target_channel="public_stable",
+            include_promotion_authority=True,
+        )
+        MODULE.canonical_payload(args)
+        authority = json.loads(
+            args.channel_promotion_authority.read_text(encoding="utf-8")
+        )
+        proposal_path = root / "GLOBAL_FLAGSHIP_RELEASE_PROPOSAL.generated.json"
+        proposal = json.loads(proposal_path.read_text(encoding="utf-8"))
+        proposal["externalRequirements"][0]["requirement"] += " Drifted."
+        proposal_path.write_text(
+            json.dumps(proposal, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        authority["proposal"] = _file_reference(
+            root,
+            "GLOBAL_FLAGSHIP_RELEASE_PROPOSAL.generated.json",
+        )
+        args.channel_promotion_authority.write_text(
+            json.dumps(authority, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="global flagship referenced proposal posture is invalid",
+        ):
+            MODULE.canonical_payload(args)
+
+
+@pytest.mark.parametrize(
+    "tamper",
+    [
+        "candidate-contract-version",
+        "candidate-source-repository",
+        "candidate-source-ref",
+        "candidate-source-commit",
+        "candidate-producer-extra-version",
+        "candidate-producer-artifact-name",
+        "candidate-provider-actor-missing",
+        "candidate-provider-actor-overlap",
+        "candidate-platforms-empty",
+        "candidate-platform-artifact-id",
+        "candidate-platform-artifact-name",
+        "candidate-platform-artifact-digest",
+        "candidate-platform-artifact-size",
+        "candidate-linux-signing-null",
+        "candidate-linux-signing-digest",
+        "proposal-rejected",
+        "proposal-excluded-provider",
+        "final-rejected",
+        "approval-wrong-role",
+        "topology-failed",
+        "committed-boundary-failed",
+        "post-marker-failed",
+    ],
+)
+def test_global_flagship_promotion_authority_rejects_semantically_resealed_tampering(
+    tamper: str,
+) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(
+            root,
+            source_channel="preview",
+            target_channel="public_stable",
+            include_promotion_authority=True,
+        )
+        authority = json.loads(
+            args.channel_promotion_authority.read_text(encoding="utf-8")
+        )
+
+        def rewrite(
+            relative_path: str,
+            payload: dict,
+            reference: dict,
+        ) -> None:
+            (root / relative_path).write_text(
+                json.dumps(payload, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            reference.clear()
+            reference.update(_file_reference(root, relative_path))
+
+        if tamper == "candidate-contract-version":
+            path = "GLOBAL_FLAGSHIP_CANDIDATE.generated.json"
+            payload = json.loads((root / path).read_text(encoding="utf-8"))
+            payload["contractVersion"] = 999
+            rewrite(path, payload, authority["candidateManifest"])
+        elif tamper.startswith("candidate-source-"):
+            path = "GLOBAL_FLAGSHIP_CANDIDATE.generated.json"
+            payload = json.loads((root / path).read_text(encoding="utf-8"))
+            field = tamper.removeprefix("candidate-source-")
+            payload["source"][field] = {
+                "repository": "ArchonMegalon/not-chummer6-ui",
+                "ref": "refs/heads/not-main",
+                "commit": "f" * 40,
+            }[field]
+            rewrite(path, payload, authority["candidateManifest"])
+        elif tamper == "candidate-producer-extra-version":
+            path = "GLOBAL_FLAGSHIP_CANDIDATE.generated.json"
+            payload = json.loads((root / path).read_text(encoding="utf-8"))
+            payload["producer"]["contractVersion"] = 1
+            rewrite(path, payload, authority["candidateManifest"])
+        elif tamper == "candidate-producer-artifact-name":
+            path = "GLOBAL_FLAGSHIP_CANDIDATE.generated.json"
+            payload = json.loads((root / path).read_text(encoding="utf-8"))
+            payload["producer"]["artifactName"] = "unbound-candidate-payload"
+            rewrite(path, payload, authority["candidateManifest"])
+        elif tamper == "candidate-provider-actor-missing":
+            path = "GLOBAL_FLAGSHIP_CANDIDATE.generated.json"
+            payload = json.loads((root / path).read_text(encoding="utf-8"))
+            payload["providerActors"].pop("macos-handoff")
+            rewrite(path, payload, authority["candidateManifest"])
+        elif tamper == "candidate-provider-actor-overlap":
+            path = "GLOBAL_FLAGSHIP_CANDIDATE.generated.json"
+            payload = json.loads((root / path).read_text(encoding="utf-8"))
+            payload["providerActors"]["windows-export"] = payload[
+                "producer"
+            ]["actor"]
+            rewrite(path, payload, authority["candidateManifest"])
+        elif tamper.startswith("candidate-linux-signing-"):
+            path = "GLOBAL_FLAGSHIP_CANDIDATE.generated.json"
+            payload = json.loads((root / path).read_text(encoding="utf-8"))
+            signing = payload["platforms"]["linux"]["signingReceipt"]
+            if tamper == "candidate-linux-signing-null":
+                payload["platforms"]["linux"]["signingReceipt"] = None
+            elif tamper == "candidate-linux-signing-digest":
+                signing["sha256"] = "f" * 64
+            else:  # pragma: no cover
+                raise AssertionError(tamper)
+            rewrite(path, payload, authority["candidateManifest"])
+        elif tamper.startswith("candidate-platform"):
+            path = "GLOBAL_FLAGSHIP_CANDIDATE.generated.json"
+            payload = json.loads((root / path).read_text(encoding="utf-8"))
+            if tamper == "candidate-platforms-empty":
+                payload["platforms"] = {}
+            else:
+                artifact = payload["platforms"]["macos"]["artifact"]
+                field = tamper.removeprefix("candidate-platform-artifact-")
+                if field == "id":
+                    artifact["artifactId"] = "not-the-macos-artifact"
+                elif field == "name":
+                    artifact["fileName"] = "not-the-macos-installer.dmg"
+                elif field == "digest":
+                    artifact["sha256"] = "f" * 64
+                elif field == "size":
+                    artifact["sizeBytes"] += 1
+                else:  # pragma: no cover
+                    raise AssertionError(tamper)
+            rewrite(path, payload, authority["candidateManifest"])
+        elif tamper == "proposal-rejected":
+            path = "GLOBAL_FLAGSHIP_RELEASE_PROPOSAL.generated.json"
+            payload = json.loads((root / path).read_text(encoding="utf-8"))
+            payload["status"] = "rejected"
+            rewrite(path, payload, authority["proposal"])
+        elif tamper == "proposal-excluded-provider":
+            path = "GLOBAL_FLAGSHIP_RELEASE_PROPOSAL.generated.json"
+            payload = json.loads((root / path).read_text(encoding="utf-8"))
+            payload["excludedApprovalActors"].remove("release-operator")
+            rewrite(path, payload, authority["proposal"])
+        elif tamper == "final-rejected":
+            path = "final-receipt.json"
+            payload = json.loads((root / path).read_text(encoding="utf-8"))
+            payload["status"] = "rejected"
+            rewrite(path, payload, authority["finalApprovalReceipt"])
+        elif tamper == "approval-wrong-role":
+            path = "approvals/security/approval.json"
+            payload = json.loads((root / path).read_text(encoding="utf-8"))
+            payload["role"] = "quality"
+            payload["reviewerPolicy"]["role"] = "quality"
+            rewrite(path, payload, authority["approvals"]["security"])
+        elif tamper == "topology-failed":
+            path = "topology-retirement.json"
+            payload = json.loads((root / path).read_text(encoding="utf-8"))
+            payload["status"] = "failed"
+            rewrite(path, payload, authority["hubEvidence"]["topologyRetirement"])
+        elif tamper == "committed-boundary-failed":
+            path = "committed-boundary-receipt.json"
+            payload = json.loads((root / path).read_text(encoding="utf-8"))
+            payload["status"] = "failed"
+            rewrite(
+                path,
+                payload,
+                authority["hubEvidence"]["committedBoundaryReceipt"],
+            )
+            topology_path = "topology-retirement.json"
+            topology = json.loads(
+                (root / topology_path).read_text(encoding="utf-8")
+            )
+            topology["committedBoundaryReceipt"] = {
+                key: authority["hubEvidence"]["committedBoundaryReceipt"][key]
+                for key in ("sha256", "sizeBytes")
+            }
+            rewrite(
+                topology_path,
+                topology,
+                authority["hubEvidence"]["topologyRetirement"],
+            )
+        elif tamper == "post-marker-failed":
+            path = "post-marker-convergence-receipt.json"
+            payload = json.loads((root / path).read_text(encoding="utf-8"))
+            payload["status"] = "failed"
+            rewrite(
+                path,
+                payload,
+                authority["hubEvidence"]["postMarkerConvergenceReceipt"],
+            )
+            post_marker_sha = (
+                MODULE._global_flagship_canonical_object_sha256(payload)
+            )
+            terminal_path = "committed-boundary-receipt.json"
+            terminal = json.loads(
+                (root / terminal_path).read_text(encoding="utf-8")
+            )
+            terminal["postMarkerConnectorGateSha256"] = post_marker_sha
+            terminal["latestConnectorGateSha256"] = post_marker_sha
+            rewrite(
+                terminal_path,
+                terminal,
+                authority["hubEvidence"]["committedBoundaryReceipt"],
+            )
+            topology_path = "topology-retirement.json"
+            topology = json.loads(
+                (root / topology_path).read_text(encoding="utf-8")
+            )
+            topology["committedBoundaryReceipt"] = {
+                key: authority["hubEvidence"]["committedBoundaryReceipt"][key]
+                for key in ("sha256", "sizeBytes")
+            }
+            topology["postMarkerConvergenceReceipt"] = {
+                key: authority["hubEvidence"][
+                    "postMarkerConvergenceReceipt"
+                ][key]
+                for key in ("sha256", "sizeBytes")
+            }
+            rewrite(
+                topology_path,
+                topology,
+                authority["hubEvidence"]["topologyRetirement"],
+            )
+        else:  # pragma: no cover
+            raise AssertionError(tamper)
+
+        args.channel_promotion_authority.write_text(
+            json.dumps(authority, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError):
+            MODULE.canonical_payload(args)
+
+
+def test_global_flagship_promotion_approvals_require_distinct_actors_and_runs() -> None:
+    for field in ("actor", "runId"):
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            args, _ = _global_flagship_materialization_fixture(
+                root,
+                source_channel="preview",
+                target_channel="public_stable",
+                include_promotion_authority=True,
+            )
+            authority = json.loads(
+                args.channel_promotion_authority.read_text(encoding="utf-8")
+            )
+            release_path = root / "approvals/release/approval.json"
+            security_path = root / "approvals/security/approval.json"
+            release = json.loads(release_path.read_text(encoding="utf-8"))
+            security = json.loads(security_path.read_text(encoding="utf-8"))
+            if field == "actor":
+                security["actor"] = release["actor"]
+                security["triggeringActor"] = release["actor"]
+            else:
+                security["authority"]["runId"] = release["authority"]["runId"]
+            security_path.write_text(
+                json.dumps(security, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            authority["approvals"]["security"] = _file_reference(
+                root,
+                "approvals/security/approval.json",
+            )
+            args.channel_promotion_authority.write_text(
+                json.dumps(authority, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+            with pytest.raises(ValueError, match="independent role authorities"):
+                MODULE.canonical_payload(args)
+
+
+def test_global_flagship_promotion_generated_at_rejects_future_skew(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(
+            root,
+            source_channel="preview",
+            target_channel="public_stable",
+            include_promotion_authority=True,
+        )
+        now = MODULE.parse_iso(args.published_at)
+        assert now is not None
+        monkeypatch.setattr(MODULE, "utc_now", lambda: now)
+        authority = json.loads(
+            args.channel_promotion_authority.read_text(encoding="utf-8")
+        )
+        authority["generatedAt"] = (
+            now
+            + MODULE.dt.timedelta(
+                seconds=MODULE.STARTUP_SMOKE_MAX_FUTURE_SKEW_SECONDS + 1
+            )
+        ).isoformat().replace("+00:00", "Z")
+        args.channel_promotion_authority.write_text(
+            json.dumps(authority, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError, match="authority posture"):
+            MODULE.canonical_payload(args)
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "arbitrary-json",
+        "duplicate-key",
+        "wrong-release",
+        "preview-channel",
+    ],
+)
+def test_global_flagship_destination_previous_manifest_is_semantically_bound(
+    mutation: str,
+) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(
+            root,
+            source_channel="preview",
+            target_channel="public_stable",
+            include_promotion_authority=True,
+        )
+        authority = json.loads(
+            args.channel_promotion_authority.read_text(encoding="utf-8")
+        )
+        intent_path = root / authority["destinationIntent"]["path"]
+        intent = json.loads(intent_path.read_text(encoding="utf-8"))
+        previous_path = root / intent["previousManifest"]["path"]
+        previous = json.loads(previous_path.read_text(encoding="utf-8"))
+        if mutation == "arbitrary-json":
+            previous_path.write_text(
+                '{"arbitrary":true}\n',
+                encoding="utf-8",
+            )
+        elif mutation == "duplicate-key":
+            raw = previous_path.read_text(encoding="utf-8")
+            previous_path.write_text(
+                raw.replace(
+                    '"contractName":',
+                    (
+                        '"contractName":"Chummer.Hub.Registry.Contracts",'
+                        '"contractName":'
+                    ),
+                    1,
+                ),
+                encoding="utf-8",
+            )
+        elif mutation == "wrong-release":
+            previous["version"] = "run-incorrect-predecessor"
+            previous["releaseVersion"] = "run-incorrect-predecessor"
+            previous_path.write_text(
+                json.dumps(previous, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+        elif mutation == "preview-channel":
+            previous["channelId"] = "preview"
+            previous["channel"] = "preview"
+            previous_path.write_text(
+                json.dumps(previous, sort_keys=True) + "\n",
+                encoding="utf-8",
+            )
+        else:  # pragma: no cover
+            raise AssertionError(mutation)
+        intent["previousManifest"] = _file_reference(
+            root,
+            intent["previousManifest"]["path"],
+        )
+        intent_path.write_text(
+            json.dumps(intent, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        authority["destinationIntent"] = _file_reference(
+            root,
+            authority["destinationIntent"]["path"],
+        )
+        args.channel_promotion_authority.write_text(
+            json.dumps(authority, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError, match="previous manifest"):
+            MODULE.canonical_payload(args)
+
+
+@pytest.mark.parametrize("field", ["candidateId", "sourceCommit"])
+def test_global_flagship_macos_identity_must_match_promotion_candidate(
+    field: str,
+) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(
+            root,
+            source_channel="preview",
+            target_channel="public_stable",
+            include_promotion_authority=True,
+        )
+        evidence = json.loads(
+            args.macos_flagship_evidence.read_text(encoding="utf-8")
+        )
+        if field == "candidateId":
+            evidence["globalCandidateIdentity"][field] = (
+                "different-global-candidate"
+            )
+        else:
+            evidence["globalCandidateIdentity"][field] = "f" * 40
+            evidence["github"]["sha"] = "f" * 40
+        args.macos_flagship_evidence.write_text(
+            json.dumps(evidence, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(
+            ValueError,
+            match="does not match the promotion authority and candidate manifest",
+        ):
+            MODULE.canonical_payload(args)
+
+
+def test_global_flagship_promotion_references_require_real_parent_directories() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(
+            root,
+            source_channel="preview",
+            target_channel="public_stable",
+            include_promotion_authority=True,
+        )
+        approval_directory = root / "approvals" / "security"
+        real_directory = root / "security-approval-real"
+        approval_directory.rename(real_directory)
+        approval_directory.symlink_to(real_directory, target_is_directory=True)
+        with pytest.raises(
+            ValueError,
+            match="parent path must contain only real directories",
+        ):
+            MODULE.canonical_payload(args)
+
+
+@pytest.mark.parametrize("actor", [0, "", {}])
+def test_global_flagship_verifier_rejects_promotion_assembly_actor_type_confusion(
+    actor,
+) -> None:
+    from jsonschema import Draft202012Validator
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(
+            root,
+            source_channel="preview",
+            target_channel="public_stable",
+            include_promotion_authority=True,
+        )
+        canonical = MODULE.canonical_payload(args)
+        VERIFY_MODULE.verify_global_flagship_artifact_contract(
+            canonical,
+            "canonical-assembly-actor",
+        )
+        tampered = json.loads(json.dumps(canonical))
+        tampered["channelPromotionAuthority"]["assembly"]["actor"] = actor
+        tampered["channelPromotionAuthority"]["assembly"][
+            "triggeringActor"
+        ] = actor
+        schema = json.loads(
+            (
+                SCRIPT.parents[1]
+                / "contracts"
+                / "global-flagship-release-channel-v2.schema.json"
+            ).read_text(encoding="utf-8")
+        )
+        assert list(Draft202012Validator(schema).iter_errors(tampered))
+        with pytest.raises(SystemExit, match="assembly provenance is invalid"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                tampered,
+                "tampered-assembly-actor",
+            )
+
+
+@pytest.mark.parametrize(
+    ("projection_path", "replacement"),
+    [
+        (("candidateId",), "different-global-candidate"),
+        (("releaseVersion",), "run-20260725-120001"),
+        (("assembly", "sha"), "f" * 40),
+    ],
+)
+def test_global_flagship_verifier_cross_checks_promotion_projection_against_macos_identity(
+    projection_path: tuple[str, ...],
+    replacement: str,
+) -> None:
+    from jsonschema import Draft202012Validator
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(
+            root,
+            source_channel="preview",
+            target_channel="public_stable",
+            include_promotion_authority=True,
+        )
+        canonical = MODULE.canonical_payload(args)
+        tampered = json.loads(json.dumps(canonical))
+        projection = tampered["channelPromotionAuthority"]
+        for component in projection_path[:-1]:
+            projection = projection[component]
+        projection[projection_path[-1]] = replacement
+
+        schema = json.loads(
+            (
+                SCRIPT.parents[1]
+                / "contracts"
+                / "global-flagship-release-channel-v2.schema.json"
+            ).read_text(encoding="utf-8")
+        )
+        Draft202012Validator(schema).validate(tampered)
+        with pytest.raises(
+            SystemExit,
+            match=(
+                "must match the macOS "
+                "macosFlagshipEvidence.globalCandidateIdentity"
+            ),
+        ):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                tampered,
+                "tampered-promotion-projection",
+            )
+
+
+def test_global_flagship_promotion_assembly_run_attempt_is_exactly_one() -> None:
+    from jsonschema import Draft202012Validator
+
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(
+            root,
+            source_channel="preview",
+            target_channel="public_stable",
+            include_promotion_authority=True,
+        )
+        canonical = MODULE.canonical_payload(args)
+        authority = json.loads(
+            args.channel_promotion_authority.read_text(encoding="utf-8")
+        )
+        authority["assembly"]["runAttempt"] = 2
+        args.channel_promotion_authority.write_text(
+            json.dumps(authority, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError, match="assembly provenance is invalid"):
+            MODULE.canonical_payload(args)
+
+        tampered = json.loads(json.dumps(canonical))
+        tampered["channelPromotionAuthority"]["assembly"]["runAttempt"] = 2
+        schema = json.loads(
+            (
+                SCRIPT.parents[1]
+                / "contracts"
+                / "global-flagship-release-channel-v2.schema.json"
+            ).read_text(encoding="utf-8")
+        )
+        assert list(Draft202012Validator(schema).iter_errors(tampered))
+        with pytest.raises(SystemExit, match="assembly provenance is invalid"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                tampered,
+                "tampered-assembly-run-attempt",
+            )
+
+
+@pytest.mark.parametrize(
+    "mutation",
+    [
+        "wrong-relative-path",
+        "conflicting-file-name-alias",
+        "conflicting-artifact-path",
+        "conflicting-artifact-id-alias",
+    ],
+)
+def test_global_flagship_promotion_startup_receipts_require_exact_artifact_identity(
+    mutation: str,
+) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(
+            root,
+            source_channel="preview",
+            target_channel="public_stable",
+            include_promotion_authority=True,
+        )
+        authority = json.loads(
+            args.channel_promotion_authority.read_text(encoding="utf-8")
+        )
+        startup_binding = next(
+            row
+            for row in authority["startupReceipts"]
+            if row["platform"] == "linux"
+        )
+        receipt_path = root / startup_binding["path"]
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        if mutation == "wrong-relative-path":
+            receipt["artifactRelativePath"] = (
+                f"other/{startup_binding['fileName']}"
+            )
+        elif mutation == "conflicting-file-name-alias":
+            receipt["artifact_file_name"] = "conflicting-installer.deb"
+        elif mutation == "conflicting-artifact-path":
+            receipt["artifactPath"] = "/tmp/conflicting-installer.deb"
+        elif mutation == "conflicting-artifact-id-alias":
+            receipt["artifact_id"] = "conflicting-artifact"
+        else:  # pragma: no cover
+            raise AssertionError(mutation)
+        receipt_path.write_text(
+            json.dumps(receipt, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        updated_reference = _file_reference(
+            root,
+            startup_binding["path"],
+        )
+        for key in ("sha256", "sizeBytes"):
+            startup_binding[key] = updated_reference[key]
+        args.channel_promotion_authority.write_text(
+            json.dumps(authority, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+        with pytest.raises(ValueError, match="startup receipt is invalid"):
+            MODULE.canonical_payload(args)
+
+
+def test_global_flagship_startup_timestamp_aliases_must_agree() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(root)
+        canonical = MODULE.canonical_payload(args)
+        startup_dir = root / "public-bundle" / "startup-smoke"
+        receipt_path = (
+            startup_dir
+            / "startup-smoke-avalonia-linux-x64.receipt.json"
+        )
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        recorded_at = MODULE.parse_iso(receipt["recordedAtUtc"])
+        assert recorded_at is not None
+        receipt["completedAtUtc"] = (
+            recorded_at + MODULE.dt.timedelta(days=1)
+        ).isoformat().replace("+00:00", "Z")
+        receipt_path.write_text(
+            json.dumps(receipt, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(
+            ValueError,
+            match="exactly one canonical receipt",
+        ):
+            MODULE.load_startup_smoke_receipts(
+                startup_dir,
+                expected_channel="stable",
+                expected_release_version=canonical["releaseVersion"],
+                require_exact_global_flagship_set=True,
+                now=recorded_at,
+            )
+        with pytest.raises(
+            SystemExit,
+            match="timestamp is missing/invalid",
+        ):
+            VERIFY_MODULE.verify_local_startup_smoke_receipts(
+                canonical,
+                root / "public-bundle",
+                "timestamp-alias-conflict",
+            )
+
+
+def test_global_flagship_verifier_rejects_projection_and_alias_ambiguity() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(root)
+        canonical = MODULE.canonical_payload(args)
+
+        conflicting_id = json.loads(json.dumps(canonical))
+        conflicting_id["artifacts"][0]["id"] = "conflicting-artifact-id"
+        with pytest.raises(SystemExit, match="id aliases must agree"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                conflicting_id,
+                "conflicting-id",
+            )
+
+        conflicting_url = json.loads(json.dumps(canonical))
+        conflicting_url["artifacts"][0]["url"] = (
+            "https://chummer.run/downloads/files/conflicting-installer.deb"
+        )
+        with pytest.raises(SystemExit, match="canonical public URL"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                conflicting_url,
+                "conflicting-url",
+            )
+
+        conflicting_projection = json.loads(json.dumps(canonical))
+        conflicting_projection["downloads"] = [{"arbitrary": "ignored-before-fix"}]
+        with pytest.raises(SystemExit, match="exactly one artifacts/downloads projection"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                conflicting_projection,
+                "conflicting-projection",
+            )
+
+        uppercase_identity = json.loads(json.dumps(canonical))
+        uppercase_identity["artifacts"][0]["artifactId"] = (
+            uppercase_identity["artifacts"][0]["artifactId"].upper()
+        )
+        uppercase_identity["artifacts"][0]["id"] = (
+            uppercase_identity["artifacts"][0]["artifactId"]
+        )
+        with pytest.raises(SystemExit, match="exact Linux/Windows/macOS inventory"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                uppercase_identity,
+                "uppercase-identity",
+            )
+
+        padded_file_name = json.loads(json.dumps(canonical))
+        padded_file_name["artifacts"][0]["fileName"] = (
+            f" {padded_file_name['artifacts'][0]['fileName']} "
+        )
+        with pytest.raises(SystemExit, match="exact Linux/Windows/macOS inventory"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                padded_file_name,
+                "padded-file-name",
+            )
+
+        uppercase_tuple = json.loads(json.dumps(canonical))
+        for key in ("head", "platform", "rid", "kind"):
+            uppercase_tuple["artifacts"][0][key] = (
+                uppercase_tuple["artifacts"][0][key].upper()
+            )
+        with pytest.raises(SystemExit, match="exact canonical values"):
+            VERIFY_MODULE.verify_global_flagship_artifact_contract(
+                uppercase_tuple,
+                "uppercase-tuple",
+            )
+
+        uppercase_posture = json.loads(json.dumps(canonical))
+        uppercase_posture["status"] = "PUBLISHED"
+        with pytest.raises(SystemExit, match="published, gold-supported"):
+            VERIFY_MODULE.verify_global_flagship_contract_identity(
+                uppercase_posture,
+                "uppercase-posture",
+            )
+
+
+def test_global_flagship_verifier_requires_macos_startup_smoke_authority() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(root)
+        canonical = MODULE.canonical_payload(args)
+        expected_tuples = {
+            ("avalonia", "linux", "linux-x64"),
+            ("avalonia", "windows", "win-x64"),
+            ("avalonia", "macos", "osx-arm64"),
+        }
+
+        assert (
+            set(VERIFY_MODULE.iter_promoted_desktop_installer_tuples(canonical))
+            == expected_tuples
+        )
+        assert (
+            set(VERIFY_MODULE.promoted_desktop_installer_tuple_sha_map(canonical))
+            == expected_tuples
+        )
+        assert (
+            set(
+                VERIFY_MODULE.promoted_desktop_installer_tuple_identity_map(
+                    canonical
+                )
+            )
+            == expected_tuples
+        )
+        VERIFY_MODULE.verify_local_startup_smoke_receipts(
+            canonical,
+            root / "public-bundle",
+            "global-flagship",
+        )
+
+        linux_receipt_path = (
+            root
+            / "public-bundle"
+            / "startup-smoke"
+            / "startup-smoke-avalonia-linux-x64.receipt.json"
+        )
+        linux_receipt = json.loads(
+            linux_receipt_path.read_text(encoding="utf-8")
+        )
+        tampered_file_name = dict(linux_receipt)
+        tampered_file_name["artifactFileName"] = "forged-installer.deb"
+        linux_receipt_path.write_text(
+            json.dumps(tampered_file_name),
+            encoding="utf-8",
+        )
+        with pytest.raises(SystemExit, match="fields are not canonical"):
+            VERIFY_MODULE.verify_local_startup_smoke_receipts(
+                canonical,
+                root / "public-bundle",
+                "tampered-file-name",
+            )
+        tampered_relative_path = dict(linux_receipt)
+        tampered_relative_path["artifactRelativePath"] = (
+            "files/forged-installer.deb"
+        )
+        linux_receipt_path.write_text(
+            json.dumps(tampered_relative_path),
+            encoding="utf-8",
+        )
+        with pytest.raises(SystemExit, match="fields are not canonical"):
+            VERIFY_MODULE.verify_local_startup_smoke_receipts(
+                canonical,
+                root / "public-bundle",
+                "tampered-relative-path",
+            )
+        linux_receipt_path.write_text(
+            json.dumps(linux_receipt),
+            encoding="utf-8",
+        )
+
+        nested_receipt_dir = (
+            root / "public-bundle" / "startup-smoke" / "nested"
+        )
+        nested_receipt_dir.mkdir()
+        (
+            nested_receipt_dir / "startup-smoke-extra.receipt.json"
+        ).write_text("{}", encoding="utf-8")
+        with pytest.raises(
+            SystemExit,
+            match="exactly the three canonical receipt files",
+        ):
+            VERIFY_MODULE.verify_local_startup_smoke_receipts(
+                canonical,
+                root / "public-bundle",
+                "extra-nested-startup-smoke",
+            )
+        shutil.rmtree(nested_receipt_dir)
+
+        (
+            root
+            / "public-bundle"
+            / "startup-smoke"
+            / "startup-smoke-avalonia-osx-arm64.receipt.json"
+        ).unlink()
+        with pytest.raises(SystemExit, match="exactly the three canonical receipt files"):
+            VERIFY_MODULE.verify_local_startup_smoke_receipts(
+                canonical,
+                root / "public-bundle",
+                "missing-macos-startup-smoke",
+            )
+        with pytest.raises(SystemExit, match="forbids the startup-smoke freshness bypass"):
+            VERIFY_MODULE.verify_artifacts(
+                canonical,
+                "bypass-attempt",
+                require_complete_desktop_coverage=True,
+                skip_startup_smoke_filter=True,
+            )
+
+
+def test_global_flagship_requires_real_local_artifact_and_startup_directories() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(root)
+
+        missing_downloads = argparse.Namespace(**vars(args))
+        missing_downloads.downloads_dir = None
+        with pytest.raises(ValueError, match="downloads directory is required"):
+            MODULE.canonical_payload(missing_downloads)
+
+        missing_startup = argparse.Namespace(**vars(args))
+        missing_startup.startup_smoke_dir = root / "does-not-exist"
+        with pytest.raises(ValueError, match="startup-smoke directory is unavailable"):
+            MODULE.canonical_payload(missing_startup)
+
+
+def test_global_flagship_startup_receipt_release_version_is_candidate_bound() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(root)
+        canonical = MODULE.canonical_payload(args)
+        receipt_path = (
+            root
+            / "public-bundle"
+            / "startup-smoke"
+            / "startup-smoke-avalonia-linux-x64.receipt.json"
+        )
+        receipt = json.loads(receipt_path.read_text(encoding="utf-8"))
+        receipt["releaseVersion"] = "run-19990101-old"
+        receipt_path.write_text(
+            json.dumps(receipt, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ValueError, match="tuple and channel fields"):
+            MODULE.canonical_payload(args)
+        with pytest.raises(SystemExit, match="releaseVersion mismatch"):
+            VERIFY_MODULE.verify_local_startup_smoke_receipts(
+                canonical,
+                root / "public-bundle",
+                "version-drift",
+            )
+
+
+@pytest.mark.parametrize(
+    "mutate",
+    [
+        lambda payload: payload.update(contractVersion=3.0),
+        lambda payload: payload.update(
+            nonPublishing={
+                key: int(value)
+                for key, value in payload["nonPublishing"].items()
+            }
+        ),
+    ],
+)
+def test_global_flagship_rejects_macos_evidence_type_confusion(mutate) -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        args, _ = _global_flagship_materialization_fixture(root)
+        evidence = json.loads(args.macos_flagship_evidence.read_text(encoding="utf-8"))
+        mutate(evidence)
+        args.macos_flagship_evidence.write_text(
+            json.dumps(evidence, sort_keys=True) + "\n",
+            encoding="utf-8",
+        )
+
+        with pytest.raises(ValueError, match="contract|non-publishing"):
+            MODULE.canonical_payload(args)
 
 
 def test_registry_commit_requires_external_full_canonical_commit() -> None:
@@ -291,6 +2324,53 @@ def complete_release_proof(
     }
 
 
+def test_normalize_release_proof_payload_accepts_exact_canonical_six_journeys() -> None:
+    proof = complete_release_proof("2026-07-26T12:00:00Z")
+    proof["journeysPassed"] = list(CANONICAL_RELEASE_PROOF_JOURNEYS)
+
+    normalized = MODULE.normalize_release_proof_payload(
+        proof,
+        source="release-proof.json",
+    )
+
+    assert MODULE.REQUIRED_RELEASE_PROOF_JOURNEYS == CANONICAL_RELEASE_PROOF_JOURNEYS
+    assert normalized is not None
+    assert normalized["journeysPassed"] == list(CANONICAL_RELEASE_PROOF_JOURNEYS)
+
+
+def test_normalize_release_proof_payload_rejects_missing_sync_conflict_journey() -> None:
+    proof = complete_release_proof("2026-07-26T12:00:00Z")
+    proof["journeysPassed"] = [
+        journey
+        for journey in CANONICAL_RELEASE_PROOF_JOURNEYS
+        if journey != "recover_from_sync_conflict"
+    ]
+
+    with pytest.raises(
+        ValueError,
+        match="journeys_passed is missing required baseline golden journey ids",
+    ):
+        MODULE.normalize_release_proof_payload(
+            proof,
+            source="release-proof.json",
+        )
+
+
+def test_normalize_release_proof_payload_rejects_reordered_canonical_journeys() -> None:
+    proof = complete_release_proof("2026-07-26T12:00:00Z")
+    proof["journeysPassed"] = list(CANONICAL_RELEASE_PROOF_JOURNEYS)
+    proof["journeysPassed"][3:5] = reversed(proof["journeysPassed"][3:5])
+
+    with pytest.raises(
+        ValueError,
+        match="journeys_passed must preserve canonical baseline journey ordering",
+    ):
+        MODULE.normalize_release_proof_payload(
+            proof,
+            source="release-proof.json",
+        )
+
+
 def test_load_flagship_readiness_snapshot_is_digest_bound_and_redacts_private_material() -> None:
     with tempfile.TemporaryDirectory() as tmp:
         path = Path(tmp) / "FLAGSHIP_PRODUCT_READINESS_GATE.generated.json"
@@ -325,6 +2405,81 @@ def test_load_flagship_readiness_snapshot_is_digest_bound_and_redacts_private_ma
     assert "/Users/" not in serialized
     assert "operator@example.test" not in serialized
     VERIFY_MODULE.validate_flagship_readiness_snapshot(snapshot, source="materialized fixture")
+
+
+def test_load_flagship_readiness_snapshot_accepts_authenticated_canonical_predecessor() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        raw_path = root / "FLAGSHIP_PRODUCT_READINESS_GATE.generated.json"
+        raw_path.write_text(
+            json.dumps(
+                {
+                    "contract_name": MODULE.FLAGSHIP_READINESS_CONTRACT_NAME,
+                    "status": "pass",
+                    "generated_at_utc": "2026-07-25T13:15:00Z",
+                    "reason": "All launch-critical flagship readiness checks pass.",
+                    "summary": {
+                        "scoped_coverage_gap_keys": [],
+                        "launch_critical_nested_blockers": [],
+                    },
+                }
+            ),
+            encoding="utf-8",
+        )
+        canonical_snapshot = MODULE.load_flagship_readiness_snapshot(raw_path)
+        predecessor_path = root / "release-proof.flagship-readiness.json"
+        predecessor_path.write_text(
+            json.dumps(canonical_snapshot, sort_keys=True),
+            encoding="utf-8",
+        )
+
+        reloaded_snapshot = MODULE.load_flagship_readiness_snapshot(predecessor_path)
+
+    assert reloaded_snapshot == canonical_snapshot
+    assert reloaded_snapshot["desktopClientReady"] is True
+    assert reloaded_snapshot["sourceSha256"] == canonical_snapshot["sourceSha256"]
+    assert (
+        reloaded_snapshot["snapshotSha256"]
+        == MODULE.flagship_readiness_snapshot_sha256(reloaded_snapshot)
+    )
+    VERIFY_MODULE.validate_flagship_readiness_snapshot(
+        reloaded_snapshot,
+        source="canonical predecessor fixture",
+    )
+
+
+@pytest.mark.parametrize(
+    ("mutation",),
+    [
+        (lambda snapshot: snapshot.update(reason="Mutated after authentication."),),
+        (lambda snapshot: snapshot.update(sourceSha256="sha256:" + "A" * 64),),
+        (lambda snapshot: snapshot.pop("snapshotSha256"),),
+        (lambda snapshot: snapshot.update(unexpected="must fail closed"),),
+    ],
+)
+def test_load_flagship_readiness_snapshot_rejects_malformed_canonical_predecessor(
+    mutation,
+) -> None:
+    snapshot = {
+        "contractName": MODULE.FLAGSHIP_READINESS_CONTRACT_NAME,
+        "generatedAt": "2026-07-25T13:15:00Z",
+        "status": "pass",
+        "coverageGapKeys": [],
+        "launchBlockers": [],
+        "desktopClientReady": True,
+        "reason": "All launch-critical flagship readiness checks pass.",
+        "sourceSha256": "sha256:" + "1" * 64,
+    }
+    snapshot["snapshotSha256"] = MODULE.flagship_readiness_snapshot_sha256(snapshot)
+    mutation(snapshot)
+
+    with tempfile.TemporaryDirectory() as tmp:
+        path = Path(tmp) / "release-proof.flagship-readiness.json"
+        path.write_text(json.dumps(snapshot), encoding="utf-8")
+
+        loaded = MODULE.load_flagship_readiness_snapshot(path)
+
+    assert loaded == {}
 
 
 def materialize_flagship_readiness_fixture(
