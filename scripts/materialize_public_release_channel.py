@@ -258,9 +258,11 @@ UI_GLOBAL_FLAGSHIP_EXTERNAL_REQUIREMENTS = (
     {
         "platform": "linux",
         "requirement": (
-            "A native Linux runner with noninteractive system-package authority "
-            "must perform a clean install, core workflow, dpkg package "
-            "verification, N-1 update, and normal purge execution."
+            "A protected Linux signer must origin-sign the exact xz-compressed "
+            "Debian candidate with the pinned OpenPGP primary key. A separate "
+            "native Linux runner must independently verify debsig policy, "
+            "public keyring, signature, and tamper rejection before clean "
+            "install, core workflow, N-1 update, and normal purge execution."
         ),
     },
     {
@@ -309,7 +311,7 @@ UI_GLOBAL_FLAGSHIP_PLATFORM_EVIDENCE_CONTRACTS = {
 }
 UI_GLOBAL_FLAGSHIP_SIGNING_CONTRACT = "chummer6-ui.desktop_artifact_signing"
 UI_GLOBAL_FLAGSHIP_INTEGRITY_POLICIES = {
-    "linux": "manifest-sha256-and-native-dpkg-verification",
+    "linux": "debsigs-origin-openpgp-and-manifest-sha256",
     "windows": "signed-authenticode-and-manifest-sha256",
     "macos": (
         "developer-id-signed-notarized-stapled-and-manifest-sha256"
@@ -2545,17 +2547,11 @@ def _validate_global_flagship_candidate_semantics(
                 source=f"global flagship candidate {platform} {key}",
                 path_key="path",
             )
-        if platform == "linux":
-            if row.get("signingReceipt") is not None:
-                raise ValueError(
-                    "global flagship Linux candidate signingReceipt must be null"
-                )
-        else:
-            _global_flagship_sha_size_reference(
-                row.get("signingReceipt"),
-                source=f"global flagship candidate {platform} signingReceipt",
-                path_key="path",
-            )
+        _global_flagship_sha_size_reference(
+            row.get("signingReceipt"),
+            source=f"global flagship candidate {platform} signingReceipt",
+            path_key="path",
+        )
 
     projection = {
         "candidateId": expected_candidate_id,

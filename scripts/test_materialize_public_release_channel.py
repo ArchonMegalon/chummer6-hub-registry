@@ -266,24 +266,22 @@ def _write_global_flagship_channel_promotion_authority(
                 root,
                 evidence_path.relative_to(root).as_posix(),
             )
-        signing_reference = None
-        if platform != "linux":
-            signing_path = evidence_root / "signing.json"
-            signing_path.write_text(
-                json.dumps(
-                    {
-                        "contractName": f"fixture.{platform}.signing",
-                        "status": "passed",
-                    },
-                    sort_keys=True,
-                )
-                + "\n",
-                encoding="utf-8",
+        signing_path = evidence_root / "signing.json"
+        signing_path.write_text(
+            json.dumps(
+                {
+                    "contractName": f"fixture.{platform}.signing",
+                    "status": "passed",
+                },
+                sort_keys=True,
             )
-            signing_reference = _file_reference(
-                root,
-                signing_path.relative_to(root).as_posix(),
-            )
+            + "\n",
+            encoding="utf-8",
+        )
+        signing_reference = _file_reference(
+            root,
+            signing_path.relative_to(root).as_posix(),
+        )
         artifact_path = f"public-bundle/files/{artifact['fileName']}"
         candidate_artifact = {
             "artifactId": artifact["artifactId"],
@@ -1204,6 +1202,8 @@ def test_global_flagship_proposal_rejects_external_requirement_drift() -> None:
         "candidate-platform-artifact-name",
         "candidate-platform-artifact-digest",
         "candidate-platform-artifact-size",
+        "candidate-linux-signing-null",
+        "candidate-linux-signing-digest",
         "proposal-rejected",
         "proposal-excluded-provider",
         "final-rejected",
@@ -1276,6 +1276,17 @@ def test_global_flagship_promotion_authority_rejects_semantically_resealed_tampe
             payload["providerActors"]["windows-export"] = payload[
                 "producer"
             ]["actor"]
+            rewrite(path, payload, authority["candidateManifest"])
+        elif tamper.startswith("candidate-linux-signing-"):
+            path = "GLOBAL_FLAGSHIP_CANDIDATE.generated.json"
+            payload = json.loads((root / path).read_text(encoding="utf-8"))
+            signing = payload["platforms"]["linux"]["signingReceipt"]
+            if tamper == "candidate-linux-signing-null":
+                payload["platforms"]["linux"]["signingReceipt"] = None
+            elif tamper == "candidate-linux-signing-digest":
+                signing["sha256"] = "f" * 64
+            else:  # pragma: no cover
+                raise AssertionError(tamper)
             rewrite(path, payload, authority["candidateManifest"])
         elif tamper.startswith("candidate-platform"):
             path = "GLOBAL_FLAGSHIP_CANDIDATE.generated.json"
