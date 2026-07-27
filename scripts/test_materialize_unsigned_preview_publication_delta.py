@@ -454,7 +454,9 @@ def build_fixture(module, tmp_path: Path) -> dict[str, object]:
     }
 
 
-def build_profile_fixture(module, tmp_path: Path) -> dict[str, object]:
+def build_profile_fixture(
+    module, tmp_path: Path, *, retain_macos: bool = True
+) -> dict[str, object]:
     fixture = build_fixture(module, tmp_path)
     incumbent = fixture["incumbent"]
     publication = fixture["publication"]
@@ -465,13 +467,23 @@ def build_profile_fixture(module, tmp_path: Path) -> dict[str, object]:
     assert isinstance(request_path, Path)
     assert isinstance(prepare_args, list)
 
+    removed_platforms = {"linux"} if retain_macos else {"linux", "macos"}
     for root in (incumbent, publication):
-        linux = root / "files/chummer-avalonia-linux-x64-installer.deb"
-        linux.unlink()
+        for file_name in (
+            "chummer-avalonia-linux-x64-installer.deb",
+            *(
+                ()
+                if retain_macos
+                else ("chummer-avalonia-osx-arm64-installer.dmg",)
+            ),
+        ):
+            (root / "files" / file_name).unlink()
         canonical_path = root / module.CANONICAL_MANIFEST_NAME
         canonical = read_json(canonical_path)
         canonical["artifacts"] = [
-            row for row in canonical["artifacts"] if row["platform"] != "linux"
+            row
+            for row in canonical["artifacts"]
+            if row["platform"] not in removed_platforms
         ]
         for row in canonical["artifacts"]:
             if row["platform"] == "macos":
@@ -484,7 +496,7 @@ def build_profile_fixture(module, tmp_path: Path) -> dict[str, object]:
         compatibility_manifest["downloads"] = [
             row
             for row in compatibility_manifest["downloads"]
-            if row["platformId"] != "linux"
+            if module.platform_of(row) not in removed_platforms
         ]
         for row in compatibility_manifest["downloads"]:
             if row["platformId"] == "macos-arm64":
@@ -1017,6 +1029,26 @@ def test_prepare_v3_projects_public_bytes_without_promotion_or_fake_proof(
         row["artifactId"]
         for row in retained_provenance["retainedArtifactBindings"]
     }
+
+
+def test_prepare_v3_accepts_windows_only_incumbent_with_empty_retained_bindings(
+    tmp_path: Path,
+) -> None:
+    module = load_module()
+    fixture = build_profile_fixture(module, tmp_path, retain_macos=False)
+
+    candidate = run_prepare(module, fixture)
+    retained_provenance = candidate["retainedIncumbentProvenance"]
+    assert candidate["retainedPlatforms"] == []
+    assert retained_provenance["retainedArtifactBindings"] == []
+    assert retained_provenance["retainedCompatibilityBindings"] == []
+    assert retained_provenance["retainedArtifactBindingsSha256"] == (
+        module.ui_object_sha256([])
+    )
+    assert retained_provenance["retainedCompatibilityBindingsSha256"] == (
+        module.ui_object_sha256([])
+    )
+    module.validate_schema(candidate)
 
 
 def test_generated_v3_prepare_bundle_passes_normal_public_verifier_but_not_complete_gate(
@@ -2422,3 +2454,6 @@ def test_schema_freezes_candidate_authority_finalize_and_projection_shapes() -> 
     assert len(definitions["authorityV2"]["required"]) == 34
     assert len(definitions["finalizeV2"]["required"]) == 26
     assert set(definitions["projectionInputs"]["required"]) == {"materializer", "schema"}
+    retained = definitions["retainedIncumbentProvenance"]["properties"]
+    assert retained["retainedArtifactBindings"]["minItems"] == 0
+    assert retained["retainedCompatibilityBindings"]["minItems"] == 0

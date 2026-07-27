@@ -149,12 +149,12 @@
         "incumbentFullShelfInventorySha256": { "$ref": "#/$defs/sha256" },
         "incumbentSnapshotSha256": { "$ref": "#/$defs/sha256" },
         "retainedArtifactBindings": {
-          "type": "array", "minItems": 1, "maxItems": 128,
+          "type": "array", "minItems": 0, "maxItems": 128,
           "items": { "$ref": "#/$defs/retainedArtifactBinding" }
         },
         "retainedArtifactBindingsSha256": { "$ref": "#/$defs/sha256" },
         "retainedCompatibilityBindings": {
-          "type": "array", "minItems": 1, "maxItems": 128,
+          "type": "array", "minItems": 0, "maxItems": 128,
           "items": { "$ref": "#/$defs/retainedArtifactBinding" }
         },
         "retainedCompatibilityBindingsSha256": { "$ref": "#/$defs/sha256" },
