@@ -1,0 +1,9 @@
+.git
+.github
+.runtime
+.tmp
+.vexp
+**/bin
+**/obj
+**/__pycache__
+*.log

@@ -1023,6 +1023,9 @@ def derive_manifest_projection(
     manifest_generated_at = _timestamp(
         _manifest_field(manifest, "generatedAt"), "manifest generatedAt"
     )
+    generation_id = _version(
+        _manifest_field(manifest, "generationId"), "manifest generationId"
+    )
     if "generated_at" in manifest and _timestamp(
         manifest["generated_at"], "manifest generated_at"
     ) != manifest_generated_at:
@@ -1084,12 +1087,30 @@ def derive_manifest_projection(
         )
         if access_class not in ACCESS_CLASSES:
             raise AuthorityError("artifact %s has unsupported installAccessClass" % artifact_id)
+        file_name = _string(source.get("fileName"), "%s fileName" % artifact_id, 512)
+        if (
+            file_name in {".", ".."}
+            or "/" in file_name
+            or "\\" in file_name
+            or unquote(file_name) != file_name
+            or any(character.isspace() or ord(character) < 32 for character in file_name)
+        ):
+            raise AuthorityError("artifact %s fileName must be one safe generation file name" % artifact_id)
         download_url = _generation_download_route(
             source.get("downloadUrl"),
             "%s downloadUrl" % artifact_id,
             access_class=access_class,
             artifact_id=artifact_id,
         )
+        download_segments = download_url.split("/")
+        if unquote(download_segments[3]) != generation_id:
+            raise AuthorityError(
+                "artifact %s downloadUrl generation must equal manifest generationId" % artifact_id
+            )
+        if access_class == "open_public" and unquote(download_segments[5]) != file_name:
+            raise AuthorityError(
+                "artifact %s downloadUrl file must equal artifact fileName" % artifact_id
+            )
 
         routes = _matching_rows(route_rows, artifact_id, "manifest desktopRouteTruth")
         if len(routes) != 1:

@@ -1148,8 +1148,10 @@ public static class ReleaseAuthoritySnapshotStore
     private static byte[] SerializeContract<T>(T value)
     {
         byte[] serialized = JsonSerializer.SerializeToUtf8Bytes(value, ContractJsonOptions);
-        byte[] withNewline = new byte[serialized.Length + 1];
-        serialized.CopyTo(withNewline, 0);
+        using JsonDocument document = JsonDocument.Parse(serialized);
+        byte[] canonical = CanonicalJsonBytes(document.RootElement);
+        byte[] withNewline = new byte[canonical.Length + 1];
+        canonical.CopyTo(withNewline, 0);
         withNewline[^1] = (byte)'\n';
         return withNewline;
     }

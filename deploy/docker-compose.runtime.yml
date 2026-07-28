@@ -1,0 +1,49 @@
+services:
+  chummer-run-registry:
+    image: chummer-run-registry:local
+    restart: unless-stopped
+    build:
+      context: ..
+      dockerfile: Chummer.Run.Registry/Dockerfile
+      args:
+        CHUMMER_BUILD_CONCURRENCY: ${CHUMMER_BUILD_CONCURRENCY:-1}
+        CHUMMER_RUNTIME_UID: ${CHUMMER_REGISTRY_UID:-1657}
+        CHUMMER_RUNTIME_GID: ${CHUMMER_REGISTRY_GID:-1657}
+    user: "${CHUMMER_REGISTRY_UID:-1657}:${CHUMMER_REGISTRY_GID:-1657}"
+    cap_drop:
+      - ALL
+    security_opt:
+      - no-new-privileges:true
+    read_only: true
+    tmpfs:
+      - /tmp:size=32m,mode=1777
+    environment:
+      ASPNETCORE_ENVIRONMENT: Production
+      CHUMMER_REGISTRY_ENABLE_HTTPS_REDIRECTION: "false"
+      CHUMMER_REGISTRY_CONTROL_API_KEY: ${CHUMMER_REGISTRY_CONTROL_API_KEY:?Set the Registry control credential}
+      CHUMMER_REGISTRY_STATE_ROOT: /app/state
+      CHUMMER_RELEASE_AUTHORITY_ROOT: /app/state/release-authority
+    volumes:
+      - chummer-registry-state:/app/state
+    ports:
+      - "127.0.0.1:${CHUMMER_REGISTRY_HOST_PORT:-18093}:8080"
+    healthcheck:
+      test:
+        - CMD
+        - curl
+        - --fail
+        - --silent
+        - --show-error
+        - --max-time
+        - "5"
+        - http://127.0.0.1:8080/health
+      interval: 15s
+      timeout: 5s
+      retries: 5
+      start_period: 30s
+    mem_limit: ${CHUMMER_REGISTRY_MEMORY_LIMIT:-512m}
+    cpu_shares: 128
+    cpus: ${CHUMMER_REGISTRY_CPUS:-0.50}
+
+volumes:
+  chummer-registry-state:

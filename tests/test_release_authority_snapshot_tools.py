@@ -124,6 +124,7 @@ def manifest(*, ready_posture: bool = False) -> dict[str, object]:
         "knownIssueSummary": "Nightly candidate remains explicitly bounded.",
         "generatedAt": "2026-07-20T22:00:00Z",
         "generated_at": "2026-07-20T22:00:00Z",
+        "generationId": version,
         "artifacts": [
             {
                 "id": artifact_id,
@@ -134,6 +135,7 @@ def manifest(*, ready_posture: bool = False) -> dict[str, object]:
                 "arch": "arm64",
                 "kind": "installer",
                 "downloadUrl": "/downloads/g/run-20260720-220000/files/chummer.pkg",
+                "fileName": "chummer.pkg",
                 "sha256": ARTIFACT_SHA,
                 "sizeBytes": 4096,
                 "compatibilityState": "compatible",
@@ -188,6 +190,7 @@ def windows_review_byte_handoff_manifest() -> dict[str, object]:
             "platform": "windows",
             "rid": "win-x64",
             "arch": "x64",
+            "fileName": "chummer-avalonia-win-x64-installer.exe",
             "downloadUrl": (
                 "/downloads/g/run-20260720-220000/files/"
                 "chummer-avalonia-win-x64-installer.exe"
@@ -821,6 +824,36 @@ def test_materializer_rejects_mutable_or_unsafe_artifact_urls(
     write_json(manifest_path, payload)
     completed = run_materialize(tmp_path, manifest_path, "out")
     assert completed.returncode == 1
+    assert not (tmp_path / "out").exists()
+
+
+def test_materializer_rejects_artifact_url_generation_drift(tmp_path: Path) -> None:
+    payload = manifest()
+    payload["artifacts"][0]["downloadUrl"] = (
+        "/downloads/g/a-different-generation/files/chummer.pkg"
+    )
+    manifest_path = tmp_path / "manifest.json"
+    write_json(manifest_path, payload)
+
+    completed = run_materialize(tmp_path, manifest_path, "out")
+
+    assert completed.returncode == 1
+    assert "generation must equal manifest generationId" in completed.stderr
+    assert not (tmp_path / "out").exists()
+
+
+def test_materializer_rejects_artifact_url_file_name_drift(tmp_path: Path) -> None:
+    payload = manifest()
+    payload["artifacts"][0]["downloadUrl"] = (
+        "/downloads/g/run-20260720-220000/files/a-different-installer.pkg"
+    )
+    manifest_path = tmp_path / "manifest.json"
+    write_json(manifest_path, payload)
+
+    completed = run_materialize(tmp_path, manifest_path, "out")
+
+    assert completed.returncode == 1
+    assert "downloadUrl file must equal artifact fileName" in completed.stderr
     assert not (tmp_path / "out").exists()
 
 
