@@ -2873,7 +2873,15 @@ static void VerifyRegistryAuthorizationSurface()
     Assert(programSource.Contains("RegistryAuthorization.ValidateStartupConfiguration(builder.Configuration);", StringComparison.Ordinal), "Registry startup must validate that a control credential exists before building the app.");
     Assert(programSource.Contains("options.FallbackPolicy = controlPolicy;", StringComparison.Ordinal), "Registry startup must default-deny endpoints without an explicit AllowAnonymous marker.");
     Assert(programSource.Contains("app.UseAuthentication();", StringComparison.Ordinal), "Registry startup must authenticate requests before authorization.");
+    Assert(programSource.Contains("CHUMMER_REGISTRY_ENABLE_HTTPS_REDIRECTION", StringComparison.Ordinal), "Registry startup must make internal-only HTTPS redirection explicit instead of breaking container-network HTTP.");
+    Assert(programSource.Contains("app.MapGet(", StringComparison.Ordinal)
+           && programSource.Contains("\"/health\"", StringComparison.Ordinal)
+           && programSource.Contains(".AllowAnonymous();", StringComparison.Ordinal),
+        "Registry startup must expose an anonymous non-mutating container health endpoint.");
     Assert(programSource.Contains("AddSingleton<IHubArtifactStore, FileBackedHubArtifactStore>()", StringComparison.Ordinal), "Registry startup must use the durable artifact store, not the raw in-memory store.");
+    string authorityStoreSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "Chummer.Run.Registry", "Services", "ReleaseAuthoritySnapshotStore.cs"));
+    Assert(authorityStoreSource.Contains("byte[] canonical = CanonicalJsonBytes(document.RootElement);", StringComparison.Ordinal),
+        "Registry runtime CURRENT/SNAPSHOT writes must use the same sorted canonical JSON bytes as the offline authority tools.");
     Assert(authorizationSource.Contains("PrimaryApiKeyConfigKey = \"CHUMMER_REGISTRY_CONTROL_API_KEY\"", StringComparison.Ordinal), "Registry auth must prefer the Chummer-scoped control API key.");
     Assert(authorizationSource.Contains("LegacyApiKeyConfigKey = \"REGISTRY_CONTROL_API_KEY\"", StringComparison.Ordinal), "Registry auth may keep the legacy control key only as compatibility fallback.");
     Assert(authorizationSource.Contains("HeaderName = \"X-Chummer-Registry-Key\"", StringComparison.Ordinal), "Registry auth must support the explicit first-party control header.");

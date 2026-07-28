@@ -5,6 +5,8 @@ using Chummer.Run.Registry.Services;
 
 var builder = WebApplication.CreateBuilder(args);
 RegistryAuthorization.ValidateStartupConfiguration(builder.Configuration);
+bool enableHttpsRedirection =
+    builder.Configuration.GetValue<bool>("CHUMMER_REGISTRY_ENABLE_HTTPS_REDIRECTION");
 
 // Add services to the container.
 
@@ -51,11 +53,22 @@ var app = builder.Build();
 // Configure the HTTP request pipeline.
 
 app.UseExceptionHandler();
-app.UseHttpsRedirection();
+if (enableHttpsRedirection)
+{
+    app.UseHttpsRedirection();
+}
 
 app.UseAuthentication();
 app.UseAuthorization();
 
+app.MapGet(
+        "/health",
+        () => Results.Ok(new
+        {
+            service = "chummer-run-registry",
+            status = "healthy"
+        }))
+    .AllowAnonymous();
 app.MapControllers();
 
 app.Run();

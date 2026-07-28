@@ -20,6 +20,7 @@ AGENT_MEMORY.md
 .codex.boot.prompt.txt
 .codex.resume.boot.txt
 .tmp/
+.runtime/
 .local/
 .artifacts/
 audit.md
