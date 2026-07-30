@@ -1,16 +1,16 @@
-2026-07-01 15:34:47 startup archives install
-2026-07-01 15:34:47 install chummer6-avalonia:amd64 <none> 0~run-20260701-124648
-2026-07-01 15:34:47 status half-installed chummer6-avalonia:amd64 0~run-20260701-124648
-2026-07-01 15:35:32 status unpacked chummer6-avalonia:amd64 0~run-20260701-124648
-2026-07-01 15:35:32 configure chummer6-avalonia:amd64 0~run-20260701-124648 0~run-20260701-124648
-2026-07-01 15:35:32 status half-configured chummer6-avalonia:amd64 0~run-20260701-124648
-2026-07-01 15:35:32 status installed chummer6-avalonia:amd64 0~run-20260701-124648
-2026-07-01 15:35:32 trigproc mailcap:all 3.70+nmu1ubuntu1 <none>
-2026-07-01 15:35:32 status half-configured mailcap:all 3.70+nmu1ubuntu1
-2026-07-01 15:35:40 startup packages purge
-2026-07-01 15:35:40 status installed chummer6-avalonia:amd64 0~run-20260701-124648
-2026-07-01 15:35:46 remove chummer6-avalonia:amd64 0~run-20260701-124648 <none>
-2026-07-01 15:35:46 status half-configured chummer6-avalonia:amd64 0~run-20260701-124648
-2026-07-01 15:35:47 status half-installed chummer6-avalonia:amd64 0~run-20260701-124648
-2026-07-01 15:35:47 status config-files chummer6-avalonia:amd64 0~run-20260701-124648
-2026-07-01 15:35:47 status not-installed chummer6-avalonia:amd64 <none>
+2026-07-08 08:56:03 startup archives install
+2026-07-08 08:56:04 install chummer6-avalonia:amd64 <none> 0~run-20260703-170551
+2026-07-08 08:56:04 status half-installed chummer6-avalonia:amd64 0~run-20260703-170551
+2026-07-08 08:56:48 status unpacked chummer6-avalonia:amd64 0~run-20260703-170551
+2026-07-08 08:56:48 configure chummer6-avalonia:amd64 0~run-20260703-170551 0~run-20260703-170551
+2026-07-08 08:56:48 status half-configured chummer6-avalonia:amd64 0~run-20260703-170551
+2026-07-08 08:56:48 status installed chummer6-avalonia:amd64 0~run-20260703-170551
+2026-07-08 08:56:48 trigproc mailcap:all 3.70+nmu1ubuntu1 <none>
+2026-07-08 08:56:48 status half-configured mailcap:all 3.70+nmu1ubuntu1
+2026-07-08 08:57:16 startup packages purge
+2026-07-08 08:57:16 status installed chummer6-avalonia:amd64 0~run-20260703-170551
+2026-07-08 08:57:17 remove chummer6-avalonia:amd64 0~run-20260703-170551 <none>
+2026-07-08 08:57:17 status half-configured chummer6-avalonia:amd64 0~run-20260703-170551
+2026-07-08 08:57:17 status half-installed chummer6-avalonia:amd64 0~run-20260703-170551
+2026-07-08 08:57:17 status config-files chummer6-avalonia:amd64 0~run-20260703-170551
+2026-07-08 08:57:17 status not-installed chummer6-avalonia:amd64 <none>

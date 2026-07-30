@@ -75,6 +75,7 @@ REQUIRED_RELEASE_PROOF_ROUTES = (
     "/home/work",
     "/account/access",
     "/account/work",
+    "/account/roster",
     "/account/support",
     "/contact",
     "/downloads",
@@ -483,27 +484,12 @@ def derive_public_payload_download_url(artifact_download_url: Any, payload_file_
     if not normalized_payload_file_name:
         return ""
 
+    # Windows bootstrap installers embed the stable public payload URL at build
+    # time, and their signed sidecar binds the same URL. Artifact download URLs
+    # may later be projected onto an immutable generation route; deriving the
+    # payload URL from that projection would make the manifest disagree with
+    # both the shipped installer and sidecar.
     public_origin = DEFAULT_ALLOWED_RELEASE_PROOF_BASE_URLS[0].rstrip("/")
-    normalized_installer_url = str(artifact_download_url or "").strip()
-    if normalized_installer_url:
-        parsed = urllib.parse.urlparse(normalized_installer_url)
-        if not parsed.scheme or not parsed.netloc:
-            normalized_installer_url = urllib.parse.urljoin(
-                f"{public_origin}/",
-                normalized_installer_url.lstrip("/"),
-            )
-            parsed = urllib.parse.urlparse(normalized_installer_url)
-        if parsed.scheme.lower() == "https" and parsed.netloc:
-            installer_dir = parsed.path.rsplit("/", 1)[0] if "/" in parsed.path else ""
-            payload_path = (
-                f"{installer_dir}/{normalized_payload_file_name}"
-                if installer_dir
-                else f"/{normalized_payload_file_name}"
-            )
-            return urllib.parse.urlunparse(
-                ("https", parsed.netloc.lower(), payload_path, "", "", "")
-            )
-
     return urllib.parse.urljoin(
         f"{public_origin}/",
         f"downloads/files/{normalized_payload_file_name}",
@@ -660,6 +646,27 @@ def canonicalize_materialized_release_proof_route_order(routes: list[str]) -> li
     return required_route_order + sorted(routes[required_count:])
 
 
+def reconcile_materialized_release_proof_routes(
+    source_routes: list[str],
+    artifacts: list[dict[str, Any]],
+) -> list[str]:
+    # Validate the source receipt before projecting it, but do not preserve
+    # installer claims for artifacts that are absent from this materialized
+    # release. The manifest inventory is the authority for its install routes.
+    validate_release_proof_route_set(
+        canonicalize_materialized_release_proof_route_order(source_routes),
+        source="source releaseProof",
+    )
+    projected_routes = [
+        *REQUIRED_RELEASE_PROOF_ROUTES,
+        *derived_release_proof_artifact_routes(artifacts),
+    ]
+    return validate_release_proof_route_set(
+        projected_routes,
+        source="materialized releaseProof",
+    )
+
+
 def normalize_release_proof_base_url(raw_base_url: Any, *, field_name: str, source: str) -> str:
     if not isinstance(raw_base_url, str):
         raise ValueError(f"{field_name} must be a string in {source}")
@@ -765,6 +772,14 @@ def parse_args() -> argparse.Namespace:
         help="Optional release-channel contract identity. Defaults to canonical registry contract package name.",
     )
     parser.add_argument("--published-at", default="")
+    parser.add_argument(
+        "--generated-at",
+        default="",
+        help=(
+            "Projection generation timestamp. Defaults to the current UTC time; "
+            "publishedAt remains the immutable release publication identity."
+        ),
+    )
     parser.add_argument("--artifact-source", default="ui_desktop_bundle")
     parser.add_argument("--downloads-prefix", default="/downloads/files")
     parser.add_argument(
@@ -2621,7 +2636,7 @@ def external_proof_request_capture_commands(
             "import sys; "
             "sys.exit(0) if (not p.is_file()) else None; "
             "digest=hashlib.sha256(p.read_bytes()).hexdigest().lower(); "
-            "sys.exit(0) if digest==expected else print("
+            "sys.exit(0) if (not expected or digest==expected) else print("
             "f'installer-preflight-sha256-mismatch:{p}:digest={digest}:expected={expected}') or p.unlink()"
         )
         + " && "
@@ -2678,7 +2693,8 @@ def external_proof_request_capture_commands(
             "auth_header_set=bool(str(os.environ.get('CHUMMER_EXTERNAL_PROOF_AUTH_HEADER','')).strip()); "
             "cookie_header_set=bool(str(os.environ.get('CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER','')).strip()); "
             "cookie_jar_set=bool(str(os.environ.get('CHUMMER_EXTERNAL_PROOF_COOKIE_JAR','')).strip()); "
-            "sys.exit(0) if digest==expected else sys.exit("
+            "print(f'installer-discovered-sha256:{p}:digest={digest}') if not expected else None; "
+            "sys.exit(0) if (not expected or digest==expected) else sys.exit("
             "f'installer-postdownload-sha256-mismatch:{p}:digest={digest}:expected={expected}:"
             "auth_header_set={auth_header_set}:cookie_header_set={cookie_header_set}:cookie_jar_set={cookie_jar_set}:"
             "hint=signed-in-download-route-required-or-bytes-drift')"
@@ -3996,23 +4012,28 @@ def derive_rollout_reason(
 ) -> str:
     if status != "published":
         return "No published artifact shelf exists yet."
+    if flagship_readiness_blocks_public_stable(flagship_readiness):
+        reason = (
+            "Current shelf is published, but release posture stays review-required because "
+            "stale or incomplete proof receipts still block launch-readiness claims: "
+            + flagship_readiness_reason(flagship_readiness).strip().rstrip(".")
+        )
+        if not desktop_coverage_complete:
+            reason += "; " + desktop_tuple_coverage_gap_summary(coverage)
+        return reason + "."
+    if proof_freshness_blocks_output_readiness(proof_freshness_status_value):
+        reason = (
+            "Current shelf is published, but release posture stays review-required because "
+            "stale or incomplete proof receipts still block launch-readiness claims"
+        )
+        if not desktop_coverage_complete:
+            reason += "; " + desktop_tuple_coverage_gap_summary(coverage)
+        return reason + "."
     if not desktop_coverage_complete:
         return (
             "Current shelf is published, but promotion stays blocked because "
             + desktop_tuple_coverage_gap_summary(coverage)
             + "."
-        )
-    if flagship_readiness_blocks_public_stable(flagship_readiness):
-        return (
-            "Current shelf is published, but release posture stays review-required because "
-            "stale or incomplete proof receipts still block launch-readiness claims: "
-            + flagship_readiness_reason(flagship_readiness).strip().rstrip(".")
-            + "."
-        )
-    if proof_freshness_blocks_output_readiness(proof_freshness_status_value):
-        return (
-            "Current shelf is published, but release posture stays review-required because "
-            "stale or incomplete proof receipts still block launch-readiness claims."
         )
     if not localization_gate_allows_public_stable(proof):
         return (
@@ -4066,23 +4087,28 @@ def derive_supportability_summary(
 ) -> str:
     if status != "published":
         return "No published channel support posture exists because no release shelf is live."
+    if flagship_readiness_blocks_public_stable(flagship_readiness):
+        reason = (
+            "Treat the current release as review-required because stale or incomplete proof receipts "
+            "still block launch-readiness claims: "
+            + flagship_readiness_reason(flagship_readiness).strip().rstrip(".")
+        )
+        if not desktop_coverage_complete:
+            reason += "; " + desktop_tuple_coverage_gap_summary(coverage)
+        return reason + "."
+    if proof_freshness_blocks_output_readiness(proof_freshness_status_value):
+        reason = (
+            "Treat the current release as review-required because stale or incomplete proof receipts "
+            "still block launch-readiness claims"
+        )
+        if not desktop_coverage_complete:
+            reason += "; " + desktop_tuple_coverage_gap_summary(coverage)
+        return reason + "."
     if not desktop_coverage_complete:
         return (
             "Treat the current release as review-required because "
             + desktop_tuple_coverage_gap_summary(coverage)
             + "."
-        )
-    if flagship_readiness_blocks_public_stable(flagship_readiness):
-        return (
-            "Treat the current release as review-required because stale or incomplete proof receipts "
-            "still block launch-readiness claims: "
-            + flagship_readiness_reason(flagship_readiness).strip().rstrip(".")
-            + "."
-        )
-    if proof_freshness_blocks_output_readiness(proof_freshness_status_value):
-        return (
-            "Treat the current release as review-required because stale or incomplete proof receipts "
-            "still block launch-readiness claims."
         )
     if not localization_gate_allows_public_stable(proof):
         return (
@@ -4129,16 +4155,21 @@ def derive_known_issue_summary(
 ) -> str:
     if status != "published":
         return "No active channel issues are published because the shelf is still empty."
-    if not desktop_coverage_complete:
-        return "Known issue: " + desktop_tuple_coverage_gap_summary(coverage) + "."
     if flagship_readiness_blocks_public_stable(flagship_readiness):
-        return (
+        reason = (
             "Known issue: stale or incomplete proof receipts still block launch-readiness claims: "
             + flagship_readiness_reason(flagship_readiness).strip().rstrip(".")
-            + "."
         )
+        if not desktop_coverage_complete:
+            reason += "; " + desktop_tuple_coverage_gap_summary(coverage)
+        return reason + "."
     if proof_freshness_blocks_output_readiness(proof_freshness_status_value):
-        return "Known issue: stale or incomplete proof receipts still block launch-readiness claims."
+        reason = "Known issue: stale or incomplete proof receipts still block launch-readiness claims"
+        if not desktop_coverage_complete:
+            reason += "; " + desktop_tuple_coverage_gap_summary(coverage)
+        return reason + "."
+    if not desktop_coverage_complete:
+        return "Known issue: " + desktop_tuple_coverage_gap_summary(coverage) + "."
     if not localization_gate_allows_public_stable(proof):
         return (
             "Known issue: the current public shelf is installable, but UI localization proof is still review-required."
@@ -4183,18 +4214,24 @@ def derive_fix_availability_summary(
 ) -> str:
     if status != "published":
         return "Fix notices should stay pending until a published shelf exists."
+    if flagship_readiness_blocks_public_stable(flagship_readiness):
+        reason = (
+            "Only send fixed notices after stale or incomplete proof receipts are cleared and the affected "
+            "install can receive the published channel artifact now on the shelf"
+        )
+        if not desktop_coverage_complete:
+            reason += " and required desktop tuple coverage is complete"
+        return reason + "."
+    if proof_freshness_blocks_output_readiness(proof_freshness_status_value):
+        reason = (
+            "Only send fixed notices after stale or incomplete proof receipts are cleared and the affected "
+            "install can receive the published channel artifact now on the shelf"
+        )
+        if not desktop_coverage_complete:
+            reason += " and required desktop tuple coverage is complete"
+        return reason + "."
     if not desktop_coverage_complete:
         return "Do not send fixed notices until required desktop tuple coverage is complete for the promoted shelf."
-    if flagship_readiness_blocks_public_stable(flagship_readiness):
-        return (
-            "Only send fixed notices after stale or incomplete proof receipts are cleared and the affected "
-            "install can receive the published channel artifact now on the shelf."
-        )
-    if proof_freshness_blocks_output_readiness(proof_freshness_status_value):
-        return (
-            "Only send fixed notices after stale or incomplete proof receipts are cleared and the affected "
-            "install can receive the published channel artifact now on the shelf."
-        )
     if not localization_gate_allows_public_stable(proof):
         return (
             "Only send fixed notices after the affected install is on the public shelf and the UI localization release gate is fully green."
@@ -4327,9 +4364,14 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         from datetime import datetime, timezone
 
         published_at = datetime.now(timezone.utc).replace(microsecond=0).isoformat().replace("+00:00", "Z")
-    generated_at_dt = parse_iso(published_at)
+    requested_generated_at = str(getattr(args, "generated_at", "") or "").strip()
+    generated_at_dt = (
+        parse_iso(requested_generated_at)
+        if requested_generated_at
+        else dt.datetime.now(UTC).replace(microsecond=0)
+    )
     if generated_at_dt is None:
-        generated_at_dt = dt.datetime.now(UTC).replace(microsecond=0)
+        raise ValueError("--generated-at must be an offset-aware ISO-8601 timestamp")
     generated_at = generated_at_dt.replace(microsecond=0).isoformat().replace("+00:00", "Z")
     for artifact in artifacts:
         if isinstance(artifact, dict):
@@ -4414,15 +4456,9 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         status=status,
         proof=release_proof,
     )
-    merged_release_proof_routes = dedupe_release_proof_routes(
-        [
-            *list(release_proof.get("proofRoutes") or []),
-            *derived_release_proof_artifact_routes(artifacts),
-        ]
-    )
-    release_proof["proofRoutes"] = validate_release_proof_route_set(
-        canonicalize_materialized_release_proof_route_order(merged_release_proof_routes),
-        source="materialized releaseProof",
+    release_proof["proofRoutes"] = reconcile_materialized_release_proof_routes(
+        list(release_proof.get("proofRoutes") or []),
+        artifacts,
     )
     required_heads = required_desktop_heads(args.required_desktop_heads)
     if not required_heads:

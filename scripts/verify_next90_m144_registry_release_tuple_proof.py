@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import importlib.util
 import json
 from pathlib import Path
 
@@ -59,7 +60,8 @@ REQUIRED_PIPELINE_SNIPPETS = (
     "Windows incompatible-host skip receipts are accepted only as an explicit rolling-publication boundary",
     "Conflicting startup-smoke receipt aliases are fail-closed (`headId` vs `head`, `channelId` vs `channel`)",
     "`scripts/verify_public_release_channel.py` now fail-closes if any promoted installer tuple is missing a matching fresh passing receipt at `readyCheckpoint=pre_ui_event_loop`, or the exact Windows incompatible-host rolling-publication receipt",
-    "Repo-local verification for this proof lane must route through `scripts/ai/verify.sh`, which runs `scripts/verify_public_release_channel.py .codex-studio/published`, `scripts/verify_next90_m143_registry_output_readiness.py`, and `scripts/verify_next90_m144_registry_release_tuple_proof.py`",
+    "Repo-local verification for this proof lane must route through `scripts/ai/verify.sh`. Its default `ci` mode runs `scripts/verify_next90_m143_registry_output_readiness.py`",
+    "`CHUMMER_REGISTRY_VERIFY_MODE=release scripts/ai/verify.sh` additionally runs `scripts/verify_public_release_channel.py .codex-studio/published`",
 )
 ROLLING_PUBLICATION_CHANNELS = {"preview", "stable", "public_stable", "nightly"}
 REQUIRED_RELEASE_VERIFIER_SNIPPETS = (
@@ -193,11 +195,20 @@ def verify_manifest(path: Path, *, label: str) -> None:
     coverage = payload.get("desktopTupleCoverage")
     if not isinstance(coverage, dict):
         fail(f"{label} is missing desktopTupleCoverage")
+    module_spec = importlib.util.spec_from_file_location(
+        "verify_public_release_channel_for_m144",
+        DEFAULT_RELEASE_VERIFIER,
+    )
+    if module_spec is None or module_spec.loader is None:
+        fail(f"{label} could not load the authoritative release-channel verifier")
+    release_verifier = importlib.util.module_from_spec(module_spec)
+    module_spec.loader.exec_module(release_verifier)
+    verified_coverage = release_verifier.verify_desktop_tuple_coverage(payload, label)
     expected_gap_lists = {
-        "missingRequiredPlatforms": [],
-        "missingRequiredHeads": [],
-        "missingRequiredPlatformHeadPairs": [],
-        "missingRequiredPlatformHeadRidTuples": [],
+        "missingRequiredPlatforms": verified_coverage["missing_platforms"],
+        "missingRequiredHeads": verified_coverage["missing_heads"],
+        "missingRequiredPlatformHeadPairs": verified_coverage["missing_pairs"],
+        "missingRequiredPlatformHeadRidTuples": verified_coverage["missing_platform_head_rid_tuples"],
     }
     expected_complete = not bool(expected_gap_lists["missingRequiredPlatformHeadRidTuples"])
     if coverage.get("complete") is not expected_complete:
@@ -210,9 +221,9 @@ def verify_manifest(path: Path, *, label: str) -> None:
     if required_heads != ["avalonia"]:
         fail(f"{label} desktopTupleCoverage.requiredDesktopHeads must stay ['avalonia']")
     required_platforms = coverage.get("requiredDesktopPlatforms")
-    if required_platforms != ["linux", "windows"]:
+    if required_platforms != ["linux", "windows", "macos"]:
         fail(
-            f"{label} desktopTupleCoverage.requiredDesktopPlatforms must stay ['linux', 'windows']"
+            f"{label} desktopTupleCoverage.requiredDesktopPlatforms must stay ['linux', 'windows', 'macos']"
         )
     promoted_tuples = coverage.get("promotedInstallerTuples")
     if not isinstance(promoted_tuples, list) or not promoted_tuples:
@@ -236,10 +247,13 @@ def verify_manifest(path: Path, *, label: str) -> None:
         for row in external_proof_requests
         if isinstance(row, dict)
     )
-    if external_request_tuple_ids != []:
+    expected_external_request_tuple_ids = sorted(
+        expected_gap_lists["missingRequiredPlatformHeadRidTuples"]
+    )
+    if external_request_tuple_ids != expected_external_request_tuple_ids:
         fail(
             f"{label} desktopTupleCoverage.externalProofRequests must name current missing tuple proofs, "
-            f"actual {external_request_tuple_ids!r}"
+            f"expected {expected_external_request_tuple_ids!r}, actual {external_request_tuple_ids!r}"
         )
     for row in external_proof_requests:
         if not isinstance(row, dict):
@@ -464,7 +478,7 @@ def verify_verify_sh(path: Path) -> None:
         fail("verify harness must not allow --skip-startup-smoke-filter on the published release-channel proof hook")
 
 
-def verify_all() -> None:
+def verify_all(*, verify_published: bool = False) -> None:
     verify_file_snippets(DEFAULT_CLOSEOUT_DOC, REQUIRED_CLOSEOUT_SNIPPETS, label="M144 closeout doc")
     verify_file_snippets(DEFAULT_PIPELINE_DOC, REQUIRED_PIPELINE_SNIPPETS, label="release-channel pipeline doc")
     verify_file_snippets(DEFAULT_RELEASE_VERIFIER, REQUIRED_RELEASE_VERIFIER_SNIPPETS, label="release-channel verifier")
@@ -481,23 +495,29 @@ def verify_all() -> None:
     verify_file_snippets(DEFAULT_WORKLIST, REQUIRED_WORKLIST_SNIPPETS, label="worklist")
     verify_successor_registry(DEFAULT_SUCCESSOR_REGISTRY)
     verify_queue_staging(DEFAULT_QUEUE_STAGING)
-    verify_manifest(DEFAULT_PUBLISHED_MANIFEST, label="published release-channel receipt")
-    verify_manifest(DEFAULT_COMPAT_MANIFEST, label="compatibility release-channel receipt")
-    promoted_tuples, artifact_map, channel_id = promoted_tuple_rows(DEFAULT_PUBLISHED_MANIFEST)
-    verify_startup_smoke_dir(
-        DEFAULT_STARTUP_SMOKE_DIR,
-        promoted_tuples=promoted_tuples,
-        artifact_map=artifact_map,
-        channel_id=channel_id,
-    )
+    if verify_published:
+        verify_manifest(DEFAULT_PUBLISHED_MANIFEST, label="published release-channel receipt")
+        verify_manifest(DEFAULT_COMPAT_MANIFEST, label="compatibility release-channel receipt")
+        promoted_tuples, artifact_map, channel_id = promoted_tuple_rows(DEFAULT_PUBLISHED_MANIFEST)
+        verify_startup_smoke_dir(
+            DEFAULT_STARTUP_SMOKE_DIR,
+            promoted_tuples=promoted_tuples,
+            artifact_map=artifact_map,
+            channel_id=channel_id,
+        )
     verify_verify_sh(DEFAULT_VERIFY_SH)
 
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Verify next90 M144 registry release tuple proof.")
     parser.add_argument("--self-test", action="store_true", help="Run the verifier against the repo-local proof anchors.")
-    parser.parse_args()
-    verify_all()
+    parser.add_argument(
+        "--published",
+        action="store_true",
+        help="Also audit the mutable published manifests and startup-smoke receipt shelf.",
+    )
+    args = parser.parse_args()
+    verify_all(verify_published=args.published)
     print("verified next90 M144 registry release tuple proof")
     return 0
 

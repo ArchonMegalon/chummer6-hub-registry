@@ -1426,6 +1426,31 @@ def test_dedupe_release_proof_routes_preserves_first_route_order() -> None:
     ]
 
 
+def test_materialized_release_proof_routes_drop_stale_source_installer_claims() -> None:
+    routes = MODULE.reconcile_materialized_release_proof_routes(
+        [
+            *MODULE.REQUIRED_RELEASE_PROOF_ROUTES,
+            "/downloads/install/avalonia-osx-arm64-installer",
+            "/downloads/install/blazor-desktop-osx-arm64-installer",
+        ],
+        [
+            {
+                "artifactId": "avalonia-linux-x64-installer",
+                "kind": "installer",
+            },
+            {
+                "artifactId": "avalonia-win-x64-installer",
+                "kind": "installer",
+            },
+        ],
+    )
+
+    assert routes == [
+        *MODULE.REQUIRED_RELEASE_PROOF_ROUTES,
+        "/downloads/install/avalonia-win-x64-installer",
+    ]
+
+
 def test_desktop_route_truth_does_not_offer_revoked_fallback_for_primary_rollback() -> None:
     rows = MODULE.desktop_route_truth(
         [
@@ -1794,6 +1819,26 @@ def test_filter_unproven_installers_enriches_windows_installer_with_bootstrap_pa
     assert filtered[0]["payloadDownloadUrl"] == "https://chummer.run/downloads/files/chummer-avalonia-win-x64-payload.zip"
     assert filtered[0]["payloadSha256"] == "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2"
     assert filtered[0]["payloadSizeBytes"] == 51124044
+
+
+def test_bootstrap_payload_url_stays_bound_to_stable_installer_metadata_route() -> None:
+    payload_name = "chummer-avalonia-win-x64-payload.zip"
+    expected = f"https://chummer.run/downloads/files/{payload_name}"
+
+    assert (
+        MODULE.derive_public_payload_download_url(
+            "/downloads/g/g-20260727T205345Z-19e9c4d1afb64dd5/files/chummer-avalonia-win-x64-installer.exe",
+            payload_name,
+        )
+        == expected
+    )
+    assert (
+        MODULE.derive_public_payload_download_url(
+            "https://chummer.run/downloads/g/g-20260727T205345Z-19e9c4d1afb64dd5/files/chummer-avalonia-win-x64-installer.exe",
+            payload_name,
+        )
+        == expected
+    )
 
 
 def test_desktop_tuple_coverage_emits_explicit_complete_flag() -> None:
@@ -3371,6 +3416,23 @@ def test_external_proof_request_capture_commands_include_operating_system_hint()
     assert 'REPO_ROOT="${CHUMMER_UI_REPO_ROOT:-/docker/chummercomplete/chummer6-ui}"' in commands[2]
 
 
+def test_external_proof_request_capture_commands_accept_unbound_artifact_and_report_digest() -> None:
+    commands = MODULE.external_proof_request_capture_commands(
+        head="avalonia",
+        rid="osx-arm64",
+        platform="macos",
+        installer_file_name="chummer-avalonia-osx-arm64-installer.dmg",
+        expected_installer_sha256="",
+        required_host="macos",
+        release_version="run-20260727-141524",
+    )
+
+    assert len(commands) == 3
+    assert "not expected or digest==expected" in commands[0]
+    assert "installer-discovered-sha256" in commands[0]
+    assert "installer-postdownload-sha256-mismatch" in commands[0]
+
+
 def test_desktop_tuple_coverage_external_proof_requests_match_verifier_contract() -> None:
     artifacts = [
         {
@@ -3603,6 +3665,49 @@ def test_artifact_identity_registry_downgrades_output_readiness_when_proof_is_st
 
     assert rows[0]["publicationState"] == "preview"
     assert rows[0]["retentionState"] == "temporary"
+
+
+def test_incomplete_coverage_copy_also_discloses_stale_proof_receipts() -> None:
+    coverage = {
+        "missingDesktopPlatforms": ["macos"],
+        "missingPlatformHeadPairs": ["avalonia:macos"],
+        "missingPlatformHeadRidTuples": ["avalonia:osx-arm64:macos"],
+    }
+    posture_fields = (
+        MODULE.derive_rollout_reason(
+            "preview",
+            "published",
+            {},
+            desktop_coverage_complete=False,
+            coverage=coverage,
+            proof_freshness_status_value="stale",
+        ),
+        MODULE.derive_supportability_summary(
+            "preview",
+            "published",
+            {},
+            desktop_coverage_complete=False,
+            coverage=coverage,
+            proof_freshness_status_value="stale",
+        ),
+        MODULE.derive_known_issue_summary(
+            "preview",
+            "published",
+            {},
+            desktop_coverage_complete=False,
+            coverage=coverage,
+            proof_freshness_status_value="stale",
+        ),
+        MODULE.derive_fix_availability_summary(
+            "published",
+            {},
+            desktop_coverage_complete=False,
+            proof_freshness_status_value="stale",
+        ),
+    )
+
+    assert all("stale or incomplete proof receipts" in value for value in posture_fields)
+    assert all("desktop tuple coverage" in value for value in posture_fields)
 
 
 def test_artifact_publication_bindings_derive_canonical_rows() -> None:

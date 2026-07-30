@@ -2107,6 +2107,23 @@ def test_expected_external_proof_capture_commands_include_linux_operating_system
     assert "CHUMMER_DESKTOP_STARTUP_SMOKE_OPERATING_SYSTEM=Linux" in commands[1]
 
 
+def test_expected_external_proof_capture_commands_accept_unbound_artifact_and_report_digest() -> None:
+    commands = MODULE.expected_external_proof_capture_commands(
+        head="avalonia",
+        rid="osx-arm64",
+        platform="macos",
+        installer_file_name="chummer-avalonia-osx-arm64-installer.dmg",
+        expected_installer_sha256="",
+        required_host="macos",
+        release_version="run-20260727-141524",
+    )
+
+    assert len(commands) == 3
+    assert "not expected or digest==expected" in commands[0]
+    assert "installer-discovered-sha256" in commands[0]
+    assert "installer-postdownload-sha256-mismatch" in commands[0]
+
+
 def test_verify_desktop_tuple_coverage_accepts_external_proof_request_shape_with_release_version() -> None:
     payload = {
         "channelId": "docker",

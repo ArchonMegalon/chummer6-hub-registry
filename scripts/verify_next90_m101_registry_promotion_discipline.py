@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import argparse
 import html
+import importlib.util
 import json
 import subprocess
 import sys
@@ -2146,12 +2147,39 @@ def run_self_test(proof_receipt: Path) -> None:
         )
         seeded_release_path = Path(temp_dir) / "seeded-release-channel.json"
         seeded_releases_path = Path(temp_dir) / "seeded-releases.json"
+        seeded_proof_path = Path(temp_dir) / "seeded-release-proof.json"
+        materializer_spec = importlib.util.spec_from_file_location(
+            "m101_release_channel_materializer",
+            DEFAULT_MATERIALIZER,
+        )
+        if materializer_spec is None or materializer_spec.loader is None:
+            fail("self-test could not load the release-channel materializer contract")
+        materializer_module = importlib.util.module_from_spec(materializer_spec)
+        materializer_spec.loader.exec_module(materializer_module)
+        required_proof_routes = list(materializer_module.REQUIRED_RELEASE_PROOF_ROUTES)
+        source_release_payload = json.loads(DEFAULT_RELEASE_CHANNEL.read_text(encoding="utf-8"))
+        source_release_proof = dict(source_release_payload.get("releaseProof") or {})
+        source_proof_routes = list(
+            source_release_proof.get("proofRoutes")
+            or source_release_proof.get("proof_routes")
+            or []
+        )
+        source_release_proof["proofRoutes"] = required_proof_routes + [
+            route for route in source_proof_routes if route not in required_proof_routes
+        ]
+        source_release_proof.pop("proof_routes", None)
+        seeded_proof_path.write_text(
+            json.dumps(source_release_proof, indent=2) + "\n",
+            encoding="utf-8",
+        )
         seed_result = subprocess.run(
             [
                 sys.executable,
                 str(DEFAULT_MATERIALIZER),
                 "--manifest",
                 str(DEFAULT_RELEASE_CHANNEL),
+                "--proof",
+                str(seeded_proof_path),
                 "--output",
                 str(seeded_release_path),
                 "--compat-output",

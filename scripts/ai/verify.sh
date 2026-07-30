@@ -85,11 +85,20 @@ python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m117_
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m117_registry_artifact_shelf.py --self-test >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m120_registry_launch_truth.py >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m120_registry_launch_truth.py --self-test >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m143_registry_output_readiness.py >/dev/null
+if [ "$registry_verify_mode" = "release" ]; then
+  python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m143_registry_output_readiness.py \
+    --published-manifest "$published_release_channel_path/RELEASE_CHANNEL.generated.json" >/dev/null
+else
+  python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m143_registry_output_readiness.py >/dev/null
+fi
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m143_registry_output_readiness.py --self-test >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m135_registry_boundary_coverage.py >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m135_registry_boundary_coverage.py --self-test >/dev/null
-python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py >/dev/null
+if [ "$registry_verify_mode" = "release" ]; then
+  python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py --published >/dev/null
+else
+  python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py >/dev/null
+fi
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/verify_next90_m144_registry_release_tuple_proof.py --self-test >/dev/null
 python3 /docker/chummercomplete/chummer-hub-registry/scripts/test_materialize_public_release_channel.py >/dev/null
 python3 -m pytest -q /docker/chummercomplete/chummer-hub-registry/scripts/test_verify_public_release_channel.py >/dev/null
@@ -264,6 +273,7 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/proof.json <<'JSON'
     "/home/work",
     "/account/access",
     "/account/work",
+    "/account/roster",
     "/account/support",
     "/contact",
     "/downloads"
@@ -794,6 +804,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/proof.json <<'JSON'
     "/home/work",
     "/account/access",
     "/account/work",
+    "/account/roster",
     "/account/support",
     "/contact",
     "/downloads"
@@ -1085,6 +1096,7 @@ payload["proof_routes"] = [
   "/home/work",
   "/account/access",
   "/account/work",
+  "/account/roster",
   "/account/support",
   "/contact",
   "/downloads",
@@ -1117,6 +1129,7 @@ payload["proof_routes"] = [
   "/home/work",
   "/account/access",
   "/account/work",
+  "/account/roster",
   "/account/support",
   "/contact",
   "/downloads",
@@ -1143,10 +1156,10 @@ assert payload["releaseProof"]["proofRoutes"] == [
   "/home/work",
   "/account/access",
   "/account/work",
+  "/account/roster",
   "/account/support",
   "/contact",
   "/downloads",
-  "/downloads/install/avalonia-osx-arm64-installer",
   "/downloads/install/avalonia-win-x64-installer",
   "/downloads/install/blazor-desktop-win-x64-installer",
 ]
@@ -1165,8 +1178,10 @@ payload["proof_routes"] = [
   "/home/work",
   "/account/access",
   "/account/work",
+  "/account/roster",
   "/account/support",
-  "/contact"
+  "/contact",
+  "/downloads"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -1401,8 +1416,10 @@ payload["proofRoutes"] = [
   "/home/work",
   "/account/access",
   "/account/work",
+  "/account/roster",
   "/account/support",
-  "/contact"
+  "/contact",
+  "/downloads"
 ]
 payload["proof_routes"] = [
   "/home/access",
@@ -1410,8 +1427,10 @@ payload["proof_routes"] = [
   "/home/work",
   "/account/access",
   "/account/work",
+  "/account/roster",
   "/account/support",
-  "/contact"
+  "/contact",
+  "/downloads"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -3153,8 +3172,10 @@ payload["releaseProof"]["proofRoutes"] = [
   "/home/work",
   "/account/access",
   "/account/work",
+  "/account/roster",
   "/account/support",
-  "/contact"
+  "/contact",
+  "/downloads"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -3235,8 +3256,10 @@ payload["releaseProof"]["proofRoutes"] = [
   "/home/work",
   "/account/access",
   "/account/work",
+  "/account/roster",
   "/account/support",
-  "/contact"
+  "/contact",
+  "/downloads"
 ]
 payload["releaseProof"]["proof_routes"] = [
   "/downloads/install/avalonia-linux-x64-installer",
@@ -3244,6 +3267,7 @@ payload["releaseProof"]["proof_routes"] = [
   "/home/work",
   "/account/access",
   "/account/work",
+  "/account/roster",
   "/account/support"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
@@ -3814,6 +3838,7 @@ payload["releaseProof"]["proofRoutes"] = [
   "/home/work",
   "/account/access",
   "/account/work",
+  "/account/roster",
   "/account/support",
   "/contact",
   "/downloads",
@@ -3839,6 +3864,7 @@ payload["releaseProof"]["proofRoutes"] = [
   "/home/work",
   "/account/access",
   "/account/work",
+  "/account/roster",
   "/account/support",
   "/contact",
   "/downloads",
@@ -5450,8 +5476,10 @@ assert artifacts["avalonia-linux-x64-archive"]["compatibilityState"] == "compati
 assert canonical["rolloutState"] == "coverage_incomplete"
 assert canonical["supportabilityState"] == "review_required"
 assert canonical["supportabilitySummary"].startswith(
-    "Treat the current release as review-required because required desktop tuple coverage is incomplete"
+    "Treat the current release as review-required because "
 )
+assert "stale or incomplete proof receipts still block launch-readiness claims" in canonical["supportabilitySummary"]
+assert "required desktop tuple coverage is incomplete" in canonical["supportabilitySummary"]
 assert "required desktop tuple coverage is incomplete" in canonical["knownIssueSummary"]
 assert canonical["releaseProof"]["status"] == "passed"
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["status"] == "pass"
@@ -5519,8 +5547,10 @@ assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["translationBacklo
 assert canonical["releaseProof"]["uiLocalizationReleaseGate"]["translationBacklogFindingsCount"] == 0
 assert canonical["supportabilityState"] == "review_required"
 assert canonical["supportabilitySummary"].startswith(
-    "Treat the current release as review-required because required desktop tuple coverage is incomplete"
+    "Treat the current release as review-required because "
 )
+assert "stale or incomplete proof receipts still block launch-readiness claims" in canonical["supportabilitySummary"]
+assert "required desktop tuple coverage is incomplete" in canonical["supportabilitySummary"]
 assert "required desktop tuple coverage is incomplete" in canonical["knownIssueSummary"]
 coverage = canonical.get("desktopTupleCoverage") or {}
 assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows", "macos"]

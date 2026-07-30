@@ -152,6 +152,7 @@ REQUIRED_RELEASE_PROOF_ROUTES = (
     "/home/work",
     "/account/access",
     "/account/work",
+    "/account/roster",
     "/account/support",
     "/contact",
     "/downloads",
@@ -701,7 +702,7 @@ def expected_external_proof_capture_commands(
             "import sys; "
             "sys.exit(0) if (not p.is_file()) else None; "
             "digest=hashlib.sha256(p.read_bytes()).hexdigest().lower(); "
-            "sys.exit(0) if digest==expected else print("
+            "sys.exit(0) if (not expected or digest==expected) else print("
             "f'installer-preflight-sha256-mismatch:{p}:digest={digest}:expected={expected}') or p.unlink()"
         )
         + " && "
@@ -759,7 +760,8 @@ def expected_external_proof_capture_commands(
             "auth_header_set=bool(str(os.environ.get('CHUMMER_EXTERNAL_PROOF_AUTH_HEADER','')).strip()); "
             "cookie_header_set=bool(str(os.environ.get('CHUMMER_EXTERNAL_PROOF_COOKIE_HEADER','')).strip()); "
             "cookie_jar_set=bool(str(os.environ.get('CHUMMER_EXTERNAL_PROOF_COOKIE_JAR','')).strip()); "
-            "sys.exit(0) if digest==expected else sys.exit("
+            "print(f'installer-discovered-sha256:{p}:digest={digest}') if not expected else None; "
+            "sys.exit(0) if (not expected or digest==expected) else sys.exit("
             "f'installer-postdownload-sha256-mismatch:{p}:digest={digest}:expected={expected}:"
             "auth_header_set={auth_header_set}:cookie_header_set={cookie_header_set}:cookie_jar_set={cookie_jar_set}:"
             "hint=signed-in-download-route-required-or-bytes-drift')"

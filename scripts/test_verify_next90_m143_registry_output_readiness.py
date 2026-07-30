@@ -66,7 +66,7 @@ class VerifyNext90M143RegistryOutputReadinessTests(unittest.TestCase):
             shutil.copyfile(pipeline_doc, mutated_pipeline_doc)
             mutated_pipeline_doc.write_text(
                 mutated_pipeline_doc.read_text(encoding="utf-8").replace(
-                    "Repo-local verification for this proof lane must route through `scripts/ai/verify.sh`, which runs `scripts/verify_public_release_channel.py .codex-studio/published`, `scripts/verify_next90_m143_registry_output_readiness.py`, and `scripts/verify_next90_m144_registry_release_tuple_proof.py` before build/test work so queue, closeout, and published tuple truth cannot drift independently.\n",
+                    "Repo-local verification for this proof lane must route through `scripts/ai/verify.sh`. Its default `ci` mode runs `scripts/verify_next90_m143_registry_output_readiness.py` to validate source contracts and hermetic fixtures without binding them to the mutable publication shelf. `CHUMMER_REGISTRY_VERIFY_MODE=release scripts/ai/verify.sh` additionally runs `scripts/verify_public_release_channel.py .codex-studio/published`, `scripts/verify_next90_m143_registry_output_readiness.py --published-manifest .codex-studio/published/RELEASE_CHANNEL.generated.json`, and `scripts/verify_next90_m144_registry_release_tuple_proof.py` before build/test work so queue, closeout, and published tuple truth cannot drift independently.\n",
                     "",
                     1,
                 ),

@@ -475,7 +475,15 @@ def parse_args() -> argparse.Namespace:
     parser.add_argument("--release-test", type=Path, default=DEFAULT_RELEASE_TEST)
     parser.add_argument("--package-test", type=Path, default=DEFAULT_PACKAGE_TEST)
     parser.add_argument("--verify-sh", type=Path, default=DEFAULT_VERIFY_SH)
-    parser.add_argument("--published-manifest", type=Path, default=DEFAULT_PUBLISHED_MANIFEST)
+    parser.add_argument(
+        "--published-manifest",
+        type=Path,
+        default=None,
+        help=(
+            "Optional mutable publication manifest to audit. Source verification omits it; "
+            "release verification passes the active shelf explicitly."
+        ),
+    )
     parser.add_argument("--successor-registry", type=Path, default=DEFAULT_SUCCESSOR_REGISTRY)
     parser.add_argument("--canonical-successor-registry", type=Path, default=DEFAULT_CANONICAL_SUCCESSOR_REGISTRY)
     parser.add_argument("--queue-staging", type=Path, default=DEFAULT_QUEUE_STAGING)
@@ -507,7 +515,8 @@ def main() -> None:
         scan_helpers=False,
     )
     verify_file_snippets(args.verify_sh, REQUIRED_VERIFY_SH_SNIPPETS, label="verify.sh")
-    verify_manifest(args.published_manifest, label="published release-channel manifest")
+    if args.published_manifest is not None:
+        verify_manifest(args.published_manifest, label="published release-channel manifest")
     print("verified next90 M143 registry output-readiness proof")
 
 
