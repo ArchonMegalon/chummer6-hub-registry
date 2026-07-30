@@ -419,7 +419,27 @@ ALLOWED_PUBLIC_TRUST_METRICS_KEYS = (
     "adoptionHealth",
     "proofFreshness",
     "revocationFacts",
+    "privacyReadiness",
 )
+ALLOWED_PUBLIC_TRUST_PRIVACY_READINESS_KEYS = (
+    "contractName",
+    "contractVersion",
+    "capabilityContractName",
+    "capabilityContractVersion",
+    "status",
+    "reviewRequired",
+    "blocksLaunch",
+    "scope",
+    "facts",
+    "prohibitedClaims",
+    "blockedClaims",
+    "reason",
+)
+PRIVACY_LAUNCH_GATE_CONTRACT_NAME = "chummer.privacy_launch_gate"
+PRIVACY_LAUNCH_GATE_CONTRACT_VERSION = 1
+PRIVACY_CAPABILITY_CONTRACT_NAME = "chummer.hosted_build_privacy_lifecycle"
+PRIVACY_CAPABILITY_CONTRACT_VERSION = 1
+PRIVACY_LAUNCH_GATE_SCOPE = "flagship_launch_and_release_supportability"
 ALLOWED_REGISTRY_BOUNDARY_COVERAGE_KEYS = (
     "status",
     "owner",
@@ -4731,7 +4751,135 @@ def verify_exchange_lineage_registry(payload: dict[str, Any], source: str) -> No
         raise SystemExit(f"{source} exchangeLineageRegistry does not match canonical exchange lineage truth")
 
 
+def normalized_privacy_readiness(
+    payload: dict[str, Any],
+    *,
+    source: str,
+) -> dict[str, Any] | None:
+    metrics = payload.get("publicTrustMetrics")
+    privacy = metrics.get("privacyReadiness") if isinstance(metrics, dict) else None
+    if privacy is None:
+        return None
+    if not isinstance(privacy, dict):
+        raise SystemExit(f"{source} publicTrustMetrics.privacyReadiness must be an object")
+
+    unexpected_keys = sorted(
+        str(key)
+        for key in privacy.keys()
+        if str(key) not in ALLOWED_PUBLIC_TRUST_PRIVACY_READINESS_KEYS
+    )
+    if unexpected_keys:
+        raise SystemExit(
+            f"{source} publicTrustMetrics.privacyReadiness has unexpected keys "
+            f"({', '.join(unexpected_keys)})"
+        )
+
+    expected_identity = {
+        "contractName": PRIVACY_LAUNCH_GATE_CONTRACT_NAME,
+        "contractVersion": PRIVACY_LAUNCH_GATE_CONTRACT_VERSION,
+        "capabilityContractName": PRIVACY_CAPABILITY_CONTRACT_NAME,
+        "capabilityContractVersion": PRIVACY_CAPABILITY_CONTRACT_VERSION,
+        "scope": PRIVACY_LAUNCH_GATE_SCOPE,
+    }
+    for field_name, expected_value in expected_identity.items():
+        if privacy.get(field_name) != expected_value:
+            raise SystemExit(
+                f"{source} publicTrustMetrics.privacyReadiness.{field_name} "
+                f"must be {expected_value!r}"
+            )
+
+    status = normalized_token(privacy.get("status"))
+    if status not in {"documented", "review_required"}:
+        raise SystemExit(
+            f"{source} publicTrustMetrics.privacyReadiness.status "
+            "must be documented or review_required"
+        )
+    review_required = privacy.get("reviewRequired")
+    blocks_launch = privacy.get("blocksLaunch")
+    if not isinstance(review_required, bool):
+        raise SystemExit(
+            f"{source} publicTrustMetrics.privacyReadiness.reviewRequired must be a boolean"
+        )
+    if not isinstance(blocks_launch, bool):
+        raise SystemExit(
+            f"{source} publicTrustMetrics.privacyReadiness.blocksLaunch must be a boolean"
+        )
+    expected_blocks_launch = review_required or status != "documented"
+    if blocks_launch != expected_blocks_launch:
+        raise SystemExit(
+            f"{source} publicTrustMetrics.privacyReadiness.blocksLaunch "
+            "must match status and reviewRequired"
+        )
+    if status == "documented" and review_required:
+        raise SystemExit(
+            f"{source} publicTrustMetrics.privacyReadiness.reviewRequired "
+            "must be false when status is documented"
+        )
+    if status == "review_required" and not review_required:
+        raise SystemExit(
+            f"{source} publicTrustMetrics.privacyReadiness.reviewRequired "
+            "must be true when status is review_required"
+        )
+
+    normalized_lists: dict[str, list[str]] = {}
+    for field_name in ("facts", "prohibitedClaims", "blockedClaims"):
+        values = privacy.get(field_name)
+        if not isinstance(values, list):
+            raise SystemExit(
+                f"{source} publicTrustMetrics.privacyReadiness.{field_name} must be a list"
+            )
+        normalized_values = [str(item).strip() for item in values]
+        if any(not item for item in normalized_values):
+            raise SystemExit(
+                f"{source} publicTrustMetrics.privacyReadiness.{field_name} "
+                "must contain non-empty strings"
+            )
+        if len(set(normalized_values)) != len(normalized_values):
+            raise SystemExit(
+                f"{source} publicTrustMetrics.privacyReadiness.{field_name} "
+                "must not contain duplicates"
+            )
+        normalized_lists[field_name] = normalized_values
+
+    if status == "documented" and normalized_lists["blockedClaims"]:
+        raise SystemExit(
+            f"{source} publicTrustMetrics.privacyReadiness.blockedClaims "
+            "must be empty when status is documented"
+        )
+    if status == "review_required" and not normalized_lists["blockedClaims"]:
+        raise SystemExit(
+            f"{source} publicTrustMetrics.privacyReadiness.blockedClaims "
+            "must identify the blocked launch claims when review is required"
+        )
+
+    reason = str(privacy.get("reason") or "").strip()
+    if not reason:
+        raise SystemExit(
+            f"{source} publicTrustMetrics.privacyReadiness.reason must not be blank"
+        )
+
+    return {
+        **expected_identity,
+        "status": status,
+        "reviewRequired": review_required,
+        "blocksLaunch": blocks_launch,
+        **normalized_lists,
+        "reason": reason,
+    }
+
+
 def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
+    privacy_readiness = normalized_privacy_readiness(
+        payload,
+        source="public trust metrics derivation",
+    )
+    privacy_readiness_blocks = bool(
+        privacy_readiness
+        and (
+            privacy_readiness["reviewRequired"]
+            or privacy_readiness["status"] != "documented"
+        )
+    )
     coverage = payload.get("desktopTupleCoverage") or {}
     route_truth = coverage.get("desktopRouteTruth") if isinstance(coverage, dict) else []
     if not isinstance(route_truth, list):
@@ -4829,7 +4977,12 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
     adoption_status = "healthy"
     if not readiness_recommended_primary_routes:
         adoption_status = "blocked"
-    elif readiness_blocked_routes or revoked_routes or proof_freshness_blocks_output_readiness(proof_freshness_status_value):
+    elif (
+        readiness_blocked_routes
+        or revoked_routes
+        or proof_freshness_blocks_output_readiness(proof_freshness_status_value)
+        or privacy_readiness_blocks
+    ):
         adoption_status = "limited"
     channel_id = expected_channel_id(payload)
     status = normalized_token(payload.get("status"))
@@ -4859,7 +5012,7 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
         rollout_state=rollout_state,
         proof_freshness_status=proof_freshness_status_value,
     )
-    return {
+    result = {
         "releaseChannel": {
             "channelId": channel_id,
             "posture": posture,
@@ -4881,7 +5034,12 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
                 "blocked"
                 if not readiness_recommended_primary_routes
                 else "limited"
-                if readiness_blocked_routes or revoked_routes or proof_freshness_blocks_output_readiness(proof_freshness_status_value)
+                if (
+                    readiness_blocked_routes
+                    or revoked_routes
+                    or proof_freshness_blocks_output_readiness(proof_freshness_status_value)
+                    or privacy_readiness_blocks
+                )
                 else adoption_status
             ),
             "primaryPromotedCount": len(readiness_recommended_primary_routes),
@@ -4950,6 +5108,9 @@ def expected_public_trust_metrics(payload: dict[str, Any]) -> dict[str, Any]:
             ),
         },
     }
+    if privacy_readiness is not None:
+        result["privacyReadiness"] = privacy_readiness
+    return result
 
 
 def _public_trust_metrics_list_sort_key(path: tuple[str, ...], item: Any) -> tuple[Any, ...] | None:

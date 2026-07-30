@@ -1143,6 +1143,51 @@ def test_verify_public_trust_metrics_accepts_canonical_rows() -> None:
     MODULE.verify_public_trust_metrics(payload, "release-channel.json")
 
 
+def test_verify_public_trust_metrics_accepts_canonical_privacy_readiness() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["publicTrustMetrics"]["privacyReadiness"] = {
+        "contractName": MODULE.PRIVACY_LAUNCH_GATE_CONTRACT_NAME,
+        "contractVersion": MODULE.PRIVACY_LAUNCH_GATE_CONTRACT_VERSION,
+        "capabilityContractName": MODULE.PRIVACY_CAPABILITY_CONTRACT_NAME,
+        "capabilityContractVersion": MODULE.PRIVACY_CAPABILITY_CONTRACT_VERSION,
+        "status": "documented",
+        "reviewRequired": False,
+        "blocksLaunch": False,
+        "scope": MODULE.PRIVACY_LAUNCH_GATE_SCOPE,
+        "facts": [],
+        "prohibitedClaims": [],
+        "blockedClaims": [],
+        "reason": "Hosted Build privacy policy is documented and verified.",
+    }
+
+    MODULE.verify_public_trust_metrics(payload, "release-channel.json")
+
+
+def test_verify_public_trust_metrics_rejects_inconsistent_privacy_readiness() -> None:
+    payload = complete_primary_desktop_tuple_payload()
+    add_install_aware_route_truth(payload)
+    add_public_trust_metrics(payload)
+    payload["publicTrustMetrics"]["privacyReadiness"] = {
+        "contractName": MODULE.PRIVACY_LAUNCH_GATE_CONTRACT_NAME,
+        "contractVersion": MODULE.PRIVACY_LAUNCH_GATE_CONTRACT_VERSION,
+        "capabilityContractName": MODULE.PRIVACY_CAPABILITY_CONTRACT_NAME,
+        "capabilityContractVersion": MODULE.PRIVACY_CAPABILITY_CONTRACT_VERSION,
+        "status": "documented",
+        "reviewRequired": False,
+        "blocksLaunch": True,
+        "scope": MODULE.PRIVACY_LAUNCH_GATE_SCOPE,
+        "facts": [],
+        "prohibitedClaims": [],
+        "blockedClaims": [],
+        "reason": "This inconsistent tuple must fail closed.",
+    }
+
+    with pytest.raises(SystemExit, match="blocksLaunch must match status and reviewRequired"):
+        MODULE.verify_public_trust_metrics(payload, "release-channel.json")
+
+
 def test_verify_public_trust_metrics_rejects_canonical_drift() -> None:
     payload = complete_primary_desktop_tuple_payload()
     add_install_aware_route_truth(payload)
