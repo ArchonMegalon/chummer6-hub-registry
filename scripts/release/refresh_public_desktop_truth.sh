@@ -24,10 +24,10 @@ STAGE_CANONICAL_INSTALLER_ROOTS=(
 )
 
 STAGE_CANONICAL_STARTUP_SMOKE_ROOTS=(
+  "$SOURCE_STARTUP_SMOKE_DIR"
   "$WORKSPACE_ROOT/chummer-presentation/Docker/Downloads/startup-smoke"
   "$WORKSPACE_ROOT/chummer-presentation/Chummer.Portal/downloads/startup-smoke"
   "$WORKSPACE_ROOT/chummer.run-services/Chummer.Portal/downloads/startup-smoke"
-  "$SOURCE_STARTUP_SMOKE_DIR"
   "$WORKSPACE_ROOT/chummer-hub-registry/.codex-studio/published/startup-smoke"
 )
 
@@ -85,7 +85,14 @@ FORCE_RELEASE_PROOF_MATERIALIZATION="${FORCE_RELEASE_PROOF_MATERIALIZATION:-0}"
 mkdir -p "$PUBLISHED_FILES_DIR" "$PUBLISHED_STARTUP_SMOKE_DIR"
 temp_output_path="$(mktemp)"
 temp_compat_output_path="$(mktemp)"
-trap 'rm -f "$temp_output_path" "$temp_compat_output_path"' EXIT
+candidate_validation_root=""
+cleanup() {
+  rm -f "$temp_output_path" "$temp_compat_output_path"
+  if [[ -n "$candidate_validation_root" ]]; then
+    rm -rf "$candidate_validation_root"
+  fi
+}
+trap cleanup EXIT
 
 current_version="$(
   python3 - "$OUTPUT_PATH" <<'PY'
@@ -176,6 +183,8 @@ stage_startup_smoke_if_present() {
 
   if [[ -n "$explicit_path" && -f "$explicit_path" ]]; then
     source_path="$explicit_path"
+  elif [[ -n "${PREFERRED_STARTUP_SMOKE_ROOT:-}" && -f "$PREFERRED_STARTUP_SMOKE_ROOT/$receipt_name" ]]; then
+    source_path="$PREFERRED_STARTUP_SMOKE_ROOT/$receipt_name"
   else
     for root in "${STAGE_CANONICAL_STARTUP_SMOKE_ROOTS[@]}"; do
       local candidate="$root/$receipt_name"
@@ -293,6 +302,12 @@ if best_path is not None:
 PY
 }
 
+source_release_channel_manifest_path="$(resolve_release_channel_manifest_path || true)"
+PREFERRED_STARTUP_SMOKE_ROOT=""
+if [[ -f "${source_release_channel_manifest_path:-}" ]]; then
+  PREFERRED_STARTUP_SMOKE_ROOT="$(dirname "$source_release_channel_manifest_path")/startup-smoke"
+fi
+
 # Stage any known flagship installer bytes that exist locally; the materializer
 # still fail-closes promotion on missing or stale startup-smoke proof.
 stage_if_present "$SOURCE_WINDOWS_INSTALLER_PATH" "chummer-avalonia-win-x64-installer.exe"
@@ -315,7 +330,6 @@ materializer_args=(
   --downloads-prefix "$DOWNLOADS_PREFIX"
 )
 
-source_release_channel_manifest_path="$(resolve_release_channel_manifest_path || true)"
 if [[ -n "$source_release_channel_manifest_path" && -f "$source_release_channel_manifest_path" ]]; then
   materializer_args+=(--manifest "$source_release_channel_manifest_path")
 fi
@@ -329,6 +343,20 @@ fi
 
 python3 "$REGISTRY_ROOT/scripts/materialize_public_release_channel.py" "${materializer_args[@]}"
 validate_requested_release_identity "$temp_output_path"
+
+# Verify the complete candidate against the exact staged byte and smoke-receipt
+# inventory before replacing canonical truth or any workspace mirror.  A failed
+# refresh must leave the last verified manifest authoritative.
+candidate_validation_root="$(mktemp -d)"
+cp "$temp_output_path" "$candidate_validation_root/RELEASE_CHANNEL.generated.json"
+cp "$temp_compat_output_path" "$candidate_validation_root/releases.json"
+if [[ -d "$PUBLISHED_FILES_DIR" ]]; then
+  cp -al "$PUBLISHED_FILES_DIR" "$candidate_validation_root/files"
+fi
+if [[ -d "$PUBLISHED_STARTUP_SMOKE_DIR" ]]; then
+  cp -al "$PUBLISHED_STARTUP_SMOKE_DIR" "$candidate_validation_root/startup-smoke"
+fi
+python3 "$REGISTRY_ROOT/scripts/verify_public_release_channel.py" "$candidate_validation_root"
 
 mv "$temp_output_path" "$OUTPUT_PATH"
 mv "$temp_compat_output_path" "$COMPAT_OUTPUT_PATH"

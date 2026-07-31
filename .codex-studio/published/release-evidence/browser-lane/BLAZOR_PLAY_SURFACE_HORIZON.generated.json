@@ -1,0 +1,290 @@
+{
+  "contract_name": "chummer6-ui.blazor_play_surface_horizon",
+  "generated_at": "2026-07-08T03:48:38.847540+00:00",
+  "status": "passed",
+  "scope": "public_release_shelf_play_surface_horizons",
+  "public_download_relative_root": "release-evidence/browser-lane",
+  "current_release_truth": {
+    "browser_lane_status": "passed",
+    "execution_horizon_status": "passed",
+    "pwa_public_edge_status": "passed",
+    "current_execution_scope": "smoke",
+    "smoke_execution_scope": "smoke",
+    "public_base_url": "https://chummer.run",
+    "public_entry_route": "/app",
+    "public_roster_entry_route": "/app?command=character_roster",
+    "public_blazor_root_route": "/blazor/",
+    "hosted_app_route": "/blazor/app",
+    "compatibility_route_base": "/blazor/workbench",
+    "execution_route_base": "/blazor/workbench",
+    "promoted_route_base": "/blazor/workbench"
+  },
+  "horizons": [
+    {
+      "id": "near_term_stabilization",
+      "title": "Near-term stabilization",
+      "status": "proven",
+      "evidence_tier": "runtime_proven",
+      "headline": "Hosted route entry, browser-lane release posture, and smoke execution are currently proven.",
+      "summary": "The public app and promoted /blazor workbench routes are release-backed, and the published hosted execution scope is smoke.",
+      "runtime_proven_receipts": [
+        {
+          "id": "browser_lane_proof_set",
+          "label": "Aggregate browser-lane proof set",
+          "status": "passed",
+          "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_BROWSER_LANE_PROOF_SET.generated.json"
+        },
+        {
+          "id": "public_edge_execution_horizon",
+          "label": "Hosted public-edge execution horizon",
+          "status": "passed",
+          "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_PUBLIC_EDGE_EXECUTION_HORIZON.generated.json"
+        }
+      ],
+      "source_staged_receipts": [],
+      "documentation_sources": [],
+      "unproven_claims": [
+        "full live public-edge workflow execution breadth remains a separate horizon",
+        "desktop parity breadth remains outside hosted browser execution proof"
+      ],
+      "execution_horizon": {
+        "near_term": {
+          "covered_workflow_family_count": 9,
+          "id": "near_term_hosted_smoke_execution",
+          "missing_workflow_family_ids": [],
+          "required_workflow_family_count": 9,
+          "status": "proven"
+        },
+        "mid_term": {
+          "covered_workflow_family_count": 9,
+          "id": "mid_term_full_live_public_edge_execution_matrix",
+          "missing_workflow_family_ids": [
+            "promoted_advanced_action_affordances",
+            "promoted_advanced_committed_actions",
+            "promoted_career_entry_committed_execution",
+            "promoted_career_entry_delete_committed_execution",
+            "promoted_career_entry_delete_execution",
+            "promoted_career_entry_edit_committed_execution",
+            "promoted_career_entry_edit_execution",
+            "promoted_career_entry_execution",
+            "promoted_career_entry_reorder_execution",
+            "promoted_career_log_continuity",
+            "promoted_combat_support_execution",
+            "promoted_contact_connection_execution",
+            "promoted_contact_delete_execution",
+            "promoted_contact_edit_execution",
+            "promoted_cyberware_delete_execution",
+            "promoted_cyberware_edit_execution",
+            "promoted_cyberware_selection_execution",
+            "promoted_drug_selection_execution",
+            "promoted_gear_maintenance_execution",
+            "promoted_identity_license_execution",
+            "promoted_magic_cleanup_utility_execution",
+            "promoted_magic_delete_execution",
+            "promoted_magic_support_execution",
+            "promoted_quality_delete_execution",
+            "promoted_quality_selection_execution",
+            "promoted_recent_work_affordances",
+            "promoted_restored_section_content",
+            "promoted_restored_section_continuations",
+            "promoted_restored_tab_landings",
+            "promoted_runner_notes_committed_execution",
+            "promoted_runner_notes_execution",
+            "promoted_skill_maintenance_execution",
+            "promoted_skill_selection_execution",
+            "promoted_source_gear_utility_execution",
+            "promoted_spell_selection_execution",
+            "promoted_vehicle_delete_execution",
+            "promoted_vehicle_edit_execution",
+            "promoted_vehicle_mod_selection_execution",
+            "promoted_vehicle_selection_execution",
+            "promoted_weapon_selection_execution"
+          ],
+          "promotion_rule": "requires a passing full-scope BLAZOR_PUBLIC_EDGE_EXECUTION_PROOF.generated.json",
+          "required_workflow_family_count": 49,
+          "status": "not_proven"
+        },
+        "long_term": {
+          "id": "long_term_full_browser_desktop_parity_breadth",
+          "promotion_rule": "hosted execution proof alone is not full desktop parity; keep UI parity gates distinct",
+          "status": "not_claimed"
+        }
+      }
+    },
+    {
+      "id": "mid_term_pwa_session_utility",
+      "title": "Mid-term PWA and session utility",
+      "status": "mixed",
+      "evidence_tier": "runtime_pwa_plus_source_staged_session_utility",
+      "headline": "The installable /blazor shell is runtime-proven, but in-session utility remains source-staged.",
+      "summary": "The public PWA shell is proven on the hosted edge, while touch/mobile, campaign/session, and table-handoff utility are staged for release truth without claiming browser runtime parity.",
+      "runtime_proven_receipts": [
+        {
+          "id": "pwa_public_edge",
+          "label": "Hosted /blazor PWA shell",
+          "status": "passed",
+          "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_PWA_PUBLIC_EDGE_PROOF.generated.json"
+        }
+      ],
+      "source_staged_receipts": [
+        {
+          "id": "touch_mobile_staged",
+          "label": "Touch/mobile session utility",
+          "status": "passed",
+          "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_WORKBENCH_TOUCH_MOBILE_STAGED_PROOF.generated.json"
+        },
+        {
+          "id": "campaign_session_staged",
+          "label": "Campaign/session handoff utility",
+          "status": "passed",
+          "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_WORKBENCH_CAMPAIGN_SESSION_STAGED_PROOF.generated.json"
+        },
+        {
+          "id": "table_handoff_staged",
+          "label": "Table handoff posture",
+          "status": "passed",
+          "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_WORKBENCH_TABLE_HANDOFF_STAGED_PROOF.generated.json"
+        }
+      ],
+      "documentation_sources": [],
+      "unproven_claims": [
+        "campaign persistence",
+        "GM approval",
+        "reward mutation",
+        "table share",
+        "portal help runtime parity",
+        "mobile browser execution parity"
+      ],
+      "server_bound_boundaries": [
+        "runner data",
+        "workspace data",
+        "API traffic",
+        "Black Ledger state",
+        "heat state",
+        "session state"
+      ]
+    },
+    {
+      "id": "long_term_living_world_expansion",
+      "title": "Long-term living-world expansion",
+      "status": "staged",
+      "evidence_tier": "source_staged_and_docs_only",
+      "headline": "Living-world expansion is defined and source-staged, but not runtime-proven on the public edge.",
+      "summary": "Table Pulse, Runner Passport, Black Ledger, progression/workflow ledgers, and live heat continuity exist as product/docs posture and staged browser lanes without claiming live public-edge execution.",
+      "runtime_proven_receipts": [],
+      "source_staged_receipts": [
+        {
+          "id": "workflow_ledger_staged",
+          "label": "Workflow ledger posture",
+          "status": "passed",
+          "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_WORKBENCH_WORKFLOW_LEDGER_STAGED_PROOF.generated.json"
+        },
+        {
+          "id": "progression_ledger_staged",
+          "label": "Progression ledger posture",
+          "status": "passed",
+          "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_WORKBENCH_PROGRESSION_LEDGER_STAGED_PROOF.generated.json"
+        },
+        {
+          "id": "table_handoff_staged",
+          "label": "Table handoff posture",
+          "status": "passed",
+          "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_WORKBENCH_TABLE_HANDOFF_STAGED_PROOF.generated.json"
+        }
+      ],
+      "documentation_sources": [
+        {
+          "id": "table_pulse_showcase",
+          "label": "Table Pulse flagship showcase",
+          "path": "/docker/chummercomplete/chummer-presentation/docs/TABLE_PULSE_FLAGSHIP_SHOWCASE.md",
+          "status": "passed"
+        },
+        {
+          "id": "table_pulse_minigames",
+          "label": "Table Pulse remote reaction minigames",
+          "path": "/docker/chummercomplete/chummer-presentation/docs/TABLE_PULSE_REMOTE_REACTION_MINIGAMES.md",
+          "status": "passed"
+        }
+      ],
+      "unproven_claims": [
+        "live Black Ledger mutation",
+        "heat propagation runtime",
+        "Runner Passport continuity runtime",
+        "living-world inbox or newsroom runtime",
+        "public-edge living-world execution parity"
+      ]
+    }
+  ],
+  "supporting_receipts": [
+    {
+      "id": "browser_lane_proof_set",
+      "label": "Aggregate browser-lane proof set",
+      "status": "passed",
+      "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_BROWSER_LANE_PROOF_SET.generated.json"
+    },
+    {
+      "id": "public_edge_execution_horizon",
+      "label": "Hosted public-edge execution horizon",
+      "status": "passed",
+      "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_PUBLIC_EDGE_EXECUTION_HORIZON.generated.json"
+    },
+    {
+      "id": "pwa_public_edge",
+      "label": "Hosted /blazor PWA shell",
+      "status": "passed",
+      "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_PWA_PUBLIC_EDGE_PROOF.generated.json"
+    },
+    {
+      "id": "touch_mobile_staged",
+      "label": "Touch/mobile session utility",
+      "status": "passed",
+      "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_WORKBENCH_TOUCH_MOBILE_STAGED_PROOF.generated.json"
+    },
+    {
+      "id": "campaign_session_staged",
+      "label": "Campaign/session handoff utility",
+      "status": "passed",
+      "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_WORKBENCH_CAMPAIGN_SESSION_STAGED_PROOF.generated.json"
+    },
+    {
+      "id": "table_handoff_staged",
+      "label": "Table handoff posture",
+      "status": "passed",
+      "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_WORKBENCH_TABLE_HANDOFF_STAGED_PROOF.generated.json"
+    },
+    {
+      "id": "workflow_ledger_staged",
+      "label": "Workflow ledger posture",
+      "status": "passed",
+      "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_WORKBENCH_WORKFLOW_LEDGER_STAGED_PROOF.generated.json"
+    },
+    {
+      "id": "progression_ledger_staged",
+      "label": "Progression ledger posture",
+      "status": "passed",
+      "public_download_relative_path": "release-evidence/browser-lane/BLAZOR_WORKBENCH_PROGRESSION_LEDGER_STAGED_PROOF.generated.json"
+    }
+  ],
+  "documentation_sources": [
+    {
+      "id": "table_pulse_showcase",
+      "label": "Table Pulse flagship showcase",
+      "path": "/docker/chummercomplete/chummer-presentation/docs/TABLE_PULSE_FLAGSHIP_SHOWCASE.md",
+      "status": "passed"
+    },
+    {
+      "id": "table_pulse_minigames",
+      "label": "Table Pulse remote reaction minigames",
+      "path": "/docker/chummercomplete/chummer-presentation/docs/TABLE_PULSE_REMOTE_REACTION_MINIGAMES.md",
+      "status": "passed"
+    }
+  ],
+  "failures": [],
+  "notes": [
+    "This receipt is the public release-shelf horizon summary for the browser/PWA play surface.",
+    "Near-term stabilization is runtime proof only; mid-term and long-term lanes stay explicitly separated by proof tier.",
+    "Public route truth is split between /app as the clean entry, /blazor/app as the hosted app path, and /blazor/workbench as the proof-compatible compatibility lane.",
+    "PWA installability must not be treated as offline runner, workspace, API, Black Ledger, heat, or session parity.",
+    "Living-world expansion remains docs-plus-source-staged evidence until refreshed runtime receipts prove it on the public edge."
+  ]
+}

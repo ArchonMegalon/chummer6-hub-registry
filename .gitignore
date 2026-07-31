@@ -64,3 +64,10 @@ git/
 /.codex-studio/published/files/*.dmg
 /.codex-studio/published/files/*.exe
 /.codex-studio/published/files/*.tar.gz
+
+# Local validation scratch, quarantined binaries, and native-host logs are not
+# canonical registry source. Their aggregate receipts remain tracked.
+/.codex-studio/published/manifest-validation-audit/
+/.codex-studio/published/quarantine/
+/.codex-studio/published/windows-installer-visual-proof/
+/.codex-studio/published/startup-smoke/*osx*.log

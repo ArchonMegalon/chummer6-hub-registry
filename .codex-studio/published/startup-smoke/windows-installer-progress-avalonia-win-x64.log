@@ -1,6 +1,7 @@
 # Chummer installer trace
 Bootstrap temp root: C:\users\tibor\Temp\Chummer6\installer-temp
 Payload download target: C:\users\tibor\Temp\Chummer6\installer-temp\chummer-avalonia-win-x64-payload.zip
+Payload acquisition mode: download
 Downloading application files
 Downloading application files - 100% - 48.7 / 48.7 MiB - 48.6 MiB/s
 Payload download completed with bundled curl

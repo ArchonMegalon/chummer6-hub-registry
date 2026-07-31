@@ -951,15 +951,15 @@ class RefreshPublicDesktopTruthReleaseHelpersTests(unittest.TestCase):
             "Canonical run-services shelf bytes must win over stale local presentation build outputs.",
         )
 
-    def test_refresh_script_prefers_presentation_startup_smoke_shelf_that_matches_staged_installers(self) -> None:
+    def test_refresh_script_prefers_startup_smoke_receipts_from_the_same_source_shelf_as_staged_installers(self) -> None:
         script = (RELEASE_DIR / "refresh_public_desktop_truth.sh").read_text(encoding="utf-8")
         presentation_index = script.index('"$WORKSPACE_ROOT/chummer-presentation/Docker/Downloads/startup-smoke"')
         source_smoke_index = script.index('"$SOURCE_STARTUP_SMOKE_DIR"')
 
         self.assertLess(
-            presentation_index,
             source_smoke_index,
-            "Startup-smoke receipts that match the staged installer bytes must win over stale run-services mirrors.",
+            presentation_index,
+            "Canonical source-shelf smoke receipts must stay byte-aligned with the source-shelf installers.",
         )
 
     def test_refresh_script_scores_release_channel_manifests_by_tuple_and_artifact_coverage(self) -> None:
@@ -1004,6 +1004,21 @@ class RefreshPublicDesktopTruthReleaseHelpersTests(unittest.TestCase):
         self.assertIn('--compat-output "$temp_compat_output_path"', script)
         self.assertIn('mv "$temp_output_path" "$OUTPUT_PATH"', script)
         self.assertIn('mv "$temp_compat_output_path" "$COMPAT_OUTPUT_PATH"', script)
+
+        candidate_verify = 'verify_public_release_channel.py" "$candidate_validation_root"'
+        canonical_move = 'mv "$temp_output_path" "$OUTPUT_PATH"'
+        mirror_sync = 'sync_workspace_portal_manifest_mirrors "RELEASE_CHANNEL.generated.json"'
+        self.assertIn(candidate_verify, script)
+        self.assertLess(
+            script.index(candidate_verify),
+            script.index(canonical_move),
+            "The complete candidate must verify before canonical truth is replaced.",
+        )
+        self.assertLess(
+            script.index(canonical_move),
+            script.index(mirror_sync),
+            "Workspace mirrors may only update after verified canonical publication.",
+        )
 
     def test_refresh_script_supports_force_release_proof_materialization_flag(self) -> None:
         script = (RELEASE_DIR / "refresh_public_desktop_truth.sh").read_text(encoding="utf-8")

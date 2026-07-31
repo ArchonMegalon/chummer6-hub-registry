@@ -1,0 +1,15 @@
+{
+  "deployDir": "Docker/Downloads",
+  "deployMode": false,
+  "externalArtifactPublishVerified": false,
+  "generatedAt": "2026-06-28T19:52:02.458869Z",
+  "liveVerifyTarget": "",
+  "promotedArtifactCount": 4,
+  "releaseChannel": "public_stable",
+  "releaseVersion": "run-20260627-005402",
+  "requireExternalPublish": false,
+  "schema": "chummer.downloads.publication_scope.v1",
+  "scope": "local_downloads_shelf_only",
+  "status": "passed",
+  "summary": "A local downloads shelf was updated and verified. This is not an external desktop artifact upload."
+}

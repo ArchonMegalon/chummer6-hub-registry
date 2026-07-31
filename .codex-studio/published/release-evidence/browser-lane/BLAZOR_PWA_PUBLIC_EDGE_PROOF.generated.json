@@ -1,0 +1,198 @@
+{
+  "contract_name": "chummer6-ui.blazor_pwa_public_edge_proof",
+  "generated_at": "2026-07-03T17:42:47.308124+00:00",
+  "status": "passed",
+  "base_url": "https://chummer.run/blazor",
+  "public_entry_url": "https://chummer.run/app",
+  "proof_tier": "hosted_pwa_public_edge_execution",
+  "route_lane": "blazor_pwa_play_shell",
+  "checks": [
+    {
+      "id": "manifest_install_contract",
+      "url": "https://chummer.run/blazor/manifest.webmanifest",
+      "status": "passed",
+      "assertion": "deployed manifest is installable and starts the PWA on the mobile Play surface",
+      "facts": {
+        "status_code": 200,
+        "content_type": "application/manifest+json",
+        "elapsed_ms": 207,
+        "name": "Chummer Online",
+        "short_name": "Chummer",
+        "start_url": "./app?source=pwa",
+        "scope": "./",
+        "display": "standalone",
+        "shortcut_short_names": [
+          "Play",
+          "Roster"
+        ],
+        "icon_purposes": [
+          "any",
+          "maskable"
+        ],
+        "screenshot_count": 2
+      }
+    },
+    {
+      "id": "service_worker_static_privacy_contract",
+      "url": "https://chummer.run/blazor/service-worker.js",
+      "status": "passed",
+      "assertion": "deployed service worker caches only static shell assets and excludes runner/session data",
+      "facts": {
+        "status_code": 200,
+        "content_type": "text/javascript",
+        "elapsed_ms": 95,
+        "declares_static_cache": true,
+        "handles_navigations_with_offline_fallback": true,
+        "rejects_query_asset_cache": true,
+        "excludes_api": true,
+        "excludes_workspaces": true,
+        "excludes_sessions": true,
+        "contains_stale_demo_workspace": false
+      }
+    },
+    {
+      "id": "offline_living_world_boundary",
+      "url": "https://chummer.run/blazor/offline.html",
+      "status": "passed",
+      "assertion": "deployed offline shell communicates that opt-in living-world data is not cached locally",
+      "facts": {
+        "status_code": 200,
+        "content_type": "text/html",
+        "elapsed_ms": 98,
+        "states_runner_data_not_cached": true,
+        "mentions_black_ledger": true,
+        "mentions_heat": true,
+        "states_server_bound_living_world_data": true
+      }
+    },
+    {
+      "id": "app_head_and_registration",
+      "url": "https://chummer.run/blazor/app?_pwa_probe=1",
+      "status": "passed",
+      "assertion": "deployed Blazor app advertises installability and registers the scoped service worker",
+      "facts": {
+        "status_code": 200,
+        "content_type": "text/html; charset=utf-8",
+        "elapsed_ms": 103,
+        "base_hrefs": [
+          "/blazor/"
+        ],
+        "has_manifest_link": true,
+        "has_svg_icon": true,
+        "has_apple_touch_icon": true,
+        "has_theme_color": true,
+        "has_mobile_web_app_capable": true,
+        "has_apple_mobile_web_app_capable": true,
+        "has_service_worker_registration": true,
+        "has_pwa_install_state_object": true
+      }
+    },
+    {
+      "id": "clean_public_entry_route_contract",
+      "url": "https://chummer.run/app",
+      "status": "passed",
+      "assertion": "clean /app route resolves installable PWA assets through the hosted /blazor scope",
+      "facts": {
+        "status_code": 200,
+        "content_type": "text/html; charset=utf-8",
+        "elapsed_ms": 96,
+        "base_hrefs": [
+          "/blazor/"
+        ],
+        "base_scope_urls": [
+          "https://chummer.run/blazor/"
+        ],
+        "manifest_hrefs": [
+          "manifest.webmanifest"
+        ],
+        "icon_hrefs": [
+          "icons/chummer-pwa.svg"
+        ],
+        "resolved_manifest_urls": [
+          "https://chummer.run/blazor/manifest.webmanifest"
+        ],
+        "resolved_icon_urls": [
+          "https://chummer.run/blazor/icons/chummer-pwa.svg"
+        ],
+        "service_worker_registration_is_relative": true
+      }
+    },
+    {
+      "id": "static_asset_fetch_contract",
+      "url": "https://chummer.run/blazor",
+      "status": "passed",
+      "assertion": "deployed PWA static assets are fetchable under /blazor and include responsive shell CSS",
+      "facts": {
+        "asset_count": 5,
+        "assets": [
+          {
+            "path": "/app.css",
+            "url": "https://chummer.run/blazor/app.css",
+            "status_code": 200,
+            "content_type": "text/css",
+            "size_bytes": 69622,
+            "elapsed_ms": 109
+          },
+          {
+            "path": "/icons/chummer-pwa.svg",
+            "url": "https://chummer.run/blazor/icons/chummer-pwa.svg",
+            "status_code": 200,
+            "content_type": "image/svg+xml",
+            "size_bytes": 938,
+            "elapsed_ms": 45
+          },
+          {
+            "path": "/icons/chummer-pwa-maskable.svg",
+            "url": "https://chummer.run/blazor/icons/chummer-pwa-maskable.svg",
+            "status_code": 200,
+            "content_type": "image/svg+xml",
+            "size_bytes": 580,
+            "elapsed_ms": 74
+          },
+          {
+            "path": "/media/chummer6/chummer6-hero-baseline.png",
+            "url": "https://chummer.run/blazor/media/chummer6/chummer6-hero-baseline.png",
+            "status_code": 200,
+            "content_type": "image/png",
+            "size_bytes": 704388,
+            "elapsed_ms": 72
+          },
+          {
+            "path": "/media/chummer6/karma-forge-baseline.png",
+            "url": "https://chummer.run/blazor/media/chummer6/karma-forge-baseline.png",
+            "status_code": 200,
+            "content_type": "image/png",
+            "size_bytes": 342385,
+            "elapsed_ms": 114
+          }
+        ],
+        "responsive_css_seen": true
+      }
+    },
+    {
+      "id": "mobile_viewport_shell_contract",
+      "url": "https://chummer.run/blazor/app?source=pwa&viewport=mobile-proof",
+      "status": "passed",
+      "assertion": "deployed PWA app route exposes a mobile viewport and scoped install shell under /blazor",
+      "facts": {
+        "status_code": 200,
+        "content_type": "text/html; charset=utf-8",
+        "elapsed_ms": 88,
+        "viewport_content": "width=device-width, initial-scale=1.0",
+        "base_hrefs": [
+          "/blazor/"
+        ],
+        "has_mobile_web_app_capable": true,
+        "has_apple_mobile_web_app_capable": true,
+        "has_pwa_install_state_object": true
+      }
+    }
+  ],
+  "failures": [],
+  "notes": [
+    "This receipt proves the deployed /blazor PWA shell contract, not app-store acceptance or offline runner-data parity.",
+    "The public /app route is also fetched to prove it resolves installable PWA assets through the hosted /blazor base scope.",
+    "The service worker is required to cache only static shell assets and leave runner, workspace, API, Black Ledger, heat, and session data server-bound.",
+    "The installed start URL remains the Play app surface; full character building stays outside the in-session PWA use case."
+  ]
+}

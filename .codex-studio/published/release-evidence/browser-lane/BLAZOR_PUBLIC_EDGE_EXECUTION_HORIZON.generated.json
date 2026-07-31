@@ -1,0 +1,96 @@
+{
+  "boundary": {
+    "does_not_treat_failed_sidecar_as_published_proof": true,
+    "does_not_upgrade_smoke_to_full": true,
+    "full_scope_requires_current_passing_full_receipt": true
+  },
+  "contract_name": "chummer6-ui.blazor_public_edge_execution_horizon",
+  "current_published_execution": {
+    "base_url": "https://chummer.run",
+    "playwright_scope": "smoke",
+    "promoted_route_base": "/blazor/workbench",
+    "required_workflow_family_count": 9,
+    "status": "passed",
+    "workflow_family_count": 9
+  },
+  "execution_proof_path": "/docker/chummercomplete/chummer-presentation/.codex-studio/published/BLAZOR_PUBLIC_EDGE_EXECUTION_PROOF.generated.json",
+  "failed_execution_sidecar": {
+    "error": "",
+    "path": "/docker/chummercomplete/chummer-presentation/.codex-studio/tmp/BLAZOR_PUBLIC_EDGE_EXECUTION_PROOF.failed.generated.json",
+    "present": false,
+    "status": "not_present",
+    "workflow_family_count": 0
+  },
+  "failed_execution_sidecar_path": "/docker/chummercomplete/chummer-presentation/.codex-studio/tmp/BLAZOR_PUBLIC_EDGE_EXECUTION_PROOF.failed.generated.json",
+  "failures": [],
+  "generated_at": "2026-06-29T11:11:37.113175+00:00",
+  "horizons": [
+    {
+      "covered_workflow_family_count": 9,
+      "id": "near_term_hosted_smoke_execution",
+      "missing_workflow_family_ids": [],
+      "required_workflow_family_count": 9,
+      "status": "proven"
+    },
+    {
+      "covered_workflow_family_count": 9,
+      "id": "mid_term_full_live_public_edge_execution_matrix",
+      "missing_workflow_family_ids": [
+        "promoted_advanced_action_affordances",
+        "promoted_advanced_committed_actions",
+        "promoted_career_entry_committed_execution",
+        "promoted_career_entry_delete_committed_execution",
+        "promoted_career_entry_delete_execution",
+        "promoted_career_entry_edit_committed_execution",
+        "promoted_career_entry_edit_execution",
+        "promoted_career_entry_execution",
+        "promoted_career_entry_reorder_execution",
+        "promoted_career_log_continuity",
+        "promoted_combat_support_execution",
+        "promoted_contact_connection_execution",
+        "promoted_contact_delete_execution",
+        "promoted_contact_edit_execution",
+        "promoted_cyberware_delete_execution",
+        "promoted_cyberware_edit_execution",
+        "promoted_cyberware_selection_execution",
+        "promoted_drug_selection_execution",
+        "promoted_gear_maintenance_execution",
+        "promoted_identity_license_execution",
+        "promoted_magic_cleanup_utility_execution",
+        "promoted_magic_delete_execution",
+        "promoted_magic_support_execution",
+        "promoted_quality_delete_execution",
+        "promoted_quality_selection_execution",
+        "promoted_recent_work_affordances",
+        "promoted_restored_section_content",
+        "promoted_restored_section_continuations",
+        "promoted_restored_tab_landings",
+        "promoted_runner_notes_committed_execution",
+        "promoted_runner_notes_execution",
+        "promoted_skill_maintenance_execution",
+        "promoted_skill_selection_execution",
+        "promoted_source_gear_utility_execution",
+        "promoted_spell_selection_execution",
+        "promoted_vehicle_delete_execution",
+        "promoted_vehicle_edit_execution",
+        "promoted_vehicle_mod_selection_execution",
+        "promoted_vehicle_selection_execution",
+        "promoted_weapon_selection_execution"
+      ],
+      "promotion_rule": "requires a passing full-scope BLAZOR_PUBLIC_EDGE_EXECUTION_PROOF.generated.json",
+      "required_workflow_family_count": 49,
+      "status": "not_proven"
+    },
+    {
+      "id": "long_term_full_browser_desktop_parity_breadth",
+      "promotion_rule": "hosted execution proof alone is not full desktop parity; keep UI parity gates distinct",
+      "status": "not_claimed"
+    }
+  ],
+  "notes": [
+    "This receipt makes the hosted execution horizon explicit; it is not a browser execution proof by itself.",
+    "Smoke execution can be release evidence only for the smoke-required workflow families.",
+    "The full live public-edge matrix remains unproven until the published hosted execution receipt is current, passing, full-scope, and covers every available workflow family id."
+  ],
+  "status": "passed"
+}

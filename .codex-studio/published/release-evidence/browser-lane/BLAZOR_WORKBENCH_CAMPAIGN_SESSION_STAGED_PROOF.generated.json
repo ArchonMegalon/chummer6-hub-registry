@@ -1,0 +1,54 @@
+{
+  "contract_name": "chummer6-ui.blazor_workbench_campaign_session_staged_proof",
+  "generated_at": "2026-06-25T17:03:39.536810+00:00",
+  "status": "passed",
+  "proof_tier": "source_staged_no_browser_execution",
+  "route_lane": "promoted_blazor_workbench",
+  "expected_routes": [
+    "/blazor/workbench",
+    "/help"
+  ],
+  "checks": [
+    {
+      "id": "product_workbench_campaign_session",
+      "path": "Chummer.Blazor/Components/Pages/Preview.razor",
+      "status": "passed",
+      "required_token_count": 34,
+      "missing_tokens": []
+    },
+    {
+      "id": "scoped_campaign_session_visual_design",
+      "path": "Chummer.Blazor/Components/Pages/Preview.razor.css",
+      "status": "passed",
+      "required_token_count": 4,
+      "missing_tokens": []
+    },
+    {
+      "id": "release_truth_docs",
+      "path": "docs/WORKBENCH_RELEASE_SIGNOFF.md",
+      "status": "passed",
+      "required_token_count": 3,
+      "missing_tokens": []
+    },
+    {
+      "id": "parity_goal_docs",
+      "path": "docs/BLAZOR_WEB_CLIENT_PARITY_GOAL.md",
+      "status": "passed",
+      "required_token_count": 3,
+      "missing_tokens": []
+    },
+    {
+      "id": "status_utility_reporting",
+      "path": "scripts/print_blazor_public_edge_proof_status.py",
+      "status": "passed",
+      "required_token_count": 4,
+      "missing_tokens": []
+    }
+  ],
+  "failures": [],
+  "notes": [
+    "This receipt only proves that Chummer Online and /blazor/workbench compatibility route campaign-session source, style, status, and docs agree.",
+    "It is not a substitute for hosted Playwright execution proof, Docker self-host proof, campaign-persistence proof, GM-approval proof, reward-mutation proof, table-share proof, or portal help runtime proof.",
+    "Do not use this receipt to claim campaign persistence, GM approval, reward mutation, table share, run handoff, portal help runtime, or browser execution parity."
+  ]
+}

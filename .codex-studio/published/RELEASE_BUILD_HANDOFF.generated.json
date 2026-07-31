@@ -1,0 +1,180 @@
+{
+  "artifact_count": 2,
+  "artifacts": [
+    {
+      "artifact_id": "avalonia-linux-x64-installer",
+      "file_name": "chummer-avalonia-linux-x64-installer.deb",
+      "platform": "linux",
+      "rid": "linux-x64",
+      "version": "run-20260704-170602"
+    },
+    {
+      "artifact_id": "avalonia-win-x64-installer",
+      "file_name": "chummer-avalonia-win-x64-installer.exe",
+      "platform": "windows",
+      "rid": "win-x64",
+      "version": "run-20260704-170602"
+    }
+  ],
+  "blockers": [
+    "Windows visual-proof handoff is not ready; inspect the staged handoff packet before asking a Windows operator to continue."
+  ],
+  "channel": "public_stable",
+  "contract_name": "chummer.release_build_handoff",
+  "generated_at": "2026-07-08T15:59:34Z",
+  "handoff_only": true,
+  "handoff_scope": "staged_nightly",
+  "missing_required_heads": [],
+  "missing_required_platforms": [],
+  "next_actions": [
+    "Inspect the Windows visual-proof handoff packet and fix the staged shelf mismatch before the nightly handoff continues: /docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/WINDOWS_INSTALLER_VISUAL_PROOF_HANDOFF.generated.json",
+    "Keep the live downloads shelf and stable channel unchanged while this staged nightly handoff is still incomplete."
+  ],
+  "promoted_tuples": [
+    "avalonia:linux-x64:linux",
+    "avalonia:win-x64:windows"
+  ],
+  "promotion_ready": false,
+  "requires_separate_publish_lane": true,
+  "stable_release_unchanged": true,
+  "stage_dir": "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads",
+  "stage_proof_complete": false,
+  "startup_smoke_receipts": {
+    "avalonia:linux:linux-x64": {
+      "artifact_digest": "sha256:e09fca7a70e5f75ac7258de309c50e0cf4f14c1436f0d86f59bfc55c40599800",
+      "host_class": "local-linux-x64",
+      "path": "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json",
+      "ready_checkpoint": "pre_ui_event_loop",
+      "skip_reason": "",
+      "status": "pass"
+    },
+    "avalonia:macos:osx-arm64": {
+      "artifact_digest": "sha256:02b4822232a592f97307cf34a11eed92d698f8ac6bbd7e8948404b6148f6d89b",
+      "host_class": "self-hosted-osx-arm64",
+      "path": "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/startup-smoke/startup-smoke-avalonia-osx-arm64.receipt.json",
+      "ready_checkpoint": "pre_ui_event_loop",
+      "skip_reason": "",
+      "status": "pass"
+    },
+    "avalonia:windows:win-x64": {
+      "artifact_digest": "sha256:80655fd79a096cd7714910d7b38f7741eea01f82ada96dc6a2a097951997d91a",
+      "host_class": "local-win-x64",
+      "path": "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json",
+      "ready_checkpoint": "pre_ui_event_loop",
+      "skip_reason": "",
+      "status": "pass"
+    }
+  },
+  "version": "run-20260704-170602",
+  "windows_exit_gate_refresh": {
+    "blocking_mode": "none",
+    "json_path": "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/UI_WINDOWS_DESKTOP_EXIT_GATE.generated.json",
+    "return_code": 0,
+    "script_path": "/docker/chummercomplete/chummer6-ui/scripts/materialize-windows-desktop-exit-gate.sh",
+    "status": "passed",
+    "stderr": "",
+    "stdout": "[windows-exit-gate] PASS",
+    "summary": "Windows desktop exit gate passed."
+  },
+  "windows_visual_proof_handoff": {
+    "blockers": [],
+    "command": "/usr/bin/python3 /docker/chummercomplete/chummer6-ui/scripts/materialize_windows_visual_proof_handoff.py --manifest /docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/RELEASE_CHANNEL.generated.json --windows-gate /docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/UI_WINDOWS_DESKTOP_EXIT_GATE.generated.json --startup-smoke /docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json --visual-proof /docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/WINDOWS_INSTALLER_VISUAL_PROOF.generated.json --json-output /docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/WINDOWS_INSTALLER_VISUAL_PROOF_HANDOFF.generated.json --md-output /docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/WINDOWS_INSTALLER_VISUAL_PROOF_HANDOFF.generated.md",
+    "json_path": "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/WINDOWS_INSTALLER_VISUAL_PROOF_HANDOFF.generated.json",
+    "md_path": "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/WINDOWS_INSTALLER_VISUAL_PROOF_HANDOFF.generated.md",
+    "next_actions": [
+      "Overwrite the stale Windows visual-proof receipt at `/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/WINDOWS_INSTALLER_VISUAL_PROOF.generated.json`; its recorded release or installer digest no longer matches the staged candidate.",
+      "If you are clearing the live release-truth blocker, run the promoted-digest Windows capture command `${REPO_ROOT}\\scripts\\capture_windows_installer_gold_proof.ps1 -InstallerPath ${REPO_ROOT}\\Chummer.Portal\\downloads\\files\\chummer-avalonia-win-x64-installer.exe -DownloadsRoot ${REPO_ROOT}\\Chummer.Portal\\downloads -LaunchInstaller -CaptureVisualAudit -ScaledDpiScale 1.5 -VisualClippingStatus pass -VisualReadabilityStatus pass`.",
+      "Package the promoted-digest Windows gold proof bundle as `windows-installer-gold-proof-80655fd79a09.zip` with `Compress-Archive -Path ${REPO_ROOT}\\Chummer.Portal\\downloads\\visual-audit\\windows-installer\\* -DestinationPath windows-installer-gold-proof-80655fd79a09.zip -Force`.",
+      "Drop the digest-bound bundle at `/docker/chummercomplete/chummer.run-services/.state/incoming_windows_installer_gold_proof/windows-installer-gold-proof-80655fd79a09.zip` and import it with `python3 scripts/import_windows_installer_gold_proof_artifact.py /docker/chummercomplete/chummer.run-services/.state/incoming_windows_installer_gold_proof/windows-installer-gold-proof-80655fd79a09.zip --intake-request /docker/chummercomplete/chummer.run-services/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json --verify`. Or watch for it with `python3 scripts/auto_import_windows_installer_gold_proof.py --intake-request /docker/chummercomplete/chummer.run-services/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json --wait-seconds 900 --poll-seconds 10 --refresh-intake-request`.",
+      "On a real Windows host, open the repo checkout that contains the capture script and run `powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\capture-windows-installer-visual-proof.ps1 -ReleaseChannelPath \"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/RELEASE_CHANNEL.generated.json\" -OutputPath \"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/WINDOWS_INSTALLER_VISUAL_PROOF.generated.json\"`.",
+      "If the Windows host cannot access the staged Linux path directly, copy the whole stage directory to the Windows host, run `powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\capture-windows-installer-visual-proof.ps1 -ReleaseChannelPath \"<windows-stage>\\RELEASE_CHANNEL.generated.json\" -OutputPath \"<windows-stage>\\WINDOWS_INSTALLER_VISUAL_PROOF.generated.json\"`, then copy the generated receipt and screenshots back.",
+      "Confirm `windows-installer-progress.png` and `windows-installer-completion.png` are written under `/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/windows-installer-visual-proof`.",
+      "Confirm `WINDOWS_INSTALLER_VISUAL_PROOF.generated.json` is written under `/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads`.",
+      "Rerun the Windows exit gate against the same shelf: `CHUMMER_WINDOWS_RELEASE_CHANNEL_PATH=\"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/RELEASE_CHANNEL.generated.json\" CHUMMER_WINDOWS_LOCAL_DESKTOP_FILES_ROOT=\"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/files\" CHUMMER_WINDOWS_INSTALLER_VISUAL_PROOF_PATH=\"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/WINDOWS_INSTALLER_VISUAL_PROOF.generated.json\" bash /docker/chummercomplete/chummer6-ui/scripts/materialize-windows-desktop-exit-gate.sh`.",
+      "This packet is handoff-only for the staged nightly bytes. It does not publish the live downloads shelf or change the stable channel."
+    ],
+    "only_blocker_is_visual_proof": false,
+    "operator_artifact_intake": {
+      "accepted_file_patterns": [
+        "WINDOWS_INSTALLER_VISUAL_PROOF.generated.json",
+        "windows-installer-progress.png",
+        "windows-installer-completion.png"
+      ],
+      "discover_receipt_command": "python3 ~/.codex/skills/ea-artifact-intake/scripts/artifact_intake.py discover --pattern 'WINDOWS_INSTALLER_VISUAL_PROOF.generated.json' --root \"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads\" --root \"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/windows-installer-visual-proof\" --root \"/tmp\" --root \"/home/tibor/Downloads\" --root \"/home/tibor/pCloud Drive/EA\"",
+      "discover_screenshot_command": "python3 ~/.codex/skills/ea-artifact-intake/scripts/artifact_intake.py discover --pattern 'windows-installer-*.png' --root \"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads\" --root \"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/windows-installer-visual-proof\" --root \"/tmp\" --root \"/home/tibor/Downloads\" --root \"/home/tibor/pCloud Drive/EA\"",
+      "external_artifact_required": true,
+      "gold_proof_bundle_intake": {
+        "auto_import_watch_command": "python3 scripts/auto_import_windows_installer_gold_proof.py --intake-request /docker/chummercomplete/chummer.run-services/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json --wait-seconds 900 --poll-seconds 10 --refresh-intake-request",
+        "available": true,
+        "copy_to_windows": [
+          "Copy the repository checkout or at least Chummer.Portal/downloads/files, Chummer.Portal/downloads/RELEASE_CHANNEL.generated.json, and scripts to the Windows host.",
+          "Do not mark screenshots pass until a human has inspected clipping/readability.",
+          "The published startup-smoke receipt already matches the promoted installer digest, so you may either zip only the visual-audit/windows-installer folder or copy it extracted to the preferred extracted visual-proof directory."
+        ],
+        "discover_command": "python3 ~/.codex/skills/ea-artifact-intake/scripts/artifact_intake.py discover --pattern '*windows-installer-gold-proof*.zip' --root \"/docker/chummercomplete/chummer.run-services/.state/incoming_windows_installer_gold_proof\" --root \"/tmp\" --root \"~/Downloads\" --root \"~/pCloud Drive/EA\"",
+        "import_command": "python3 scripts/import_windows_installer_gold_proof_artifact.py /docker/chummercomplete/chummer.run-services/.state/incoming_windows_installer_gold_proof/windows-installer-gold-proof-80655fd79a09.zip --intake-request /docker/chummercomplete/chummer.run-services/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json --verify",
+        "intake_request_candidate_paths": [
+          "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json",
+          "/docker/chummercomplete/chummer-presentation/Chummer.Portal/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json",
+          "/docker/chummercomplete/chummer-presentation/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json",
+          "/docker/chummercomplete/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json",
+          "/docker/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json",
+          "/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json",
+          "/docker/chummercomplete/chummer.run-services/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json"
+        ],
+        "intake_request_path": "/docker/chummercomplete/chummer.run-services/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json",
+        "intake_request_status": "not_required",
+        "post_import_verify_command": "python3 scripts/verify_windows_installer_visual_audit.py --output .codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT.generated.json",
+        "post_import_verify_note": "The --verify import reruns the full intake-request post-import gate chain, not just the first verifier.",
+        "powershell_commands": [
+          "${REPO_ROOT}\\scripts\\capture_windows_installer_gold_proof.ps1 -InstallerPath ${REPO_ROOT}\\Chummer.Portal\\downloads\\files\\chummer-avalonia-win-x64-installer.exe -DownloadsRoot ${REPO_ROOT}\\Chummer.Portal\\downloads -LaunchInstaller -CaptureVisualAudit -ScaledDpiScale 1.5 -VisualClippingStatus pass -VisualReadabilityStatus pass",
+          "Compress-Archive -Path ${REPO_ROOT}\\Chummer.Portal\\downloads\\visual-audit\\windows-installer\\* -DestinationPath windows-installer-gold-proof-80655fd79a09.zip -Force"
+        ],
+        "preferred_drop_folder": "/docker/chummercomplete/chummer.run-services/.state/incoming_windows_installer_gold_proof",
+        "preferred_drop_path": "/docker/chummercomplete/chummer.run-services/.state/incoming_windows_installer_gold_proof/windows-installer-gold-proof-80655fd79a09.zip",
+        "preferred_zip_name": "windows-installer-gold-proof-80655fd79a09.zip",
+        "promoted_installer_sha256": "80655fd79a096cd7714910d7b38f7741eea01f82ada96dc6a2a097951997d91a",
+        "startup_receipt_bundle_required": false,
+        "summary": "Provide the native Windows gold proof bundle for the promoted installer. Native Windows startup already matches the promoted digest; the remaining gap is digest-bound visual proof for install-progress and completion."
+      },
+      "intake_request_candidate_paths": [
+        "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json",
+        "/docker/chummercomplete/chummer-presentation/Chummer.Portal/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json",
+        "/docker/chummercomplete/chummer-presentation/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json",
+        "/docker/chummercomplete/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json",
+        "/docker/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json",
+        "/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json",
+        "/docker/chummercomplete/chummer.run-services/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json"
+      ],
+      "intake_request_path": "/docker/chummercomplete/chummer.run-services/.codex-studio/published/WINDOWS_INSTALLER_VISUAL_AUDIT_INTAKE_REQUEST.generated.json",
+      "operator_request_summary": "Capture the staged Windows installer progress and completion screenshots on a real Windows host, copy the generated receipt and screenshots back to the exact staged paths, then rerun the Linux Windows exit gate against the same stage.",
+      "post_copy_verify_command": "CHUMMER_WINDOWS_RELEASE_CHANNEL_PATH=\"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/RELEASE_CHANNEL.generated.json\" CHUMMER_WINDOWS_LOCAL_DESKTOP_FILES_ROOT=\"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/files\" CHUMMER_WINDOWS_INSTALLER_VISUAL_PROOF_PATH=\"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/WINDOWS_INSTALLER_VISUAL_PROOF.generated.json\" bash /docker/chummercomplete/chummer6-ui/scripts/materialize-windows-desktop-exit-gate.sh",
+      "preferred_drop_root": "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads",
+      "preferred_screenshot_dir": "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/windows-installer-visual-proof",
+      "preferred_visual_proof_receipt_path": "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/WINDOWS_INSTALLER_VISUAL_PROOF.generated.json",
+      "required_copy_back_paths": [
+        "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/WINDOWS_INSTALLER_VISUAL_PROOF.generated.json",
+        "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/windows-installer-visual-proof/windows-installer-progress.png",
+        "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/windows-installer-visual-proof/windows-installer-completion.png"
+      ]
+    },
+    "status": "needs_review",
+    "stderr": "",
+    "stdout": "",
+    "summary": "Windows desktop exit gate passed.",
+    "visual_proof_path": "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/WINDOWS_INSTALLER_VISUAL_PROOF.generated.json",
+    "windows_operator_commands": {
+      "capture_script_path": "/docker/chummercomplete/chummer6-ui/scripts/capture-windows-installer-visual-proof.ps1",
+      "copy_back_note": "If the Windows host cannot access the staged Linux path directly, copy the whole stage directory to the Windows host, run the template command against that Windows-local stage, then copy the receipt and screenshots back to these stage-relative paths before rerunning the Linux exit gate.",
+      "copy_back_required_paths": [
+        "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/WINDOWS_INSTALLER_VISUAL_PROOF.generated.json",
+        "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/windows-installer-visual-proof/windows-installer-progress.png",
+        "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/windows-installer-visual-proof/windows-installer-completion.png"
+      ],
+      "linux_exit_gate_after_copy_back": "CHUMMER_WINDOWS_RELEASE_CHANNEL_PATH=\"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/RELEASE_CHANNEL.generated.json\" CHUMMER_WINDOWS_LOCAL_DESKTOP_FILES_ROOT=\"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/files\" CHUMMER_WINDOWS_INSTALLER_VISUAL_PROOF_PATH=\"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/WINDOWS_INSTALLER_VISUAL_PROOF.generated.json\" bash /docker/chummercomplete/chummer6-ui/scripts/materialize-windows-desktop-exit-gate.sh",
+      "stage_local_powershell": "powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\capture-windows-installer-visual-proof.ps1 -ReleaseChannelPath \"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/RELEASE_CHANNEL.generated.json\" -OutputPath \"/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads/WINDOWS_INSTALLER_VISUAL_PROOF.generated.json\"",
+      "stage_root": "/docker/chummercomplete/chummer-presentation/Chummer.Portal/downloads",
+      "windows_stage_template_powershell": "powershell -NoLogo -NoProfile -ExecutionPolicy Bypass -File .\\scripts\\capture-windows-installer-visual-proof.ps1 -ReleaseChannelPath \"<windows-stage>\\RELEASE_CHANNEL.generated.json\" -OutputPath \"<windows-stage>\\WINDOWS_INSTALLER_VISUAL_PROOF.generated.json\""
+    }
+  }
+}

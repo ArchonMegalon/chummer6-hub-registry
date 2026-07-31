@@ -1,0 +1,53 @@
+{
+  "contract_name": "chummer6-ui.blazor_workbench_progression_ledger_staged_proof",
+  "generated_at": "2026-06-25T04:43:35.277053+00:00",
+  "status": "passed",
+  "proof_tier": "source_staged_no_browser_execution",
+  "route_lane": "promoted_blazor_workbench",
+  "expected_routes": [
+    "/blazor/workbench"
+  ],
+  "checks": [
+    {
+      "id": "product_workbench_progression_ledger",
+      "path": "Chummer.Blazor/Components/Pages/Preview.razor",
+      "status": "passed",
+      "required_token_count": 9,
+      "missing_tokens": []
+    },
+    {
+      "id": "scoped_progression_ledger_visual_design",
+      "path": "Chummer.Blazor/Components/Pages/Preview.razor.css",
+      "status": "passed",
+      "required_token_count": 4,
+      "missing_tokens": []
+    },
+    {
+      "id": "release_truth_docs",
+      "path": "docs/WORKBENCH_RELEASE_SIGNOFF.md",
+      "status": "passed",
+      "required_token_count": 3,
+      "missing_tokens": []
+    },
+    {
+      "id": "parity_goal_docs",
+      "path": "docs/BLAZOR_WEB_CLIENT_PARITY_GOAL.md",
+      "status": "passed",
+      "required_token_count": 3,
+      "missing_tokens": []
+    },
+    {
+      "id": "status_utility_reporting",
+      "path": "scripts/print_blazor_public_edge_proof_status.py",
+      "status": "passed",
+      "required_token_count": 4,
+      "missing_tokens": []
+    }
+  ],
+  "failures": [],
+  "notes": [
+    "This receipt only proves that promoted workbench progression-ledger source, style, status, and docs agree.",
+    "It is not a substitute for hosted Playwright execution proof, Docker self-host proof, ledger-mutation proof, purchase-execution proof, reputation-mutation proof, or accounting proof.",
+    "Do not use this receipt to claim ledger mutation, purchase execution, reputation mutation, accounting, or browser execution parity."
+  ]
+}
