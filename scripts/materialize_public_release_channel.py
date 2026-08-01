@@ -7119,11 +7119,14 @@ def projection_age_seconds(
 def proof_freshness_status(payload: dict[str, Any]) -> str:
     projection_generated_at = parse_iso(payload.get("generatedAt") or payload.get("generated_at"))
     release_proof = payload.get("releaseProof") if isinstance(payload.get("releaseProof"), dict) else {}
-    if projection_generated_at is None and not release_proof:
-        return "fresh"
     ui_localization = (
         release_proof.get("uiLocalizationReleaseGate")
         if isinstance(release_proof.get("uiLocalizationReleaseGate"), dict)
+        else {}
+    )
+    flagship_readiness = (
+        release_proof.get("flagshipReadiness")
+        if isinstance(release_proof.get("flagshipReadiness"), dict)
         else {}
     )
     release_proof_age_seconds = projection_age_seconds(
@@ -7134,11 +7137,22 @@ def proof_freshness_status(payload: dict[str, Any]) -> str:
         projection_generated_at=projection_generated_at,
         evidence_generated_at=ui_localization.get("generatedAt") or ui_localization.get("generated_at"),
     )
-    if release_proof_age_seconds is None or ui_localization_age_seconds is None:
+    flagship_readiness_age_seconds = projection_age_seconds(
+        projection_generated_at=projection_generated_at,
+        evidence_generated_at=flagship_readiness.get("generatedAt"),
+    )
+    if (
+        release_proof_age_seconds is None
+        or ui_localization_age_seconds is None
+        or not flagship_readiness
+        or flagship_readiness_age_seconds is None
+    ):
         return "missing"
     if (
         release_proof_age_seconds > DEFAULT_RELEASE_PROOF_MAX_AGE_SECONDS
         or ui_localization_age_seconds > DEFAULT_LOCALIZATION_GATE_MAX_AGE_SECONDS
+        or flagship_readiness_age_seconds > DEFAULT_FLAGSHIP_READINESS_MAX_AGE_SECONDS
+        or not flagship_readiness.get("desktopClientReady")
     ):
         return "stale"
     return "fresh"
