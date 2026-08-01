@@ -1,6 +1,6 @@
-87.106.22.139 - - [01/Aug/2026 05:42:06] "GET /chummer-avalonia-win-x64-payload.zip HTTP/1.1" 200 -
+87.106.22.139 - - [01/Aug/2026 10:48:24] "GET /chummer-avalonia-win-x64-payload.zip HTTP/1.1" 200 -
 ----------------------------------------
-Exception occurred during processing of request from ('87.106.22.139', 34100)
+Exception occurred during processing of request from ('87.106.22.139', 41444)
 Traceback (most recent call last):
   File "/usr/lib/python3.12/socketserver.py", line 692, in process_request_thread
     self.finish_request(request, client_address)
@@ -24,4 +24,4 @@ Traceback (most recent call last):
     self._sock.sendall(b)
 ConnectionResetError: [Errno 104] Connection reset by peer
 ----------------------------------------
-87.106.22.139 - - [01/Aug/2026 05:42:07] "GET /chummer-avalonia-win-x64-payload.zip HTTP/1.1" 200 -
+87.106.22.139 - - [01/Aug/2026 10:48:24] "GET /chummer-avalonia-win-x64-payload.zip HTTP/1.1" 200 -

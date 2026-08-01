@@ -1,3 +1,8 @@
+dpkg: warning: 'ldconfig' not found in PATH or not executable
+dpkg: warning: 'start-stop-daemon' not found in PATH or not executable
+dpkg: warning: overriding problem because --force enabled:
+dpkg: warning: 2 expected programs not found in PATH or not executable
+Note: root's PATH should usually contain /usr/local/sbin, /usr/sbin and /sbin
 Selecting previously unselected package chummer6-avalonia.
 (Reading database ... 154846 files and directories currently installed.)
 Preparing to unpack .../chummer-avalonia-linux-x64-installer.deb ...
@@ -5,13 +10,6 @@ Unpacking chummer6-avalonia (0~run-20260801-031406) ...
 touch: cannot touch '/run/needrestart/unpacked': Permission denied
 Setting up chummer6-avalonia (0~run-20260801-031406) ...
 Processing triggers for mailcap (3.70+nmu1ubuntu1.24.04.1) ...
-Error: could not write '/etc/mailcap.new' -- Permission denied
-dpkg: error processing package mailcap (--install):
- installed mailcap package post-installation script subprocess returned error exit status 1
-touch: cannot touch '/run/needrestart/errored': Permission denied
-Errors were encountered while processing:
- mailcap
-dpkg install returned 1, but Chummer payload files were installed under the isolated root; tolerating host trigger noise.
 startup smoke ready: head=avalonia platform=linux arch=x64 checkpoint=pre_ui_event_loop
 [mouse-first-journey] start mouse-first live binary journey (sr5-priority-standard-e-human-mystic-adept)
 [mouse-first-journey] wait success: desktop shell initialized
@@ -57,5 +55,11 @@ startup smoke ready: head=avalonia platform=linux arch=x64 checkpoint=pre_ui_eve
 [mouse-first-journey] click file menu command save_character
 [mouse-first-journey] wait success: workspace saved after pointer-first flow
 [mouse-first-journey] workspace strip stayed stable while visible shell state confirmed saved workspace (missing)
+dpkg: warning: 'ldconfig' not found in PATH or not executable
+dpkg: warning: 'start-stop-daemon' not found in PATH or not executable
+dpkg: warning: overriding problem because --force enabled:
+dpkg: warning: 2 expected programs not found in PATH or not executable
+Note: root's PATH should usually contain /usr/local/sbin, /usr/sbin and /sbin
 (Reading database ... 154859 files and directories currently installed.)
 Removing chummer6-avalonia (0~run-20260801-031406) ...
+Processing triggers for mailcap (3.70+nmu1ubuntu1.24.04.1) ...

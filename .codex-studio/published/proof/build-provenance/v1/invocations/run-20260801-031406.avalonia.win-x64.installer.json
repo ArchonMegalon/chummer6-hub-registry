@@ -1,22 +1,22 @@
 {
   "assurance": "structural build-invocation evidence with a pre-build authority nonce; release use requires a separate code-pinned detached builder attestation",
-  "authority_nonce": "90f2e2d51a2a2f3f22d66d9a31f6c5e2cf1ba3f1e034f23ab989d7ecc7e83234",
-  "build_started_at_utc": "2026-08-01T03:28:58Z",
+  "authority_nonce": "31592d9e4b5546053bb45f42f870909a9d5ebea823389a3ebebd286e8176351a",
+  "build_started_at_utc": "2026-08-01T07:48:26Z",
   "build_type": "windows-desktop-release",
   "builder_id": "chummer-windows-release-bootstrap",
   "contract_name": "chummer6.build_provenance.v1",
   "failures": [],
-  "generated_at_utc": "2026-08-01T03:33:11Z",
+  "generated_at_utc": "2026-08-01T07:52:39Z",
   "invocation": {
     "public_projection": "portable_path_references.v1",
     "source_identity_stable": true,
     "state": {
-      "authority_nonce": "90f2e2d51a2a2f3f22d66d9a31f6c5e2cf1ba3f1e034f23ab989d7ecc7e83234",
+      "authority_nonce": "31592d9e4b5546053bb45f42f870909a9d5ebea823389a3ebebd286e8176351a",
       "build_inputs": [
         {
           "label": "desktop-project",
           "path": "build-inputs/desktop-project",
-          "sha256": "1e02f0a90497d28814fe5d523806ece673821f86e9fa09ec5b1489f6feacee1c"
+          "sha256": "6996fbda2e7303c74c0360916b0ad58216df6ea3b43d3abc7501120b6d9265b7"
         },
         {
           "label": "desktop-installer-recipe",
@@ -46,21 +46,21 @@
       "output_path": "proof/build-provenance/v1/invocations/run-20260801-031406.avalonia.win-x64.installer.json",
       "release_version": "run-20260801-031406",
       "sbom": {
-        "dependency_inventory_sha256": "36eccf46a8692007174bee8d9b5e0d64c72ad2702a3633c98defeb9f0c0eb572",
+        "dependency_inventory_sha256": "4d45f7376ec1b0f9def4807f8067ce925094a11027155c32b4395f7308b877ac",
         "generator": "deterministic_project.assets.json_inventory.v1",
         "path": "proof/build-provenance/v1/sbom/avalonia-win-x64-installer.cdx.json",
-        "sha256": "f5140c660193d6ea36fd1ff27cddfe4cc962e147dbcbb179676a327201a4708e",
+        "sha256": "fc667f6069d125cbd564eea4c76192e0bc566e5cfb73bf7f3031f8e998ce473d",
         "source_assets_path": "build-inputs/desktop-avalonia.project.assets.json",
-        "source_assets_sha256": "a8b2fef1e63f62cc05792d1479782ae83a1135b70312cfa55acfebed570e18ff"
+        "source_assets_sha256": "2af2af43c827056c58d206e0152034ea80452a3a09ee130d6743fbf34f8b8007"
       },
       "source": {
-        "commit": "212663ea3c8eb5cbd77708ebdad056c6b3620dc5",
+        "commit": "6c7bf9df68139b9e443817620f7dd1562f749e51",
         "repo_root": "sources/chummer-presentation",
         "repository": "chummer-presentation",
         "repository_history_fingerprint": "1acccd68fc16c6813def08f05f31413df3bb5b8b4bb6e7b8d5be6ca2540f8156",
         "repository_origin_fingerprint": "55eebe2ea3d199bf9f47123ea65defc64317c45915d4daff2a4459099e4a164a",
         "tracked_worktree_dirty": false,
-        "tree": "ccd45a28ee35fe65d732a60fb36161d7b7486efd",
+        "tree": "ed22e50fe4066a3b30e155ba91ce8acac218df8c",
         "untracked_build_inputs_included": true,
         "worktree_dirty": false
       },
@@ -76,13 +76,13 @@
           "worktree_dirty": false
         },
         {
-          "commit": "dada8a0da6d3d4da821e5543b8c5bd4590db581d",
+          "commit": "c6540bb4f56f59121ac139c5d65efc11d4c7a012",
           "repo_root": "sources/chummer.run-services",
           "repository": "chummer.run-services",
           "repository_history_fingerprint": "77d4102456d6dfd7461115c9d0e42022e1a787a3357fde9f89767965334dddee",
           "repository_origin_fingerprint": "0f12515b47e171027672bb14cf346a9340490b9f00597cc54eb76b0a0ecf8b17",
           "tracked_worktree_dirty": false,
-          "tree": "5afec8cc876be85df9d9a22fa86c679a74b46649",
+          "tree": "0b5181eec686674e918c9bb7e6d4864fa02303f1",
           "worktree_dirty": false
         },
         {
@@ -96,13 +96,13 @@
           "worktree_dirty": false
         },
         {
-          "commit": "c2883728957bff1330ee9dc912b168270a52d75c",
+          "commit": "015df6f2d16ec1b0706b042a3d3df623fa93614a",
           "repo_root": "sources/chummer-hub-registry",
           "repository": "chummer-hub-registry",
           "repository_history_fingerprint": "59d7dc8f9c2a30b9e7a9fa5ccd4b725904095d8f6e9e9136117793bbc7453814",
           "repository_origin_fingerprint": "cf709474b1557bdc8babc02b42fc1af337d736f1cafc2fa3b9e9a7b87a46c0a2",
           "tracked_worktree_dirty": false,
-          "tree": "44db43b5b95617fe1b36cbea4a4305430317cb15",
+          "tree": "486f2105bba21e8037025203c79dbdeef7af60df",
           "worktree_dirty": false
         },
         {
@@ -116,13 +116,13 @@
           "worktree_dirty": false
         },
         {
-          "commit": "1db879d7c22ea0cc6d58c6ee6924a82e5ec755ce",
+          "commit": "fe4355d06c98cd9b7feade89f5fc1a0e438f7ce3",
           "repo_root": "sources/chummer5a",
           "repository": "chummer5a",
           "repository_history_fingerprint": "e9a967ff38b77586ffb5f343b7393078a1604cce606756a6c33bf08555bb3151",
           "repository_origin_fingerprint": "7b51cf6303843eb4c2ef29c9b9639eee2696f6e3e751425eda43185e40296c11",
           "tracked_worktree_dirty": false,
-          "tree": "5eb6d818f5f60f50a74c5f50b0c1aa851c4778b0",
+          "tree": "20b66829ec2f6046878a0080c5fbe80fd7bb4459",
           "worktree_dirty": false
         }
       ],
@@ -133,17 +133,17 @@
         "redaction": "finding values and paths are omitted from public provenance",
         "repositories": [
           {
-            "archive_bytes": 308866048,
-            "commit": "212663ea3c8eb5cbd77708ebdad056c6b3620dc5",
+            "archive_bytes": 308872058,
+            "commit": "6c7bf9df68139b9e443817620f7dd1562f749e51",
             "finding_count": 0,
             "repository": "chummer-presentation",
             "repository_history_fingerprint": "1acccd68fc16c6813def08f05f31413df3bb5b8b4bb6e7b8d5be6ca2540f8156",
             "repository_origin_fingerprint": "55eebe2ea3d199bf9f47123ea65defc64317c45915d4daff2a4459099e4a164a",
-            "scanned_files": 3701,
+            "scanned_files": 3703,
             "skipped_binary_or_large_files": 24233,
             "status": "pass",
-            "tracked_files": 27934,
-            "tree": "ccd45a28ee35fe65d732a60fb36161d7b7486efd"
+            "tracked_files": 27936,
+            "tree": "ed22e50fe4066a3b30e155ba91ce8acac218df8c"
           },
           {
             "archive_bytes": 201025016,
@@ -159,17 +159,17 @@
             "tree": "fe7bcf48b25e2fd00b7463ec6d9f871813dc5dbc"
           },
           {
-            "archive_bytes": 781659425,
-            "commit": "dada8a0da6d3d4da821e5543b8c5bd4590db581d",
+            "archive_bytes": 781659549,
+            "commit": "c6540bb4f56f59121ac139c5d65efc11d4c7a012",
             "finding_count": 0,
             "repository": "chummer.run-services",
             "repository_history_fingerprint": "77d4102456d6dfd7461115c9d0e42022e1a787a3357fde9f89767965334dddee",
             "repository_origin_fingerprint": "0f12515b47e171027672bb14cf346a9340490b9f00597cc54eb76b0a0ecf8b17",
-            "scanned_files": 2310,
+            "scanned_files": 2312,
             "skipped_binary_or_large_files": 183,
             "status": "pass",
-            "tracked_files": 2493,
-            "tree": "5afec8cc876be85df9d9a22fa86c679a74b46649"
+            "tracked_files": 2495,
+            "tree": "0b5181eec686674e918c9bb7e6d4864fa02303f1"
           },
           {
             "archive_bytes": 1949549,
@@ -185,8 +185,8 @@
             "tree": "0447d3ff0f00506065dac02a7354aeb6974a9d01"
           },
           {
-            "archive_bytes": 56724600,
-            "commit": "c2883728957bff1330ee9dc912b168270a52d75c",
+            "archive_bytes": 56833895,
+            "commit": "015df6f2d16ec1b0706b042a3d3df623fa93614a",
             "finding_count": 0,
             "repository": "chummer-hub-registry",
             "repository_history_fingerprint": "59d7dc8f9c2a30b9e7a9fa5ccd4b725904095d8f6e9e9136117793bbc7453814",
@@ -195,7 +195,7 @@
             "skipped_binary_or_large_files": 1,
             "status": "pass",
             "tracked_files": 464,
-            "tree": "44db43b5b95617fe1b36cbea4a4305430317cb15"
+            "tree": "486f2105bba21e8037025203c79dbdeef7af60df"
           },
           {
             "archive_bytes": 4683966,
@@ -211,8 +211,8 @@
             "tree": "58d4b40c6a2971f74cc34ab207324c1c4efade46"
           },
           {
-            "archive_bytes": 1240986755,
-            "commit": "1db879d7c22ea0cc6d58c6ee6924a82e5ec755ce",
+            "archive_bytes": 1240986818,
+            "commit": "fe4355d06c98cd9b7feade89f5fc1a0e438f7ce3",
             "finding_count": 0,
             "repository": "chummer5a",
             "repository_history_fingerprint": "e9a967ff38b77586ffb5f343b7393078a1604cce606756a6c33bf08555bb3151",
@@ -221,15 +221,15 @@
             "skipped_binary_or_large_files": 23977,
             "status": "pass",
             "tracked_files": 26531,
-            "tree": "5eb6d818f5f60f50a74c5f50b0c1aa851c4778b0"
+            "tree": "20b66829ec2f6046878a0080c5fbe80fd7bb4459"
           }
         ],
         "repository_count": 7,
         "scope": "git_committed_object_tree",
         "status": "pass"
       },
-      "started_at_utc": "2026-08-01T03:28:58Z",
-      "started_epoch_ns": 1785554938251694709,
+      "started_at_utc": "2026-08-01T07:48:26Z",
+      "started_epoch_ns": 1785570506170820330,
       "state_contract_name": "chummer6.build_provenance_invocation_state.v1",
       "state_path": "private-state/run-20260801-031406.avalonia.win-x64.installer.json",
       "subject_declaration": {
@@ -246,7 +246,7 @@
       }
     },
     "state_contract_name": "chummer6.build_provenance_invocation_state.v1",
-    "state_sha256": "29c1683171ee26e3d4d57a5ce8c4fea6e7a663a28b51e5a67ed69bef7631c0c8",
+    "state_sha256": "be69b4225a37562dd787a4993b266dcf95b0c609579cd8c7d2ab020d31f7f980",
     "subject_declared_before_build": true
   },
   "invocation_id": "run-20260801-031406.avalonia.win-x64.installer",
@@ -255,22 +255,22 @@
   "status": "pass",
   "subjects": [
     {
-      "artifact_built_mtime_ns": 1785555099882956307,
+      "artifact_built_mtime_ns": 1785570667230478274,
       "artifact_id": "avalonia-win-x64-installer",
       "artifact_kind": "desktop_download",
       "artifact_name": "chummer-avalonia-win-x64-installer.exe",
-      "artifact_sha256": "13477e00b148b41b84f59ed3d5e25bb38267f530193aa80b7eb7649ed9416d74",
-      "artifact_size_bytes": 2734618,
-      "authority_nonce": "90f2e2d51a2a2f3f22d66d9a31f6c5e2cf1ba3f1e034f23ab989d7ecc7e83234",
+      "artifact_sha256": "3f0d47d44a649627b8afddc99eadc64be0c25558699eb50bf006c7e2df1e32c1",
+      "artifact_size_bytes": 2735188,
+      "authority_nonce": "31592d9e4b5546053bb45f42f870909a9d5ebea823389a3ebebd286e8176351a",
       "invocation_id": "run-20260801-031406.avalonia.win-x64.installer",
       "produced_during_invocation": true,
       "release_version": "run-20260801-031406",
       "sbom_generator": "deterministic_project.assets.json_inventory.v1",
-      "sbom_sha256": "f5140c660193d6ea36fd1ff27cddfe4cc962e147dbcbb179676a327201a4708e",
-      "source_commit": "212663ea3c8eb5cbd77708ebdad056c6b3620dc5",
+      "sbom_sha256": "fc667f6069d125cbd564eea4c76192e0bc566e5cfb73bf7f3031f8e998ce473d",
+      "source_commit": "6c7bf9df68139b9e443817620f7dd1562f749e51",
       "source_repository": "chummer-presentation",
       "source_tracked_worktree_dirty": false,
-      "source_tree": "ccd45a28ee35fe65d732a60fb36161d7b7486efd",
+      "source_tree": "ed22e50fe4066a3b30e155ba91ce8acac218df8c",
       "source_untracked_build_inputs_included": true,
       "source_worktree_dirty": false,
       "target_id": "desktop-avalonia"

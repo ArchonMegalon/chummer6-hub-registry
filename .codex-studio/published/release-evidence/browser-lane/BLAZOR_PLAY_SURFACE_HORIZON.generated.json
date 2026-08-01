@@ -1,6 +1,6 @@
 {
   "contract_name": "chummer6-ui.blazor_play_surface_horizon",
-  "generated_at": "2026-07-08T03:48:38.847540+00:00",
+  "generated_at": "2026-07-31T15:56:19.080210+00:00",
   "status": "passed",
   "scope": "public_release_shelf_play_surface_horizons",
   "public_download_relative_root": "release-evidence/browser-lane",
@@ -8,8 +8,8 @@
     "browser_lane_status": "passed",
     "execution_horizon_status": "passed",
     "pwa_public_edge_status": "passed",
-    "current_execution_scope": "smoke",
-    "smoke_execution_scope": "smoke",
+    "current_execution_scope": "full",
+    "smoke_execution_scope": "full",
     "public_base_url": "https://chummer.run",
     "public_entry_route": "/app",
     "public_roster_entry_route": "/app?command=character_roster",
@@ -26,7 +26,7 @@
       "status": "proven",
       "evidence_tier": "runtime_proven",
       "headline": "Hosted route entry, browser-lane release posture, and smoke execution are currently proven.",
-      "summary": "The public app and promoted /blazor workbench routes are release-backed, and the published hosted execution scope is smoke.",
+      "summary": "The public app and promoted /blazor workbench routes are release-backed, and the published hosted execution scope is full.",
       "runtime_proven_receipts": [
         {
           "id": "browser_lane_proof_set",
@@ -56,58 +56,17 @@
           "status": "proven"
         },
         "mid_term": {
-          "covered_workflow_family_count": 9,
+          "covered_workflow_family_count": 49,
           "id": "mid_term_full_live_public_edge_execution_matrix",
-          "missing_workflow_family_ids": [
-            "promoted_advanced_action_affordances",
-            "promoted_advanced_committed_actions",
-            "promoted_career_entry_committed_execution",
-            "promoted_career_entry_delete_committed_execution",
-            "promoted_career_entry_delete_execution",
-            "promoted_career_entry_edit_committed_execution",
-            "promoted_career_entry_edit_execution",
-            "promoted_career_entry_execution",
-            "promoted_career_entry_reorder_execution",
-            "promoted_career_log_continuity",
-            "promoted_combat_support_execution",
-            "promoted_contact_connection_execution",
-            "promoted_contact_delete_execution",
-            "promoted_contact_edit_execution",
-            "promoted_cyberware_delete_execution",
-            "promoted_cyberware_edit_execution",
-            "promoted_cyberware_selection_execution",
-            "promoted_drug_selection_execution",
-            "promoted_gear_maintenance_execution",
-            "promoted_identity_license_execution",
-            "promoted_magic_cleanup_utility_execution",
-            "promoted_magic_delete_execution",
-            "promoted_magic_support_execution",
-            "promoted_quality_delete_execution",
-            "promoted_quality_selection_execution",
-            "promoted_recent_work_affordances",
-            "promoted_restored_section_content",
-            "promoted_restored_section_continuations",
-            "promoted_restored_tab_landings",
-            "promoted_runner_notes_committed_execution",
-            "promoted_runner_notes_execution",
-            "promoted_skill_maintenance_execution",
-            "promoted_skill_selection_execution",
-            "promoted_source_gear_utility_execution",
-            "promoted_spell_selection_execution",
-            "promoted_vehicle_delete_execution",
-            "promoted_vehicle_edit_execution",
-            "promoted_vehicle_mod_selection_execution",
-            "promoted_vehicle_selection_execution",
-            "promoted_weapon_selection_execution"
-          ],
+          "missing_workflow_family_ids": [],
           "promotion_rule": "requires a passing full-scope BLAZOR_PUBLIC_EDGE_EXECUTION_PROOF.generated.json",
           "required_workflow_family_count": 49,
-          "status": "not_proven"
+          "status": "proven"
         },
         "long_term": {
           "id": "long_term_full_browser_desktop_parity_breadth",
           "promotion_rule": "hosted execution proof alone is not full desktop parity; keep UI parity gates distinct",
-          "status": "not_claimed"
+          "status": "requires_separate_parity_gates"
         }
       }
     },

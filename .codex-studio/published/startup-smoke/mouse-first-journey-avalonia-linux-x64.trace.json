@@ -5,7 +5,7 @@
   "hostClass": "local-linux-x64",
   "processPath": "Chummer.Avalonia",
   "processPathDisclosure": "file_name_only",
-  "recordedAtUtc": "2026-08-01T03:20:39.2885682+00:00",
+  "recordedAtUtc": "2026-08-01T07:43:03.384524+00:00",
   "observedInputEvents": [
     {
       "eventKind": "pointer_pressed",
@@ -13,7 +13,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:32.3424003+00:00"
+      "recordedAtUtc": "2026-08-01T07:42:57.0069287+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -21,7 +21,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:32.4024801+00:00"
+      "recordedAtUtc": "2026-08-01T07:42:57.0755465+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -29,7 +29,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:32.4028022+00:00"
+      "recordedAtUtc": "2026-08-01T07:42:57.0759222+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -37,7 +37,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:32.4033841+00:00"
+      "recordedAtUtc": "2026-08-01T07:42:57.0765063+00:00"
     },
     {
       "eventKind": "tapped",
@@ -45,7 +45,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:32.4035352+00:00"
+      "recordedAtUtc": "2026-08-01T07:42:57.0766561+00:00"
     },
     {
       "eventKind": "tapped",
@@ -53,7 +53,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:32.4035521+00:00"
+      "recordedAtUtc": "2026-08-01T07:42:57.0766752+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -61,7 +61,7 @@
       "controlName": null,
       "controlTag": "new_character",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:32.5744127+00:00"
+      "recordedAtUtc": "2026-08-01T07:42:57.2805849+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -69,7 +69,7 @@
       "controlName": null,
       "controlTag": "new_character",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:32.5755512+00:00"
+      "recordedAtUtc": "2026-08-01T07:42:57.2818796+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -77,7 +77,7 @@
       "controlName": null,
       "controlTag": "new_character",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:32.5755817+00:00"
+      "recordedAtUtc": "2026-08-01T07:42:57.2819173+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -85,7 +85,7 @@
       "controlName": null,
       "controlTag": "new_character",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:32.6341583+00:00"
+      "recordedAtUtc": "2026-08-01T07:42:57.3577195+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -93,7 +93,7 @@
       "controlName": "DialogAction_create_character",
       "controlTag": "create_character",
       "dialogId": "dialog.new_character",
-      "recordedAtUtc": "2026-08-01T03:20:36.6241002+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.595609+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -101,7 +101,7 @@
       "controlName": "DialogAction_create_character",
       "controlTag": "create_character",
       "dialogId": "dialog.new_character",
-      "recordedAtUtc": "2026-08-01T03:20:36.628604+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.5993615+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -109,7 +109,7 @@
       "controlName": "DialogAction_create_character",
       "controlTag": "create_character",
       "dialogId": "dialog.new_character",
-      "recordedAtUtc": "2026-08-01T03:20:36.6286405+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.5993983+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -117,7 +117,7 @@
       "controlName": "DialogAction_create_character",
       "controlTag": "create_character",
       "dialogId": "dialog.new_character",
-      "recordedAtUtc": "2026-08-01T03:20:36.6496934+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.6190767+00:00"
     },
     {
       "eventKind": "tapped",
@@ -125,7 +125,7 @@
       "controlName": "DialogAction_create_character",
       "controlTag": "create_character",
       "dialogId": "dialog.new_character",
-      "recordedAtUtc": "2026-08-01T03:20:36.649717+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.6191034+00:00"
     },
     {
       "eventKind": "tapped",
@@ -133,7 +133,7 @@
       "controlName": "DialogAction_create_character",
       "controlTag": "create_character",
       "dialogId": "dialog.new_character",
-      "recordedAtUtc": "2026-08-01T03:20:36.6497224+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.6191085+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -141,7 +141,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityHeritage",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.7523876+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.7216159+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -149,7 +149,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityHeritage",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.7528985+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.7223138+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -157,7 +157,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityHeritage",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.7529251+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.7223718+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -165,7 +165,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityHeritage",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.7627731+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.7380623+00:00"
     },
     {
       "eventKind": "tapped",
@@ -173,7 +173,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityHeritage",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.762799+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.7380818+00:00"
     },
     {
       "eventKind": "tapped",
@@ -181,7 +181,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityHeritage",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.7628058+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.7380871+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -189,7 +189,7 @@
       "controlName": null,
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.7667251+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.742227+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -197,7 +197,7 @@
       "controlName": null,
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.7675791+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.7432373+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -205,7 +205,7 @@
       "controlName": null,
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.7676164+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.7432837+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -213,7 +213,7 @@
       "controlName": null,
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.8961304+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.8326717+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -221,7 +221,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityTalent",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.9501746+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.8847637+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -229,7 +229,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityTalent",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.950297+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.8848742+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -237,7 +237,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityTalent",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.9503205+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.8848902+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -245,7 +245,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityTalent",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.9532937+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.8879591+00:00"
     },
     {
       "eventKind": "tapped",
@@ -253,7 +253,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityTalent",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.953304+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.8879699+00:00"
     },
     {
       "eventKind": "tapped",
@@ -261,7 +261,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityTalent",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.9533079+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.8879749+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -269,7 +269,7 @@
       "controlName": null,
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.953512+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.8885235+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -277,7 +277,7 @@
       "controlName": null,
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.9539164+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.8889543+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -285,7 +285,7 @@
       "controlName": null,
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:36.9539286+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.8889722+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -293,7 +293,7 @@
       "controlName": null,
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.0629348+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:00.9665537+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -301,7 +301,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityTalentChoice",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.1194355+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:01.0275653+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -309,7 +309,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityTalentChoice",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.119526+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:01.0276774+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -317,7 +317,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityTalentChoice",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.1195383+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:01.0276936+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -325,7 +325,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityTalentChoice",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.1225584+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:01.0314135+00:00"
     },
     {
       "eventKind": "tapped",
@@ -333,7 +333,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityTalentChoice",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.1225692+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:01.0314289+00:00"
     },
     {
       "eventKind": "tapped",
@@ -341,7 +341,7 @@
       "controlName": "DialogFieldInput_newCharacterPriorityTalentChoice",
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.1225735+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:01.0314338+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -349,7 +349,7 @@
       "controlName": null,
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.1227265+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:01.0320007+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -357,7 +357,7 @@
       "controlName": null,
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.1231559+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:01.0328641+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -365,7 +365,7 @@
       "controlName": null,
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.1231676+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:01.0328844+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -373,7 +373,7 @@
       "controlName": null,
       "controlTag": null,
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.2558518+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:01.1332185+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -381,7 +381,7 @@
       "controlName": "DialogAction_complete_new_character_workflow",
       "controlTag": "complete_new_character_workflow",
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.3454172+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:01.2276727+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -389,7 +389,7 @@
       "controlName": "DialogAction_complete_new_character_workflow",
       "controlTag": "complete_new_character_workflow",
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.3455696+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:01.2278373+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -397,7 +397,7 @@
       "controlName": "DialogAction_complete_new_character_workflow",
       "controlTag": "complete_new_character_workflow",
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.3455814+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:01.2278543+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -405,7 +405,7 @@
       "controlName": "DialogAction_complete_new_character_workflow",
       "controlTag": "complete_new_character_workflow",
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.4272771+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:01.3248841+00:00"
     },
     {
       "eventKind": "tapped",
@@ -413,7 +413,7 @@
       "controlName": "DialogAction_complete_new_character_workflow",
       "controlTag": "complete_new_character_workflow",
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.4273157+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:01.3249321+00:00"
     },
     {
       "eventKind": "tapped",
@@ -421,7 +421,7 @@
       "controlName": "DialogAction_complete_new_character_workflow",
       "controlTag": "complete_new_character_workflow",
       "dialogId": "dialog.new_character.priority_workflow",
-      "recordedAtUtc": "2026-08-01T03:20:37.4273194+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:01.3249364+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -429,7 +429,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.1953205+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.1229908+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -437,7 +437,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.2022657+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.1355496+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -445,7 +445,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.2022915+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.1355869+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -453,7 +453,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.2023074+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.135616+00:00"
     },
     {
       "eventKind": "tapped",
@@ -461,7 +461,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.2023139+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.1356245+00:00"
     },
     {
       "eventKind": "tapped",
@@ -469,7 +469,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.2023174+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.1356291+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -477,7 +477,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.4187895+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.3872496+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -485,7 +485,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.4204981+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.40167+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -493,7 +493,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.4205209+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.4017172+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -501,7 +501,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.4205328+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.4017429+00:00"
     },
     {
       "eventKind": "tapped",
@@ -509,7 +509,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.4205419+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.4017553+00:00"
     },
     {
       "eventKind": "tapped",
@@ -517,7 +517,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.4205448+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.4017602+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -525,7 +525,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.5360125+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.5412334+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -533,7 +533,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.5431007+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.5518615+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -541,7 +541,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.5431317+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.5518913+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -549,7 +549,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.5431527+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.5519202+00:00"
     },
     {
       "eventKind": "tapped",
@@ -557,7 +557,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.543161+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.5519296+00:00"
     },
     {
       "eventKind": "tapped",
@@ -565,7 +565,7 @@
       "controlName": "FileMenuButton",
       "controlTag": "file",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.5431648+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.5519337+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -573,7 +573,7 @@
       "controlName": null,
       "controlTag": "save_character",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.7006894+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.7163588+00:00"
     },
     {
       "eventKind": "pointer_pressed",
@@ -581,7 +581,7 @@
       "controlName": null,
       "controlTag": "save_character",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.7010845+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.7167999+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -589,7 +589,7 @@
       "controlName": null,
       "controlTag": "save_character",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.7011033+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.7168288+00:00"
     },
     {
       "eventKind": "pointer_released",
@@ -597,7 +597,7 @@
       "controlName": null,
       "controlTag": "save_character",
       "dialogId": null,
-      "recordedAtUtc": "2026-08-01T03:20:38.713603+00:00"
+      "recordedAtUtc": "2026-08-01T07:43:02.7387086+00:00"
     }
   ]
 }

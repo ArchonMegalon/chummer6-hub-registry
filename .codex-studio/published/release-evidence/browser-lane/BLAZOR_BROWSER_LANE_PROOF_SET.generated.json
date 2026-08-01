@@ -1,9 +1,10 @@
 {
   "contract_name": "chummer6-ui.blazor_browser_lane_proof_set",
-  "generated_at": "2026-07-03T18:02:01.167161+00:00",
+  "generated_at": "2026-07-31T15:56:19.019290+00:00",
   "notes": [
     "The source_staged_release_boundary receipt is required as source-policy evidence only; it does not execute hosted or Docker browser workflows.",
     "Hosted execution breadth follows the receipt playwright_scope; smoke receipts must cover every smoke-required family, and full receipts must cover every full-required family before this aggregate accepts them.",
+    "External native-host tuple blockers remain visible in their source receipt and desktop release gates; this browser-lane aggregate accepts that receipt only when its browser route and execution evidence pass.",
     "MIG-106 through MIG-109 remain open until refreshed hosted route-entry, hosted execution, Docker self-host, analytics posture, connected-runtime, source-boundary, and aggregate browser-lane receipts prove the Chummer Online release claim."
   ],
   "passed_receipt_count": 8,
@@ -38,13 +39,13 @@
           "passed": true
         },
         {
-          "actual": 30,
+          "actual": 73,
           "id": "minimum_length:proof_routes",
           "minimum": 16,
           "passed": true
         },
         {
-          "actual": 25,
+          "actual": 54,
           "id": "minimum_length:workflow_proofs",
           "minimum": 20,
           "passed": true
@@ -166,7 +167,7 @@
           "passed": true
         },
         {
-          "actual": "smoke",
+          "actual": "full",
           "expected": [
             "full",
             "smoke"
@@ -175,7 +176,7 @@
           "passed": true
         },
         {
-          "actual": 9,
+          "actual": 49,
           "id": "minimum_length:workflow_families",
           "minimum": 9,
           "passed": true
@@ -186,11 +187,51 @@
             "promoted_dense_tool_surfaces",
             "promoted_origin_rules_continuity",
             "promoted_build_lab_continuity",
+            "promoted_weapon_selection_execution",
+            "promoted_combat_support_execution",
+            "promoted_skill_selection_execution",
+            "promoted_skill_maintenance_execution",
+            "promoted_vehicle_selection_execution",
+            "promoted_vehicle_mod_selection_execution",
+            "promoted_quality_selection_execution",
+            "promoted_quality_delete_execution",
+            "promoted_spell_selection_execution",
+            "promoted_magic_support_execution",
+            "promoted_magic_delete_execution",
+            "promoted_cyberware_selection_execution",
+            "promoted_cyberware_edit_execution",
+            "promoted_cyberware_delete_execution",
+            "promoted_drug_selection_execution",
+            "promoted_gear_maintenance_execution",
+            "promoted_source_gear_utility_execution",
+            "promoted_magic_cleanup_utility_execution",
+            "promoted_contact_connection_execution",
+            "promoted_vehicle_edit_execution",
+            "promoted_vehicle_delete_execution",
+            "promoted_contact_delete_execution",
+            "promoted_contact_edit_execution",
+            "promoted_career_entry_execution",
+            "promoted_career_entry_committed_execution",
+            "promoted_career_log_continuity",
             "promoted_resumed_workspace",
+            "promoted_career_entry_edit_execution",
+            "promoted_career_entry_delete_execution",
+            "promoted_career_entry_edit_committed_execution",
+            "promoted_career_entry_delete_committed_execution",
+            "promoted_runner_notes_execution",
+            "promoted_runner_notes_committed_execution",
+            "promoted_career_entry_reorder_execution",
+            "promoted_identity_license_execution",
+            "promoted_recent_work_affordances",
+            "promoted_restored_section_continuations",
+            "promoted_restored_tab_landings",
+            "promoted_restored_section_content",
             "promoted_result_continuations",
             "promoted_action_continuations",
+            "promoted_advanced_action_affordances",
+            "promoted_advanced_action_executions",
             "promoted_committed_actions",
-            "promoted_advanced_action_executions"
+            "promoted_advanced_committed_actions"
           ],
           "id": "required_object_ids_from_field:workflow_families:required_workflow_family_ids",
           "minimum_source_items": 9,
@@ -364,11 +405,30 @@
     {
       "checks": [
         {
-          "actual": "ready",
+          "actual": "chummer6-ui.external_host_proof_blockers",
+          "expected": "chummer6-ui.external_host_proof_blockers",
+          "id": "contract_name",
+          "passed": true
+        },
+        {
+          "actual": "blocked",
           "expected": [
+            "blocked",
             "ready"
           ],
           "id": "status",
+          "passed": true
+        },
+        {
+          "actual": 0,
+          "expected": 0,
+          "id": "field:browser_route_blocker_count",
+          "passed": true
+        },
+        {
+          "actual": "passed",
+          "expected": "passed",
+          "id": "field:browser_route_entry_proof_status",
           "passed": true
         },
         {
@@ -387,7 +447,7 @@
       "id": "external_host_blockers",
       "passed": true,
       "path": "/docker/chummercomplete/chummer-presentation/.codex-studio/published/UI_EXTERNAL_HOST_PROOF_BLOCKERS.generated.json",
-      "status": "ready"
+      "status": "blocked"
     },
     {
       "checks": [

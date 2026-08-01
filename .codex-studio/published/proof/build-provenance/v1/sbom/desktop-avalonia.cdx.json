@@ -550,7 +550,7 @@
         },
         {
           "name": "chummer:dependencyInventorySha256",
-          "value": "36eccf46a8692007174bee8d9b5e0d64c72ad2702a3633c98defeb9f0c0eb572"
+          "value": "4d45f7376ec1b0f9def4807f8067ce925094a11027155c32b4395f7308b877ac"
         },
         {
           "name": "chummer:evidenceKind",
@@ -574,7 +574,7 @@
       ]
     }
   },
-  "serialNumber": "urn:uuid:f8dd9374-1ce6-58c3-86c7-23187402a2b6",
+  "serialNumber": "urn:uuid:82b9da04-baac-5c72-b549-7474b5dfd10d",
   "specVersion": "1.5",
   "version": 1
 }
