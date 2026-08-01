@@ -764,6 +764,43 @@ def test_startup_smoke_channel_matches_expected_accepts_public_edge_receipt_for_
     assert MODULE.startup_smoke_channel_matches_expected("docker", "public_edge") is True
 
 
+def test_parse_startup_smoke_receipt_timestamp_accepts_ordered_lifecycle_events() -> None:
+    started = datetime(2026, 8, 1, 22, 32, 37, 239361, tzinfo=timezone.utc)
+    recorded = datetime(2026, 8, 1, 22, 32, 37, 241592, tzinfo=timezone.utc)
+    completed = datetime(2026, 8, 1, 22, 32, 37, 241609, tzinfo=timezone.utc)
+
+    parsed = MODULE.parse_startup_smoke_receipt_timestamp(
+        {
+            "startedAtUtc": started.isoformat(),
+            "recordedAtUtc": recorded.isoformat(),
+            "completedAtUtc": completed.isoformat(),
+        }
+    )
+
+    assert parsed == completed
+
+
+def test_parse_startup_smoke_receipt_timestamp_rejects_reversed_lifecycle_events() -> None:
+    started = datetime(2026, 8, 1, 22, 32, 38, tzinfo=timezone.utc)
+    completed = datetime(2026, 8, 1, 22, 32, 37, tzinfo=timezone.utc)
+
+    assert MODULE.parse_startup_smoke_receipt_timestamp(
+        {
+            "startedAtUtc": started.isoformat(),
+            "completedAtUtc": completed.isoformat(),
+        }
+    ) is None
+
+
+def test_parse_startup_smoke_receipt_timestamp_rejects_conflicting_generated_aliases() -> None:
+    assert MODULE.parse_startup_smoke_receipt_timestamp(
+        {
+            "generatedAt": "2026-08-01T22:32:37Z",
+            "generated_at": "2026-08-01T22:32:38Z",
+        }
+    ) is None
+
+
 def test_load_payload_uses_run_services_downloads_root_for_registry_published_manifest() -> None:
     with tempfile.TemporaryDirectory() as temp_dir:
         temp_root = Path(temp_dir)

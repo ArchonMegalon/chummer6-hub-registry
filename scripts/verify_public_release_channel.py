@@ -7889,11 +7889,11 @@ def promoted_desktop_installer_tuple_identity_map(payload: dict) -> dict[tuple[s
 
 
 def parse_startup_smoke_receipt_timestamp(receipt: dict[str, Any]) -> datetime | None:
-    timestamps: list[datetime] = []
+    parsed_by_key: dict[str, datetime] = {}
     for key in (
+        "startedAtUtc",
         "recordedAtUtc",
         "completedAtUtc",
-        "startedAtUtc",
         "generatedAt",
         "generated_at",
     ):
@@ -7905,10 +7905,33 @@ def parse_startup_smoke_receipt_timestamp(receipt: dict[str, Any]) -> datetime |
         parsed = parse_iso_timestamp(raw)
         if parsed is None:
             return None
-        timestamps.append(parsed)
-    if not timestamps or any(value != timestamps[0] for value in timestamps[1:]):
+        parsed_by_key[key] = parsed
+
+    generated_at = parsed_by_key.get("generatedAt")
+    generated_at_alias = parsed_by_key.get("generated_at")
+    if (
+        generated_at is not None
+        and generated_at_alias is not None
+        and generated_at != generated_at_alias
+    ):
         return None
-    return timestamps[0]
+
+    ordered_timestamps = [
+        parsed_by_key[key]
+        for key in ("startedAtUtc", "recordedAtUtc", "completedAtUtc")
+        if key in parsed_by_key
+    ]
+    effective_generated_at = generated_at or generated_at_alias
+    if effective_generated_at is not None:
+        ordered_timestamps.append(effective_generated_at)
+    if not ordered_timestamps:
+        return None
+    if any(
+        later < earlier
+        for earlier, later in zip(ordered_timestamps, ordered_timestamps[1:])
+    ):
+        return None
+    return ordered_timestamps[-1]
 
 
 def startup_smoke_receipt_matches_release_version(receipt: dict[str, Any], payload_version: str) -> bool:
