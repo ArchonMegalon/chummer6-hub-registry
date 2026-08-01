@@ -9066,9 +9066,17 @@ def compatibility_artifact_row(
         or artifact.get("version")
         or canonical_version,
         "compatibilityState": artifact.get("compatibilityState"),
-        "compatibilityReason": artifact.get("compatibilityReason"),
+        **(
+            {"compatibilityReason": artifact["compatibilityReason"]}
+            if "compatibilityReason" in artifact
+            else {}
+        ),
         "installerMode": artifact.get("installerMode"),
-        "payloadAcquisitionMode": artifact.get("payloadAcquisitionMode"),
+        **(
+            {"payloadAcquisitionMode": artifact["payloadAcquisitionMode"]}
+            if "payloadAcquisitionMode" in artifact
+            else {}
+        ),
         "payloadFileName": artifact.get("payloadFileName"),
         "payloadDownloadUrl": artifact.get("payloadDownloadUrl"),
         "payloadSha256": artifact.get("payloadSha256"),
