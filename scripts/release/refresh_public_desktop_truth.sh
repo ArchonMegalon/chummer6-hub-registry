@@ -171,7 +171,7 @@ stage_if_present() {
   local source_path="$1"
   local file_name="$2"
   if [[ -f "$source_path" ]]; then
-    cp "$source_path" "$PUBLISHED_FILES_DIR/$file_name"
+    replace_file_atomically "$source_path" "$PUBLISHED_FILES_DIR/$file_name"
     echo "staged:$file_name"
   fi
 }
@@ -196,18 +196,18 @@ stage_startup_smoke_if_present() {
   fi
 
   if [[ -n "$source_path" && -f "$source_path" ]]; then
-    cp "$source_path" "$PUBLISHED_STARTUP_SMOKE_DIR/$receipt_name"
+    replace_file_atomically "$source_path" "$PUBLISHED_STARTUP_SMOKE_DIR/$receipt_name"
     local companion_log_name="${receipt_name%.receipt.json}.log"
     local companion_log_path="$(dirname "$source_path")/$companion_log_name"
     if [[ -f "$companion_log_path" ]]; then
-      cp "$companion_log_path" "$PUBLISHED_STARTUP_SMOKE_DIR/$companion_log_name"
+      replace_file_atomically "$companion_log_path" "$PUBLISHED_STARTUP_SMOKE_DIR/$companion_log_name"
       echo "staged:$companion_log_name"
     fi
     local head="${receipt_name#startup-smoke-}"
     head="${head%.receipt.json}"
     local startup_progress_log_path="$(dirname "$source_path")/windows-installer-progress-$head.log"
     if [[ -f "$startup_progress_log_path" ]]; then
-      cp "$startup_progress_log_path" "$PUBLISHED_STARTUP_SMOKE_DIR/$(basename "$startup_progress_log_path")"
+      replace_file_atomically "$startup_progress_log_path" "$PUBLISHED_STARTUP_SMOKE_DIR/$(basename "$startup_progress_log_path")"
       echo "staged:$(basename "$startup_progress_log_path")"
     fi
     echo "staged:$receipt_name"

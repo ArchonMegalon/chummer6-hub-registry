@@ -962,6 +962,20 @@ class RefreshPublicDesktopTruthReleaseHelpersTests(unittest.TestCase):
             "Canonical source-shelf smoke receipts must stay byte-aligned with the source-shelf installers.",
         )
 
+    def test_refresh_script_atomically_replaces_read_only_published_artifacts_and_smoke_receipts(self) -> None:
+        script = (RELEASE_DIR / "refresh_public_desktop_truth.sh").read_text(encoding="utf-8")
+
+        self.assertIn(
+            'replace_file_atomically "$source_path" "$PUBLISHED_FILES_DIR/$file_name"',
+            script,
+        )
+        self.assertIn(
+            'replace_file_atomically "$source_path" "$PUBLISHED_STARTUP_SMOKE_DIR/$receipt_name"',
+            script,
+        )
+        self.assertNotIn('cp "$source_path" "$PUBLISHED_FILES_DIR/$file_name"', script)
+        self.assertNotIn('cp "$source_path" "$PUBLISHED_STARTUP_SMOKE_DIR/$receipt_name"', script)
+
     def test_refresh_script_scores_release_channel_manifests_by_tuple_and_artifact_coverage(self) -> None:
         script = (RELEASE_DIR / "refresh_public_desktop_truth.sh").read_text(encoding="utf-8")
         self.assertIn("requiredDesktopPlatformHeadRidTuples", script)
