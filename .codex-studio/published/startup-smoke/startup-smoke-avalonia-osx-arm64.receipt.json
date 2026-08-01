@@ -9,7 +9,7 @@
   "rid": "osx-arm64",
   "readyCheckpoint": "pre_ui_event_loop",
   "hostClass": "macos-host",
-  "processPath": "/Users/tibor/work/chummer-release/run-20260713-123603/tmp/chummer-macos-smoke.OskPsj/Chummer6 Avalonia Desktop.app/Contents/MacOS/Chummer.Avalonia",
+  "processPath": "Chummer.Avalonia",
   "artifactDigest": "sha256:f2f3b8a65f8a81d436d7680d81d3c18cccba1e54c2456e3fd175b3d7908f85ae",
   "artifactDigestSource": "artifact_path",
   "installLinkingStatus": "guest",
@@ -27,5 +27,6 @@
   "fileName": "chummer-avalonia-osx-arm64-installer.dmg",
   "artifactRelativePath": "files/chummer-avalonia-osx-arm64-installer.dmg",
   "artifactSha256": "f2f3b8a65f8a81d436d7680d81d3c18cccba1e54c2456e3fd175b3d7908f85ae",
-  "artifactId": "avalonia-osx-arm64-installer"
+  "artifactId": "avalonia-osx-arm64-installer",
+  "processPathDisclosure": "file_name_only"
 }

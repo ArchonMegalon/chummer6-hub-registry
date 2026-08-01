@@ -9,7 +9,7 @@
   "rid": "osx-arm64",
   "readyCheckpoint": "pre_ui_event_loop",
   "hostClass": "macos-host",
-  "processPath": "/Users/tibor/work/chummer-release/run-20260713-123603/tmp/chummer-macos-smoke.dkHnim/Chummer6 Blazor Desktop.app/Contents/MacOS/Chummer.Blazor.Desktop",
+  "processPath": "Chummer.Blazor.Desktop",
   "artifactDigest": "sha256:21f0c5abb2618bfb4c8dcb1fab7cd66f3542e364b9bb3a277ab72b822b4ea3bf",
   "artifactDigestSource": "artifact_path",
   "installLinkingStatus": null,
@@ -27,5 +27,6 @@
   "fileName": "chummer-blazor-desktop-osx-arm64-installer.dmg",
   "artifactRelativePath": "files/chummer-blazor-desktop-osx-arm64-installer.dmg",
   "artifactSha256": "21f0c5abb2618bfb4c8dcb1fab7cd66f3542e364b9bb3a277ab72b822b4ea3bf",
-  "artifactId": "blazor-desktop-osx-arm64-installer"
+  "artifactId": "blazor-desktop-osx-arm64-installer",
+  "processPathDisclosure": "file_name_only"
 }

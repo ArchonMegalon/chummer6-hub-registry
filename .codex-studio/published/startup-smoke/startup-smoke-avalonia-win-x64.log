@@ -1,17 +1,3 @@
-wine: created the configuration directory '/tmp/chummer-startup-home.tVR37p/.wine'
-004c:err:ole:StdMarshalImpl_MarshalInterface Failed to create ifstub, hr 0x80004002
-004c:err:ole:CoMarshalInterface Failed to marshal the interface {6d5140c1-7436-11ce-8034-00aa006009fa}, hr 0x80004002
-004c:err:ole:apartment_get_local_server_stream Failed: 0x80004002
-004c:err:ole:start_rpcss Failed to open RpcSs service
-0054:err:ole:StdMarshalImpl_MarshalInterface Failed to create ifstub, hr 0x80004002
-0054:err:ole:CoMarshalInterface Failed to marshal the interface {6d5140c1-7436-11ce-8034-00aa006009fa}, hr 0x80004002
-0054:err:ole:apartment_get_local_server_stream Failed: 0x80004002
-wine: configuration in L"/tmp/chummer-startup-home.tVR37p/.wine" has been updated.
-X connection to :99 broken (explicit kill or server shutdown).
-X connection to :99 broken (explicit kill or server shutdown).
-XIO:  fatal IO error 61 (No data available) on X server ":99"
-      after 133 requests (129 known processed) with 0 events remaining.
-014c:err:service:process_send_command service protocol error - failed to read pipe r = 0  count = 0!
 0150:err:winediag:nodrv_CreateWindow Application tried to create a window, but no driver could be loaded.
 0150:err:winediag:nodrv_CreateWindow L"Make sure that your X server is running and that $DISPLAY is set correctly."
 0178:err:winediag:nodrv_CreateWindow Application tried to create a window, but no driver could be loaded.
