@@ -8368,6 +8368,30 @@ def verify_local_startup_smoke_receipts(
                     f"{source} startup-smoke receipt channelId mismatch for promoted desktop installer tuple {head}:{platform}:{rid}"
                 )
 
+        if is_global_flagship_contract(payload):
+            canonical_receipt_timestamps = [
+                parse_iso_timestamp(receipt[key])
+                for key in (
+                    "startedAtUtc",
+                    "recordedAtUtc",
+                    "completedAtUtc",
+                    "generatedAt",
+                    "generated_at",
+                )
+                if isinstance(receipt.get(key), str) and receipt[key].strip()
+            ]
+            if (
+                not canonical_receipt_timestamps
+                or any(value is None for value in canonical_receipt_timestamps)
+                or any(
+                    value != canonical_receipt_timestamps[0]
+                    for value in canonical_receipt_timestamps[1:]
+                )
+            ):
+                raise SystemExit(
+                    f"{source} startup-smoke receipt timestamp is missing/invalid for promoted desktop installer tuple {head}:{platform}:{rid}"
+                )
+
         receipt_timestamp = parse_startup_smoke_receipt_timestamp(receipt)
         if receipt_timestamp is None:
             raise SystemExit(

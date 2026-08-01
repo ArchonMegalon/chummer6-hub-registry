@@ -6894,6 +6894,27 @@ def test_artifact_identity_registry_downgrades_output_readiness_when_proof_is_st
     assert rows[0]["retentionState"] == "temporary"
 
 
+def test_proof_freshness_status_includes_flagship_readiness() -> None:
+    generated_at = "2026-08-01T23:20:00Z"
+    payload = {
+        "generatedAt": generated_at,
+        "releaseProof": {
+            "generatedAt": generated_at,
+            "uiLocalizationReleaseGate": {"generatedAt": generated_at},
+            "flagshipReadiness": {
+                "generatedAt": generated_at,
+                "desktopClientReady": False,
+            },
+        },
+    }
+
+    assert MODULE.proof_freshness_status(payload) == "stale"
+    payload["releaseProof"]["flagshipReadiness"]["desktopClientReady"] = True
+    assert MODULE.proof_freshness_status(payload) == "fresh"
+    del payload["releaseProof"]["flagshipReadiness"]
+    assert MODULE.proof_freshness_status(payload) == "missing"
+
+
 def test_artifact_publication_bindings_derive_canonical_rows() -> None:
     artifacts, coverage = install_aware_payload()
 
