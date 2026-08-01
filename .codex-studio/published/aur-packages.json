@@ -1,8 +1,8 @@
 {
   "contractName": "chummer.downloads.aur_packages.v1",
   "contract_name": "chummer.downloads.aur_packages.v1",
-  "generatedAt": "2026-08-01T03:59:41Z",
-  "generated_at": "2026-08-01T03:59:41Z",
+  "generatedAt": "2026-08-01T12:31:12Z",
+  "generated_at": "2026-08-01T12:31:12Z",
   "version": "run-20260801-031406",
   "channel": "preview",
   "packages": [
@@ -16,19 +16,19 @@
       "installCommand": "Download the AUR source, extract it, then run makepkg -si.",
       "sourceArchiveFileName": "chummer6-bin-aur-source.tar.gz",
       "sourceArchiveUrl": "https://chummer.run/downloads/files/chummer6-bin-aur-source.tar.gz",
-      "sourceArchiveSha256": "d96ac559fda97969b10da15bc40544d09c3412758d879c7ffe14b50fa3533b72",
-      "sourceArchiveSizeBytes": 997,
+      "sourceArchiveSha256": "7f179c14011dfc3f0e95d1ed563182bd7095766f0a423c31e4370e4a9b098bf8",
+      "sourceArchiveSizeBytes": 999,
       "pkgbuildFileName": "chummer6-bin.PKGBUILD",
       "pkgbuildUrl": "https://chummer.run/downloads/files/chummer6-bin.PKGBUILD",
-      "pkgbuildSha256": "45d10901424c0021f7fcb0a960d6b9f55f6241ccee6d26e78d7a94864f712fa8",
+      "pkgbuildSha256": "3c0234735141ac3ee5cb7bb918c74d4d9ba8470331a6f40bb3d4c034d88c3b1f",
       "srcinfoFileName": "chummer6-bin.SRCINFO",
       "srcinfoUrl": "https://chummer.run/downloads/files/chummer6-bin.SRCINFO",
-      "srcinfoSha256": "d8eb479478653093e0dc3f4f886fc2e377c192199a1b21b63f6b4ae1a8f3f9ea",
+      "srcinfoSha256": "285d91a8a40d22dac2b3949ae56d34b1830da7a83b28d3e4cdfbde2ce3d2becc",
       "upstreamArtifactId": "avalonia-linux-x64-installer",
       "upstreamArtifactFileName": "chummer-avalonia-linux-x64-installer.deb",
       "upstreamArtifactUrl": "https://chummer.run/downloads/files/chummer-avalonia-linux-x64-installer.deb",
-      "upstreamArtifactSha256": "6034249b20f141e4e5532fe2dd0064170b4d0d1618fe41811e0c072f06261cea",
-      "upstreamArtifactSizeBytes": 37192922
+      "upstreamArtifactSha256": "865585574682dc7c8ac48b9dd52d91e85719fe124117d5101c7a25e01314188f",
+      "upstreamArtifactSizeBytes": 37194358
     }
   ]
 }

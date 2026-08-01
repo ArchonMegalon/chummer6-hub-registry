@@ -1,0 +1,21 @@
+2026-08-01 14:06:44 startup archives install
+2026-08-01 14:06:44 install chummer6-avalonia:amd64 <none> 0~run-20260801-031406
+2026-08-01 14:06:44 status half-installed chummer6-avalonia:amd64 0~run-20260801-031406
+2026-08-01 14:06:46 status unpacked chummer6-avalonia:amd64 0~run-20260801-031406
+2026-08-01 14:06:46 configure chummer6-avalonia:amd64 0~run-20260801-031406 0~run-20260801-031406
+2026-08-01 14:06:46 status half-configured chummer6-avalonia:amd64 0~run-20260801-031406
+2026-08-01 14:06:46 status installed chummer6-avalonia:amd64 0~run-20260801-031406
+2026-08-01 14:06:46 trigproc mailcap:all 3.70+nmu1ubuntu1.24.04.1 <none>
+2026-08-01 14:06:46 status half-configured mailcap:all 3.70+nmu1ubuntu1.24.04.1
+2026-08-01 14:06:46 status installed mailcap:all 3.70+nmu1ubuntu1.24.04.1
+2026-08-01 14:06:55 startup packages purge
+2026-08-01 14:06:55 status installed chummer6-avalonia:amd64 0~run-20260801-031406
+2026-08-01 14:06:56 remove chummer6-avalonia:amd64 0~run-20260801-031406 <none>
+2026-08-01 14:06:56 status half-configured chummer6-avalonia:amd64 0~run-20260801-031406
+2026-08-01 14:06:56 status half-installed chummer6-avalonia:amd64 0~run-20260801-031406
+2026-08-01 14:06:56 status triggers-pending mailcap:all 3.70+nmu1ubuntu1.24.04.1
+2026-08-01 14:06:56 status config-files chummer6-avalonia:amd64 0~run-20260801-031406
+2026-08-01 14:06:56 status not-installed chummer6-avalonia:amd64 <none>
+2026-08-01 14:06:56 trigproc mailcap:all 3.70+nmu1ubuntu1.24.04.1 <none>
+2026-08-01 14:06:56 status half-configured mailcap:all 3.70+nmu1ubuntu1.24.04.1
+2026-08-01 14:06:56 status installed mailcap:all 3.70+nmu1ubuntu1.24.04.1

@@ -8,7 +8,7 @@ url='https://chummer.run'
 license=('custom')
 depends=('fontconfig' 'gtk3' 'libx11' 'libxcursor' 'libxext' 'libxfixes' 'libxi' 'libxinerama' 'libxrandr' 'libxrender' 'libglvnd' 'zlib')
 source_x86_64=('chummer-avalonia-linux-x64-installer.deb::https://chummer.run/downloads/files/chummer-avalonia-linux-x64-installer.deb')
-sha256sums_x86_64=('6034249b20f141e4e5532fe2dd0064170b4d0d1618fe41811e0c072f06261cea')
+sha256sums_x86_64=('865585574682dc7c8ac48b9dd52d91e85719fe124117d5101c7a25e01314188f')
 options=('!strip')
 
 package() {
