@@ -1147,6 +1147,7 @@ def refresh_artifacts_from_downloads_dir(
         refreshed["embeddedRuntimeBundleHeadId"] = item.get("embeddedRuntimeBundleHeadId")
         for field_name in (
             "installerMode",
+            "payloadAcquisitionMode",
             "payloadFileName",
             "payloadDownloadUrl",
             "payloadSha256",
@@ -1154,6 +1155,19 @@ def refresh_artifacts_from_downloads_dir(
         ):
             if field_name in item:
                 refreshed[field_name] = item.get(field_name)
+        if (
+            normalize_token(refreshed.get("installerMode")) == "bootstrap"
+            and normalize_token(refreshed.get("payloadAcquisitionMode")) == "download"
+        ):
+            payload_file_name = Path(
+                str(refreshed.get("payloadFileName") or "").strip()
+            ).name
+            payload_download_url = derive_public_payload_download_url(
+                refreshed.get("downloadUrl"),
+                payload_file_name,
+            )
+            if payload_download_url:
+                refreshed["payloadDownloadUrl"] = payload_download_url
         for field_name in ARTIFACT_REVOKE_TRUTH_FIELDS:
             if field_name in item:
                 refreshed[field_name] = item.get(field_name)
@@ -1460,6 +1474,7 @@ def parse_download_row(item: dict[str, Any]) -> dict[str, Any]:
         "version": normalize_optional_string(item.get("version")),
         "releaseVersion": normalize_optional_string(item.get("releaseVersion")),
         "installerMode": normalize_optional_string(item.get("installerMode")),
+        "payloadAcquisitionMode": normalize_optional_string(item.get("payloadAcquisitionMode")),
         "payloadFileName": normalize_optional_string(item.get("payloadFileName")),
         "payloadDownloadUrl": normalize_optional_string(item.get("payloadDownloadUrl")),
         "payloadSha256": normalize_optional_string(item.get("payloadSha256")),
@@ -4793,6 +4808,7 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
                 "compatibilityState": artifact.get("compatibilityState"),
                 "compatibilityReason": artifact.get("compatibilityReason"),
                 "installerMode": artifact.get("installerMode"),
+                "payloadAcquisitionMode": artifact.get("payloadAcquisitionMode"),
                 "payloadFileName": artifact.get("payloadFileName"),
                 "payloadDownloadUrl": artifact.get("payloadDownloadUrl"),
                 "payloadSha256": artifact.get("payloadSha256"),

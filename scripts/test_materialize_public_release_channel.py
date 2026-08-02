@@ -1217,6 +1217,9 @@ def test_compatibility_payload_emits_canonical_artifact_identity_aliases() -> No
                     "installAccessClass": "open_public",
                     "compatibilityState": "compatible",
                     "compatibilityReason": None,
+                    "installerMode": "bootstrap",
+                    "payloadAcquisitionMode": "download",
+                    "payloadFileName": "chummer-avalonia-win-x64-payload.zip",
                 }
             ],
         }
@@ -1232,6 +1235,9 @@ def test_compatibility_payload_emits_canonical_artifact_identity_aliases() -> No
     assert row["arch"] == "x64"
     assert row["kind"] == "installer"
     assert row["channel"] == row["channelId"] == "preview"
+    assert row["installerMode"] == "bootstrap"
+    assert row["payloadAcquisitionMode"] == "download"
+    assert row["payloadFileName"] == "chummer-avalonia-win-x64-payload.zip"
 
 
 def test_compatibility_payload_preserves_download_compatibility_state_for_boundary_coverage() -> None:
@@ -1628,6 +1634,38 @@ def test_refresh_artifacts_from_downloads_dir_preserves_tuple_revoke_rationale()
     assert rows[0]["compatibilityState"] == "revoked"
     assert rows[0]["compatibilityReason"] == "Fallback signature failed Linux smoke after publication."
     assert rows[0]["revokeReason"] == "Tuple-specific fallback revoke receipt."
+
+
+def test_refresh_artifacts_canonicalizes_retained_windows_bootstrap_payload() -> None:
+    with tempfile.TemporaryDirectory() as tmp:
+        root = Path(tmp)
+        artifact_path = root / "chummer-avalonia-win-x64-installer.exe"
+        artifact_path.write_bytes(b"windows bootstrap installer bytes")
+
+        rows = MODULE.refresh_artifacts_from_downloads_dir(
+            [
+                {
+                    "artifactId": "avalonia-win-x64-installer",
+                    "fileName": artifact_path.name,
+                    "downloadUrl": "/downloads/g/old-generation/files/" + artifact_path.name,
+                    "installerMode": "bootstrap",
+                    "payloadAcquisitionMode": "download",
+                    "payloadFileName": "chummer-avalonia-win-x64-payload.zip",
+                    "payloadDownloadUrl": "/downloads/g/old-generation/install/avalonia-win-x64-installer/payload",
+                    "payloadSha256": "a" * 64,
+                    "payloadSizeBytes": 1024,
+                }
+            ],
+            root,
+            downloads_prefix="https://chummer.run/downloads/files",
+        )
+
+    assert len(rows) == 1
+    assert rows[0]["installerMode"] == "bootstrap"
+    assert rows[0]["payloadAcquisitionMode"] == "download"
+    assert rows[0]["payloadDownloadUrl"] == (
+        "https://chummer.run/downloads/files/chummer-avalonia-win-x64-payload.zip"
+    )
 
 
 def test_load_startup_smoke_receipts_rejects_operating_system_platform_mismatch() -> None:
