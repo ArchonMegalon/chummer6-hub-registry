@@ -218,6 +218,31 @@ def test_verify_code_deploy_current_shelf_accepts_exact_bounded_macos_inventory(
     }
 
 
+def test_verify_desktop_tuple_honesty_accepts_code_deploy_review_required_with_incomplete_coverage() -> None:
+    payload = code_deploy_current_shelf_authority_payload()
+
+    MODULE.verify_desktop_tuple_honesty(
+        payload,
+        "test",
+        {"missing_platforms": ["linux", "windows"]},
+    )
+
+
+def test_verify_desktop_tuple_honesty_keeps_normal_incomplete_shelves_coverage_incomplete() -> None:
+    payload = {
+        "status": "published",
+        "rolloutState": "public_release_review_required",
+        "supportabilityState": "review_required",
+    }
+
+    with pytest.raises(SystemExit, match="rolloutState='coverage_incomplete'"):
+        MODULE.verify_desktop_tuple_honesty(
+            payload,
+            "test",
+            {"missing_platforms": ["linux"]},
+        )
+
+
 def test_compatibility_projection_without_mode_fields_does_not_activate_code_deploy_verifier() -> None:
     compatibility = MATERIALIZER.compatibility_payload(
         {
