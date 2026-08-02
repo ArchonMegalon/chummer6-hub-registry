@@ -7666,11 +7666,18 @@ def verify_desktop_tuple_honesty(payload: dict, source: str, coverage: dict[str,
     )
     if not coverage_incomplete:
         return
+    code_deploy_current_shelf = verify_code_deploy_current_shelf_authority(payload, source)
     rollout_state = normalized_token(payload.get("rolloutState"))
     supportability_state = normalized_token(payload.get("supportabilityState"))
-    if rollout_state != "coverage_incomplete":
+    expected_rollout_state = (
+        CODE_DEPLOY_CURRENT_SHELF_ROLLOUT_STATE
+        if code_deploy_current_shelf
+        else "coverage_incomplete"
+    )
+    if rollout_state != expected_rollout_state:
         raise SystemExit(
-            f"{source} must set rolloutState='coverage_incomplete' when required desktop tuple coverage is incomplete"
+            f"{source} must set rolloutState='{expected_rollout_state}' "
+            "when required desktop tuple coverage is incomplete"
         )
     if supportability_state != "review_required":
         raise SystemExit(
