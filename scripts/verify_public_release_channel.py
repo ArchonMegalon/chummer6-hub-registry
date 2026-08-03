@@ -285,6 +285,10 @@ V3_WINDOWS_ARTIFACT_ID = "avalonia-win-x64-installer"
 V3_WINDOWS_INSTALLER_NAME = "chummer-avalonia-win-x64-installer.exe"
 V3_WINDOWS_PAYLOAD_NAME = "chummer-avalonia-win-x64-payload.zip"
 V3_GOVERNED_DOWNLOAD_ROOT = "/downloads/files"
+V3_IMMUTABLE_GENERATION_DOWNLOAD_ROOT = "/downloads/g"
+V3_IMMUTABLE_GENERATION_ID_RE = re.compile(
+    r"[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?"
+)
 V3_CODE_DEPLOY_REVIEW_KEYS = frozenset(
     {
         "authority",
@@ -2708,15 +2712,42 @@ def verify_v3_unsigned_windows_projection(payload: dict[str, Any], source: str) 
         raise SystemExit(f"{source} v3 coverage promotes fresh Windows without proof")
 
     for index, artifact in enumerate(artifact_rows):
-        url = str(artifact.get("downloadUrl") or "")
-        if not url.startswith("/downloads/files/") or "://" in url:
-            raise SystemExit(f"{source} v3 artifact[{index}] URL is not governed and relative")
+        file_name = normalize_file_name(artifact)
+        url = artifact.get("downloadUrl")
         payload_url = artifact.get("payloadDownloadUrl")
-        if payload_url is not None and (
-            not isinstance(payload_url, str)
-            or not payload_url.startswith("/downloads/files/")
-            or "://" in payload_url
-        ):
+        if normalized_platform_token(artifact.get("platform")) == "windows":
+            if url != f"{V3_GOVERNED_DOWNLOAD_ROOT}/{file_name}":
+                raise SystemExit(
+                    f"{source} v3 artifact[{index}] URL is not governed and relative"
+                )
+            payload_file_name = artifact.get("payloadFileName")
+            expected_payload_url = (
+                f"{V3_GOVERNED_DOWNLOAD_ROOT}/{payload_file_name}"
+                if isinstance(payload_file_name, str) and payload_file_name
+                else None
+            )
+            if payload_url != expected_payload_url:
+                raise SystemExit(
+                    f"{source} v3 artifact[{index}] payload URL is invalid"
+                )
+            continue
+        generation = verify_v3_retained_file_route(
+            url,
+            file_name=file_name,
+            source=f"{source} v3 artifact[{index}] URL",
+        )
+        payload_file_name = artifact.get("payloadFileName")
+        if isinstance(payload_file_name, str) and payload_file_name:
+            payload_generation = verify_v3_retained_file_route(
+                payload_url,
+                file_name=payload_file_name,
+                source=f"{source} v3 artifact[{index}] payload URL",
+            )
+            if payload_generation != generation:
+                raise SystemExit(
+                    f"{source} v3 artifact[{index}] payload generation differs"
+                )
+        elif payload_url is not None:
             raise SystemExit(f"{source} v3 artifact[{index}] payload URL is invalid")
 
     expected_release_proof = {
@@ -2915,6 +2946,35 @@ def verify_v3_candidate_transitive_byte_bindings(
         raise SystemExit(f"{source} v3 source manifest custody digest differs")
 
 
+def verify_v3_retained_file_route(
+    value: Any,
+    *,
+    file_name: str,
+    source: str,
+) -> str | None:
+    expected_flat = f"{V3_GOVERNED_DOWNLOAD_ROOT}/{file_name}"
+    if value == expected_flat:
+        return None
+    if not isinstance(value, str):
+        raise SystemExit(f"{source} is not a governed relative file path")
+    match = re.fullmatch(
+        rf"{re.escape(V3_IMMUTABLE_GENERATION_DOWNLOAD_ROOT)}/([^/]+)/files/([^/]+)",
+        value,
+    )
+    if (
+        match is None
+        or V3_IMMUTABLE_GENERATION_ID_RE.fullmatch(match.group(1)) is None
+        or match.group(2) != file_name
+        or "%" in value
+        or "?" in value
+        or "#" in value
+        or "\\" in value
+        or any(character.isspace() or ord(character) < 32 for character in value)
+    ):
+        raise SystemExit(f"{source} is not a governed relative file path")
+    return match.group(1)
+
+
 def verify_v3_retained_compatibility_bijection(
     canonical: dict[str, Any],
     compatibility: dict[str, Any],
@@ -2998,15 +3058,30 @@ def verify_v3_retained_compatibility_bijection(
                 f"{source} retained compatibility row[{index}] artifact identity differs"
             )
         seen_artifact_ids.add(artifact_id)
-        expected_url = f"{V3_GOVERNED_DOWNLOAD_ROOT}/{file_name}"
+        expected_url = artifact.get("downloadUrl")
+        canonical_generation = verify_v3_retained_file_route(
+            expected_url,
+            file_name=file_name,
+            source=f"{source} retained canonical row[{index}] URL",
+        )
         canonical_tuple = parse_manifest_tuple_fields(artifact)
         compatibility_tuple = parse_manifest_tuple_fields(row)
         payload_file_name = artifact.get("payloadFileName")
-        expected_payload_url = (
-            f"{V3_GOVERNED_DOWNLOAD_ROOT}/{payload_file_name}"
-            if isinstance(payload_file_name, str) and payload_file_name
-            else None
-        )
+        expected_payload_url = artifact.get("payloadDownloadUrl")
+        if isinstance(payload_file_name, str) and payload_file_name:
+            payload_generation = verify_v3_retained_file_route(
+                expected_payload_url,
+                file_name=payload_file_name,
+                source=f"{source} retained canonical row[{index}] payload URL",
+            )
+            if payload_generation != canonical_generation:
+                raise SystemExit(
+                    f"{source} retained canonical row[{index}] payload generation differs"
+                )
+        elif expected_payload_url is not None:
+            raise SystemExit(
+                f"{source} retained canonical row[{index}] has an unbound payload URL"
+            )
         if (
             compatibility_tuple != canonical_tuple
             or row.get("sha256") != artifact.get("sha256")
