@@ -215,6 +215,12 @@ public sealed record PollInstallBrowserCallbackRequestDto(
     string Signature,
     string? HostLabel = null);
 
+public sealed record InstallBrowserCallbackStatusDto(
+    string State,
+    bool Completed,
+    bool Terminal,
+    DateTimeOffset ExpiresAtUtc);
+
 public sealed record ExchangeInstallBrowserCallbackResponseDto(
     InstallBrowserCallbackDto Callback,
     ClaimedInstallationDto Installation,
