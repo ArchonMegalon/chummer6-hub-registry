@@ -122,7 +122,8 @@ public sealed record InstallBrowserCallbackDto(
     string? Arch = null,
     string? HostLabel = null,
     string? CallbackUri = null,
-    string? GrantId = null);
+    string? GrantId = null,
+    string? LastRemoteProofNonceHash = null);
 
 public sealed record InstallLinkingSummaryDto(
     IReadOnlyList<DownloadReceiptDto> RecentReceipts,
@@ -199,6 +200,19 @@ public sealed record ExchangeInstallBrowserCallbackRequestDto(
     string Platform,
     string Arch,
     string? PublicKey = null,
+    string? HostLabel = null);
+
+public sealed record PollInstallBrowserCallbackRequestDto(
+    string InstallationId,
+    string HeadId,
+    string ApplicationVersion,
+    string ChannelId,
+    string Platform,
+    string Arch,
+    string PublicKey,
+    long IssuedAtUnixSeconds,
+    string Nonce,
+    string Signature,
     string? HostLabel = null);
 
 public sealed record ExchangeInstallBrowserCallbackResponseDto(
