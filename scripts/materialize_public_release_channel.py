@@ -51,6 +51,7 @@ CODE_DEPLOY_CURRENT_SHELF_RELEASE_DECISION_STATUS = "review_required"
 CODE_DEPLOY_CURRENT_SHELF_ROLLOUT_STATE = "public_release_review_required"
 CODE_DEPLOY_CURRENT_SHELF_SUPPORTABILITY_STATE = "review_required"
 CODE_DEPLOY_CURRENT_SHELF_ALLOWED_CHANNELS = frozenset({"preview"})
+STARTUP_SMOKE_LIFECYCLE_MAX_SPAN = dt.timedelta(hours=1)
 CODE_DEPLOY_CURRENT_SHELF_SCOPE_OPTIONS = (
     "--required-desktop-heads",
     "--required-desktop-platforms",
@@ -4587,9 +4588,16 @@ def _startup_smoke_recorded_at(loaded: dict[str, Any]) -> dt.datetime | None:
         if parsed is None:
             return None
         timestamps.append(parsed)
-    if not timestamps or any(value != timestamps[0] for value in timestamps[1:]):
+    if not timestamps:
         return None
-    return timestamps[0]
+    # These fields are lifecycle events, not aliases. The smoke runner records
+    # start, completion, and receipt persistence separately, so honest values
+    # differ by small amounts. Reject contradictory lifecycle data, then use
+    # the earliest event for freshness: a later timestamp can never make an
+    # older proof appear newer.
+    if max(timestamps) - min(timestamps) > STARTUP_SMOKE_LIFECYCLE_MAX_SPAN:
+        return None
+    return min(timestamps)
 
 
 def startup_smoke_release_version_matches_expected(loaded: dict[str, Any], expected_release_version: str) -> bool:

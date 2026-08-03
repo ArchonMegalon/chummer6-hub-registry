@@ -24,10 +24,10 @@ STAGE_CANONICAL_INSTALLER_ROOTS=(
 )
 
 STAGE_CANONICAL_STARTUP_SMOKE_ROOTS=(
+  "$SOURCE_STARTUP_SMOKE_DIR"
   "$WORKSPACE_ROOT/chummer-presentation/Docker/Downloads/startup-smoke"
   "$WORKSPACE_ROOT/chummer-presentation/Chummer.Portal/downloads/startup-smoke"
   "$WORKSPACE_ROOT/chummer.run-services/Chummer.Portal/downloads/startup-smoke"
-  "$SOURCE_STARTUP_SMOKE_DIR"
   "$WORKSPACE_ROOT/chummer-hub-registry/.codex-studio/published/startup-smoke"
 )
 
@@ -343,6 +343,7 @@ materializer_args=(
   --flagship-readiness "$FLAGSHIP_PRODUCT_READINESS_GATE_PATH"
   --registry-commit "$REGISTRY_SOURCE_COMMIT"
   --downloads-prefix "$DOWNLOADS_PREFIX"
+  --required-desktop-platforms "linux,windows"
 )
 
 source_release_channel_manifest_path="$(resolve_release_channel_manifest_path || true)"

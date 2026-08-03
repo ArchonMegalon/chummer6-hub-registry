@@ -4748,6 +4748,32 @@ def test_desktop_tuple_coverage_emits_explicit_complete_flag() -> None:
     assert "missingRequiredPlatformHeadRidTuples" in coverage
 
 
+def test_startup_smoke_freshness_uses_earliest_lifecycle_event() -> None:
+    recorded_at = MODULE._startup_smoke_recorded_at(
+        {
+            "startedAtUtc": "2026-08-02T16:12:25.8303646+00:00",
+            "recordedAtUtc": "2026-08-02T16:12:25.8321843+00:00",
+            "completedAtUtc": "2026-08-02T16:12:25.8321963+00:00",
+        }
+    )
+
+    assert recorded_at == MODULE.parse_iso(
+        "2026-08-02T16:12:25.8303646+00:00"
+    )
+
+
+def test_startup_smoke_freshness_rejects_implausible_lifecycle_span() -> None:
+    assert (
+        MODULE._startup_smoke_recorded_at(
+            {
+                "startedAtUtc": "2026-08-02T16:12:25Z",
+                "completedAtUtc": "2026-08-02T18:12:25Z",
+            }
+        )
+        is None
+    )
+
+
 def test_materialization_required_platforms_enforces_current_preview_scope_over_artifacts_or_config() -> None:
     artifacts = [
         {
