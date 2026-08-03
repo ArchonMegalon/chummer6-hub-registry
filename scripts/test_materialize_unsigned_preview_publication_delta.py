@@ -455,7 +455,11 @@ def build_fixture(module, tmp_path: Path) -> dict[str, object]:
 
 
 def build_profile_fixture(
-    module, tmp_path: Path, *, retain_macos: bool = True
+    module,
+    tmp_path: Path,
+    *,
+    retain_macos: bool = True,
+    retained_generation_id: str | None = None,
 ) -> dict[str, object]:
     fixture = build_fixture(module, tmp_path)
     incumbent = fixture["incumbent"]
@@ -487,7 +491,11 @@ def build_profile_fixture(
         ]
         for row in canonical["artifacts"]:
             if row["platform"] == "macos":
-                row["downloadUrl"] = module.governed_download_url(row["fileName"])
+                row["downloadUrl"] = (
+                    f"/downloads/g/{retained_generation_id}/files/{row['fileName']}"
+                    if retained_generation_id is not None
+                    else module.governed_download_url(row["fileName"])
+                )
                 row["releaseVersion"] = "run-20260720-120000"
         write_json(canonical_path, canonical)
 
@@ -500,7 +508,11 @@ def build_profile_fixture(
         ]
         for row in compatibility_manifest["downloads"]:
             if row["platformId"] == "macos-arm64":
-                row["url"] = module.governed_download_url(row["fileName"])
+                row["url"] = (
+                    f"/downloads/g/{retained_generation_id}/files/{row['fileName']}"
+                    if retained_generation_id is not None
+                    else module.governed_download_url(row["fileName"])
+                )
                 row["releaseVersion"] = "run-20260720-120000"
         write_json(compatibility_path, compatibility_manifest)
 
@@ -1049,6 +1061,74 @@ def test_prepare_v3_accepts_windows_only_incumbent_with_empty_retained_bindings(
         module.ui_object_sha256([])
     )
     module.validate_schema(candidate)
+
+
+def test_prepare_v3_preserves_digest_bound_immutable_generation_routes(
+    tmp_path: Path,
+) -> None:
+    module = load_module()
+    generation_id = "gen-20260802T164413Z-bf6517fa73a94b2a"
+    fixture = build_profile_fixture(
+        module,
+        tmp_path,
+        retained_generation_id=generation_id,
+    )
+
+    run_prepare(module, fixture)
+    prepare_root = fixture["prepare_root"]
+    assert isinstance(prepare_root, Path)
+    canonical = read_json(prepare_root / module.CANONICAL_MANIFEST_NAME)
+    compatibility_manifest = read_json(
+        prepare_root / module.COMPATIBILITY_MANIFEST_NAME
+    )
+    retained = next(
+        row for row in canonical["artifacts"] if row["platform"] != "windows"
+    )
+    retained_compatibility = next(
+        row
+        for row in compatibility_manifest["downloads"]
+        if module.platform_of(row) != "windows"
+    )
+    expected_url = (
+        f"/downloads/g/{generation_id}/files/{retained['fileName']}"
+    )
+    assert retained["downloadUrl"] == expected_url
+    assert retained_compatibility["url"] == expected_url
+
+    verified = subprocess.run(
+        [sys.executable, str(VERIFY_SCRIPT_PATH), str(prepare_root)],
+        check=False,
+        capture_output=True,
+        text=True,
+    )
+    assert verified.returncode == 0, verified.stderr
+    assert "verified v3 unsigned Windows PREPARE bundle" in verified.stdout
+
+
+@pytest.mark.parametrize(
+    "url",
+    [
+        "https://chummer.run/downloads/g/gen-safe/files/retained.deb",
+        "//chummer.run/downloads/g/gen-safe/files/retained.deb",
+        "/downloads/g/gen-safe/files/other.deb",
+        "/downloads/g/gen-safe/files/retained.deb?download=1",
+        "/downloads/g/gen-safe/files/retained.deb#fragment",
+        "/downloads/g/gen%2fsafe/files/retained.deb",
+        "/downloads/g/../files/retained.deb",
+        "/downloads/g/gen safe/files/retained.deb",
+        "/downloads/g/gen-safe/install/retained.deb",
+    ],
+)
+def test_retained_generation_route_rejects_unsafe_or_noncanonical_urls(
+    url: str,
+) -> None:
+    module = load_module()
+    with pytest.raises(module.ContractError, match="governed relative file path"):
+        module.governed_retained_download_generation(
+            url,
+            file_name="retained.deb",
+            label="retained fixture URL",
+        )
 
 
 def test_generated_v3_prepare_bundle_passes_normal_public_verifier_but_not_complete_gate(

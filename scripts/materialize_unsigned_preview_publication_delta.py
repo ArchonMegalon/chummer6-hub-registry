@@ -115,6 +115,10 @@ SOURCE_DOWNLOAD_ROOT = "https://chummer.run/downloads/files"
 # Kept as the v2 source-manifest spelling for existing callers and fixtures.
 DOWNLOAD_ROOT = SOURCE_DOWNLOAD_ROOT
 GOVERNED_DOWNLOAD_ROOT = "/downloads/files"
+IMMUTABLE_GENERATION_DOWNLOAD_ROOT = "/downloads/g"
+IMMUTABLE_GENERATION_ID_RE = re.compile(
+    r"[A-Za-z0-9](?:[A-Za-z0-9._-]{0,126}[A-Za-z0-9])?"
+)
 
 PRIVACY_LAUNCH_GATE_SNAPSHOT = {
     "blockedClaims": [
@@ -366,6 +370,43 @@ def deterministic_generated_at(release_version: str) -> str:
 def governed_download_url(file_name: str) -> str:
     portable = artifact_name({"fileName": file_name}, label="projected artifact fileName")
     return f"{GOVERNED_DOWNLOAD_ROOT}/{portable}"
+
+
+def governed_retained_download_generation(
+    value: Any,
+    *,
+    file_name: str,
+    label: str,
+) -> str | None:
+    """Validate a retained flat or immutable layout-v1 file route.
+
+    Retained rows are copied from a digest-bound incumbent snapshot.  A current
+    Hub shelf can therefore carry either the legacy flat route or its immutable
+    generation route; no absolute, encoded, redirected, or non-file route is
+    accepted here.
+    """
+
+    portable = artifact_name({"fileName": file_name}, label=f"{label} fileName")
+    if value == governed_download_url(portable):
+        return None
+    if type(value) is not str:
+        raise ContractError(f"{label} is not a governed relative file path")
+    match = re.fullmatch(
+        rf"{re.escape(IMMUTABLE_GENERATION_DOWNLOAD_ROOT)}/([^/]+)/files/([^/]+)",
+        value,
+    )
+    if (
+        match is None
+        or IMMUTABLE_GENERATION_ID_RE.fullmatch(match.group(1)) is None
+        or match.group(2) != portable
+        or "%" in value
+        or "?" in value
+        or "#" in value
+        or "\\" in value
+        or any(character.isspace() or ord(character) < 32 for character in value)
+    ):
+        raise ContractError(f"{label} is not a governed relative file path")
+    return match.group(1)
 
 
 def exact_object(value: Any, keys: set[str], *, label: str) -> dict[str, Any]:
@@ -1254,14 +1295,25 @@ def projected_retained_artifact(
         or ""
     ).strip():
         raise ContractError("retained artifact is missing its source release version")
-    if download_url(artifact, label=f"retained artifact {file_name} URL") != governed_download_url(
-        file_name
-    ):
-        raise ContractError("retained artifact URL is not the governed relative path")
-    if artifact.get("payloadFileName") is not None and artifact.get(
-        "payloadDownloadUrl"
-    ) != governed_download_url(str(artifact["payloadFileName"])):
-        raise ContractError("retained artifact payload URL is not governed and relative")
+    generation = governed_retained_download_generation(
+        download_url(artifact, label=f"retained artifact {file_name} URL"),
+        file_name=file_name,
+        label=f"retained artifact {file_name} URL",
+    )
+    if artifact.get("payloadFileName") is not None:
+        payload_file_name = artifact_name(
+            {"fileName": artifact["payloadFileName"]},
+            label=f"retained artifact {file_name} payloadFileName",
+        )
+        payload_generation = governed_retained_download_generation(
+            artifact.get("payloadDownloadUrl"),
+            file_name=payload_file_name,
+            label=f"retained artifact {file_name} payload URL",
+        )
+        if payload_generation != generation:
+            raise ContractError(
+                "retained artifact and payload URLs do not bind one governed generation"
+            )
     return artifact
 
 
@@ -1441,6 +1493,12 @@ def retained_incumbent_provenance(
         ).strip()
         if (
             not artifact_id
+            or download_url(
+                row, label=f"retained compatibility {file_name} URL"
+            )
+            != download_url(
+                artifact, label=f"retained canonical {file_name} URL"
+            )
             or require_digest(
                 row.get("sha256"),
                 label=f"retained compatibility {file_name} sha256",
@@ -1834,12 +1892,11 @@ def build_projected_manifests(
     ]
     for row in retained_downloads:
         file_name = artifact_name(row, label="retained compatibility fileName")
-        if download_url(row, label=f"retained compatibility {file_name} URL") != governed_download_url(
-            file_name
-        ):
-            raise ContractError(
-                "retained compatibility URL is not the governed relative path"
-            )
+        governed_retained_download_generation(
+            download_url(row, label=f"retained compatibility {file_name} URL"),
+            file_name=file_name,
+            label=f"retained compatibility {file_name} URL",
+        )
     compatibility["downloads"] = [*retained_downloads, *generated_windows_downloads]
     if [
         artifact_name(row, label="projected compatibility row order")
@@ -1983,8 +2040,13 @@ def validate_projected_manifests(
         rows = manifest_rows(payload, rows_key, label=label)
         for index, row in enumerate(rows):
             url = download_url(row, label=f"{label} row[{index}] URL")
-            if not url.startswith(f"{GOVERNED_DOWNLOAD_ROOT}/") or "://" in url:
-                raise ContractError(f"{label} row[{index}] URL is not governed and relative")
+            governed_retained_download_generation(
+                url,
+                file_name=artifact_name(
+                    row, label=f"{label} row[{index}] fileName"
+                ),
+                label=f"{label} row[{index}] URL",
+            )
     if canonical["releaseProof"] != compatibility["releaseProof"]:
         raise ContractError("projected manifests disagree about release proof")
     if canonical["desktopTupleCoverage"] != compatibility["desktopTupleCoverage"]:
