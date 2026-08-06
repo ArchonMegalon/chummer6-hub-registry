@@ -486,6 +486,7 @@ def _materialize_ready_pair(
     ready["registryBoundaryCoverage"] = release_module.expected_registry_boundary_coverage(ready)
     compatibility = release_module.compatibility_payload(ready)
     for field in (
+        "channelId",
         "projectionProfile",
         "publicationEligible",
         "releaseUploadAuthority",

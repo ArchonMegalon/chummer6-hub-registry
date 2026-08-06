@@ -7,6 +7,7 @@ import hashlib
 import importlib.util
 import json
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 
@@ -17,6 +18,90 @@ SPEC = importlib.util.spec_from_file_location("preview_publication_readiness", S
 assert SPEC is not None and SPEC.loader is not None
 MODULE = importlib.util.module_from_spec(SPEC)
 SPEC.loader.exec_module(MODULE)
+
+
+def test_ready_compatibility_preserves_explicit_preview_channel_alias(
+    tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    ready = {
+        "version": "run-20260806-050000",
+        "releaseVersion": "run-20260806-050000",
+        "channel": "preview",
+        "channelId": "preview",
+        "status": "published",
+        "desktopTupleCoverage": {
+            "complete": True,
+            "missingRequiredPlatforms": [],
+            "missingRequiredHeads": [],
+            "missingRequiredPlatformHeadRidTuples": [],
+            "desktopRouteTruth": [
+                {
+                    "artifactId": "avalonia-linux-x64-installer",
+                    "head": "avalonia",
+                    "platform": "linux",
+                    "promotionState": "promoted",
+                    "publicInstallRoute": "/downloads/install/avalonia-linux-x64-installer",
+                    "rid": "linux-x64",
+                    "routeRole": "primary",
+                    "updateEligibility": "eligible",
+                },
+                {
+                    "artifactId": "avalonia-win-x64-installer",
+                    "head": "avalonia",
+                    "platform": "windows",
+                    "promotionState": "promoted",
+                    "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
+                    "rid": "win-x64",
+                    "routeRole": "primary",
+                    "updateEligibility": "eligible",
+                },
+            ],
+        },
+        "artifactPublicationBindings": [],
+    }
+
+    class ReleaseModule:
+        @staticmethod
+        def compatibility_payload(value: dict[str, object]) -> dict[str, object]:
+            return {
+                "version": value["version"],
+                "releaseVersion": value["releaseVersion"],
+                "channel": value["channel"],
+                "status": value["status"],
+            }
+
+        @staticmethod
+        def expected_public_trust_metrics(value: dict[str, object]) -> dict[str, object]:
+            return {"releaseChannel": value.get("rolloutState")}
+
+        @staticmethod
+        def expected_registry_boundary_coverage(value: dict[str, object]) -> dict[str, object]:
+            return {"releaseChannel": value.get("supportabilityState")}
+
+    def fake_run(arguments: list[str], **kwargs: object) -> SimpleNamespace:
+        output = Path(arguments[arguments.index("--output") + 1])
+        output.write_bytes(MODULE._json_bytes(ready))
+        return SimpleNamespace(returncode=0, stderr="", stdout="")
+
+    monkeypatch.setattr(MODULE, "_load_release_module", lambda: ReleaseModule())
+    monkeypatch.setattr(MODULE.subprocess, "run", fake_run)
+    proof = tmp_path / "proof.json"
+    localization = tmp_path / "localization.json"
+    proof.write_text("{}", encoding="utf-8")
+    localization.write_text("{}", encoding="utf-8")
+
+    canonical, compatibility = MODULE._materialize_ready_pair(
+        canonical=ready,
+        proof_path=proof,
+        localization_gate_path=localization,
+        registry_commit="a" * 40,
+        generated_at="2026-08-06T05:00:00Z",
+        readiness_binding={"status": "preview_ready"},
+    )
+
+    assert canonical["channelId"] == "preview"
+    assert compatibility["channel"] == "preview"
+    assert compatibility["channelId"] == "preview"
 
 
 def rendered(value: object) -> bytes:
