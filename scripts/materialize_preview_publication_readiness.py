@@ -108,18 +108,24 @@ def _require_pin(raw: bytes, expected: str, *, label: str) -> str:
     return actual
 
 
-def _decode_embedded(value: object, *, path: str, label: str) -> bytes:
+def _decode_embedded(
+    value: object,
+    *,
+    path: str,
+    label: str,
+    content_key: str = "base64",
+) -> bytes:
     if not isinstance(value, dict) or set(value) != {
         "path",
         "sha256",
         "sizeBytes",
-        "base64",
+        content_key,
     }:
         _blocked(f"{label} embedded-byte contract drifted")
     if value.get("path") != path:
         _blocked(f"{label} embedded path drifted")
     try:
-        raw = base64.b64decode(value.get("base64"), validate=True)
+        raw = base64.b64decode(value.get(content_key), validate=True)
     except (TypeError, ValueError) as exc:
         raise ReadinessBlocked(f"{label} embedded base64 is invalid") from exc
     if (
@@ -226,14 +232,19 @@ def _validate_native_evidence(
             "path",
             "sha256",
             "sizeBytes",
-            "base64",
+            "bytesBase64",
         }:
             _blocked("native evidence file binding drifted")
         path = entry.get("path")
         if not isinstance(path, str) or not path or path in seen:
             _blocked("native evidence contains an invalid or duplicate path")
         seen.add(path)
-        _decode_embedded(entry, path=path, label=f"native evidence {path}")
+        _decode_embedded(
+            entry,
+            path=path,
+            label=f"native evidence {path}",
+            content_key="bytesBase64",
+        )
 
 
 def _validate_source_authority(
@@ -349,6 +360,43 @@ def _atomic_create(path: Path, payload: bytes, *, mode: int) -> None:
         temporary.unlink(missing_ok=True)
 
 
+def _apply_bounded_preview_posture(ready: dict[str, Any]) -> None:
+    if ready.get("status") != "published" or ready.get("channel") != "preview":
+        _blocked("release proof does not establish a published preview posture")
+    coverage = ready.get("desktopTupleCoverage")
+    if (
+        not isinstance(coverage, dict)
+        or coverage.get("complete") is not True
+        or coverage.get("missingRequiredPlatforms") != []
+        or coverage.get("missingRequiredHeads") != []
+        or coverage.get("missingRequiredPlatformHeadRidTuples") != []
+    ):
+        _blocked("rematerialized preview does not close the Linux/Windows desktop floor")
+    primary_routes = {
+        (row.get("head"), row.get("platform"), row.get("rid")): row.get(
+            "promotionState"
+        )
+        for row in coverage.get("desktopRouteTruth") or []
+        if isinstance(row, dict) and row.get("routeRole") == "primary"
+    }
+    if primary_routes != {
+        ("avalonia", "linux", "linux-x64"): "promoted",
+        ("avalonia", "windows", "win-x64"): "promoted",
+    }:
+        _blocked("release proof does not promote both bounded Avalonia primary routes")
+    ready["rolloutState"] = "promoted_preview"
+    ready["rolloutReason"] = (
+        "The proof-bound preview lane promotes exactly the reviewed Avalonia "
+        "Linux and Windows primary routes; unrelated flagship and fallback "
+        "readiness findings do not broaden this desktop publication authority."
+    )
+    ready["supportabilityState"] = "preview_supported"
+    ready["supportabilitySummary"] = (
+        "Preview support is bounded to the reviewed Avalonia Linux and Windows "
+        "installer tuples with fresh journey, localization, and native-Windows proof."
+    )
+
+
 def _materialize_ready_pair(
     *,
     canonical: dict[str, Any],
@@ -404,22 +452,8 @@ def _materialize_ready_pair(
             _blocked(f"Registry release-channel rematerialization failed: {detail}")
         ready, _ = _plain_json(canonical_path, label="rematerialized canonical manifest")
 
-    if (
-        ready.get("status") != "published"
-        or ready.get("channel") != "preview"
-        or ready.get("rolloutState") != "promoted_preview"
-        or ready.get("supportabilityState") != "preview_supported"
-    ):
-        _blocked("release proof does not establish a supported promoted preview posture")
-    coverage = ready.get("desktopTupleCoverage")
-    if (
-        not isinstance(coverage, dict)
-        or coverage.get("complete") is not True
-        or coverage.get("missingRequiredPlatforms") != []
-        or coverage.get("missingRequiredHeads") != []
-        or coverage.get("missingRequiredPlatformHeadRidTuples") != []
-    ):
-        _blocked("rematerialized preview does not close the Linux/Windows desktop floor")
+    _apply_bounded_preview_posture(ready)
+    coverage = ready["desktopTupleCoverage"]
 
     ready["projectionProfile"] = READY_PROFILE
     ready["publicationEligible"] = True

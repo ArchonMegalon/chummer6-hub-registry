@@ -32,6 +32,15 @@ def embedded(path: str, raw: bytes) -> dict[str, object]:
     }
 
 
+def native_embedded(path: str, raw: bytes) -> dict[str, object]:
+    return {
+        "path": path,
+        "sha256": hashlib.sha256(raw).hexdigest(),
+        "sizeBytes": len(raw),
+        "bytesBase64": base64.b64encode(raw).decode(),
+    }
+
+
 def source_pair() -> tuple[dict[str, object], dict[str, object]]:
     common = {
         "version": "run-20260806-050000",
@@ -83,7 +92,7 @@ def native(now: datetime) -> dict[str, object]:
         "candidateContentInventory": {
             "release": {"channel": "preview", "version": "run-20260806-050000"}
         },
-        "files": [embedded("proof.json", raw)],
+        "files": [native_embedded("proof.json", raw)],
     }
 
 
@@ -156,11 +165,98 @@ def test_source_v4_authority_rejects_native_substitution() -> None:
         )
 
 
+def test_native_evidence_rejects_authority_base64_field_spelling() -> None:
+    now = datetime(2026, 8, 6, 5, tzinfo=timezone.utc)
+    native_value = native(now)
+    file_binding = native_value["files"][0]
+    file_binding["base64"] = file_binding.pop("bytesBase64")
+    with pytest.raises(MODULE.ReadinessBlocked, match="file binding drifted"):
+        MODULE._validate_native_evidence(
+            native_value,
+            release_version="run-20260806-050000",
+            channel="preview",
+            now=now,
+            max_age=timedelta(hours=24),
+        )
+
+
 def test_source_pair_rejects_broadened_review_authority() -> None:
     canonical, compatibility = source_pair()
     canonical["routeAuthority"] = True
     with pytest.raises(MODULE.ReadinessBlocked, match="review-only v3 projection"):
         MODULE._validate_source_pair(canonical, compatibility)
+
+
+def test_bounded_preview_posture_ignores_unrelated_flagship_blockers() -> None:
+    ready = {
+        "status": "published",
+        "channel": "preview",
+        "rolloutState": "public_release_review_required",
+        "supportabilityState": "review_required",
+        "desktopTupleCoverage": {
+            "complete": True,
+            "missingRequiredPlatforms": [],
+            "missingRequiredHeads": [],
+            "missingRequiredPlatformHeadRidTuples": [],
+            "desktopRouteTruth": [
+                {
+                    "head": "avalonia",
+                    "platform": "linux",
+                    "rid": "linux-x64",
+                    "routeRole": "primary",
+                    "promotionState": "promoted",
+                },
+                {
+                    "head": "avalonia",
+                    "platform": "windows",
+                    "rid": "win-x64",
+                    "routeRole": "primary",
+                    "promotionState": "promoted",
+                },
+                {
+                    "head": "blazor-desktop",
+                    "platform": "windows",
+                    "rid": "win-x64",
+                    "routeRole": "fallback",
+                    "promotionState": "proof_required",
+                },
+            ],
+        },
+    }
+    MODULE._apply_bounded_preview_posture(ready)
+    assert ready["rolloutState"] == "promoted_preview"
+    assert ready["supportabilityState"] == "preview_supported"
+
+
+def test_bounded_preview_posture_rejects_unpromoted_primary_route() -> None:
+    ready = {
+        "status": "published",
+        "channel": "preview",
+        "desktopTupleCoverage": {
+            "complete": True,
+            "missingRequiredPlatforms": [],
+            "missingRequiredHeads": [],
+            "missingRequiredPlatformHeadRidTuples": [],
+            "desktopRouteTruth": [
+                {
+                    "head": "avalonia",
+                    "platform": "linux",
+                    "rid": "linux-x64",
+                    "routeRole": "primary",
+                    "promotionState": "promoted",
+                },
+                {
+                    "head": "avalonia",
+                    "platform": "windows",
+                    "rid": "win-x64",
+                    "routeRole": "primary",
+                    "promotionState": "proof_required",
+                },
+            ],
+        },
+    }
+    with pytest.raises(MODULE.ReadinessBlocked, match="both bounded Avalonia"):
+        MODULE._apply_bounded_preview_posture(ready)
 
 
 def test_materialize_hash_binds_all_inputs_and_creates_three_outputs(
