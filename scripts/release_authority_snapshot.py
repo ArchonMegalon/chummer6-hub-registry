@@ -1051,6 +1051,27 @@ def derive_manifest_projection(
         and approved_scope["signingRequirementByPlatform"]
         == {"windows": "preview_unsigned_allowed"}
     )
+    manifest_support_owner = manifest.get("supportOwner")
+    if manifest_support_owner is None or (
+        isinstance(manifest_support_owner, str)
+        and not manifest_support_owner.strip()
+    ):
+        if not scope_approved_review_handoff:
+            raise AuthorityError(
+                "manifest supportOwner is required outside the exact "
+                "scope-approved review byte handoff"
+            )
+    else:
+        normalized_support_owner = _token(
+            manifest_support_owner, "manifest supportOwner"
+        )
+        if (
+            approved_scope is not None
+            and normalized_support_owner != approved_scope["supportOwner"]
+        ):
+            raise AuthorityError(
+                "manifest supportOwner contradicts the approved release scope"
+            )
     coverage = _manifest_field(manifest, "desktopTupleCoverage")
     if not isinstance(coverage, dict):
         raise AuthorityError("manifest desktopTupleCoverage must be an object")
