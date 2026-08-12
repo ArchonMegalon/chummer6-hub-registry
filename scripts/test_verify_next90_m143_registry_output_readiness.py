@@ -12,6 +12,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts/verify_next90_m143_registry_output_readiness.py"
+HISTORICAL_MANIFEST = (
+    REPO_ROOT
+    / "release-evidence/history/run-20260701-124648/RELEASE_CHANNEL.generated.json"
+)
 
 
 class VerifyNext90M143RegistryOutputReadinessTests(unittest.TestCase):
@@ -234,7 +238,7 @@ class VerifyNext90M143RegistryOutputReadinessTests(unittest.TestCase):
         self.assertIn("status: complete", result.stdout)
 
     def test_stale_manifest_rejects_published_output_readiness(self) -> None:
-        manifest = REPO_ROOT / ".codex-studio/published/RELEASE_CHANNEL.generated.json"
+        manifest = HISTORICAL_MANIFEST
         with tempfile.TemporaryDirectory(prefix="next90-m143-manifest-") as tmp_dir:
             mutated_manifest = Path(tmp_dir) / manifest.name
             payload = json.loads(manifest.read_text(encoding="utf-8"))
@@ -254,7 +258,7 @@ class VerifyNext90M143RegistryOutputReadinessTests(unittest.TestCase):
         self.assertIn("overstates output readiness", result.stdout)
 
     def test_stale_manifest_rejects_supported_release_posture(self) -> None:
-        manifest = REPO_ROOT / ".codex-studio/published/RELEASE_CHANNEL.generated.json"
+        manifest = HISTORICAL_MANIFEST
         with tempfile.TemporaryDirectory(prefix="next90-m143-supportability-manifest-") as tmp_dir:
             mutated_manifest = Path(tmp_dir) / manifest.name
             payload = json.loads(manifest.read_text(encoding="utf-8"))
@@ -279,7 +283,7 @@ class VerifyNext90M143RegistryOutputReadinessTests(unittest.TestCase):
         self.assertIn("supportabilityState='preview_supported'", result.stdout)
 
     def test_stale_manifest_rejects_published_artifact_identity_output_readiness(self) -> None:
-        manifest = REPO_ROOT / ".codex-studio/published/RELEASE_CHANNEL.generated.json"
+        manifest = HISTORICAL_MANIFEST
         with tempfile.TemporaryDirectory(prefix="next90-m143-identity-manifest-") as tmp_dir:
             mutated_manifest = Path(tmp_dir) / manifest.name
             payload = json.loads(manifest.read_text(encoding="utf-8"))
@@ -309,7 +313,7 @@ class VerifyNext90M143RegistryOutputReadinessTests(unittest.TestCase):
         self.assertIn("artifactIdentityRegistry[0] overstates output readiness", result.stdout)
 
     def test_stale_manifest_rejects_published_exchange_output_readiness(self) -> None:
-        manifest = REPO_ROOT / ".codex-studio/published/RELEASE_CHANNEL.generated.json"
+        manifest = HISTORICAL_MANIFEST
         with tempfile.TemporaryDirectory(prefix="next90-m143-exchange-manifest-") as tmp_dir:
             mutated_manifest = Path(tmp_dir) / manifest.name
             payload = json.loads(manifest.read_text(encoding="utf-8"))

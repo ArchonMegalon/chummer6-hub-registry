@@ -12,6 +12,10 @@ from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 SCRIPT = REPO_ROOT / "scripts/verify_next90_m144_registry_release_tuple_proof.py"
+HISTORICAL_MANIFEST = (
+    REPO_ROOT
+    / "release-evidence/history/run-20260701-124648/RELEASE_CHANNEL.generated.json"
+)
 sys.path.insert(0, str(REPO_ROOT / "scripts"))
 import verify_next90_m144_registry_release_tuple_proof as MODULE
 
@@ -19,7 +23,7 @@ import verify_next90_m144_registry_release_tuple_proof as MODULE
 class VerifyNext90M144RegistryReleaseTupleProofTests(unittest.TestCase):
     @staticmethod
     def load_promoted_tuple_inputs() -> tuple[list[dict[str, object]], dict[tuple[str, str, str], dict[str, str]], str]:
-        return MODULE.promoted_tuple_rows(REPO_ROOT / ".codex-studio/published/RELEASE_CHANNEL.generated.json")
+        return MODULE.promoted_tuple_rows(HISTORICAL_MANIFEST)
 
     def test_self_test_passes(self) -> None:
         result = subprocess.run(

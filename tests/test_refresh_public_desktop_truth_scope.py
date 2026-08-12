@@ -14,7 +14,7 @@ def test_current_release_refresh_pins_linux_and_windows_scope() -> None:
     assert '--required-desktop-platforms "linux,windows,macos"' not in script
 
 
-def test_startup_receipts_prefer_the_same_canonical_source_as_installers() -> None:
+def test_startup_receipts_prefer_presentation_receipts_bound_to_installer_bytes() -> None:
     script = REFRESH_SCRIPT.read_text(encoding="utf-8")
     roots_block = script.split(
         "STAGE_CANONICAL_STARTUP_SMOKE_ROOTS=(\n",
@@ -22,4 +22,6 @@ def test_startup_receipts_prefer_the_same_canonical_source_as_installers() -> No
     )[1].split("\n)", maxsplit=1)[0]
     roots = [line.strip() for line in roots_block.splitlines() if line.strip()]
 
-    assert roots[0] == '"$SOURCE_STARTUP_SMOKE_DIR"'
+    assert roots[0] == '"$WORKSPACE_ROOT/chummer-presentation/Docker/Downloads/startup-smoke"'
+    assert roots[1] == '"$WORKSPACE_ROOT/chummer-presentation/Chummer.Portal/downloads/startup-smoke"'
+    assert roots[2] == '"$SOURCE_STARTUP_SMOKE_DIR"'

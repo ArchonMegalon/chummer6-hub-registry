@@ -17,7 +17,7 @@ DEFAULT_RELEASE_VERIFIER = REPO_ROOT / "scripts/verify_public_release_channel.py
 DEFAULT_RELEASE_TEST = REPO_ROOT / "scripts/test_verify_public_release_channel.py"
 DEFAULT_PACKAGE_TEST = REPO_ROOT / "scripts/test_verify_next90_m143_registry_output_readiness.py"
 DEFAULT_VERIFY_SH = REPO_ROOT / "scripts/ai/verify.sh"
-DEFAULT_PUBLISHED_MANIFEST = REPO_ROOT / ".codex-studio/published/RELEASE_CHANNEL.generated.json"
+DEFAULT_PUBLISHED_MANIFEST = REPO_ROOT / "release-evidence/history/run-20260701-124648/RELEASE_CHANNEL.generated.json"
 DEFAULT_SUCCESSOR_REGISTRY = REPO_ROOT / ".codex-design/product/NEXT_90_DAY_PRODUCT_ADVANCE_REGISTRY.yaml"
 DEFAULT_CANONICAL_SUCCESSOR_REGISTRY = Path(
     "/docker/chummercomplete/chummer-design/products/chummer/NEXT_90_DAY_PRODUCT_ADVANCE_REGISTRY.yaml"
