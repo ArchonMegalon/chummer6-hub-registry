@@ -24,9 +24,9 @@ STAGE_CANONICAL_INSTALLER_ROOTS=(
 )
 
 STAGE_CANONICAL_STARTUP_SMOKE_ROOTS=(
-  "$SOURCE_STARTUP_SMOKE_DIR"
   "$WORKSPACE_ROOT/chummer-presentation/Docker/Downloads/startup-smoke"
   "$WORKSPACE_ROOT/chummer-presentation/Chummer.Portal/downloads/startup-smoke"
+  "$SOURCE_STARTUP_SMOKE_DIR"
   "$WORKSPACE_ROOT/chummer.run-services/Chummer.Portal/downloads/startup-smoke"
   "$WORKSPACE_ROOT/chummer-hub-registry/.codex-studio/published/startup-smoke"
 )

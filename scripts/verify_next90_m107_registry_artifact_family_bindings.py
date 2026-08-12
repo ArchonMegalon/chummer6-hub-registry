@@ -13,8 +13,8 @@ from pathlib import Path
 
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
-DEFAULT_RELEASE_CHANNEL = REPO_ROOT / ".codex-studio/published/RELEASE_CHANNEL.generated.json"
-DEFAULT_RELEASES_MANIFEST = REPO_ROOT / ".codex-studio/published/releases.json"
+DEFAULT_RELEASE_CHANNEL = REPO_ROOT / "release-evidence/history/run-20260701-124648/RELEASE_CHANNEL.generated.json"
+DEFAULT_RELEASES_MANIFEST = REPO_ROOT / "release-evidence/history/run-20260701-124648/releases.json"
 DEFAULT_RECEIPT_DOC = REPO_ROOT / "docs/next90-m107-registry-artifact-family-bindings.md"
 DEFAULT_CLOSEOUT_DOC = REPO_ROOT / "docs/next90-m107-registry-artifact-family-bindings.closeout.md"
 DEFAULT_VERIFY_SH = REPO_ROOT / "scripts/ai/verify.sh"

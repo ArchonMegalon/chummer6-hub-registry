@@ -47,7 +47,6 @@ def load_module():
                 "platform": "linux",
             },
             {
-                "compatibilityReason": None,
                 "format": "tar.gz",
                 "installAccessClass": "open_public",
                 "platformId": "linux-x64",
@@ -82,7 +81,6 @@ def load_module():
                 "platform": "windows",
             },
             {
-                "compatibilityReason": None,
                 "format": "exe",
                 "installAccessClass": "open_public",
                 "platformId": "windows",

@@ -13,14 +13,27 @@ Purpose: define the registry-owned truth for desktop release channels, installer
 
 ## Canonical artifacts
 
-Registry-owned generated artifacts:
+Registry-owned repository projections:
 
 * `.codex-studio/published/RELEASE_CHANNEL.generated.json`
 * compatibility projection `releases.json` when a legacy `/downloads/releases.json` surface still needs it
 
-`RELEASE_CHANNEL.generated.json` is the canonical materialized projection used as input to an authority decision. It is not mutable runtime authority. `releases.json` is a compatibility export for existing Hub/download consumers.
+The generic checked-in paths are explicit `not_runtime_authority` pointers. They
+must never contain a historical manifest that looks current. Exact historical
+materializations live under
+`release-evidence/history/<releaseVersion>/`; runtime truth comes only from
+`CHUMMER_RELEASE_AUTHORITY_ROOT/CURRENT.json`.
 
-Both projections carry `registryCommit` and `registry_commit`. The aliases must agree and contain the externally reviewed, full 40-character lowercase commit for the Registry source that generated them. Materialization never derives this authority identity from the current checkout or inherits it from an older manifest.
+Before an authority decision, Fleet may materialize a canonical
+`RELEASE_CHANNEL.generated.json` and compatibility `releases.json` into an
+isolated candidate workspace. Those candidate bytes are inputs to the decision,
+not mutable runtime authority and not replacements for the repository pointers.
+
+Candidate projections carry `registryCommit` and `registry_commit`. The
+aliases must agree and contain the externally reviewed, full 40-character
+lowercase commit for the Registry source that generated them. Materialization
+never derives this authority identity from the current checkout or inherits it
+from an older manifest.
 
 ### Global flagship v2
 
@@ -60,7 +73,7 @@ Each accepted decision is a content-addressed immutable generation:
 }
 ```
 
-The snapshot path is derived from `releaseVersion` and `snapshotSha256`; the pointer cannot supply an alternate path. `decisionSha256` and `status` must equal `SNAPSHOT.json`'s `releaseDecisionSha256` and `releaseDecisionStatus`. The only decision statuses are `review_required`, `preview_ready`, and `stable_ready`.
+The snapshot path is derived from `releaseVersion` and `snapshotSha256`; the pointer cannot supply an alternate path. `decisionSha256` and `status` must equal `SNAPSHOT.json`'s `releaseDecisionSha256` and `releaseDecisionStatus`. The only decision statuses are `review_required`, `preview_ready`, and `stable_ready`. In this Design-owned decision contract, compatibility status `preview_ready` means whole-product `product_preview_ready`; it is never inferred from Registry's separate `artifact_shelf_ready` or `desktop_delivery_ready` receipts, and human-facing copy must use the scoped name.
 
 `SNAPSHOT.json` uses the shared `chummer.release-authority-snapshot/v2` contract:
 

@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Promote one reviewed unsigned-Windows delta to a bounded ready preview shelf.
+"""Promote one reviewed unsigned-Windows delta to a bounded desktop artifact shelf.
 
 This is a local, deterministic Registry transition.  It never uploads, changes a
 live pointer, or grants a caller release-upload authority.  Every mutable input
@@ -25,9 +25,9 @@ from typing import Any
 
 
 SOURCE_PROFILE = "v3_unsigned_windows_fresh_delta"
-READY_PROFILE = "v4_unsigned_windows_preview_ready"
+READY_PROFILE = "v4_unsigned_windows_desktop_delivery_ready"
 SOURCE_AUTHORITY_CONTRACT = "chummer.release-upload.candidate-import-authority/v4"
-READINESS_CONTRACT = "chummer.registry.preview-publication-readiness/v1"
+READINESS_CONTRACT = "chummer.registry.desktop-delivery-readiness/v1"
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 COMMIT_RE = re.compile(r"[0-9a-f]{40}")
 MAX_JSON_BYTES = 32 * 1024 * 1024
@@ -37,7 +37,7 @@ COMPATIBILITY_NAME = "releases.json"
 
 
 class ReadinessBlocked(ValueError):
-    """Raised when exact preview-readiness custody cannot be proven."""
+    """Raised when exact desktop-delivery custody cannot be proven."""
 
 
 def _blocked(message: str) -> None:
@@ -360,7 +360,7 @@ def _atomic_create(path: Path, payload: bytes, *, mode: int) -> None:
         temporary.unlink(missing_ok=True)
 
 
-def _apply_bounded_preview_posture(ready: dict[str, Any]) -> None:
+def _apply_bounded_desktop_delivery_posture(ready: dict[str, Any]) -> None:
     if ready.get("status") != "published" or ready.get("channel") != "preview":
         _blocked("release proof does not establish a published preview posture")
     coverage = ready.get("desktopTupleCoverage")
@@ -384,16 +384,17 @@ def _apply_bounded_preview_posture(ready: dict[str, Any]) -> None:
         ("avalonia", "windows", "win-x64"): "promoted",
     }:
         _blocked("release proof does not promote both bounded Avalonia primary routes")
-    ready["rolloutState"] = "promoted_preview"
+    ready["rolloutState"] = "artifact_shelf_ready"
     ready["rolloutReason"] = (
-        "The proof-bound preview lane promotes exactly the reviewed Avalonia "
+        "The proof-bound desktop delivery lane promotes exactly the reviewed Avalonia "
         "Linux and Windows primary routes; unrelated flagship and fallback "
         "readiness findings do not broaden this desktop publication authority."
     )
-    ready["supportabilityState"] = "preview_supported"
+    ready["supportabilityState"] = "desktop_delivery_supported"
     ready["supportabilitySummary"] = (
-        "Preview support is bounded to the reviewed Avalonia Linux and Windows "
-        "installer tuples with fresh journey, localization, and native-Windows proof."
+        "Desktop delivery support is bounded to the reviewed Avalonia Linux and "
+        "Windows installer tuples with fresh journey, localization, and native-Windows "
+        "proof. It does not assert whole-product preview readiness."
     )
 
 
@@ -408,7 +409,7 @@ def _materialize_ready_pair(
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     release_module = _load_release_module()
     materializer = Path(__file__).with_name("materialize_public_release_channel.py")
-    with tempfile.TemporaryDirectory(prefix="chummer-preview-readiness-") as name:
+    with tempfile.TemporaryDirectory(prefix="chummer-desktop-delivery-readiness-") as name:
         root = Path(name)
         source_path = root / "source.json"
         canonical_path = root / CANONICAL_NAME
@@ -452,7 +453,7 @@ def _materialize_ready_pair(
             _blocked(f"Registry release-channel rematerialization failed: {detail}")
         ready, _ = _plain_json(canonical_path, label="rematerialized canonical manifest")
 
-    _apply_bounded_preview_posture(ready)
+    _apply_bounded_desktop_delivery_posture(ready)
     coverage = ready["desktopTupleCoverage"]
 
     ready["projectionProfile"] = READY_PROFILE
@@ -460,7 +461,7 @@ def _materialize_ready_pair(
     ready["releaseUploadAuthority"] = False
     ready["deployAuthority"] = False
     ready["routeAuthority"] = True
-    ready["previewPublicationReadiness"] = readiness_binding
+    ready["desktopDeliveryReadiness"] = readiness_binding
     coverage["routeAuthority"] = True
     for route in coverage.get("desktopRouteTruth") or []:
         if not isinstance(route, dict):
@@ -492,7 +493,7 @@ def _materialize_ready_pair(
         "releaseUploadAuthority",
         "deployAuthority",
         "routeAuthority",
-        "previewPublicationReadiness",
+        "desktopDeliveryReadiness",
     ):
         compatibility[field] = ready[field]
     compatibility["publicTrustMetrics"] = release_module.expected_public_trust_metrics(compatibility)
@@ -565,7 +566,13 @@ def materialize(args: argparse.Namespace) -> dict[str, Any]:
     readiness_binding = {
         "contractName": READINESS_CONTRACT,
         "contractVersion": 1,
-        "status": "preview_ready",
+        "status": "desktop_delivery_ready",
+        "readinessScope": "desktop_artifact_delivery",
+        "doesNotAssert": [
+            "whole_product_preview_readiness",
+            "stable_readiness",
+            "flagship_readiness",
+        ],
         "generatedAtUtc": generated_at,
         "releaseVersion": release_version,
         "platforms": ["linux", "windows"],
@@ -613,7 +620,7 @@ def materialize(args: argparse.Namespace) -> dict[str, Any]:
 
 def _parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
-        description="Materialize one proof-bound Linux/Windows preview-readiness transition."
+        description="Materialize one proof-bound Linux/Windows desktop-delivery transition."
     )
     parser.add_argument("--source-canonical", required=True)
     parser.add_argument("--expected-source-canonical-sha256", required=True)
@@ -645,7 +652,7 @@ def main(argv: list[str] | None = None) -> int:
     try:
         receipt = materialize(args)
     except (OSError, ReadinessBlocked, ValueError) as exc:
-        print(f"preview publication readiness blocked: {exc}", file=__import__("sys").stderr)
+        print(f"desktop delivery readiness blocked: {exc}", file=__import__("sys").stderr)
         return 1
     print(
         json.dumps(

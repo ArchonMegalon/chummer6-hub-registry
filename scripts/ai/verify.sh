@@ -128,7 +128,10 @@ from pathlib import Path
 
 root = Path(__import__("os").environ["CHUMMER_REGISTRY_VERIFY_REPO_ROOT"])
 proof_path = root / ".codex-studio/published/FLAGSHIP_FRONT_DOOR_REGISTRY_CLOSEOUT.generated.json"
-release_path = root / ".codex-studio/published/RELEASE_CHANNEL.generated.json"
+release_path = (
+    root
+    / "release-evidence/history/run-20260701-124648/RELEASE_CHANNEL.generated.json"
+)
 media_path = Path("/docker/fleet/repos/chummer-media-factory/.codex-studio/published/MEDIA_LOCAL_RELEASE_PROOF.generated.json")
 
 proof = json.loads(proof_path.read_text(encoding="utf-8"))

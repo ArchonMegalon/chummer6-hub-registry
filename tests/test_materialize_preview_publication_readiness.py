@@ -96,7 +96,15 @@ def test_ready_compatibility_preserves_explicit_preview_channel_alias(
         localization_gate_path=localization,
         registry_commit="a" * 40,
         generated_at="2026-08-06T05:00:00Z",
-        readiness_binding={"status": "preview_ready"},
+        readiness_binding={
+            "status": "desktop_delivery_ready",
+            "readinessScope": "desktop_artifact_delivery",
+            "doesNotAssert": [
+                "whole_product_preview_readiness",
+                "stable_readiness",
+                "flagship_readiness",
+            ],
+        },
     )
 
     assert canonical["channelId"] == "preview"
@@ -272,7 +280,7 @@ def test_source_pair_rejects_broadened_review_authority() -> None:
         MODULE._validate_source_pair(canonical, compatibility)
 
 
-def test_bounded_preview_posture_ignores_unrelated_flagship_blockers() -> None:
+def test_bounded_desktop_delivery_posture_ignores_unrelated_flagship_blockers() -> None:
     ready = {
         "status": "published",
         "channel": "preview",
@@ -308,12 +316,15 @@ def test_bounded_preview_posture_ignores_unrelated_flagship_blockers() -> None:
             ],
         },
     }
-    MODULE._apply_bounded_preview_posture(ready)
-    assert ready["rolloutState"] == "promoted_preview"
-    assert ready["supportabilityState"] == "preview_supported"
+    MODULE._apply_bounded_desktop_delivery_posture(ready)
+    assert ready["rolloutState"] == "artifact_shelf_ready"
+    assert ready["supportabilityState"] == "desktop_delivery_supported"
+    assert "does not assert whole-product preview readiness" in ready[
+        "supportabilitySummary"
+    ]
 
 
-def test_bounded_preview_posture_rejects_unpromoted_primary_route() -> None:
+def test_bounded_desktop_delivery_posture_rejects_unpromoted_primary_route() -> None:
     ready = {
         "status": "published",
         "channel": "preview",
@@ -341,7 +352,7 @@ def test_bounded_preview_posture_rejects_unpromoted_primary_route() -> None:
         },
     }
     with pytest.raises(MODULE.ReadinessBlocked, match="both bounded Avalonia"):
-        MODULE._apply_bounded_preview_posture(ready)
+        MODULE._apply_bounded_desktop_delivery_posture(ready)
 
 
 def test_materialize_hash_binds_all_inputs_and_creates_three_outputs(
@@ -372,12 +383,12 @@ def test_materialize_hash_binds_all_inputs_and_creates_three_outputs(
             {
                 "releaseVersion": "run-20260806-050000",
                 "projectionProfile": MODULE.READY_PROFILE,
-                "previewPublicationReadiness": binding,
+                "desktopDeliveryReadiness": binding,
             },
             {
                 "releaseVersion": "run-20260806-050000",
                 "projectionProfile": MODULE.READY_PROFILE,
-                "previewPublicationReadiness": binding,
+                "desktopDeliveryReadiness": binding,
             },
         )
 
@@ -406,7 +417,13 @@ def test_materialize_hash_binds_all_inputs_and_creates_three_outputs(
         max_native_proof_age_seconds=24 * 60 * 60,
     )
     receipt = MODULE.materialize(args)
-    assert receipt["status"] == "preview_ready"
+    assert receipt["status"] == "desktop_delivery_ready"
+    assert receipt["readinessScope"] == "desktop_artifact_delivery"
+    assert receipt["doesNotAssert"] == [
+        "whole_product_preview_readiness",
+        "stable_readiness",
+        "flagship_readiness",
+    ]
     assert receipt["publicationEligible"] is True
     assert receipt["routeAuthority"] is True
     assert receipt["releaseUploadAuthority"] is False
