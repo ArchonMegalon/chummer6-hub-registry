@@ -56,6 +56,110 @@ CANONICAL_RELEASE_PROOF_JOURNEYS = (
 )
 
 
+def desktop_delivery_projection() -> dict:
+    release_version = "run-20260806-045300"
+    registry_commit = "1" * 40
+    support_owner = "chummer-release-operations"
+    digest = "a" * 64
+    return {
+        "projectionProfile": MODULE.V4_DESKTOP_DELIVERY_PROJECTION_PROFILE,
+        "status": "published",
+        "rolloutState": "artifact_shelf_ready",
+        "supportabilityState": "desktop_delivery_supported",
+        "publicationEligible": True,
+        "routeAuthority": True,
+        "releaseUploadAuthority": False,
+        "deployAuthority": False,
+        "releaseVersion": release_version,
+        "registryCommit": registry_commit,
+        "registry_commit": registry_commit,
+        "supportOwner": support_owner,
+        "desktopDeliveryReadiness": {
+            "contractName": MODULE.V4_DESKTOP_DELIVERY_READINESS_CONTRACT,
+            "contractVersion": 1,
+            "status": "desktop_delivery_ready",
+            "readinessScope": "desktop_artifact_delivery",
+            "doesNotAssert": [
+                "whole_product_preview_readiness",
+                "stable_readiness",
+                "flagship_readiness",
+            ],
+            "generatedAtUtc": "2026-08-06T05:40:34Z",
+            "releaseVersion": release_version,
+            "platforms": ["linux", "windows"],
+            "sourceCanonicalManifestSha256": digest,
+            "sourceCompatibilityManifestSha256": digest,
+            "sourceCandidateAuthoritySha256": digest,
+            "nativeWindowsEvidenceSha256": digest,
+            "releaseProofSha256": digest,
+            "localizationGateSha256": digest,
+            "registryCommit": registry_commit,
+            "supportOwner": support_owner,
+        },
+        "desktopTupleCoverage": {
+            "complete": True,
+            "routeAuthority": True,
+            "requiredDesktopPlatforms": ["linux", "windows"],
+            "missingRequiredPlatforms": [],
+            "missingRequiredHeads": [],
+            "missingRequiredPlatformHeadRidTuples": [],
+            "desktopRouteTruth": [
+                {
+                    "artifactId": "avalonia-linux-x64-installer",
+                    "head": "avalonia",
+                    "platform": "linux",
+                    "rid": "linux-x64",
+                    "routeRole": "primary",
+                    "promotionState": "promoted",
+                    "updateEligibility": "eligible",
+                    "routeAuthority": True,
+                    "publicationState": "published",
+                },
+                {
+                    "artifactId": "avalonia-win-x64-installer",
+                    "head": "avalonia",
+                    "platform": "windows",
+                    "rid": "win-x64",
+                    "routeRole": "primary",
+                    "promotionState": "promoted",
+                    "updateEligibility": "eligible",
+                    "routeAuthority": True,
+                    "publicationState": "published",
+                },
+            ],
+        },
+    }
+
+
+def test_v4_desktop_delivery_projection_is_not_misclassified_as_v3() -> None:
+    payload = desktop_delivery_projection()
+
+    assert MODULE.has_v3_unsigned_windows_projection_markers(payload) is False
+    MODULE.verify_v4_desktop_delivery_projection(payload, "candidate")
+
+
+def test_v4_desktop_delivery_projection_rejects_upload_authority() -> None:
+    payload = desktop_delivery_projection()
+    payload["releaseUploadAuthority"] = True
+
+    with pytest.raises(SystemExit, match="releaseUploadAuthority=False"):
+        MODULE.verify_v4_desktop_delivery_projection(payload, "candidate")
+
+
+def test_v4_desktop_delivery_projection_rejects_support_owner_drift() -> None:
+    payload = desktop_delivery_projection()
+    payload["desktopDeliveryReadiness"]["supportOwner"] = "other-operations"
+
+    with pytest.raises(SystemExit, match="readiness supportOwner differs"):
+        MODULE.verify_v4_desktop_delivery_projection(payload, "candidate")
+
+
+def test_unknown_projection_profile_is_not_treated_as_v3() -> None:
+    payload = {"projectionProfile": "future_unreviewed_profile"}
+
+    assert MODULE.has_v3_unsigned_windows_projection_markers(payload) is False
+
+
 def load_tests(loader, tests, pattern):
     suite = unittest.TestSuite()
     for name, test_function in sorted(globals().items()):
