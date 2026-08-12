@@ -30,6 +30,7 @@ SOURCE_AUTHORITY_CONTRACT = "chummer.release-upload.candidate-import-authority/v
 READINESS_CONTRACT = "chummer.registry.desktop-delivery-readiness/v1"
 SHA256_RE = re.compile(r"[0-9a-f]{64}")
 COMMIT_RE = re.compile(r"[0-9a-f]{40}")
+SUPPORT_OWNER_RE = re.compile(r"[a-z0-9](?:[a-z0-9._-]{0,127})")
 MAX_JSON_BYTES = 32 * 1024 * 1024
 DEFAULT_MAX_NATIVE_PROOF_AGE_SECONDS = 24 * 60 * 60
 CANONICAL_NAME = "RELEASE_CHANNEL.generated.json"
@@ -57,6 +58,12 @@ def _sha256(value: str, *, label: str) -> str:
 def _commit(value: str) -> str:
     if not isinstance(value, str) or COMMIT_RE.fullmatch(value) is None:
         _blocked("registry commit must be one reviewed 40-character lowercase commit")
+    return value
+
+
+def _support_owner(value: object) -> str:
+    if not isinstance(value, str) or SUPPORT_OWNER_RE.fullmatch(value) is None:
+        _blocked("support owner must be one normalized operations-owner token")
     return value
 
 
@@ -405,6 +412,7 @@ def _materialize_ready_pair(
     localization_gate_path: Path,
     registry_commit: str,
     generated_at: str,
+    support_owner: str,
     readiness_binding: dict[str, Any],
 ) -> tuple[dict[str, Any], dict[str, Any]]:
     release_module = _load_release_module()
@@ -453,6 +461,7 @@ def _materialize_ready_pair(
             _blocked(f"Registry release-channel rematerialization failed: {detail}")
         ready, _ = _plain_json(canonical_path, label="rematerialized canonical manifest")
 
+    ready["supportOwner"] = support_owner
     _apply_bounded_desktop_delivery_posture(ready)
     coverage = ready["desktopTupleCoverage"]
 
@@ -494,6 +503,7 @@ def _materialize_ready_pair(
         "deployAuthority",
         "routeAuthority",
         "desktopDeliveryReadiness",
+        "supportOwner",
     ):
         compatibility[field] = ready[field]
     compatibility["publicTrustMetrics"] = release_module.expected_public_trust_metrics(compatibility)
@@ -563,6 +573,7 @@ def materialize(args: argparse.Namespace) -> dict[str, Any]:
     if gate.get("status") not in {"pass", "passed", "ready"}:
         _blocked("localization gate is not passing")
     registry_commit = _commit(args.registry_commit)
+    support_owner = _support_owner(args.support_owner)
     readiness_binding = {
         "contractName": READINESS_CONTRACT,
         "contractVersion": 1,
@@ -583,6 +594,7 @@ def materialize(args: argparse.Namespace) -> dict[str, Any]:
         "releaseProofSha256": proof_sha,
         "localizationGateSha256": gate_sha,
         "registryCommit": registry_commit,
+        "supportOwner": support_owner,
     }
     ready, ready_compatibility = _materialize_ready_pair(
         canonical=canonical,
@@ -590,6 +602,7 @@ def materialize(args: argparse.Namespace) -> dict[str, Any]:
         localization_gate_path=Path(args.localization_gate).resolve(strict=True),
         registry_commit=registry_commit,
         generated_at=generated_at,
+        support_owner=support_owner,
         readiness_binding=readiness_binding,
     )
     canonical_output = _json_bytes(ready)
@@ -635,6 +648,7 @@ def _parser() -> argparse.ArgumentParser:
     parser.add_argument("--localization-gate", required=True)
     parser.add_argument("--expected-localization-gate-sha256", required=True)
     parser.add_argument("--registry-commit", required=True)
+    parser.add_argument("--support-owner", required=True)
     parser.add_argument("--generated-at", required=True)
     parser.add_argument("--output-canonical", required=True)
     parser.add_argument("--output-compatibility", required=True)

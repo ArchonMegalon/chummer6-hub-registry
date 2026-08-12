@@ -121,6 +121,7 @@ def manifest(*, ready_posture: bool = False) -> dict[str, object]:
         "status": "published",
         "rolloutState": "promoted_preview" if ready_posture else "review_required",
         "supportabilityState": "preview_supported" if ready_posture else "review_required",
+        "supportOwner": "registry-operations",
         "knownIssueSummary": "Nightly candidate remains explicitly bounded.",
         "generatedAt": "2026-07-20T22:00:00Z",
         "generated_at": "2026-07-20T22:00:00Z",
@@ -349,6 +350,7 @@ def test_scope_approved_windows_unsigned_preview_materializes_explicit_v2_byte_h
 ) -> None:
     manifest_path = tmp_path / "RELEASE_CHANNEL.generated.json"
     payload = windows_review_byte_handoff_manifest()
+    payload.pop("supportOwner")
     write_json(manifest_path, payload)
     scope = approved_scope_for_manifest(payload)
 
@@ -412,6 +414,43 @@ def test_scope_approved_windows_unsigned_preview_materializes_explicit_v2_byte_h
     )
     assert verified.returncode == 0, verified.stderr
     assert json.loads(verified.stdout)["status"] == "review_required"
+
+
+def test_release_authority_rejects_missing_manifest_support_owner(
+    tmp_path: Path,
+) -> None:
+    payload = manifest()
+    payload.pop("supportOwner")
+    manifest_path = tmp_path / "RELEASE_CHANNEL.generated.json"
+    write_json(manifest_path, payload)
+
+    completed = run_materialize(tmp_path, manifest_path, "missing-support-owner")
+
+    assert completed.returncode == 1
+    assert (
+        "manifest supportOwner is required outside the exact scope-approved "
+        "review byte handoff"
+        in completed.stderr
+    )
+    assert not (tmp_path / "missing-support-owner").exists()
+
+
+def test_release_authority_rejects_manifest_support_owner_scope_drift(
+    tmp_path: Path,
+) -> None:
+    payload = manifest()
+    payload["supportOwner"] = "different-operations-owner"
+    manifest_path = tmp_path / "RELEASE_CHANNEL.generated.json"
+    write_json(manifest_path, payload)
+
+    completed = run_materialize(tmp_path, manifest_path, "support-owner-drift")
+
+    assert completed.returncode == 1
+    assert (
+        "manifest supportOwner contradicts the approved release scope"
+        in completed.stderr
+    )
+    assert not (tmp_path / "support-owner-drift").exists()
 
 
 @pytest.mark.parametrize(

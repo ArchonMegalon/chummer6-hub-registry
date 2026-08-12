@@ -96,6 +96,7 @@ def test_ready_compatibility_preserves_explicit_preview_channel_alias(
         localization_gate_path=localization,
         registry_commit="a" * 40,
         generated_at="2026-08-06T05:00:00Z",
+        support_owner="chummer-release-operations",
         readiness_binding={
             "status": "desktop_delivery_ready",
             "readinessScope": "desktop_artifact_delivery",
@@ -108,8 +109,10 @@ def test_ready_compatibility_preserves_explicit_preview_channel_alias(
     )
 
     assert canonical["channelId"] == "preview"
+    assert canonical["supportOwner"] == "chummer-release-operations"
     assert compatibility["channel"] == "preview"
     assert compatibility["channelId"] == "preview"
+    assert compatibility["supportOwner"] == "chummer-release-operations"
 
 
 def rendered(value: object) -> bytes:
@@ -410,6 +413,7 @@ def test_materialize_hash_binds_all_inputs_and_creates_three_outputs(
         localization_gate=str(gate_path),
         expected_localization_gate_sha256=hashlib.sha256(gate_raw).hexdigest(),
         registry_commit="1" * 40,
+        support_owner="chummer-release-operations",
         generated_at="2026-08-06T05:00:00Z",
         output_canonical=str(output_canonical),
         output_compatibility=str(output_compatibility),
@@ -427,6 +431,7 @@ def test_materialize_hash_binds_all_inputs_and_creates_three_outputs(
     assert receipt["publicationEligible"] is True
     assert receipt["routeAuthority"] is True
     assert receipt["releaseUploadAuthority"] is False
+    assert receipt["supportOwner"] == "chummer-release-operations"
     assert receipt["nativeWindowsEvidenceSha256"] == hashlib.sha256(native_raw).hexdigest()
     assert output_canonical.is_file()
     assert output_compatibility.is_file()
@@ -442,3 +447,12 @@ def test_materialize_rejects_one_unreviewed_pin_without_creating_outputs(
     raw = write(source, canonical)
     with pytest.raises(MODULE.ReadinessBlocked, match="reviewed SHA-256 pin"):
         MODULE._require_pin(raw, "0" * 64, label="source canonical manifest")
+
+
+@pytest.mark.parametrize(
+    "value",
+    [None, "", " Chummer Ops", "Chummer-Ops", "chummer ops"],
+)
+def test_support_owner_rejects_non_normalized_values(value: object) -> None:
+    with pytest.raises(MODULE.ReadinessBlocked, match="operations-owner token"):
+        MODULE._support_owner(value)
