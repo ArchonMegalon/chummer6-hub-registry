@@ -252,6 +252,32 @@ CODE_DEPLOY_CURRENT_SHELF_RELEASE_DECISION_STATUS = "review_required"
 CODE_DEPLOY_CURRENT_SHELF_ROLLOUT_STATE = "public_release_review_required"
 CODE_DEPLOY_CURRENT_SHELF_SUPPORTABILITY_STATE = "review_required"
 V3_UNSIGNED_WINDOWS_PROJECTION_PROFILE = "v3_unsigned_windows_fresh_delta"
+V4_DESKTOP_DELIVERY_PROJECTION_PROFILE = (
+    "v4_unsigned_windows_desktop_delivery_ready"
+)
+V4_DESKTOP_DELIVERY_READINESS_CONTRACT = (
+    "chummer.registry.desktop-delivery-readiness/v1"
+)
+V4_DESKTOP_DELIVERY_READINESS_KEYS = frozenset(
+    {
+        "contractName",
+        "contractVersion",
+        "doesNotAssert",
+        "generatedAtUtc",
+        "localizationGateSha256",
+        "nativeWindowsEvidenceSha256",
+        "platforms",
+        "readinessScope",
+        "registryCommit",
+        "releaseProofSha256",
+        "releaseVersion",
+        "sourceCandidateAuthoritySha256",
+        "sourceCanonicalManifestSha256",
+        "sourceCompatibilityManifestSha256",
+        "status",
+        "supportOwner",
+    }
+)
 V3_CODE_DEPLOY_REVIEW_CONTRACT = (
     "chummer.registry.preview-publication-delta-code-deploy-review/v1"
 )
@@ -531,6 +557,7 @@ ALLOWED_DESKTOP_TUPLE_COVERAGE_KEYS = (
     "externalProofRequests",
     "desktopRouteTruth",
     "complete",
+    "routeAuthority",
 )
 ALLOWED_DESKTOP_TUPLE_ROW_KEYS = (
     "tupleId",
@@ -2457,13 +2484,161 @@ def verify_v3_fresh_windows_artifact_identity(
 def has_v3_unsigned_windows_projection_markers(payload: dict[str, Any]) -> bool:
     review = payload.get("codeDeployCurrentShelfAuthority")
     return (
-        payload.get("projectionProfile") is not None
+        payload.get("projectionProfile") == V3_UNSIGNED_WINDOWS_PROJECTION_PROFILE
         or payload.get("retainedIncumbentProvenance") is not None
         or (
             isinstance(review, dict)
             and review.get("contract") == V3_CODE_DEPLOY_REVIEW_CONTRACT
         )
     )
+
+
+def verify_v4_desktop_delivery_projection(
+    payload: dict[str, Any], source: str
+) -> None:
+    if payload.get("projectionProfile") != V4_DESKTOP_DELIVERY_PROJECTION_PROFILE:
+        raise SystemExit(f"{source} desktop-delivery projectionProfile is invalid")
+    expected_root = {
+        "status": "published",
+        "rolloutState": "artifact_shelf_ready",
+        "supportabilityState": "desktop_delivery_supported",
+        "publicationEligible": True,
+        "routeAuthority": True,
+        "releaseUploadAuthority": False,
+        "deployAuthority": False,
+    }
+    for field, expected in expected_root.items():
+        if payload.get(field) != expected:
+            raise SystemExit(
+                f"{source} desktop-delivery projection must set "
+                f"{field}={expected!r}"
+            )
+    for field in (
+        "codeDeploymentAuthority",
+        "deployAuthorized",
+        "publicationAuthorized",
+        "uploadAuthorized",
+    ):
+        if field in payload and payload.get(field) is not False:
+            raise SystemExit(
+                f"{source} desktop-delivery projection unexpectedly grants {field}"
+            )
+    if (
+        "releaseDecisionStatus" in payload
+        and payload.get("releaseDecisionStatus") != "review_required"
+    ):
+        raise SystemExit(
+            f"{source} desktop-delivery releaseDecisionStatus must remain review_required"
+        )
+
+    support_owner = payload.get("supportOwner")
+    if (
+        not isinstance(support_owner, str)
+        or re.fullmatch(r"[a-z0-9](?:[a-z0-9._-]{0,127})", support_owner)
+        is None
+    ):
+        raise SystemExit(f"{source} desktop-delivery supportOwner is invalid")
+    if payload.get("previewPublicationReadiness") is not None:
+        raise SystemExit(
+            f"{source} desktop-delivery projection retains obsolete preview readiness"
+        )
+    readiness = payload.get("desktopDeliveryReadiness")
+    if not isinstance(readiness, dict) or set(readiness) != (
+        V4_DESKTOP_DELIVERY_READINESS_KEYS
+    ):
+        raise SystemExit(f"{source} desktop-delivery readiness shape is invalid")
+    release_version = str(payload.get("releaseVersion") or "").strip()
+    registry_commit = str(
+        resolve_alias_value(
+            payload,
+            primary_key="registry_commit",
+            secondary_key="registryCommit",
+            field_path="registry_commit",
+            source=source,
+        )
+        or ""
+    ).strip()
+    expected_readiness = {
+        "contractName": V4_DESKTOP_DELIVERY_READINESS_CONTRACT,
+        "contractVersion": 1,
+        "status": "desktop_delivery_ready",
+        "readinessScope": "desktop_artifact_delivery",
+        "doesNotAssert": [
+            "whole_product_preview_readiness",
+            "stable_readiness",
+            "flagship_readiness",
+        ],
+        "releaseVersion": release_version,
+        "platforms": ["linux", "windows"],
+        "registryCommit": registry_commit,
+        "supportOwner": support_owner,
+    }
+    for field, expected in expected_readiness.items():
+        if readiness.get(field) != expected:
+            raise SystemExit(
+                f"{source} desktop-delivery readiness {field} differs"
+            )
+    if parse_iso_timestamp(str(readiness.get("generatedAtUtc") or "")) is None:
+        raise SystemExit(
+            f"{source} desktop-delivery readiness generatedAtUtc is invalid"
+        )
+    for field in (
+        "localizationGateSha256",
+        "nativeWindowsEvidenceSha256",
+        "releaseProofSha256",
+        "sourceCandidateAuthoritySha256",
+        "sourceCanonicalManifestSha256",
+        "sourceCompatibilityManifestSha256",
+    ):
+        if not is_lower_sha256(readiness.get(field)):
+            raise SystemExit(
+                f"{source} desktop-delivery readiness {field} is invalid"
+            )
+
+    coverage = payload.get("desktopTupleCoverage")
+    if (
+        not isinstance(coverage, dict)
+        or coverage.get("complete") is not True
+        or coverage.get("routeAuthority") is not True
+        or coverage.get("requiredDesktopPlatforms") != ["linux", "windows"]
+        or coverage.get("missingRequiredPlatforms") != []
+        or coverage.get("missingRequiredHeads") != []
+        or coverage.get("missingRequiredPlatformHeadRidTuples") != []
+    ):
+        raise SystemExit(
+            f"{source} desktop-delivery coverage is not the complete bounded shelf"
+        )
+    primary_routes = {
+        (row.get("head"), row.get("platform"), row.get("rid")): row
+        for row in coverage.get("desktopRouteTruth") or []
+        if isinstance(row, dict) and row.get("routeRole") == "primary"
+    }
+    if set(primary_routes) != {
+        ("avalonia", "linux", "linux-x64"),
+        ("avalonia", "windows", "win-x64"),
+    } or any(
+        row.get("promotionState") != "promoted"
+        or row.get("updateEligibility") != "eligible"
+        or row.get("routeAuthority") is not True
+        or row.get("publicationState") != "published"
+        for row in primary_routes.values()
+    ):
+        raise SystemExit(
+            f"{source} desktop-delivery primary route authority is invalid"
+        )
+    fallback_routes = [
+        row
+        for row in coverage.get("desktopRouteTruth") or []
+        if isinstance(row, dict) and row.get("routeRole") == "fallback"
+    ]
+    if any(
+        row.get("routeAuthority") is not False
+        or row.get("publicationState") is not None
+        for row in fallback_routes
+    ):
+        raise SystemExit(
+            f"{source} desktop-delivery fallback route overstates authority"
+        )
 
 
 def verify_v3_unsigned_windows_projection(payload: dict[str, Any], source: str) -> None:
@@ -3241,6 +3416,8 @@ def verify_v3_unsigned_windows_prepare_directory(
 
 
 def verify_code_deploy_current_shelf_authority(payload: dict[str, Any], source: str) -> bool:
+    if payload.get("projectionProfile") == V4_DESKTOP_DELIVERY_PROJECTION_PROFILE:
+        return False
     authority = payload.get("codeDeployCurrentShelfAuthority")
     mode_fields_present = any(
         field in payload
@@ -4719,6 +4896,7 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
     external_proof_requests = coverage.get("externalProofRequests")
     desktop_route_truth = coverage.get("desktopRouteTruth")
     complete = coverage.get("complete")
+    route_authority = coverage.get("routeAuthority")
 
     for key, value in (
         ("requiredDesktopPlatforms", required_platforms),
@@ -4763,6 +4941,10 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
         raise SystemExit(f"{source} desktopTupleCoverage.desktopRouteTruth must be a list")
     if not isinstance(complete, bool):
         raise SystemExit(f"{source} desktopTupleCoverage.complete must be a boolean")
+    if route_authority is not None and not isinstance(route_authority, bool):
+        raise SystemExit(
+            f"{source} desktopTupleCoverage.routeAuthority must be a boolean"
+        )
     for index, item in enumerate(desktop_route_truth):
         if not isinstance(item, dict):
             continue
@@ -5154,8 +5336,11 @@ def verify_desktop_tuple_coverage(payload: dict, source: str) -> dict[str, list[
     for index, item in enumerate(desktop_route_truth):
         if not isinstance(item, dict):
             raise SystemExit(f"{source} desktopTupleCoverage.desktopRouteTruth[{index}] must be an object")
+        allowed_route_truth_keys = set(ALLOWED_DESKTOP_ROUTE_TRUTH_ROW_KEYS)
+        if payload.get("projectionProfile") == V4_DESKTOP_DELIVERY_PROJECTION_PROFILE:
+            allowed_route_truth_keys.update({"publicationState", "routeAuthority"})
         unexpected_route_truth_keys = sorted(
-            str(key) for key in item.keys() if str(key) not in ALLOWED_DESKTOP_ROUTE_TRUTH_ROW_KEYS
+            str(key) for key in item.keys() if str(key) not in allowed_route_truth_keys
         )
         if unexpected_route_truth_keys:
             raise SystemExit(
@@ -10664,6 +10849,17 @@ def main() -> int:
         raise SystemExit(f"manifest must be a JSON object: {source}")
     verify_generated_timestamp(payload, source)
     verify_contract_identity(payload, source)
+    is_v4_desktop_delivery = (
+        payload.get("projectionProfile")
+        == V4_DESKTOP_DELIVERY_PROJECTION_PROFILE
+    )
+    if is_v4_desktop_delivery:
+        verify_v4_desktop_delivery_projection(payload, source)
+    elif payload.get("projectionProfile") not in {
+        None,
+        V3_UNSIGNED_WINDOWS_PROJECTION_PROFILE,
+    }:
+        raise SystemExit(f"unsupported release projectionProfile in {source}")
     if has_v3_unsigned_windows_projection_markers(payload):
         verify_v3_unsigned_windows_projection(payload, source)
         if require_complete_desktop_coverage:
@@ -10697,7 +10893,8 @@ def main() -> int:
         else:
             print(f"verified prepared preview publication delta: {source}")
         return 0
-    verify_code_deploy_current_shelf_authority(payload, source)
+    if not is_v4_desktop_delivery:
+        verify_code_deploy_current_shelf_authority(payload, source)
     coverage = verify_artifacts(
         payload,
         source,
