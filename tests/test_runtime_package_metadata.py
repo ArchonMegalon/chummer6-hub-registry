@@ -28,7 +28,7 @@ RUNTIME_EXACT_PACKAGE_FILES = {
     "[Content_Types].xml",
 }
 CORE_PROPERTIES_PATTERN = re.compile(
-    r"^package/services/metadata/core-properties/[0-9a-f]{32}\.psmdcp$"
+    r"^package/services/metadata/core-properties/(?:[0-9a-f]{32}|nuget)\.psmdcp$"
 )
 
 
@@ -191,3 +191,19 @@ def test_runtime_package_inventory_rejects_host_or_unlisted_content(
     ]
     with pytest.raises(AssertionError, match="unexpected Registry runtime package files"):
         validate_runtime_package_inventory([*baseline, forbidden_name])
+
+
+def test_runtime_package_inventory_accepts_known_nuget_core_properties_names() -> None:
+    baseline = [
+        "_rels/.rels",
+        "Chummer.Run.Registry.nuspec",
+        "lib/net10.0/Chummer.Run.Registry.dll",
+        "PACKAGE_README.md",
+        "LICENSE",
+        "[Content_Types].xml",
+    ]
+    for name in (
+        "package/services/metadata/core-properties/0123456789abcdef0123456789abcdef.psmdcp",
+        "package/services/metadata/core-properties/nuget.psmdcp",
+    ):
+        validate_runtime_package_inventory([*baseline, name])

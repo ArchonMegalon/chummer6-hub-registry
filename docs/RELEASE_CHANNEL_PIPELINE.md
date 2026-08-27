@@ -156,6 +156,71 @@ Hub and other consumers read `GET /api/v1/registry/release-authority/current`. I
 
 Publication writes all three immutable files to a temporary sibling, flushes file data and directory metadata, renames the complete generation, and only then atomically replaces and parent-directory-flushes `CURRENT.json`. Existing generations are never overwritten. Authority roots and descendants reject symbolic links/reparse points. Registry startup also fails before serving when neither `CHUMMER_REGISTRY_CONTROL_API_KEY` nor its legacy compatibility key is configured.
 
+### Fail-closed rollback rehearsal
+
+`scripts/rehearse_release_authority_rollback.py` is the candidate-neutral,
+read-only rehearsal lane. It does not call the publication API, stage bytes,
+replace `CURRENT.json`, deploy a provider, or activate a public route. Its sole
+permitted mutation is creating one local deterministic receipt at the explicit
+`--output` path; that output's non-symlink parent directory must already exist.
+
+The canonical request and receipt shapes are pinned by
+[`contracts/release-authority-rollback-rehearsal-v1.schema.json`](../contracts/release-authority-rollback-rehearsal-v1.schema.json).
+The request must be canonical compact sorted JSON plus LF, remain inside a
+positive freshness window of at most 24 hours, name one concrete support owner,
+and bind exact `staged`, `current`, and `previous` authority roles. Every role
+binds release version, channel, decision status, and the raw SHA-256 digests of
+its manifest, approved scope decision, `CURRENT.json`, `SNAPSHOT.json`, and
+`RELEASE_DECISION.json`. The requested rollback target is explicitly `current`
+or `previous`; `staged` can never be a rollback target.
+
+For each role the tool runs the normal strict release-authority verifier,
+including optional scorecard/convergence/predecessor proof when a ready envelope
+requires it. It then requires all three observed bindings to exactly equal the
+request, belong to one channel, remain distinct, and name the request's support
+owner. The activation marker bytes must equal the exact current `CURRENT.json`
+bytes and must not equal staged bytes. Missing files, symlinks, unknown or
+unresolved values, expired requests, digest drift, stale activation markers,
+partial proof triples, owner drift, and output/input aliasing all fail closed.
+
+Run `rehearse` with the request, activation marker, output, and the five required
+files for each role:
+
+```bash
+python3 scripts/rehearse_release_authority_rollback.py rehearse \
+  --request /evidence/rollback/REQUEST.json \
+  --activation-marker /authority/CURRENT.json \
+  --output /evidence/rollback/RECEIPT.json \
+  --staged-manifest /authority-staged/RELEASE_CHANNEL.json \
+  --staged-release-scope-decision /authority-staged/RELEASE_SCOPE_DECISION.json \
+  --staged-current /authority-staged/CURRENT.json \
+  --staged-snapshot /authority-staged/SNAPSHOT.json \
+  --staged-decision /authority-staged/RELEASE_DECISION.json \
+  --current-manifest /authority-current/RELEASE_CHANNEL.json \
+  --current-release-scope-decision /authority-current/RELEASE_SCOPE_DECISION.json \
+  --current-current /authority-current/CURRENT.json \
+  --current-snapshot /authority-current/SNAPSHOT.json \
+  --current-decision /authority-current/RELEASE_DECISION.json \
+  --previous-manifest /authority-previous/RELEASE_CHANNEL.json \
+  --previous-release-scope-decision /authority-previous/RELEASE_SCOPE_DECISION.json \
+  --previous-current /authority-previous/CURRENT.json \
+  --previous-snapshot /authority-previous/SNAPSHOT.json \
+  --previous-decision /authority-previous/RELEASE_DECISION.json
+```
+
+Add role-prefixed `--scorecard`, `--convergence`, and all three
+`--predecessor-*` arguments when that role is a ready successor. Re-running
+`rehearse` with the exact inputs recognizes byte-identical output as a replay
+without rewriting it. `verify` accepts the same arguments and requires the
+existing receipt to be byte-identical to the deterministic result. Conflicting
+receipt bytes are never overwritten.
+
+The receipt says only `mode=dry_run` and records equal before/after activation
+marker digests, `activation_attempted=false`, `activation_occurred=false`, and
+`staged_is_active=false`. It is rollback readiness evidence valid only through
+its recorded request expiry; it is not stage authority, publication authority,
+provider activation authority, or a release claim.
+
 ## Shape
 
 `releaseProof.journeysPassed` is an exact ordered contract, not a set-like summary. Materialization and verification require the six journey IDs shown below in that order; a missing, unexpected, duplicate, or reordered ID fails closed.

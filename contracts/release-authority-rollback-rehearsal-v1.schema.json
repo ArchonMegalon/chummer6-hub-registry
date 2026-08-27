@@ -1,0 +1,167 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://chummer.run/contracts/release-authority-rollback-rehearsal-v1.schema.json",
+  "title": "Chummer release-authority rollback rehearsal request and receipt",
+  "oneOf": [
+    { "$ref": "#/$defs/request" },
+    { "$ref": "#/$defs/receipt" }
+  ],
+  "$defs": {
+    "sha256": {
+      "type": "string",
+      "pattern": "^[0-9a-f]{64}$"
+    },
+    "token": {
+      "type": "string",
+      "pattern": "^(?!unknown$|missing$|invalid$|none$|null$|tbd$|todo$|unassigned$)[a-z0-9][a-z0-9._+-]{0,127}$"
+    },
+    "releaseVersion": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9][A-Za-z0-9._+-]{0,127}$"
+    },
+    "utcTimestamp": {
+      "type": "string",
+      "format": "date-time",
+      "pattern": "^\\d{4}-\\d{2}-\\d{2}T\\d{2}:\\d{2}:\\d{2}Z$"
+    },
+    "binding": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "release_version",
+        "channel",
+        "status",
+        "manifest_sha256",
+        "release_scope_decision_sha256",
+        "current_sha256",
+        "snapshot_sha256",
+        "decision_sha256"
+      ],
+      "properties": {
+        "release_version": { "$ref": "#/$defs/releaseVersion" },
+        "channel": { "$ref": "#/$defs/token" },
+        "status": { "$ref": "#/$defs/token" },
+        "manifest_sha256": { "$ref": "#/$defs/sha256" },
+        "release_scope_decision_sha256": { "$ref": "#/$defs/sha256" },
+        "current_sha256": { "$ref": "#/$defs/sha256" },
+        "snapshot_sha256": { "$ref": "#/$defs/sha256" },
+        "decision_sha256": { "$ref": "#/$defs/sha256" }
+      }
+    },
+    "bindings": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["staged", "current", "previous"],
+      "properties": {
+        "staged": { "$ref": "#/$defs/binding" },
+        "current": { "$ref": "#/$defs/binding" },
+        "previous": { "$ref": "#/$defs/binding" }
+      }
+    },
+    "request": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_name",
+        "contract_version",
+        "rehearsal_id",
+        "generated_at_utc",
+        "expires_at_utc",
+        "support_owner",
+        "activation_marker_role",
+        "rollback_target_role",
+        "bindings"
+      ],
+      "properties": {
+        "contract_name": { "const": "chummer.release-authority-rollback-rehearsal-request/v1" },
+        "contract_version": { "const": 1 },
+        "rehearsal_id": { "$ref": "#/$defs/token" },
+        "generated_at_utc": { "$ref": "#/$defs/utcTimestamp" },
+        "expires_at_utc": { "$ref": "#/$defs/utcTimestamp" },
+        "support_owner": { "$ref": "#/$defs/token" },
+        "activation_marker_role": { "const": "current" },
+        "rollback_target_role": { "enum": ["current", "previous"] },
+        "bindings": { "$ref": "#/$defs/bindings" }
+      }
+    },
+    "rollbackTarget": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": ["role", "binding"],
+      "properties": {
+        "role": { "enum": ["current", "previous"] },
+        "binding": { "$ref": "#/$defs/binding" }
+      }
+    },
+    "activationGuard": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "marker_role",
+        "expected_sha256",
+        "before_sha256",
+        "after_sha256",
+        "activation_attempted",
+        "activation_occurred",
+        "staged_is_active"
+      ],
+      "properties": {
+        "marker_role": { "const": "current" },
+        "expected_sha256": { "$ref": "#/$defs/sha256" },
+        "before_sha256": { "$ref": "#/$defs/sha256" },
+        "after_sha256": { "$ref": "#/$defs/sha256" },
+        "activation_attempted": { "const": false },
+        "activation_occurred": { "const": false },
+        "staged_is_active": { "const": false }
+      }
+    },
+    "idempotency": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "replay_key",
+        "deterministic_receipt",
+        "identical_existing_receipt_is_replay"
+      ],
+      "properties": {
+        "replay_key": { "$ref": "#/$defs/sha256" },
+        "deterministic_receipt": { "const": true },
+        "identical_existing_receipt_is_replay": { "const": true }
+      }
+    },
+    "receipt": {
+      "type": "object",
+      "additionalProperties": false,
+      "required": [
+        "contract_name",
+        "contract_version",
+        "status",
+        "verdict",
+        "mode",
+        "rehearsal_id",
+        "request_sha256",
+        "valid_until_utc",
+        "support_owner",
+        "bindings",
+        "rollback_target",
+        "activation_guard",
+        "idempotency"
+      ],
+      "properties": {
+        "contract_name": { "const": "chummer.release-authority-rollback-rehearsal-receipt/v1" },
+        "contract_version": { "const": 1 },
+        "status": { "const": "pass" },
+        "verdict": { "const": "ROLLBACK_REHEARSAL_VALID" },
+        "mode": { "const": "dry_run" },
+        "rehearsal_id": { "$ref": "#/$defs/token" },
+        "request_sha256": { "$ref": "#/$defs/sha256" },
+        "valid_until_utc": { "$ref": "#/$defs/utcTimestamp" },
+        "support_owner": { "$ref": "#/$defs/token" },
+        "bindings": { "$ref": "#/$defs/bindings" },
+        "rollback_target": { "$ref": "#/$defs/rollbackTarget" },
+        "activation_guard": { "$ref": "#/$defs/activationGuard" },
+        "idempotency": { "$ref": "#/$defs/idempotency" }
+      }
+    }
+  }
+}
