@@ -40,6 +40,7 @@ jobs:
           "${RUNNER_TEMP}/registry-ci-python/bin/python" -m pytest -q \
             tests/test_contract_package_metadata.py \
             tests/test_runtime_package_metadata.py \
+            tests/test_release_authority_rollback_rehearsal.py \
             scripts/test_materialize_unsigned_preview_publication_delta.py \
             scripts/release/test_release_scope_union_publisher.py
       - name: Build runtime verification
