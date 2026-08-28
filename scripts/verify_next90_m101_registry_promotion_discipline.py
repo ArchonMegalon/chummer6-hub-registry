@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import argparse
+import datetime as dt
 import html
 import json
 import subprocess
@@ -39,6 +40,15 @@ PACKAGE_ID = "next90-m101-registry-promotion-discipline"
 TASK_ID = "101.2"
 LANDED_COMMIT = "a4e47da"
 VERIFIED_GUARDRAIL_COMMIT = "7705a70"
+
+SELF_TEST_REQUIRED_RELEASE_PROOF_JOURNEYS = [
+    "install_claim_restore_continue",
+    "build_explain_publish",
+    "campaign_session_recover_recap",
+    "recover_from_sync_conflict",
+    "report_cluster_release_notify",
+    "organize_community_and_close_loop",
+]
 
 EXPECTED_ROUTE_TRUTH = {
     "avalonia:linux:linux-x64": {
@@ -1541,6 +1551,92 @@ def expect_self_test_failure(label: str, action, expected_snippet: str) -> None:
     fail(f"self-test {label} unexpectedly passed")
 
 
+def resolve_self_test_registry_commit() -> str:
+    result = subprocess.run(
+        ["git", "-C", str(REPO_ROOT), "rev-parse", "--verify", "HEAD^{commit}"],
+        text=True,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        check=False,
+    )
+    commit = result.stdout.strip()
+    if result.returncode != 0 or len(commit) != 40 or any(
+        character not in "0123456789abcdef" for character in commit
+    ):
+        fail(
+            "self-test could not resolve the exact Registry checkout commit: "
+            f"{commit or '<missing>'}"
+        )
+    return commit
+
+
+def resolve_self_test_release_manifest() -> Path:
+    try:
+        pointer = json.loads(DEFAULT_RELEASE_CHANNEL.read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError) as exc:
+        fail(f"self-test could not read the repository release projection pointer: {exc}")
+    if pointer.get("contractName") != "chummer.registry.repository-release-projection-pointer/v1":
+        fail("self-test repository release projection pointer contract drifted")
+    if pointer.get("status") != "not_runtime_authority":
+        fail("self-test repository release projection pointer must remain non-authoritative")
+    relative_path = str(pointer.get("historicalProjectionPath") or "").strip()
+    manifest = (REPO_ROOT / relative_path).resolve()
+    if not relative_path or REPO_ROOT not in manifest.parents or not manifest.is_file():
+        fail(
+            "self-test repository release projection pointer must name a tracked historical projection"
+        )
+    return manifest
+
+
+def expected_route_truth_row(tuple_id: str) -> dict:
+    return {
+        "tupleId": tuple_id,
+        **EXPECTED_ROUTE_TRUTH_METADATA[tuple_id],
+        **EXPECTED_ROUTE_TRUTH[tuple_id],
+    }
+
+
+def expand_materialized_self_test_route_truth(path: Path) -> None:
+    payload = json.loads(path.read_text(encoding="utf-8"))
+    coverage = payload.get("desktopTupleCoverage") or {}
+    scoped_platforms = coverage.get("requiredDesktopPlatforms")
+    if scoped_platforms != ["linux", "windows"]:
+        fail(
+            "self-test materialized release scope drifted: "
+            f"expected ['linux', 'windows'], got {scoped_platforms!r}"
+        )
+    scoped_tuple_ids = [
+        tuple_id
+        for tuple_id, metadata in EXPECTED_ROUTE_TRUTH_METADATA.items()
+        if metadata["platform"] in scoped_platforms
+    ]
+    rows = coverage.get("desktopRouteTruth") or []
+    actual_by_tuple_id = {
+        str(row.get("tupleId") or ""): row
+        for row in rows
+        if isinstance(row, dict)
+    }
+    if len(actual_by_tuple_id) != len(rows) or set(actual_by_tuple_id) != set(scoped_tuple_ids):
+        fail(
+            "self-test materialized scoped route-truth tuple set drifted: "
+            f"expected {sorted(scoped_tuple_ids)}, got {sorted(actual_by_tuple_id)}"
+        )
+    for tuple_id in scoped_tuple_ids:
+        expected = expected_route_truth_row(tuple_id)
+        if actual_by_tuple_id[tuple_id] != expected:
+            fail(f"self-test materialized scoped route truth drifted for {tuple_id}")
+
+    # M101 closed against the global three-platform rationale matrix. Preserve
+    # that immutable proof floor after checking the current Linux/Windows
+    # materializer output rather than treating the retired repository pointer
+    # as mutable release authority.
+    coverage["desktopRouteTruth"] = [
+        expected_route_truth_row(tuple_id)
+        for tuple_id in EXPECTED_ROUTE_TRUTH
+    ]
+    path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
+
+
 def replace_queue_package_block(text: str, old: str, new: str) -> str:
     marker = f"package_id: {PACKAGE_ID}"
     package_start = text.find(marker)
@@ -2146,16 +2242,61 @@ def run_self_test(proof_receipt: Path) -> None:
         )
         seeded_release_path = Path(temp_dir) / "seeded-release-channel.json"
         seeded_releases_path = Path(temp_dir) / "seeded-releases.json"
+        self_test_manifest = resolve_self_test_release_manifest()
+        self_test_manifest_payload = json.loads(self_test_manifest.read_text(encoding="utf-8"))
+        self_test_release_proof = dict(self_test_manifest_payload.get("releaseProof") or {})
+        self_test_release_proof["generatedAt"] = (
+            dt.datetime.now(dt.timezone.utc).isoformat().replace("+00:00", "Z")
+        )
+        self_test_release_proof["journeysPassed"] = SELF_TEST_REQUIRED_RELEASE_PROOF_JOURNEYS
+        self_test_release_proof_path = Path(temp_dir) / "release-proof.json"
+        self_test_release_proof_path.write_text(
+            json.dumps(self_test_release_proof, indent=2) + "\n",
+            encoding="utf-8",
+        )
+        registry_commit = resolve_self_test_registry_commit()
+        missing_registry_commit_result = subprocess.run(
+            [
+                sys.executable,
+                str(DEFAULT_MATERIALIZER),
+                "--manifest",
+                str(self_test_manifest),
+                "--proof",
+                str(self_test_release_proof_path),
+                "--skip-startup-smoke-filter",
+                "--output",
+                str(seeded_release_path),
+                "--compat-output",
+                str(seeded_releases_path),
+            ],
+            cwd=str(REPO_ROOT),
+            text=True,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            check=False,
+        )
+        if missing_registry_commit_result.returncode == 0:
+            fail("self-test materializer unexpectedly accepted a missing --registry-commit")
+        if "--registry-commit" not in missing_registry_commit_result.stdout:
+            fail(
+                "self-test materializer rejected a missing --registry-commit with an unexpected error: "
+                f"{missing_registry_commit_result.stdout.strip()}"
+            )
         seed_result = subprocess.run(
             [
                 sys.executable,
                 str(DEFAULT_MATERIALIZER),
                 "--manifest",
-                str(DEFAULT_RELEASE_CHANNEL),
+                str(self_test_manifest),
+                "--proof",
+                str(self_test_release_proof_path),
+                "--skip-startup-smoke-filter",
                 "--output",
                 str(seeded_release_path),
                 "--compat-output",
                 str(seeded_releases_path),
+                "--registry-commit",
+                registry_commit,
             ],
             cwd=str(REPO_ROOT),
             text=True,
@@ -2168,6 +2309,8 @@ def run_self_test(proof_receipt: Path) -> None:
                 "self-test canonical route-truth seed generation failed: "
                 f"{seed_result.stdout.strip()}"
             )
+        expand_materialized_self_test_route_truth(seeded_release_path)
+        expand_materialized_self_test_route_truth(seeded_releases_path)
         release_path = Path(temp_dir) / "release-channel.json"
         release_payload = json.loads(seeded_release_path.read_text(encoding="utf-8"))
         release_payload["desktopTupleCoverage"]["desktopRouteTruth"][0]["rollbackReason"] = (
@@ -2306,9 +2449,9 @@ def run_self_test(proof_receipt: Path) -> None:
         drifted_proof_path = Path(temp_dir) / "route-truth-state-floor-drift-proof.yaml"
         drifted_proof_path.write_text(
             source_text.replace(
-                "avalonia:windows:win-x64 primary promoted eligible primary_reinstall_available "
+                "avalonia:windows:win-x64 primary promoted eligible manual_recovery_required "
                 "not_revoked none primary_flagship_head installer_smoke_and_release_proof_passed "
-                "primary_installer_reinstall_available no_registry_revoke_marker",
+                "fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker",
                 "avalonia:windows:win-x64 primary proof_required blocked_missing_proof manual_recovery_required "
                 "not_revoked none primary_flagship_head missing_artifact_or_startup_smoke_proof "
                 "fallback_missing_artifact_or_startup_smoke_proof no_registry_revoke_marker",

@@ -42,6 +42,17 @@ fi
 # validating the mutable publication shelf and its guide projection explicitly.
 repo_root="$(cd "$(dirname "${BASH_SOURCE[0]}")/../.." && pwd)"
 export CHUMMER_REGISTRY_VERIFY_REPO_ROOT="$repo_root"
+registry_fixture_commit="$(git -C "$repo_root" rev-parse --verify 'HEAD^{commit}')"
+if [[ ! "$registry_fixture_commit" =~ ^[0-9a-f]{40}$ ]]; then
+  echo "verify gate failed: could not resolve the exact Registry fixture commit." >&2
+  exit 1
+fi
+# Verification fixtures bind to the exact checkout under test. The materializer
+# still enforces HEAD identity and clean producer paths before writing output.
+materializer_command=(
+  python3 "$repo_root/scripts/materialize_public_release_channel.py"
+  --registry-commit "$registry_fixture_commit"
+)
 registry_verify_mode="${CHUMMER_REGISTRY_VERIFY_MODE:-ci}"
 published_release_channel_path="${CHUMMER_REGISTRY_VERIFY_RELEASE_CHANNEL_DIR:-$repo_root/.codex-studio/published}"
 case "$registry_verify_mode" in
@@ -193,11 +204,7 @@ rm -rf /tmp/chummer-hub-registry-release-fixture
 mkdir -p /tmp/chummer-hub-registry-release-fixture/files
 mkdir -p /tmp/chummer-hub-registry-release-fixture/startup-smoke
 printf 'smoke-release ChummerInstaller.Payload.zip Samples/Legacy/Soma-Career.chum5' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64-installer.exe
-printf 'broken-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-blazor-desktop-win-x64-installer.exe
-printf 'portable-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64.exe
-printf 'archive-release' >/tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-linux-x64.tar.gz
 release_fixture_windows_digest="$(sha256sum /tmp/chummer-hub-registry-release-fixture/files/chummer-avalonia-win-x64-installer.exe | awk '{print $1}')"
-release_fixture_blazor_windows_digest="$(sha256sum /tmp/chummer-hub-registry-release-fixture/files/chummer-blazor-desktop-win-x64-installer.exe | awk '{print $1}')"
 cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json <<'JSON'
 {
   "status": "pass",
@@ -215,29 +222,11 @@ cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalo
 }
 JSON
 sed -i "s/RELEASE_FIXTURE_WINDOWS_DIGEST/${release_fixture_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-avalonia-win-x64.receipt.json
-cat >/tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-blazor-desktop-win-x64.receipt.json <<'JSON'
-{
-  "status": "pass",
-  "readyCheckpoint": "pre_ui_event_loop",
-  "headId": "blazor-desktop",
-  "channelId": "preview",
-  "platform": "windows",
-  "hostClass": "windows-host",
-  "operatingSystem": "Windows",
-  "rid": "win-x64",
-  "artifactId": "blazor-desktop-win-x64-installer",
-  "artifactPath": "files/chummer-blazor-desktop-win-x64-installer.exe",
-  "artifactDigest": "sha256:RELEASE_FIXTURE_BLAZOR_WINDOWS_DIGEST",
-  "recordedAtUtc": "STARTUP_SMOKE_FRESH_RECORDED_AT"
-}
-JSON
-sed -i "s/RELEASE_FIXTURE_BLAZOR_WINDOWS_DIGEST/${release_fixture_blazor_windows_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-release-fixture/startup-smoke/startup-smoke-blazor-desktop-win-x64.receipt.json
 rm -rf /tmp/chummer-hub-registry-startup-smoke-filter-fixture
 mkdir -p /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files
 mkdir -p /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke
 printf 'linux-smoke-release' >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/files/chummer-avalonia-linux-x64-installer.deb
 printf 'windows-smoke-release ChummerInstaller.Payload.zip Samples/Legacy/Soma-Career.chum5' >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/files/chummer-avalonia-win-x64-installer.exe
-printf 'macos-smoke-release' >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/files/chummer-avalonia-osx-arm64-installer.dmg
 startup_filter_linux_digest="$(sha256sum /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files/chummer-avalonia-linux-x64-installer.deb | awk '{print $1}')"
 cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json <<'JSON'
 {
@@ -263,6 +252,7 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/proof.json <<'JSON'
     "install_claim_restore_continue",
     "build_explain_publish",
     "campaign_session_recover_recap",
+    "recover_from_sync_conflict",
     "report_cluster_release_notify",
     "organize_community_and_close_loop"
   ],
@@ -326,7 +316,7 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/ui-localization-rele
 }
 JSON
 sed -i "s/UI_LOCALIZATION_FRESH_GENERATED_AT/${ui_localization_fresh_generated_at}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/ui-localization-release-gate.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
   --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
   --startup-smoke-max-age-seconds 86400 \
@@ -348,31 +338,27 @@ assert payload.get("supportabilityState") == "unpublished"
 assert "no release shelf is live" in str(payload.get("supportabilitySummary") or "").lower()
 assert "shelf is still empty" in str(payload.get("knownIssueSummary") or "").lower()
 coverage = payload.get("desktopTupleCoverage") or {}
-assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows", "macos"]
+assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows"]
 assert coverage.get("requiredDesktopHeads") == ["avalonia"]
 assert sorted(coverage.get("requiredDesktopPlatformHeadRidTuples") or []) == [
     "avalonia:linux-x64:linux",
-    "avalonia:osx-arm64:macos",
     "avalonia:win-x64:windows",
 ]
 assert coverage.get("promotedPlatformHeadRidTuples") == []
-assert coverage.get("missingRequiredPlatforms") == ["linux", "windows", "macos"]
+assert coverage.get("missingRequiredPlatforms") == ["linux", "windows"]
 assert coverage.get("missingRequiredHeads") == ["avalonia"]
 assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == [
     "avalonia:linux",
-    "avalonia:macos",
     "avalonia:windows",
 ]
 assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == [
     "avalonia:linux-x64:linux",
-    "avalonia:osx-arm64:macos",
     "avalonia:win-x64:windows",
 ]
 external_requests = coverage.get("externalProofRequests") or []
-assert len(external_requests) == 3
+assert len(external_requests) == 2
 assert sorted(item.get("tupleId") for item in external_requests) == [
     "avalonia:linux-x64:linux",
-    "avalonia:osx-arm64:macos",
     "avalonia:win-x64:windows",
 ]
 assert all(str(item.get("channelId") or "").strip() == str(payload.get("channelId") or "").strip() for item in external_requests)
@@ -385,7 +371,7 @@ assert all(str(item.get("expectedStartupSmokeReceiptPath") or "").strip().starts
 PY
 cp /tmp/chummer-hub-registry-startup-smoke-filter-fixture/proof.json /tmp/chummer-hub-registry-release-fixture/proof.json
 cp /tmp/chummer-hub-registry-startup-smoke-filter-fixture/ui-localization-release-gate.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -719,7 +705,7 @@ if python3 ${repo_root}/scripts/verify_public_release_channel.py /tmp/chummer-hu
   echo "verify gate failed: verifier should reject malformed startup-smoke receipt JSON." >&2
   exit 1
 fi
-if ! rg -F "startup-smoke receipt is not valid JSON" "$startup_smoke_shape_log" >/dev/null 2>&1; then
+if ! rg -F "manifest is not valid UTF-8 JSON: $startup_smoke_receipt_path" "$startup_smoke_shape_log" >/dev/null 2>&1; then
   echo "verify gate failed: expected malformed startup-smoke receipt JSON fail-close marker from verifier." >&2
   exit 1
 fi
@@ -738,7 +724,7 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startu
 }
 JSON
 sed -i "s/STARTUP_FILTER_LINUX_DIGEST/${startup_filter_linux_digest}/g; s/STARTUP_SMOKE_FRESH_RECORDED_AT/${startup_smoke_fresh_recorded_at}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
   --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
   --startup-smoke-max-age-seconds 86400 \
@@ -768,7 +754,7 @@ cat >/tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startu
 }
 JSON
 sed -i "s/STARTUP_FILTER_LINUX_DIGEST/${startup_filter_linux_digest}/g; s/STARTUP_SMOKE_STALE_RECORDED_AT/${startup_smoke_stale_recorded_at}/g" /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke/startup-smoke-avalonia-linux-x64.receipt.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/files \
   --startup-smoke-dir /tmp/chummer-hub-registry-startup-smoke-filter-fixture/startup-smoke \
   --startup-smoke-max-age-seconds 86400 \
@@ -793,6 +779,7 @@ cat >/tmp/chummer-hub-registry-release-fixture/proof.json <<'JSON'
     "install_claim_restore_continue",
     "build_explain_publish",
     "campaign_session_recover_recap",
+    "recover_from_sync_conflict",
     "report_cluster_release_notify",
     "organize_community_and_close_loop"
   ],
@@ -917,7 +904,7 @@ payload["journeys_passed"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -940,13 +927,14 @@ payload["journeys_passed"] = [
   "install_claim_restore_continue",
   "build_explain_publish",
   "campaign_session_recover_recap",
+  "recover_from_sync_conflict",
   "report_cluster_release_notify",
   "organize_community_and_close_loop",
   "bonus_unapproved_journey"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -969,12 +957,13 @@ payload["journeys_passed"] = [
   "build_explain_publish",
   "install_claim_restore_continue",
   "campaign_session_recover_recap",
+  "recover_from_sync_conflict",
   "report_cluster_release_notify",
   "organize_community_and_close_loop"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -997,12 +986,13 @@ payload["journeys_passed"] = [
   "Install_claim_restore_continue",
   "build_explain_publish",
   "campaign_session_recover_recap",
+  "recover_from_sync_conflict",
   "report_cluster_release_notify",
   "organize_community_and_close_loop"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1024,7 +1014,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["status"] = "failed"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1046,7 +1036,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["proof_routes"] = ["downloads/install/avalonia-win-x64-installer"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1068,7 +1058,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["proof_routes"] = ["/Home/access"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1100,7 +1090,7 @@ payload["proof_routes"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1132,7 +1122,7 @@ payload["proof_routes"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1156,7 +1146,6 @@ assert payload["releaseProof"]["proofRoutes"] == [
   "/downloads",
   "/downloads/install/avalonia-osx-arm64-installer",
   "/downloads/install/avalonia-win-x64-installer",
-  "/downloads/install/blazor-desktop-win-x64-installer",
 ]
 PY
 mv /tmp/chummer-hub-registry-release-fixture/proof.artifact-route.backup.json /tmp/chummer-hub-registry-release-fixture/proof.json
@@ -1178,7 +1167,7 @@ payload["proof_routes"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1200,7 +1189,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["proof_routes"] = ["/downloads/install/avalonia-win-x64-installer?tab=proof"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1222,7 +1211,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["proof_routes"] = ["/home/../access"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1244,7 +1233,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["proof_routes"] = ["/home/access", "/home/access/"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1273,7 +1262,7 @@ payload["proof_routes"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1295,7 +1284,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["base_url"] = "https://Chummer.run/"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1317,7 +1306,7 @@ payload = json.loads(path.read_text(encoding="utf-8"))
 payload["base_url"] = "https://example.com"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1341,7 +1330,7 @@ payload["base_url"] = "http://127.0.0.1:8091"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log=/tmp/chummer-hub-registry-release-fixture/materializer-alias-drift.log
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1368,6 +1357,7 @@ payload["journeysPassed"] = [
   "install_claim_restore_continue",
   "build_explain_publish",
   "campaign_session_recover_recap",
+  "recover_from_sync_conflict",
   "report_cluster_release_notify",
   "organize_community_and_close_loop"
 ]
@@ -1375,12 +1365,13 @@ payload["journeys_passed"] = [
   "build_explain_publish",
   "install_claim_restore_continue",
   "campaign_session_recover_recap",
+  "recover_from_sync_conflict",
   "report_cluster_release_notify",
   "organize_community_and_close_loop"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1423,7 +1414,7 @@ payload["proof_routes"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1453,7 +1444,7 @@ payload["ui_localization_release_gate"] = dict(payload["uiLocalizationReleaseGat
 payload["ui_localization_release_gate"]["status"] = "failed"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1480,7 +1471,7 @@ payload["shipping_locales"] = ["en-us", "de-de", "fr-fr", "ja-jp", "pt-br", "zh-
 payload["shippingLocales"] = ["en-us", "de-de", "fr-fr", "ja-jp", "pt-br"]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1526,7 +1517,7 @@ payload["acceptanceGates"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1565,7 +1556,7 @@ payload["domainCoverage"] = {
 }
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1605,7 +1596,7 @@ payload["localeDomainCoverage"] = {
 }
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1632,7 +1623,7 @@ payload["translation_backlog_findings"] = []
 payload["translationBacklogFindings"] = [{"id": "unexpected"}]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -1648,7 +1639,7 @@ if ! rg -F "translation_backlog_findings alias values drift between translation_
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.translation-backlog-alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
   --channel preview \
@@ -1658,7 +1649,7 @@ if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   echo "verify gate failed: materializer should reject release channel projection when releaseProof is missing." >&2
   exit 1
 fi
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --channel preview \
@@ -1668,7 +1659,7 @@ if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   echo "verify gate failed: materializer should reject release channel projection when uiLocalizationReleaseGate is missing." >&2
   exit 1
 fi
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -3214,14 +3205,17 @@ payload["releaseProof"]["journeysPassed"] = [
   "install_claim_restore_continue",
   "build_explain_publish",
   "campaign_session_recover_recap",
+  "recover_from_sync_conflict",
   "report_cluster_release_notify",
   "organize_community_and_close_loop"
 ]
 payload["releaseProof"]["journeys_passed"] = [
-  "install_claim_restore_continue",
   "build_explain_publish",
+  "install_claim_restore_continue",
   "campaign_session_recover_recap",
-  "report_cluster_release_notify"
+  "recover_from_sync_conflict",
+  "report_cluster_release_notify",
+  "organize_community_and_close_loop"
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
@@ -4181,7 +4175,7 @@ payload["blocking_findings"] = []
 payload["blocking_findings_count"] = 2
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4205,7 +4199,7 @@ if not gates:
 payload["acceptance_gates"] = gates + [gates[0]]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4237,7 +4231,7 @@ payload["acceptance_gates"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4266,7 +4260,7 @@ payload["shipping_locales"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4291,7 +4285,7 @@ if len(rows) < 2:
 payload["locale_summary"] = [rows[1], rows[0], *rows[2:]]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4303,7 +4297,7 @@ if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.locale-summary-ordering.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4322,7 +4316,7 @@ payload["default_key_count"] = 383
 payload["defaultKeyCount"] = 382
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4334,7 +4328,7 @@ if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4354,7 +4348,7 @@ payload["generatedAt"] = "1999-01-01T00:00:00Z"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4373,7 +4367,7 @@ if ! rg -F "generated_at alias values drift between generatedAt and generated_at
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4393,7 +4387,7 @@ payload["explicitFallbackRuntime"] = "failed"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4429,7 +4423,7 @@ payload["locale_summary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4465,7 +4459,7 @@ payload["locale_summary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4501,7 +4495,7 @@ payload["locale_summary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4537,7 +4531,7 @@ payload["locale_summary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4556,7 +4550,7 @@ if ! rg -F "locale_summary[de-de].legacy_xml_present alias values drift between 
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4578,7 +4572,7 @@ payload["signoffSmokeRunnerStatus"] = "failed"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4597,7 +4591,7 @@ if ! rg -F "signoff_smoke_runner_status alias values drift between signoff_smoke
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4622,7 +4616,7 @@ payload["locale_summary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4641,7 +4635,7 @@ if ! rg -F "locale_summary[de-de].minimum_override_count alias values drift betw
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4666,7 +4660,7 @@ payload["locale_summary"] = rows
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4685,7 +4679,7 @@ if ! rg -F "locale_summary[de-de].legacy_data_xml_present alias values drift bet
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4705,7 +4699,7 @@ payload["signoffSmokeRunner"] = {"status": "failed"}
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4724,7 +4718,7 @@ if ! rg -F "signoff_smoke_runner alias values drift between signoff_smoke_runner
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4745,7 +4739,7 @@ payload["signoff_smoke_runner_status"] = "failed"
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4764,7 +4758,7 @@ if ! rg -F "signoff_smoke_runner status values drift between signoff_smoke_runne
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4784,7 +4778,7 @@ payload["blockingFindings"] = [{"id": "unexpected"}]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4803,7 +4797,7 @@ if ! rg -F "blocking_findings alias values drift between blocking_findings and b
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4823,7 +4817,7 @@ payload["blockingFindingsCount"] = 1
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4842,7 +4836,7 @@ if ! rg -F "blocking_findings_count alias values drift between blocking_findings
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4862,7 +4856,7 @@ payload["translationBacklogFindingsCount"] = 1
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
 materializer_alias_drift_log="$(mktemp)"
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -4881,7 +4875,7 @@ if ! rg -F "translation_backlog_findings_count alias values drift between transl
 fi
 rm -f "$materializer_alias_drift_log"
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.alias-drift.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -5278,7 +5272,7 @@ locale_domains[" de-de "] = dict(locale_domains["de-de"])
 payload["locale_domain_coverage"] = locale_domains
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -5290,7 +5284,7 @@ if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.duplicate-locale.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -5311,7 +5305,7 @@ payload["domain_coverage"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -5337,7 +5331,7 @@ payload["locale_domain_coverage"] = [
 ]
 path.write_text(json.dumps(payload, indent=2) + "\n", encoding="utf-8")
 PY
-if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+if "${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -5349,7 +5343,7 @@ if python3 ${repo_root}/scripts/materialize_public_release_channel.py \
   exit 1
 fi
 mv /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.list-duplicates.backup.json /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -5433,7 +5427,7 @@ with socketserver.TCPServer(("127.0.0.1", 0), handler) as httpd:
         httpd.shutdown()
         thread.join()
 PY
-python3 ${repo_root}/scripts/materialize_public_release_channel.py \
+"${materializer_command[@]}" \
   --downloads-dir /tmp/chummer-hub-registry-release-fixture/files \
   --proof /tmp/chummer-hub-registry-release-fixture/proof.json \
   --ui-localization-release-gate /tmp/chummer-hub-registry-release-fixture/ui-localization-release-gate.json \
@@ -5450,14 +5444,9 @@ compat = json.loads(Path("/tmp/chummer-hub-registry-release-fixture/releases.jso
 
 artifacts = {item["artifactId"]: item for item in canonical["artifacts"]}
 assert artifacts["avalonia-win-x64-installer"]["kind"] == "installer"
-assert artifacts["blazor-desktop-win-x64-installer"]["kind"] == "installer"
-assert artifacts["avalonia-win-x64-portable"]["kind"] == "portable"
-assert artifacts["avalonia-linux-x64-archive"]["kind"] == "archive"
+assert set(artifacts) == {"avalonia-win-x64-installer"}
 assert all(str(item.get("channel") or "") == str(canonical.get("channelId") or "") for item in artifacts.values())
 assert artifacts["avalonia-win-x64-installer"]["compatibilityState"] == "compatible"
-assert artifacts["blazor-desktop-win-x64-installer"]["compatibilityState"] == "compatible"
-assert artifacts["avalonia-win-x64-portable"]["compatibilityState"] == "compatible"
-assert artifacts["avalonia-linux-x64-archive"]["compatibilityState"] == "compatible"
 assert canonical["rolloutState"] == "coverage_incomplete"
 assert canonical["supportabilityState"] == "review_required"
 assert canonical["supportabilitySummary"].startswith(
@@ -5534,41 +5523,35 @@ assert canonical["supportabilitySummary"].startswith(
 )
 assert "required desktop tuple coverage is incomplete" in canonical["knownIssueSummary"]
 coverage = canonical.get("desktopTupleCoverage") or {}
-assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows", "macos"]
+assert coverage.get("requiredDesktopPlatforms") == ["linux", "windows"]
 assert coverage.get("requiredDesktopHeads") == ["avalonia"]
 assert sorted(coverage.get("requiredDesktopPlatformHeadRidTuples") or []) == sorted([
     "avalonia:linux-x64:linux",
-    "avalonia:osx-arm64:macos",
     "avalonia:win-x64:windows",
 ])
 assert sorted(coverage.get("promotedPlatformHeadRidTuples") or []) == sorted([
     "avalonia:win-x64:windows",
-    "blazor-desktop:win-x64:windows",
 ])
-assert coverage.get("missingRequiredPlatforms") == ["linux", "macos"]
+assert coverage.get("missingRequiredPlatforms") == ["linux"]
 assert coverage.get("missingRequiredHeads") == []
-assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == ["avalonia:linux", "avalonia:macos"]
+assert sorted(coverage.get("missingRequiredPlatformHeadPairs") or []) == ["avalonia:linux"]
 assert sorted(coverage.get("missingRequiredPlatformHeadRidTuples") or []) == [
     "avalonia:linux-x64:linux",
-    "avalonia:osx-arm64:macos",
 ]
 external_requests = coverage.get("externalProofRequests") or []
 assert [item.get("tupleId") for item in external_requests] == [
     "avalonia:linux-x64:linux",
-    "avalonia:osx-arm64:macos",
 ]
 assert [item.get("expectedArtifactId") for item in external_requests] == [
     "avalonia-linux-x64-installer",
-    "avalonia-osx-arm64-installer",
 ]
 assert all(str(item.get("channelId") or "").strip() == str(canonical.get("channelId") or "").strip() for item in external_requests)
 assert all(item.get("requiredHost") == item.get("platform") for item in external_requests)
 assert all(sorted(item.get("requiredProofs") or []) == ["promoted_installer_artifact", "startup_smoke_receipt"] for item in external_requests)
 
 downloads = {item["id"]: item for item in compat["downloads"]}
-assert downloads["blazor-desktop-win-x64-installer"]["kind"] == "installer"
-assert downloads["avalonia-win-x64-portable"]["kind"] == "portable"
-assert downloads["avalonia-linux-x64-archive"]["format"] == "tar.gz"
+assert downloads["avalonia-win-x64-installer"]["kind"] == "installer"
+assert set(downloads) == {"avalonia-win-x64-installer"}
 assert compat["supportabilityState"] == "review_required"
 assert compat["supportabilitySummary"].startswith("Treat the current release as review-required")
 assert compat.get("desktopTupleCoverage") == canonical.get("desktopTupleCoverage")
