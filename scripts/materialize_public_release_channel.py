@@ -53,6 +53,7 @@ CODE_DEPLOY_CURRENT_SHELF_SUPPORTABILITY_STATE = "review_required"
 CODE_DEPLOY_CURRENT_SHELF_ALLOWED_CHANNELS = frozenset({"preview"})
 STARTUP_SMOKE_LIFECYCLE_MAX_SPAN = dt.timedelta(hours=1)
 CODE_DEPLOY_CURRENT_SHELF_SCOPE_OPTIONS = (
+    "--publication-profile",
     "--required-desktop-heads",
     "--required-desktop-platforms",
 )
@@ -83,6 +84,8 @@ COMPATIBILITY_OPTIONAL_MODE_FIELDS = (
     "releaseUploadAuthority",
     "codeDeployCurrentShelfAuthority",
     "platformScope",
+    "publicationProfile",
+    "publicationScope",
 )
 
 
@@ -109,6 +112,7 @@ def validate_registry_source_checkout(
     registry_commit: Any,
     *,
     repo_root: Path | None = None,
+    require_repository_root: bool = False,
 ) -> str:
     commit = normalize_registry_commit(registry_commit, source="reviewed Registry source checkout")
     root = (repo_root or Path(__file__).resolve().parents[1]).resolve()
@@ -127,6 +131,8 @@ def validate_registry_source_checkout(
             ) from exc
         return completed.stdout.strip()
 
+    if require_repository_root and Path(git_output("rev-parse", "--show-toplevel")).resolve() != root:
+        raise ValueError("Windows preview Registry authority must be an independent Git checkout, not an ancestor repository")
     resolved_commit = git_output("rev-parse", "--verify", f"{commit}^{{commit}}")
     if resolved_commit != commit:
         raise ValueError(
@@ -1297,7 +1303,11 @@ def derived_release_proof_artifact_routes(artifacts: list[dict[str, Any]]) -> li
     return sorted(derived_routes)
 
 
-def validate_release_proof_route_set(routes: list[str], *, source: str) -> list[str]:
+def validate_release_proof_route_set(routes: list[str], *, source: str, publication_profile: str = "") -> list[str]:
+    if publication_profile:
+        return verify_public_release_channel_module().validate_release_proof_route_set(
+            routes, source=source, publication_profile=publication_profile)
+
     missing_required_routes = sorted(
         route
         for route in REQUIRED_RELEASE_PROOF_ROUTES
@@ -1498,6 +1508,7 @@ def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
             "required by the v2 global flagship profile."
         ),
     )
+    parser.add_argument("--publication-profile", choices=("", "windows_unsigned_preview_v1"), default="")
     parser.add_argument("--product", default="chummer6")
     parser.add_argument("--channel", default="")
     parser.add_argument("--version", default="")
@@ -5175,7 +5186,8 @@ def load_runtime_bundle_heads(path: Path | None) -> list[dict[str, Any]]:
     return [row for row in rows if row["headId"]]
 
 
-def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, Any] | None:
+def normalize_release_proof_payload(loaded: Any, *, source: str, publication_profile: str = "") -> dict[str, Any] | None:
+    required_journeys = () if publication_profile else REQUIRED_RELEASE_PROOF_JOURNEYS
     if loaded is None:
         return None
     if not isinstance(loaded, dict):
@@ -5199,7 +5211,7 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
     )
     missing_required_journeys = sorted(
         journey
-        for journey in REQUIRED_RELEASE_PROOF_JOURNEYS
+        for journey in required_journeys
         if journey not in journeys
     )
     if missing_required_journeys:
@@ -5210,14 +5222,14 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
     unexpected_journeys = sorted(
         journey
         for journey in journeys
-        if journey not in REQUIRED_RELEASE_PROOF_JOURNEYS
+        if journey not in required_journeys
     )
     if unexpected_journeys:
         raise ValueError(
             "journeys_passed declares unexpected baseline golden journey ids "
             f"({', '.join(unexpected_journeys)}) in {source}"
         )
-    required_journey_order = list(REQUIRED_RELEASE_PROOF_JOURNEYS)
+    required_journey_order = list(required_journeys)
     if journeys != required_journey_order:
         raise ValueError(
             "journeys_passed must preserve canonical baseline journey ordering "
@@ -5252,7 +5264,7 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
         routes.append(normalized_route)
     if not routes:
         raise ValueError(f"proof_routes must include at least one route in {source}")
-    routes = validate_release_proof_route_set(routes, source=source)
+    routes = validate_release_proof_route_set(routes, source=source, publication_profile=publication_profile)
     generated_at = (
         str(
             resolve_alias_value(
@@ -5307,11 +5319,11 @@ def normalize_release_proof_payload(loaded: Any, *, source: str) -> dict[str, An
     }
 
 
-def load_release_proof(path: Path | None) -> dict[str, Any] | None:
+def load_release_proof(path: Path | None, *, publication_profile: str = "") -> dict[str, Any] | None:
     if path is None or not path.exists():
         return None
     loaded = json.loads(path.read_text(encoding="utf-8"))
-    return normalize_release_proof_payload(loaded, source=str(path))
+    return normalize_release_proof_payload(loaded, source=str(path), publication_profile=publication_profile)
 
 
 def normalize_positive_int(value: Any) -> int | None:
@@ -8369,11 +8381,29 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         source="--registry-commit",
     )
     loaded = load_input_payload(args)
+    profile = getattr(args, "publication_profile", "")
+    policy = verify_public_release_channel_module()
+    loaded_profile = policy.publication_profile(loaded, "source manifest")
+    if loaded_profile and profile != loaded_profile:
+        raise ValueError("Source publicationProfile requires explicit matching --publication-profile")
+    if profile and profile != policy.WINDOWS_PREVIEW_PROFILE:
+        raise ValueError("Unknown publication profile")
+    if profile:
+        policy.reject_windows_preview_mixed_modes(loaded, "source manifest")
+        for artifact in policy.iter_manifest_download_entries(loaded):
+            if policy.windows_preview_artifact_is_revoked(artifact):
+                raise SystemExit("Windows preview cannot publish a revoked installer")
+        if args.skip_startup_smoke_filter or args.startup_smoke_dir is None or args.downloads_dir is None:
+            raise ValueError("Windows preview requires local Windows bytes and native startup evidence without skip flags")
     if "platform_scope" in loaded:
         raise ValueError(
             "source manifest must use canonical top-level platformScope, not platform_scope"
         )
     platform_scope = loaded.get("platformScope") if "platformScope" in loaded else None
+    if profile:
+        if platform_scope not in (None, WINDOWS_ONLY_PLATFORM_SCOPE):
+            raise ValueError("Windows preview requires platformScope windows_only")
+        platform_scope = WINDOWS_ONLY_PLATFORM_SCOPE
     flagship_readiness = load_flagship_readiness_snapshot(getattr(args, "flagship_readiness", None))
     refresh_flagship_readiness_copy = loaded_flagship_readiness_copy_requires_refresh(
         loaded,
@@ -8402,6 +8432,8 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
     requested_channel_value = args.channel
     requested_channel = str(requested_channel_value or "").strip()
     raw_channel = requested_channel or loaded_channel or "preview"
+    if profile and (raw_channel != "preview" or loaded_channel_value not in (None, "", "preview")):
+        raise ValueError("Windows preview publication requires the explicit preview channel")
     channel = raw_channel
     loaded_desktop_coverage = (
         loaded.get("desktopTupleCoverage")
@@ -8412,6 +8444,10 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         getattr(args, "required_desktop_platforms", None)
         or loaded_desktop_coverage.get("requiredDesktopPlatforms")
     )
+    if profile:
+        if configured_required_platforms not in (None, "", "windows", ["windows"]):
+            raise ValueError("Windows preview platform scope must be exactly windows")
+        configured_required_platforms = ["windows"]
     global_flagship = global_flagship_platform_request(
         configured_required_platforms
     )
@@ -8519,6 +8555,11 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         product=args.product,
         global_flagship=global_flagship,
     )
+    if profile:
+        materialization_required_platforms(artifacts, ["windows"],
+                                          platform_scope=platform_scope, channel=raw_channel)
+        policy.verify_local_release_artifact_bytes({"artifacts": artifacts}, args.downloads_dir,
+                                                  "Windows preview source inventory")
     artifacts = refresh_artifacts_from_downloads_dir(
         artifacts,
         args.downloads_dir,
@@ -8553,7 +8594,12 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         )
     else:
         startup_smoke_receipts = None
+    if profile:
+        materialization_required_platforms(artifacts, ["windows"],
+                                          platform_scope=platform_scope, channel=raw_channel)
     artifacts = filter_unproven_installers(artifacts, startup_smoke_receipts)
+    if profile and len(artifacts) != 1:
+        raise ValueError("Windows preview is missing matching native Windows startup evidence")
     if global_flagship:
         if startup_smoke_receipts is None:
             raise ValueError(
@@ -8651,9 +8697,10 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             )
     contract_name = DEFAULT_RELEASE_CHANNEL_CONTRACT_NAME
     message = loaded.get("message")
-    release_proof = load_release_proof(args.proof) or normalize_release_proof_payload(
+    release_proof = load_release_proof(args.proof, publication_profile=profile) or normalize_release_proof_payload(
         loaded.get("releaseProof") or loaded.get("release_proof"),
         source="embedded manifest releaseProof",
+        publication_profile=profile,
     )
     ui_localization_release_gate = load_ui_localization_release_gate(args.ui_localization_release_gate) or normalize_ui_localization_release_gate_payload(
         (
@@ -8668,7 +8715,7 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             "releaseProof is required for release-channel materialization "
             "(set --proof or embed releaseProof in the source payload)"
         )
-    if not isinstance(ui_localization_release_gate, dict):
+    if not profile and not isinstance(ui_localization_release_gate, dict):
         raise ValueError(
             "releaseProof.uiLocalizationReleaseGate is required for release-channel materialization "
             "(set --ui-localization-release-gate or embed releaseProof.uiLocalizationReleaseGate in source proof)"
@@ -8709,13 +8756,16 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
         ]
     )
     release_proof["proofRoutes"] = validate_release_proof_route_set(
-        canonicalize_release_proof_routes(merged_release_proof_routes),
+        (merged_release_proof_routes if profile else canonicalize_release_proof_routes(merged_release_proof_routes)),
         source="materialized releaseProof",
+        publication_profile=profile,
     )
     required_heads = required_desktop_heads(args.required_desktop_heads)
     if not required_heads:
         required_heads = list(DEFAULT_REQUIRED_DESKTOP_HEADS)
     verify_required_desktop_heads(required_heads, source="required_desktop_heads")
+    if profile and required_heads != ["avalonia"]:
+        raise ValueError("Windows preview requires exactly the Avalonia desktop head")
     required_platforms = materialization_required_platforms(
         artifacts,
         configured_required_platforms,
@@ -9003,6 +9053,22 @@ def canonical_payload(args: argparse.Namespace) -> dict[str, Any]:
             )
     if platform_scope is not None:
         payload["platformScope"] = platform_scope
+    if profile:
+        if channel != "preview" or status != "published":
+            raise ValueError("Windows preview requires a published preview channel")
+        payload["publicationProfile"] = profile
+        payload["publicationScope"] = dict(policy.WINDOWS_PREVIEW_SCOPE)
+        payload["message"] = policy.WINDOWS_PREVIEW_DISCLOSURE
+        payload["rolloutState"] = "public_release_review_required"
+        payload["supportabilityState"] = "review_required"
+        for field in ("rolloutReason", "supportabilitySummary", "knownIssueSummary", "fixAvailabilitySummary"):
+            payload[field] = (policy.WINDOWS_PREVIEW_DISCLOSURE +
+                              " Broad release has stale or incomplete proof receipts.")
+        policy.verify_windows_preview_profile(payload, "materialized Windows preview")
+        policy.verify_artifacts(payload, "materialized Windows preview", require_complete_desktop_coverage=True)
+        policy.verify_release_truth(payload, "materialized Windows preview")
+        policy.verify_local_release_artifact_bytes(payload, args.downloads_dir, "materialized Windows preview")
+        policy.verify_local_startup_smoke_receipts(payload, args.startup_smoke_dir.parent, "materialized Windows preview")
     payload["publicTrustMetrics"] = expected_public_trust_metrics(payload)
     if flagship_readiness.get("present") and isinstance(payload["publicTrustMetrics"], dict):
         proof_freshness = payload["publicTrustMetrics"].get("proofFreshness")
@@ -9146,7 +9212,7 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
                 canonical_version=canonical.get("version"),
             )
         )
-    return {
+    payload = {
         "generated_at": canonical.get("generated_at") or canonical.get("generatedAt"),
         "generatedAt": canonical.get("generatedAt") or canonical.get("generated_at"),
         **(
@@ -9196,6 +9262,10 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
         "artifactPublicationBindings": canonical.get("artifactPublicationBindings"),
     }
 
+    if canonical.get("publicationProfile") and "generationId" in canonical:
+        payload["generationId"] = canonical["generationId"]
+    return payload
+
 
 def write_json(path: Path, payload: dict[str, Any]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
@@ -9229,7 +9299,7 @@ def expected_registry_boundary_coverage(payload: dict[str, Any]) -> dict[str, An
 
 def main() -> int:
     args = parse_args()
-    validate_registry_source_checkout(args.registry_commit)
+    validate_registry_source_checkout(args.registry_commit, require_repository_root=bool(args.publication_profile))
     env_skip_startup_smoke = env_flag_is_true(
         os.environ.get("CHUMMER_MATERIALIZE_SKIP_STARTUP_SMOKE_FILTER")
     )
