@@ -23,6 +23,259 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any, Iterable
 
+
+# An explicit Registry publication policy, never inferred from available bytes.
+WINDOWS_PREVIEW_PROFILE = "windows_unsigned_preview_v1"
+WINDOWS_PREVIEW_ROUTES = ("/downloads", "/downloads/install/avalonia-win-x64-installer")
+WINDOWS_PREVIEW_DISCLOSURE = (
+    "Unsigned Windows-only preview. Manual Windows and SR6 qualification remains incomplete. "
+    "Linux, other desktop platforms, Hub journeys and broad localization acceptance are outside "
+    "this publication profile, not passed. Review required; no full-release support claim."
+)
+WINDOWS_PREVIEW_SCOPE = {
+    "requiredDesktopPlatforms": ["windows"],
+    "requiredDesktopHeads": ["avalonia"],
+    "requiredRuntimeIdentifiers": ["win-x64"],
+    "signingStatus": "unsigned",
+    "manualWindowsQualification": "incomplete",
+    "sr6Qualification": "incomplete",
+    "linux": "outside_profile",
+    "otherDesktopPlatforms": "outside_profile",
+    "hubJourneys": "outside_profile",
+    "broadLocalizationAcceptance": "outside_profile",
+}
+
+
+def publication_profile(payload: dict, source: str) -> str:
+    profile = payload.get("publicationProfile", "")
+    if profile not in ("", WINDOWS_PREVIEW_PROFILE):
+        raise SystemExit(f"{source} has an unknown publicationProfile")
+    if not profile and "publicationScope" in payload:
+        raise SystemExit(f"{source} publicationScope requires a named publicationProfile")
+    return profile
+
+
+def reject_windows_preview_mixed_modes(payload: dict, source: str) -> None:
+    for field in ("projectionProfile", "releaseProfile", "projectionStage", "codeDeployCurrentShelfAuthority",
+                  "codeDeploymentAuthority", "releaseUploadAuthority", "channelPromotionAuthority",
+                  "retainedIncumbentProvenance", "releaseDecisionStatus"):
+        if field in payload:
+            raise SystemExit(f"{source} Windows preview cannot mix publication modes: {field}")
+
+
+def verify_windows_preview_profile(payload: dict, source: str) -> bool:
+    if publication_profile(payload, source) != WINDOWS_PREVIEW_PROFILE:
+        return False
+    reject_windows_preview_mixed_modes(payload, source)
+    if (payload.get("channel") != "preview"
+            or payload.get("channelId", "preview") != "preview"
+            or payload.get("status") != "published"
+            or payload.get("rolloutState") != "public_release_review_required"
+            or payload.get("supportabilityState") != "review_required"
+            or payload.get("platformScope") != WINDOWS_ONLY_PLATFORM_SCOPE
+            or payload.get("publicationScope") != WINDOWS_PREVIEW_SCOPE
+            or payload.get("message") != WINDOWS_PREVIEW_DISCLOSURE
+            or payload.get("codeDeployCurrentShelfAuthority")
+            or payload.get("projectionStage") == CODE_DEPLOY_CURRENT_SHELF_PROJECTION_STAGE):
+        raise SystemExit(f"{source} Windows preview must preserve its scoped, unsigned review-required posture")
+    artifacts = list(iter_manifest_download_entries(payload))
+    if len(artifacts) != 1 or parse_manifest_tuple_fields(artifacts[0]) != (
+        "avalonia", "windows", "win-x64", "installer"
+    ):
+        raise SystemExit(f"{source} Windows preview requires exactly the Avalonia win-x64 installer")
+    artifact = artifacts[0]
+    registry_commit = resolve_alias_value(payload, primary_key="registry_commit", secondary_key="registryCommit",
+                                         field_path="registry_commit", source=source)
+    if not isinstance(registry_commit, str) or re.fullmatch(r"[0-9a-f]{40}", registry_commit) is None:
+        raise SystemExit(f"{source} Windows preview requires exact Registry source identity")
+    if (re.fullmatch(r"[0-9a-f]{64}", str(artifact.get("sha256") or "")) is None
+            or not parse_positive_int(artifact.get("sizeBytes"))):
+        raise SystemExit(f"{source} Windows preview requires exact Windows byte identity")
+    if windows_preview_artifact_is_revoked(artifact):
+        raise SystemExit(f"{source} Windows preview cannot publish a revoked installer")
+    for key in ("downloadUrl", "url", "payloadDownloadUrl"):
+        value = artifact.get(key)
+        if not value:
+            continue
+        try:
+            _, path = release_channel_materializer_module().parse_canonical_public_download_url(value, field_name=key)
+        except ValueError as exc:
+            raise SystemExit(f"{source} Windows preview download URL is not canonical: {key}") from exc
+        suffix = (r"files/chummer-avalonia-win-x64-payload\.zip" if key == "payloadDownloadUrl" else
+                  r"(?:files/chummer-avalonia-win-x64-installer\.exe|install/avalonia-win-x64-installer)")
+        match = re.fullmatch(r"/downloads/(?:g/(?P<generation>[a-zA-Z0-9._-]+)/)?" + suffix, path)
+        if not match or (match.group("generation") and match.group("generation") != payload.get("generationId")):
+            raise SystemExit(f"{source} Windows preview download URLs must match the selected public artifact and generation")
+    if "artifacts" in payload and "downloads" in payload:
+        raise SystemExit(f"{source} Windows preview cannot mix artifact projections")
+    proof = payload.get("releaseProof") or {}
+    if not isinstance(proof, dict):
+        raise SystemExit(f"{source} Windows preview requires scoped review proof")
+    if proof.get("ui_localization_release_gate") is not None:
+        raise SystemExit(f"{source} Windows preview cannot claim broad localization passed")
+    if (proof.get("status") != "review_required" or proof.get("journeysPassed") != []
+            or proof.get("uiLocalizationReleaseGate") is not None):
+        raise SystemExit(f"{source} Windows preview must not claim Hub journeys or broad localization passed")
+    return True
+
+
+def windows_preview_artifact_is_revoked(artifact: dict) -> bool:
+    return artifact.get("revoked") is True or any(
+        normalized_token(artifact.get(key)) == "revoked"
+        for key in ("status", "rolloutState", "rollout_state", "compatibilityState", "compatibility_state",
+                    "revokeState", "promotionState", "publicationState")
+    )
+
+
+# Public receipts are copied byte-for-byte by Hub. Extensions must be reviewed
+# here before they can enter that public surface; native/identity checks below
+# still decide whether the evidence is sufficient.
+WINDOWS_PREVIEW_PUBLIC_RECEIPT_FIELDS = {
+    name: str for name in (
+        "contractName", "status", "readyCheckpoint", "headId", "head", "platform", "rid", "arch",
+        "runtimeIdentifier", "artifactSha256",
+        "hostClass", "host_class", "host", "operatingSystem", "operating_system", "os",
+        "executionEnvironment", "verificationScope", "artifactId", "artifact_id", "artifact",
+        "artifactFileName", "artifact_file_name", "fileName", "file_name",
+        "artifactRelativePath", "artifact_relative_path", "artifactPath", "artifact_path",
+        "artifactDigest", "channelId", "channel", "version", "releaseVersion", "buildVersion",
+        "startedAtUtc", "recordedAtUtc", "completedAtUtc", "generatedAt", "generated_at",
+        "installerMode", "installer_mode", "payloadAcquisitionMode", "payload_acquisition_mode",
+        "payloadFileName", "payload_file_name", "payloadSha256", "payload_sha256", "payloadDownloadUrl",
+        "payload_download_url", "artifactInstallMode", "artifact_install_mode",
+        "bootstrapPayloadAcquisitionMode", "bootstrap_payload_acquisition_mode",
+        "bootstrapPayloadFileName", "bootstrap_payload_file_name",
+        "bootstrapPayloadSha256", "bootstrap_payload_sha256",
+        "bootstrapPayloadDownloadUrl", "bootstrap_payload_download_url",
+    )
+} | {"contractVersion": int, "payloadSizeBytes": int, "payload_size_bytes": int,
+     "bootstrapPayloadSizeBytes": int, "bootstrap_payload_size_bytes": int, "nativeHostEvidence": dict}
+WINDOWS_PREVIEW_PUBLIC_NATIVE_FIELDS = {
+    name: str for name in (
+        "contractName", "status", "hostPlatform", "hostKernel", "runner", "evidenceSource",
+    )
+} | {"isNativeWindows": bool}
+WINDOWS_PREVIEW_PUBLIC_SIDECAR_FIELDS = {
+    name: str for name in (
+        "contractName", "fileName", "downloadUrl", "sha256", "installerFileName",
+        "releaseVersion", "payloadAcquisitionMode",
+    )
+} | {"sizeBytes": int}
+
+
+def verify_windows_preview_metadata_fields(value: Any, fields: dict, source: str) -> None:
+    if (not isinstance(value, dict) or any(
+        key not in fields or type(item) is not fields[key] for key, item in value.items()
+    )):
+        # Do not echo untrusted field names or values into a publication log.
+        raise SystemExit(f"{source} Windows preview metadata has a non-public field or field type")
+
+
+def verify_windows_preview_public_receipt(receipt: Any, source: str) -> None:
+    verify_windows_preview_metadata_fields(receipt, WINDOWS_PREVIEW_PUBLIC_RECEIPT_FIELDS, source)
+    if "nativeHostEvidence" in receipt:
+        verify_windows_preview_metadata_fields(
+            receipt["nativeHostEvidence"], WINDOWS_PREVIEW_PUBLIC_NATIVE_FIELDS, source
+        )
+    verify_windows_preview_public_metadata(receipt, source)
+
+
+def verify_windows_preview_public_files(payload: dict, root: Path, source: str) -> None:
+    """Only the selected distributable and public-safe metadata enter this profile."""
+    if publication_profile(payload, source) != WINDOWS_PREVIEW_PROFILE:
+        return
+    if root.is_symlink():
+        raise SystemExit(f"{source} Windows preview public root must not be a symlink")
+    allowed = {
+        "RELEASE_CHANNEL.generated.json", "releases.json",
+        "files/chummer-avalonia-win-x64-installer.exe",
+        "files/chummer-avalonia-win-x64-payload.zip",
+        "files/chummer-avalonia-win-x64-payload.zip.json",
+        "startup-smoke/startup-smoke-avalonia-win-x64.receipt.json",
+    }
+    # Generation control metadata is produced by the existing shelf helper.
+    allowed.add("activation-candidate.json")
+    for path in root.rglob("*"):
+        if path.is_symlink():
+            raise SystemExit(f"{source} Windows preview public files must not contain symlinks")
+        if path.is_dir():
+            continue
+        relative = path.relative_to(root).as_posix()
+        if relative not in allowed:
+            raise SystemExit(f"{source} Windows preview contains an unselected public file: {relative}")
+        if path.suffix == ".json":
+            metadata = strict_json_loads(path.read_bytes(), source=source)
+            if relative.startswith("startup-smoke/"):
+                verify_windows_preview_public_receipt(metadata, source)
+            elif relative.endswith("-payload.zip.json"):
+                verify_windows_preview_metadata_fields(metadata, WINDOWS_PREVIEW_PUBLIC_SIDECAR_FIELDS, source)
+            verify_windows_preview_public_metadata(metadata, source)
+
+
+def windows_preview_private_field(key: str) -> bool:
+    # Normalize case, Unicode compatibility characters and separators so nested
+    # API_KEY, Api-Key and authorization/header variants have the same policy.
+    token = re.sub(r"[^a-z0-9]", "", unicodedata.normalize("NFKC", key).casefold())
+    return any(private in token for private in (
+        "password", "secret", "credential", "token", "privatekey", "apikey",
+        "authorization", "cookie",
+    ))
+
+
+def verify_windows_preview_public_string(value: str, source: str) -> None:
+    def reject() -> None:
+        raise SystemExit(f"{source} Windows preview metadata contains a local/private path or credential")
+
+    value = unicodedata.normalize("NFKC", value)
+    if re.search(r"file:|\b[a-z]:[\\/]|\\|-----BEGIN .*PRIVATE KEY", value, re.I):
+        reject()
+
+    # A real public URL path is not a filesystem path. Credentials, signed query
+    # strings and fragments are not part of this public metadata contract.
+    def public_url(match: re.Match) -> str:
+        try:
+            url = urllib.parse.urlsplit(match.group())
+            if (not url.hostname or url.username is not None or url.password is not None
+                    or url.query or url.fragment):
+                reject()
+        except ValueError:
+            reject()
+        return ""
+
+    value = re.sub(r"https?://[^\s<>\"']+", public_url, value, flags=re.I)
+    # No filesystem-root blacklist: every absolute path must instead be a
+    # canonical public download route. Encoded paths are checked as well.
+    decoded = urllib.parse.unquote(value)
+    for match in re.finditer(r"(?<![\w./])(?:/|~/)[^\s<>\"']*", decoded):
+        path = match.group()
+        if path == "/downloads":
+            continue
+        try:
+            release_channel_materializer_module().parse_canonical_public_download_url(
+                path, field_name="public metadata path"
+            )
+        except ValueError:
+            reject()
+    if re.search(r"file:|\b[a-z]:[\\/]|\\", decoded, re.I):
+        reject()
+
+
+def verify_windows_preview_public_metadata(value: Any, source: str) -> None:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if windows_preview_private_field(key):
+                raise SystemExit(f"{source} Windows preview metadata contains a private field")
+            verify_windows_preview_public_string(key, source)
+            if key == "nativeHostEvidence":
+                verify_windows_preview_metadata_fields(item, WINDOWS_PREVIEW_PUBLIC_NATIVE_FIELDS, source)
+            verify_windows_preview_public_metadata(item, source)
+    elif isinstance(value, list):
+        for item in value:
+            verify_windows_preview_public_metadata(item, source)
+    elif isinstance(value, str):
+        verify_windows_preview_public_string(value, source)
+
+
 PUBLIC_DESKTOP_ARTIFACT_RE = re.compile(
     r"^chummer-(avalonia|blazor-desktop)-.+\.(exe|zip|tar\.gz|deb|dmg|pkg|msix)$",
     re.IGNORECASE,
@@ -1234,10 +1487,23 @@ def verify_directory_projection_alignment(raw_target: str) -> None:
         if compat_path.is_file()
         else None
     )
+    windows_preview_projection = any(isinstance(row, dict) and publication_profile(row, str(root))
+                                     for row in (release_payload, compat_payload))
     global_flagship_projection = any(
         isinstance(payload, dict) and is_global_flagship_contract(payload)
         for payload in (release_payload, compat_payload)
     )
+    if windows_preview_projection:
+        if not isinstance(release_payload, dict) or not isinstance(compat_payload, dict):
+            raise SystemExit(f"{root} Windows preview requires both manifest projections")
+        verify_windows_preview_profile(release_payload, str(release_path))
+        verify_windows_preview_profile(compat_payload, str(compat_path))
+        materializer = release_channel_materializer_module()
+        expected_compatibility = materializer.compatibility_payload(release_payload)
+        expected_compatibility["publicTrustMetrics"] = materializer.expected_public_trust_metrics(expected_compatibility)
+        expected_compatibility["registryBoundaryCoverage"] = materializer.expected_registry_boundary_coverage(expected_compatibility)
+        if compat_payload != expected_compatibility:
+            raise SystemExit(f"{root} Windows preview manifest pair disagrees with exact canonical compatibility projection")
     if global_flagship_projection:
         if not isinstance(release_payload, dict) or not isinstance(compat_payload, dict):
             raise SystemExit(
@@ -1384,7 +1650,13 @@ def normalize_release_proof_route(raw_route: object, *, field_path: str, source:
     return canonical_route
 
 
-def validate_release_proof_route_set(routes: list[str], *, source: str) -> list[str]:
+def validate_release_proof_route_set(routes: list[str], *, source: str, publication_profile: str = "") -> list[str]:
+    if publication_profile and publication_profile != WINDOWS_PREVIEW_PROFILE:
+        raise SystemExit(f"{source} has an unknown publication profile")
+    if publication_profile == WINDOWS_PREVIEW_PROFILE:
+        if routes != list(WINDOWS_PREVIEW_ROUTES):
+            raise SystemExit(f"{source} Windows preview proofRoutes must name only the scoped Windows download routes")
+        return routes
     missing_required_proof_routes = sorted(
         route
         for route in REQUIRED_RELEASE_PROOF_ROUTES
@@ -8017,6 +8289,15 @@ def verify_local_download_files(
     skip_startup_smoke_filter: bool = False,
     allow_skipped_startup_smoke: bool = False,
 ) -> None:
+    if publication_profile(payload, source):
+        if root is None:
+            raise SystemExit("Windows preview requires local Windows bytes and native evidence")
+        if skip_startup_smoke_filter or allow_skipped_startup_smoke:
+            raise SystemExit("Windows preview does not permit skipped startup evidence")
+        if not (root / "files").is_dir():
+            raise SystemExit("Windows preview requires local Windows bytes")
+        verify_directory_projection_alignment(str(root))
+        verify_windows_preview_public_files(payload, root, source)
     if root is None:
         return
 
@@ -8333,6 +8614,8 @@ def verify_local_startup_smoke_receipts(
         raise SystemExit(
             f"{source} global flagship forbids skipped startup-smoke authority"
         )
+    if publication_profile(payload, source) and (skip_startup_smoke_filter or allow_skipped_startup_smoke):
+        raise SystemExit("Windows preview does not permit skipped startup evidence")
     promoted_tuples = list(iter_promoted_desktop_installer_tuples(payload))
     if not promoted_tuples:
         return
@@ -8415,6 +8698,8 @@ def verify_local_startup_smoke_receipts(
             ) from exc
         if not isinstance(receipt, dict):
             raise SystemExit(f"{source} startup-smoke receipt is not an object: {receipt_path}")
+        if publication_profile(payload, source) == WINDOWS_PREVIEW_PROFILE:
+            verify_windows_preview_public_receipt(receipt, source)
         if (
             is_global_flagship_contract(payload)
             and not startup_smoke_receipt_matches_release_version(
@@ -8482,6 +8767,13 @@ def verify_local_startup_smoke_receipts(
         exact_native_windows = (
             materializer.startup_smoke_has_exact_native_windows_evidence(receipt)
         )
+        if publication_profile(payload, source):
+            if not exact_native_windows or wine_compatibility_declared:
+                raise SystemExit(f"{source} Windows preview requires exact native Windows host evidence")
+            receipt_version = resolve_alias_value(receipt, primary_key="version", secondary_key="releaseVersion",
+                                                  field_path="startup-smoke.version", source=source)
+            if receipt_version != payload_version:
+                raise SystemExit(f"{source} Windows preview startup evidence must match the exact release version")
         if wine_compatibility_declared and not exact_wine_compatibility:
             raise SystemExit(
                 f"{source} startup-smoke receipt for promoted desktop installer tuple "
@@ -8674,7 +8966,7 @@ def verify_local_startup_smoke_receipts(
                 )
             age_seconds = 0
         if age_seconds > max_age_seconds and not skip_startup_smoke_filter:
-            if not startup_smoke_receipt_matches_release_version(receipt, payload_version):
+            if publication_profile(payload, source) or not startup_smoke_receipt_matches_release_version(receipt, payload_version):
                 raise SystemExit(
                     f"{source} startup-smoke receipt is stale for promoted desktop installer tuple {head}:{platform}:{rid} "
                     f"({age_seconds}s old; max {max_age_seconds}s)"
@@ -8688,6 +8980,11 @@ def verify_artifacts(
     require_complete_desktop_coverage: bool = False,
     skip_startup_smoke_filter: bool = False,
 ) -> dict[str, list[str]] | None:
+    if publication_profile(payload, source):
+        verify_windows_preview_profile(payload, source)
+        if skip_startup_smoke_filter:
+            raise SystemExit("Windows preview does not permit skipped startup evidence")
+        require_complete_desktop_coverage = True
     if is_global_flagship_contract(payload) and skip_startup_smoke_filter:
         raise SystemExit(
             f"{source} global flagship forbids the startup-smoke freshness bypass"
@@ -8809,6 +9106,8 @@ def verify_artifacts(
 
 
 def verify_release_truth(payload: dict, source: str) -> None:
+    windows_preview = verify_windows_preview_profile(payload, source)
+    required_journeys = () if windows_preview else REQUIRED_RELEASE_PROOF_JOURNEYS
     code_deploy_current_shelf = verify_code_deploy_current_shelf_authority(payload, source)
     rollout_state = payload.get("rolloutState")
     if rollout_state not in (None, "") and not isinstance(rollout_state, str):
@@ -8910,7 +9209,7 @@ def verify_release_truth(payload: dict, source: str) -> None:
     )
     if not isinstance(journeys_passed, list):
         raise SystemExit(f"releaseProof.journeysPassed must be a list in {source}")
-    if not journeys_passed:
+    if not journeys_passed and not windows_preview:
         raise SystemExit(f"releaseProof.journeysPassed must include at least one journey in {source}")
     normalized_journeys: list[str] = []
     for index, raw_journey in enumerate(journeys_passed):
@@ -8941,7 +9240,7 @@ def verify_release_truth(payload: dict, source: str) -> None:
         )
     missing_required_journeys = sorted(
         journey
-        for journey in REQUIRED_RELEASE_PROOF_JOURNEYS
+        for journey in required_journeys
         if journey not in normalized_journeys
     )
     if missing_required_journeys:
@@ -8952,14 +9251,14 @@ def verify_release_truth(payload: dict, source: str) -> None:
     unexpected_journeys = sorted(
         journey
         for journey in normalized_journeys
-        if journey not in REQUIRED_RELEASE_PROOF_JOURNEYS
+        if journey not in required_journeys
     )
     if unexpected_journeys:
         raise SystemExit(
             "releaseProof.journeysPassed declares unexpected baseline journey ids "
             f"({', '.join(unexpected_journeys)}) in {source}"
         )
-    required_journey_order = list(REQUIRED_RELEASE_PROOF_JOURNEYS)
+    required_journey_order = list(required_journeys)
     if normalized_journeys != required_journey_order:
         raise SystemExit(
             "releaseProof.journeysPassed must preserve canonical baseline journey ordering "
@@ -8996,7 +9295,12 @@ def verify_release_truth(payload: dict, source: str) -> None:
     normalized_proof_routes = validate_release_proof_route_set(
         normalized_proof_routes,
         source=source,
+        publication_profile=WINDOWS_PREVIEW_PROFILE if windows_preview else "",
     )
+
+    if windows_preview:
+        verify_windows_preview_public_metadata(payload, source)
+        return
 
     ui_localization_release_gate = resolve_alias_value(
         proof,
@@ -10803,6 +11107,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "target",
         help="Manifest path/URL or downloads root directory.",
     )
+    parser.add_argument("--publication-profile", choices=("", WINDOWS_PREVIEW_PROFILE), default="")
     parser.add_argument(
         "--require-complete-desktop-coverage",
         action="store_true",
@@ -10847,6 +11152,14 @@ def main() -> int:
     payload, source, local_root = load_payload(target)
     if not isinstance(payload, dict):
         raise SystemExit(f"manifest must be a JSON object: {source}")
+    profile = publication_profile(payload, source)
+    if args.publication_profile and profile != args.publication_profile:
+        raise SystemExit("Manifest publicationProfile does not match the requested policy")
+    if profile:
+        verify_windows_preview_profile(payload, source)
+        if skip_startup_smoke_filter or allow_skipped_startup_smoke:
+            raise SystemExit("Windows preview does not permit skipped startup evidence")
+        require_complete_desktop_coverage = True
     verify_generated_timestamp(payload, source)
     verify_contract_identity(payload, source)
     is_v4_desktop_delivery = (
