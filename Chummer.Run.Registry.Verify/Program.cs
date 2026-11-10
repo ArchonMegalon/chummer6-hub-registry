@@ -21,6 +21,12 @@ using System.Text.Json.Nodes;
 using RegistryReleaseChannelHeadProjection = Chummer.Hub.Registry.Contracts.ReleaseChannelHeadProjection;
 using RegistryOwner = Chummer.Hub.Registry.Contracts;
 
+if (args.Contains("--audit-registry", StringComparer.Ordinal))
+{
+    await RegistryAuditHttpChecks.RunAsync();
+    return;
+}
+
 HubArtifactStore store = new();
 var releaseManifestRoot = Path.Combine(Path.GetTempPath(), "registry-release-channel", Guid.NewGuid().ToString("N"));
 Directory.CreateDirectory(releaseManifestRoot);
@@ -452,7 +458,7 @@ VerifyPublicReviewByteHandoffContract();
 PublicationWorkflowService workflow = new(store);
 HubPublicationDraftService draftWorkflow = new();
 HubRegistryController registryController = CreateController(new HubRegistryController(store, releaseChannelStore, workflow, config));
-PublicationsController publicationsController = CreateController(new PublicationsController(workflow));
+PublicationsController publicationsController = CreateController(new PublicationsController(workflow, store));
 HubPublicationDraftsController draftController = CreateController(new HubPublicationDraftsController(draftWorkflow));
 
 var registryStateRoot = Path.Combine(Path.GetTempPath(), "registry-artifact-store", Guid.NewGuid().ToString("N"));
@@ -1167,7 +1173,14 @@ static TController CreateController<TController>(TController controller)
 {
     controller.ControllerContext = new ControllerContext
     {
-        HttpContext = new DefaultHttpContext()
+        HttpContext = new DefaultHttpContext
+        {
+            // These controller-level checks exercise the owner's shelf and workflow.
+            // Anonymous and wrong-owner behavior is covered by --audit-registry over HTTP.
+            User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(
+                new[] { new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, "ops.registry") },
+                "owner-fixture"))
+        }
     };
     return controller;
 }

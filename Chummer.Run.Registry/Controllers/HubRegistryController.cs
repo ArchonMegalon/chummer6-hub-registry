@@ -68,13 +68,13 @@ public sealed class HubRegistryController : ControllerBase
         }
 
         var response = new RegistrySearchResponse(
-            Items: _artifactStore.Search(query, parsedKind, parsedState, page, pageSize, parsedShelfAudience)
+            Items: _artifactStore.Search(query, parsedKind, parsedState, page, pageSize, parsedShelfAudience, CanReadArtifact)
                 .Select(ToSearchItem)
                 .Select(DecoratePublicationPosture)
                 .ToList(),
             Page: page,
             PageSize: pageSize,
-            TotalCount: _artifactStore.SearchCount(query, parsedKind, parsedState, parsedShelfAudience));
+            TotalCount: _artifactStore.SearchCount(query, parsedKind, parsedState, parsedShelfAudience, CanReadArtifact));
 
         return Ok(response);
     }
@@ -258,7 +258,7 @@ public sealed class HubRegistryController : ControllerBase
         }
 
         var artifact = _artifactStore.GetArtifact(id);
-        if (artifact is null)
+        if (artifact is null || !CanReadArtifact(artifact))
         {
             return NotFound();
         }
@@ -274,6 +274,11 @@ public sealed class HubRegistryController : ControllerBase
         if (string.IsNullOrWhiteSpace(artifactId))
         {
             return BadRequest("artifactId is required.");
+        }
+
+        if (!CanReadArtifact(_artifactStore.GetArtifact(artifactId)))
+        {
+            return NotFound();
         }
 
         var artifact = _artifactStore.GetRuntimeBundleArtifact(artifactId);
@@ -301,7 +306,11 @@ public sealed class HubRegistryController : ControllerBase
             return BadRequest("sceneId is required.");
         }
 
-        return Ok(_artifactStore.GetRuntimeBundleHeads(sessionId, sceneId));
+        var heads = _artifactStore.GetRuntimeBundleHeads(sessionId, sceneId);
+        return Ok(heads with
+        {
+            Heads = heads.Heads.Where(head => CanReadArtifact(_artifactStore.GetArtifact(head.CurrentArtifactId))).ToArray()
+        });
     }
 
     [HttpGet("runtime-bundles/heads/{sessionId}/{sceneId}/{head}")]
@@ -323,7 +332,7 @@ public sealed class HubRegistryController : ControllerBase
         }
 
         var projection = _artifactStore.GetRuntimeBundleHead(sessionId, sceneId, head);
-        if (projection is null)
+        if (projection is null || !CanReadArtifact(_artifactStore.GetArtifact(projection.CurrentArtifactId)))
         {
             return NotFound();
         }
@@ -344,7 +353,7 @@ public sealed class HubRegistryController : ControllerBase
         }
 
         var metadata = _artifactStore.GetArtifact(id);
-        if (metadata is null)
+        if (metadata is null || !CanReadArtifact(metadata))
         {
             return NotFound();
         }
@@ -407,12 +416,12 @@ public sealed class HubRegistryController : ControllerBase
         }
 
         return Ok(new RegistryProjectionListResponse(
-            Items: _artifactStore.SearchProjections(query, parsedKind, parsedState, page, pageSize, parsedShelfAudience)
+            Items: _artifactStore.SearchProjections(query, parsedKind, parsedState, page, pageSize, parsedShelfAudience, CanReadArtifact)
                 .Select(DecoratePublicationPosture)
                 .ToArray(),
             Page: page,
             PageSize: pageSize,
-            TotalCount: _artifactStore.SearchProjectionCount(query, parsedKind, parsedState, parsedShelfAudience)));
+            TotalCount: _artifactStore.SearchProjectionCount(query, parsedKind, parsedState, parsedShelfAudience, CanReadArtifact)));
     }
 
     [HttpGet("projections/pipelines")]
@@ -435,6 +444,11 @@ public sealed class HubRegistryController : ControllerBase
             return BadRequest("id is required.");
         }
 
+        if (!CanReadArtifact(_artifactStore.GetArtifact(id)))
+        {
+            return NotFound();
+        }
+
         var projection = _artifactStore.GetProjection(id);
         if (projection is null)
         {
@@ -453,6 +467,11 @@ public sealed class HubRegistryController : ControllerBase
         if (string.IsNullOrWhiteSpace(id))
         {
             return BadRequest("id is required.");
+        }
+
+        if (!CanReadArtifact(_artifactStore.GetArtifact(id)))
+        {
+            return NotFound();
         }
 
         var projection = _artifactStore.GetInstallProjection(id);
@@ -521,6 +540,7 @@ public sealed class HubRegistryController : ControllerBase
         }
 
         var items = _artifactStore.ListByState(parsedState)
+            .Where(CanReadArtifact)
             .Select(ToSearchItem)
             .ToList();
 
@@ -608,7 +628,7 @@ public sealed class HubRegistryController : ControllerBase
     public ActionResult<HubReviewListResponse> GetReviews([FromRoute] string id)
     {
         var artifact = _artifactStore.GetArtifact(id);
-        if (artifact is null)
+        if (artifact is null || !CanReadArtifact(artifact))
         {
             return NotFound();
         }
@@ -619,6 +639,9 @@ public sealed class HubRegistryController : ControllerBase
             ReviewCount: artifact.ReviewCount,
             Reviews: Array.Empty<HubReviewResponse>()));
     }
+
+    private bool CanReadArtifact(HubArtifactMetadata? artifact) =>
+        RegistryReadAccess.CanRead(artifact, HttpContext?.User);
 
     private static bool TryParseKind(string? value, out HubArtifactKind? kind, out string? error)
     {
@@ -774,7 +797,7 @@ public sealed class HubRegistryController : ControllerBase
         }
 
         var publication = _publicationWorkflow.GetLatestForArtifact(projection.Id);
-        if (publication is null)
+        if (publication is null || !RegistryReadAccess.CanReadPublication(publication, _artifactStore.GetArtifact(projection.Id), HttpContext?.User))
         {
             return projection;
         }
@@ -806,7 +829,7 @@ public sealed class HubRegistryController : ControllerBase
         }
 
         var publication = _publicationWorkflow.GetLatestForArtifact(item.Id);
-        if (publication is null)
+        if (publication is null || !RegistryReadAccess.CanReadPublication(publication, _artifactStore.GetArtifact(item.Id), HttpContext?.User))
         {
             return item;
         }
@@ -838,7 +861,7 @@ public sealed class HubRegistryController : ControllerBase
         }
 
         var publication = _publicationWorkflow.GetLatestForArtifact(preview.Id);
-        if (publication is null)
+        if (publication is null || !RegistryReadAccess.CanReadPublication(publication, _artifactStore.GetArtifact(preview.Id), HttpContext?.User))
         {
             return preview;
         }
