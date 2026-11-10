@@ -50,3 +50,5 @@ jobs:
         run: |
           dotnet build Chummer.Hub.Registry.slnx --configuration Release --nologo
           dotnet run --project Chummer.Run.Registry.Verify/Chummer.Run.Registry.Verify.csproj --configuration Release --no-build
+          dotnet run --project Chummer.Run.Registry.Verify/Chummer.Run.Registry.Verify.csproj --configuration Release --no-build -- --audit-registry
+          dotnet run --project Chummer.Run.Registry.Verify/Chummer.Run.Registry.Verify.csproj --configuration Release --no-build -- --audit-registry-durability
