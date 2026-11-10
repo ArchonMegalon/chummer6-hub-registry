@@ -2904,7 +2904,10 @@ static void VerifyRegistryAuthorizationSurface()
            && programSource.Contains("\"/health\"", StringComparison.Ordinal)
            && programSource.Contains(".AllowAnonymous();", StringComparison.Ordinal),
         "Registry startup must expose an anonymous non-mutating container health endpoint.");
-    Assert(programSource.Contains("AddSingleton<IHubArtifactStore, FileBackedHubArtifactStore>()", StringComparison.Ordinal), "Registry startup must use the durable artifact store, not the raw in-memory store.");
+    string durableStateSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "Chummer.Run.Registry", "Services", "RegistryStateStore.cs"));
+    Assert(programSource.Contains("builder.Services.AddRegistryDurableState();", StringComparison.Ordinal)
+           && durableStateSource.Contains("services.AddSingleton<IHubArtifactStore>(sp => new FileBackedHubArtifactStore(sp.GetRequiredService<RegistryStateStore>()))", StringComparison.Ordinal),
+        "Registry startup must use the shared durable state registration and its file-backed artifact participant.");
     string authorityStoreSource = File.ReadAllText(Path.Combine(FindRepositoryRoot(), "Chummer.Run.Registry", "Services", "ReleaseAuthoritySnapshotStore.cs"));
     Assert(authorityStoreSource.Contains("byte[] canonical = CanonicalJsonBytes(document.RootElement);", StringComparison.Ordinal),
         "Registry runtime CURRENT/SNAPSHOT writes must use the same sorted canonical JSON bytes as the offline authority tools.");
