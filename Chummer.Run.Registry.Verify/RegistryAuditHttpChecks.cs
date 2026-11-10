@@ -20,13 +20,9 @@ internal static class RegistryAuditHttpChecks
     private sealed record PublicationSnapshot(string PublicationId, int Version, string ConcurrencyToken,
         IReadOnlyList<JsonElement> Events, IReadOnlyList<JsonElement> ApprovalAuditTrail);
 
-    public static async Task RunAsync()
+    internal static async Task<IHost> StartHostAsync(string stateRoot, string controlKey)
     {
-        string stateRoot = Path.Combine(Path.GetTempPath(), "registry-audit-http", Guid.NewGuid().ToString("N"));
-        string controlKey = Guid.NewGuid().ToString("N");
-        try
-        {
-            using IHost host = await new HostBuilder().ConfigureWebHost(web =>
+        IHost host = await new HostBuilder().ConfigureWebHost(web =>
             {
                 web.UseTestServer();
                 web.ConfigureAppConfiguration(config => config.AddInMemoryCollection(new Dictionary<string, string?>
@@ -38,9 +34,7 @@ internal static class RegistryAuditHttpChecks
                 {
                     services.AddProblemDetails();
                     services.AddControllers().AddApplicationPart(typeof(HubRegistryController).Assembly);
-                    services.AddSingleton<IHubArtifactStore, FileBackedHubArtifactStore>();
-                    services.AddSingleton<IPublicationWorkflowService, PublicationWorkflowService>();
-                    services.AddSingleton<IHubPublicationDraftService, HubPublicationDraftService>();
+                    services.AddRegistryDurableState();
                     services.AddSingleton<IReleaseChannelManifestStore, FileReleaseChannelManifestStore>();
                     services.AddAuthentication(RegistryAuthorization.Scheme)
                         .AddScheme<AuthenticationSchemeOptions, RegistryControlApiKeyAuthenticationHandler>(RegistryAuthorization.Scheme, _ => { });
@@ -62,6 +56,23 @@ internal static class RegistryAuditHttpChecks
                     app.UseEndpoints(endpoints => endpoints.MapControllers());
                 });
             }).StartAsync();
+        try
+        {
+            host.Services.GetRequiredService<IHubArtifactStore>();
+            host.Services.GetRequiredService<IHubPublicationDraftService>();
+            host.Services.GetRequiredService<IPublicationWorkflowService>();
+            return host;
+        }
+        catch { host.Dispose(); throw; }
+    }
+
+    public static async Task RunAsync()
+    {
+        string stateRoot = Path.Combine(Path.GetTempPath(), "registry-audit-http", Guid.NewGuid().ToString("N"));
+        string controlKey = Guid.NewGuid().ToString("N");
+        try
+        {
+            using IHost host = await StartHostAsync(stateRoot, controlKey);
 
             using HttpClient anonymous = host.GetTestClient();
             using HttpClient control = host.GetTestClient();
@@ -144,7 +155,7 @@ internal static class RegistryAuditHttpChecks
                 await Status(response, HttpStatusCode.NotFound, "runtime head");
 
             await VerifyPublicationBinding(control, anonymous, publicArtifacts, hidden, owned);
-            Console.WriteLine($"Registry focused HTTP checks passed: {_checks} assertions. Durability/restart/interrupted-write checks not executed.");
+            Console.WriteLine($"Registry focused HTTP checks passed: {_checks} assertions. This mode covers authorization and validation; durability has a separate focused mode.");
         }
         finally
         {

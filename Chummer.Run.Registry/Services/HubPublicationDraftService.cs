@@ -1,5 +1,6 @@
 using Chummer.Hub.Registry.Contracts;
 using System.Collections.Concurrent;
+using System.Text.Json.Serialization;
 
 namespace Chummer.Run.Registry.Services;
 
@@ -22,30 +23,40 @@ public interface IHubPublicationDraftService
 
 public sealed class HubPublicationDraftService : IHubPublicationDraftService
 {
-    private sealed class DraftStateRow
+    internal sealed class DraftStateRow
     {
         public required string DraftId { get; init; }
         public required string ProjectKind { get; set; }
         public required string ProjectId { get; set; }
         public required string RulesetId { get; set; }
         public required string Title { get; set; }
+        [JsonRequired]
         public string? Summary { get; set; }
+        [JsonRequired]
         public string? Description { get; set; }
         public required string OwnerId { get; init; }
+        [JsonRequired]
         public string? PublisherId { get; set; }
         public required string State { get; set; }
         public required string ReviewState { get; set; }
         public required DateTimeOffset CreatedAtUtc { get; init; }
+        [JsonRequired]
         public DateTimeOffset UpdatedAtUtc { get; set; }
+        [JsonRequired]
         public DateTimeOffset? SubmittedAtUtc { get; set; }
+        [JsonRequired]
         public DateTimeOffset? PublishedAtUtc { get; set; }
+        [JsonRequired]
         public string Visibility { get; set; } = ArtifactVisibilityModes.CampaignShared;
+        [JsonRequired]
         public string? LatestModerationNotes { get; set; }
+        [JsonRequired]
         public DateTimeOffset? LatestModerationUpdatedAtUtc { get; set; }
-        public List<string> ModerationCaseIds { get; } = new();
+        [JsonRequired]
+        public List<string> ModerationCaseIds { get; set; } = new();
     }
 
-    private sealed class ModerationCaseStateRow
+    internal sealed class ModerationCaseStateRow
     {
         public required string CaseId { get; init; }
         public required string DraftId { get; init; }
@@ -54,11 +65,15 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
         public required string RulesetId { get; init; }
         public required string Title { get; init; }
         public required string OwnerId { get; init; }
+        [JsonRequired]
         public string? PublisherId { get; set; }
         public required string State { get; set; }
         public required DateTimeOffset CreatedAtUtc { get; init; }
+        [JsonRequired]
         public DateTimeOffset UpdatedAtUtc { get; set; }
+        [JsonRequired]
         public string? Summary { get; init; }
+        [JsonRequired]
         public string? Notes { get; set; }
     }
 
@@ -66,7 +81,104 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
     private readonly ConcurrentDictionary<string, ModerationCaseStateRow> _cases = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _sync = new();
 
-    public HubPublishDraftList ListDrafts(string? ownerId = null, string? state = null, string? projectId = null)
+    public HubPublishDraftList ListDrafts(string? ownerId = null, string? state = null, string? projectId = null) =>
+        _state.Read(() => ListDraftsCore(ownerId, state, projectId));
+
+    public HubPublishDraftReceipt? GetDraft(string draftId) =>
+        _state.Read(() => GetDraftCore(draftId));
+
+    public HubDraftDetailProjection? GetDraftDetail(string draftId) =>
+        _state.Read(() => GetDraftDetailCore(draftId));
+
+    public HubPublishDraftReceipt CreateDraft(HubPublishDraftRequest request, string ownerId, string? preferredDraftId = null) =>
+        _state.Mutate(() => CreateDraftCore(request, ownerId, preferredDraftId));
+
+    public HubPublishDraftReceipt UpdateDraft(string draftId, string ownerId, HubUpdateDraftRequest request) =>
+        _state.Mutate(() => UpdateDraftCore(draftId, ownerId, request));
+
+    public HubPublishDraftReceipt ArchiveDraft(string draftId, string ownerId) =>
+        _state.Mutate(() => ArchiveDraftCore(draftId, ownerId));
+
+    public bool DeleteDraft(string draftId, string ownerId) =>
+        _state.Mutate(() => DeleteDraftCore(draftId, ownerId));
+
+    public HubProjectSubmissionReceipt SubmitProject(string draftId, string ownerId, HubSubmitProjectRequest request) =>
+        _state.Mutate(() => SubmitProjectCore(draftId, ownerId, request));
+
+    public HubPublicationReceipt PublishProject(string draftId, string actorId, HubPublishProjectRequest request) =>
+        _state.Mutate(() => PublishProjectCore(draftId, actorId, request));
+
+    public HubModerationQueue ListModerationQueue(string? ownerId = null, string? publisherId = null, string? state = null) =>
+        _state.Read(() => ListModerationQueueCore(ownerId, publisherId, state));
+
+    public HubModerationDecisionReceipt ApproveModerationCase(string caseId, string actorId, HubModerationDecisionRequest request) =>
+        _state.Mutate(() => ApproveModerationCaseCore(caseId, actorId, request));
+
+    public HubModerationDecisionReceipt RejectModerationCase(string caseId, string actorId, HubModerationDecisionRequest request) =>
+        _state.Mutate(() => RejectModerationCaseCore(caseId, actorId, request));
+
+    public HubPublicationReceipt? GetPublicationReceipt(string draftId) =>
+        _state.Read(() => GetPublicationReceiptCore(draftId));
+
+    internal sealed record Snapshot(DraftStateRow[] Drafts, ModerationCaseStateRow[] Cases);
+    private readonly RegistryStateStore _state;
+
+    public HubPublicationDraftService() : this(new RegistryStateStore()) { }
+    public HubPublicationDraftService(RegistryStateStore state)
+    {
+        _state = state;
+        state.Register(this);
+    }
+
+    internal Snapshot ExportState() => new(
+        _drafts.Values.OrderBy(row => row.DraftId, StringComparer.Ordinal).ToArray(),
+        _cases.Values.OrderBy(row => row.CaseId, StringComparer.Ordinal).ToArray());
+
+    internal void RestoreState(Snapshot snapshot)
+    {
+        ValidateState(snapshot);
+        _drafts.Clear();
+        _cases.Clear();
+        foreach (var row in snapshot.Drafts) _drafts.AddOrUpdate(row.DraftId, row, (_, _) => row);
+        foreach (var row in snapshot.Cases) _cases.AddOrUpdate(row.CaseId, row, (_, _) => row);
+    }
+
+    internal static void ValidateState(Snapshot snapshot)
+    {
+        if (snapshot is null || snapshot.Drafts is null || snapshot.Cases is null)
+            throw new InvalidDataException("Missing Registry draft state.");
+        var drafts = new Dictionary<string, DraftStateRow>(StringComparer.OrdinalIgnoreCase);
+        var cases = new Dictionary<string, ModerationCaseStateRow>(StringComparer.OrdinalIgnoreCase);
+        foreach (var row in snapshot.Drafts)
+        {
+            if (row is null || string.IsNullOrWhiteSpace(row.DraftId) || string.IsNullOrWhiteSpace(row.OwnerId) ||
+                string.IsNullOrWhiteSpace(row.ProjectKind) || string.IsNullOrWhiteSpace(row.ProjectId) ||
+                string.IsNullOrWhiteSpace(row.RulesetId) || string.IsNullOrWhiteSpace(row.Title) ||
+                row.CreatedAtUtc == default || row.UpdatedAtUtc == default || row.ModerationCaseIds is null ||
+                row.State is not (HubPublicationStates.Draft or HubPublicationStates.Submitted or HubPublicationStates.Published or HubPublicationStates.Archived or HubPublicationStates.PendingReview) ||
+                row.ReviewState is not (HubReviewStates.NotRequired or HubReviewStates.PendingReview or HubReviewStates.Approved or HubReviewStates.Rejected) ||
+                !drafts.TryAdd(row.DraftId, row))
+                throw new InvalidDataException("Invalid Registry draft row.");
+        }
+        foreach (var row in snapshot.Cases)
+        {
+            if (row is null || string.IsNullOrWhiteSpace(row.CaseId) || string.IsNullOrWhiteSpace(row.DraftId) ||
+                row.CreatedAtUtc == default || row.UpdatedAtUtc == default ||
+                row.State is not (HubModerationStates.PendingReview or HubModerationStates.Approved or HubModerationStates.Rejected) ||
+                !cases.TryAdd(row.CaseId, row) || !drafts.TryGetValue(row.DraftId, out var draft) ||
+                row.OwnerId != draft.OwnerId || !draft.ModerationCaseIds.Contains(row.CaseId, StringComparer.OrdinalIgnoreCase))
+                throw new InvalidDataException("Invalid Registry moderation linkage.");
+        }
+        foreach (var row in snapshot.Drafts)
+        {
+            if (row.ModerationCaseIds.Distinct(StringComparer.OrdinalIgnoreCase).Count() != row.ModerationCaseIds.Count ||
+                row.ModerationCaseIds.Any(id => string.IsNullOrWhiteSpace(id) || !cases.TryGetValue(id, out var entry) ||
+                    !string.Equals(entry.DraftId, row.DraftId, StringComparison.OrdinalIgnoreCase)))
+                throw new InvalidDataException("Invalid Registry draft moderation order.");
+        }
+    }
+
+    private HubPublishDraftList ListDraftsCore(string? ownerId = null, string? state = null, string? projectId = null)
     {
         lock (_sync)
         {
@@ -82,7 +194,7 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
         }
     }
 
-    public HubPublishDraftReceipt? GetDraft(string draftId)
+    private HubPublishDraftReceipt? GetDraftCore(string draftId)
     {
         lock (_sync)
         {
@@ -90,7 +202,7 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
         }
     }
 
-    public HubDraftDetailProjection? GetDraftDetail(string draftId)
+    private HubDraftDetailProjection? GetDraftDetailCore(string draftId)
     {
         lock (_sync)
         {
@@ -109,7 +221,7 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
         }
     }
 
-    public HubPublishDraftReceipt CreateDraft(HubPublishDraftRequest request, string ownerId, string? preferredDraftId = null)
+    private HubPublishDraftReceipt CreateDraftCore(HubPublishDraftRequest request, string ownerId, string? preferredDraftId = null)
     {
         ArgumentNullException.ThrowIfNull(request);
         ownerId = NormalizeRequired(ownerId, nameof(ownerId));
@@ -147,7 +259,7 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
         }
     }
 
-    public HubPublishDraftReceipt UpdateDraft(string draftId, string ownerId, HubUpdateDraftRequest request)
+    private HubPublishDraftReceipt UpdateDraftCore(string draftId, string ownerId, HubUpdateDraftRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -175,7 +287,7 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
         }
     }
 
-    public HubPublishDraftReceipt ArchiveDraft(string draftId, string ownerId)
+    private HubPublishDraftReceipt ArchiveDraftCore(string draftId, string ownerId)
     {
         lock (_sync)
         {
@@ -186,7 +298,7 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
         }
     }
 
-    public bool DeleteDraft(string draftId, string ownerId)
+    private bool DeleteDraftCore(string draftId, string ownerId)
     {
         lock (_sync)
         {
@@ -201,7 +313,7 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
         }
     }
 
-    public HubProjectSubmissionReceipt SubmitProject(string draftId, string ownerId, HubSubmitProjectRequest request)
+    private HubProjectSubmissionReceipt SubmitProjectCore(string draftId, string ownerId, HubSubmitProjectRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
 
@@ -257,7 +369,7 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
         }
     }
 
-    public HubPublicationReceipt PublishProject(string draftId, string actorId, HubPublishProjectRequest request)
+    private HubPublicationReceipt PublishProjectCore(string draftId, string actorId, HubPublishProjectRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
         actorId = NormalizeRequired(actorId, nameof(actorId));
@@ -295,7 +407,7 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
         }
     }
 
-    public HubModerationQueue ListModerationQueue(string? ownerId = null, string? publisherId = null, string? state = null)
+    private HubModerationQueue ListModerationQueueCore(string? ownerId = null, string? publisherId = null, string? state = null)
     {
         lock (_sync)
         {
@@ -311,13 +423,13 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
         }
     }
 
-    public HubModerationDecisionReceipt ApproveModerationCase(string caseId, string actorId, HubModerationDecisionRequest request)
+    private HubModerationDecisionReceipt ApproveModerationCaseCore(string caseId, string actorId, HubModerationDecisionRequest request)
         => DecideModerationCase(caseId, actorId, request, approved: true);
 
-    public HubModerationDecisionReceipt RejectModerationCase(string caseId, string actorId, HubModerationDecisionRequest request)
+    private HubModerationDecisionReceipt RejectModerationCaseCore(string caseId, string actorId, HubModerationDecisionRequest request)
         => DecideModerationCase(caseId, actorId, request, approved: false);
 
-    public HubPublicationReceipt? GetPublicationReceipt(string draftId)
+    private HubPublicationReceipt? GetPublicationReceiptCore(string draftId)
     {
         lock (_sync)
         {

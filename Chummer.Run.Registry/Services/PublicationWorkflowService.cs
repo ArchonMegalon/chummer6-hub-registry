@@ -1,6 +1,7 @@
 using Chummer.Run.Contracts.Publication;
 using Chummer.Run.Contracts.Registry;
 using System.Collections.Concurrent;
+using System.Text.Json.Serialization;
 
 namespace Chummer.Run.Registry.Services;
 
@@ -31,7 +32,7 @@ public sealed record PublicationMutationResult(
 
 public sealed class PublicationWorkflowService : IPublicationWorkflowService
 {
-    private sealed class PublicationStateRow
+    internal sealed class PublicationStateRow
     {
         public required string PublicationId { get; init; }
         public required string ArtifactId { get; init; }
@@ -39,25 +40,88 @@ public sealed class PublicationWorkflowService : IPublicationWorkflowService
         public required string Title { get; init; }
         public required string SubmittedBy { get; init; }
         public required DateTimeOffset CreatedAtUtc { get; init; }
+        [JsonRequired]
         public DateTimeOffset UpdatedAtUtc { get; set; }
+        [JsonRequired]
         public PublicationState State { get; set; }
+        [JsonRequired]
         public string? LifecycleNote { get; set; }
+        [JsonRequired]
         public string? SupersededByArtifactId { get; set; }
+        [JsonRequired]
         public DateTimeOffset? PublishedAtUtc { get; set; }
+        [JsonRequired]
         public int Version { get; set; }
-        public List<PublicationEvent> Events { get; } = new();
+        [JsonRequired]
+        public List<PublicationEvent> Events { get; set; } = new();
     }
 
     private readonly ConcurrentDictionary<string, PublicationStateRow> _entries = new(StringComparer.OrdinalIgnoreCase);
     private readonly object _mutate = new();
     private readonly IHubArtifactStore? _artifactStore;
 
+    public PublicationRecordResponse Submit(PublicationSubmissionRequest request) =>
+        _state.Mutate(() => SubmitCore(request));
+
+    public PublicationRecordResponse? Get(string publicationId) =>
+        _state.Read(() => GetCore(publicationId));
+
+    public PublicationRecordResponse? GetLatestForArtifact(string artifactId) =>
+        _state.Read(() => GetLatestForArtifactCore(artifactId));
+
+    public IReadOnlyList<PublicationRecordResponse> List(PublicationState? state) =>
+        _state.Read(() => ListCore(state));
+
+    public PublicationMutationResult Review(string publicationId, PublicationReviewRequest request, string? ifMatch = null) =>
+        _state.Mutate(() => ReviewCore(publicationId, request, ifMatch));
+
+    public PublicationMutationResult Publish(string publicationId, PublicationPublishRequest request, string? ifMatch = null) =>
+        _state.Mutate(() => PublishCore(publicationId, request, ifMatch));
+
+    public PublicationMutationResult Moderate(string publicationId, PublicationModerationRequest request, string? ifMatch = null) =>
+        _state.Mutate(() => ModerateCore(publicationId, request, ifMatch));
+
+    private readonly RegistryStateStore _state;
     public PublicationWorkflowService(IHubArtifactStore? artifactStore = null)
+        : this(artifactStore, (artifactStore as FileBackedHubArtifactStore)?.State ?? new RegistryStateStore()) { }
+
+    public PublicationWorkflowService(IHubArtifactStore? artifactStore, RegistryStateStore state)
     {
         _artifactStore = artifactStore;
+        _state = state;
+        state.Register(this);
     }
 
-    public PublicationRecordResponse Submit(PublicationSubmissionRequest request)
+    internal sealed record Snapshot(PublicationStateRow[] Entries);
+    internal Snapshot ExportState() => new(_entries.Values.OrderBy(row => row.PublicationId, StringComparer.Ordinal).ToArray());
+    internal void RestoreState(Snapshot snapshot)
+    {
+        ValidateState(snapshot);
+        _entries.Clear();
+        foreach (var row in snapshot.Entries) _entries.AddOrUpdate(row.PublicationId, row, (_, _) => row);
+    }
+
+    internal static void ValidateState(Snapshot snapshot)
+    {
+        if (snapshot is null || snapshot.Entries is null) throw new InvalidDataException("Missing Registry publications.");
+        var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        var events = new HashSet<string>(StringComparer.Ordinal);
+        foreach (var row in snapshot.Entries)
+        {
+            if (row is null || string.IsNullOrWhiteSpace(row.PublicationId) || !ids.Add(row.PublicationId) ||
+                string.IsNullOrWhiteSpace(row.ArtifactId) || string.IsNullOrWhiteSpace(row.ArtifactKind) ||
+                string.IsNullOrWhiteSpace(row.SubmittedBy) || string.IsNullOrWhiteSpace(row.Title) ||
+                !Enum.IsDefined(row.State) || row.CreatedAtUtc == default || row.UpdatedAtUtc == default ||
+                row.Events is null || row.Version < 1 || row.Version != row.Events.Count)
+                throw new InvalidDataException("Invalid Registry publication row.");
+            foreach (var entry in row.Events)
+                if (entry is null || string.IsNullOrWhiteSpace(entry.EventId) || !events.Add(entry.EventId) ||
+                    entry.PublicationId != row.PublicationId || entry.AtUtc == default || !Enum.IsDefined(entry.EventType))
+                    throw new InvalidDataException("Invalid Registry publication event.");
+        }
+    }
+
+    private PublicationRecordResponse SubmitCore(PublicationSubmissionRequest request)
     {
         var now = DateTimeOffset.UtcNow;
         var publicationId = $"pub_{Guid.NewGuid():N}";
@@ -87,7 +151,7 @@ public sealed class PublicationWorkflowService : IPublicationWorkflowService
         return ToResponse(row);
     }
 
-    public PublicationRecordResponse? Get(string publicationId)
+    private PublicationRecordResponse? GetCore(string publicationId)
     {
         if (!_entries.TryGetValue(publicationId, out var row))
         {
@@ -100,7 +164,7 @@ public sealed class PublicationWorkflowService : IPublicationWorkflowService
         }
     }
 
-    public PublicationRecordResponse? GetLatestForArtifact(string artifactId)
+    private PublicationRecordResponse? GetLatestForArtifactCore(string artifactId)
     {
         if (string.IsNullOrWhiteSpace(artifactId))
         {
@@ -120,7 +184,7 @@ public sealed class PublicationWorkflowService : IPublicationWorkflowService
         }
     }
 
-    public IReadOnlyList<PublicationRecordResponse> List(PublicationState? state)
+    private IReadOnlyList<PublicationRecordResponse> ListCore(PublicationState? state)
     {
         lock (_mutate)
         {
@@ -132,7 +196,7 @@ public sealed class PublicationWorkflowService : IPublicationWorkflowService
         }
     }
 
-    public PublicationMutationResult Review(string publicationId, PublicationReviewRequest request, string? ifMatch = null)
+    private PublicationMutationResult ReviewCore(string publicationId, PublicationReviewRequest request, string? ifMatch = null)
     {
         if (!_entries.TryGetValue(publicationId, out var row))
         {
@@ -176,7 +240,7 @@ public sealed class PublicationWorkflowService : IPublicationWorkflowService
         }
     }
 
-    public PublicationMutationResult Publish(string publicationId, PublicationPublishRequest request, string? ifMatch = null)
+    private PublicationMutationResult PublishCore(string publicationId, PublicationPublishRequest request, string? ifMatch = null)
     {
         if (!_entries.TryGetValue(publicationId, out var row))
         {
@@ -221,7 +285,7 @@ public sealed class PublicationWorkflowService : IPublicationWorkflowService
         }
     }
 
-    public PublicationMutationResult Moderate(string publicationId, PublicationModerationRequest request, string? ifMatch = null)
+    private PublicationMutationResult ModerateCore(string publicationId, PublicationModerationRequest request, string? ifMatch = null)
     {
         if (!_entries.TryGetValue(publicationId, out var row))
         {

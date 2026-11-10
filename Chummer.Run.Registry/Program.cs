@@ -27,9 +27,7 @@ builder.Services
             return new BadRequestObjectResult(problem);
         };
     });
-builder.Services.AddSingleton<IPublicationWorkflowService, PublicationWorkflowService>();
-builder.Services.AddSingleton<IHubPublicationDraftService, HubPublicationDraftService>();
-builder.Services.AddSingleton<IHubArtifactStore, FileBackedHubArtifactStore>();
+builder.Services.AddRegistryDurableState();
 builder.Services.AddSingleton<IReleaseChannelManifestStore, FileReleaseChannelManifestStore>();
 builder.Services
     .AddAuthentication(RegistryAuthorization.Scheme)
@@ -49,6 +47,10 @@ builder.Services.AddAuthorization(options =>
 });
 
 var app = builder.Build();
+// Fail startup on corrupt/unsupported state, before health or routes can report readiness.
+app.Services.GetRequiredService<IHubArtifactStore>();
+app.Services.GetRequiredService<IHubPublicationDraftService>();
+app.Services.GetRequiredService<IPublicationWorkflowService>();
 
 // Configure the HTTP request pipeline.
 
