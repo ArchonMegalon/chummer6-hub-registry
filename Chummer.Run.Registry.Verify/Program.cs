@@ -21,6 +21,12 @@ using System.Text.Json.Nodes;
 using RegistryReleaseChannelHeadProjection = Chummer.Hub.Registry.Contracts.ReleaseChannelHeadProjection;
 using RegistryOwner = Chummer.Hub.Registry.Contracts;
 
+if (args.Contains("--audit-registry-durability", StringComparer.Ordinal))
+{
+    await RegistryDurabilityChecks.RunAsync();
+    return;
+}
+
 if (args.Contains("--audit-registry", StringComparer.Ordinal))
 {
     await RegistryAuditHttpChecks.RunAsync();
@@ -483,7 +489,8 @@ HubArtifactMetadata durableArtifact = durableStore.UpsertArtifact(new HubArtifac
     Description: "Used by registry runtime verification.",
     RuntimeFingerprint: "sha256:durable-registry-fixture"));
 Assert(File.Exists(registryStatePath), "File-backed registry artifact store should persist a backup after mutation.");
-IHubArtifactStore restartedDurableStore = new FileBackedHubArtifactStore(durableStoreConfig);
+((IDisposable)durableStore).Dispose();
+using var restartedDurableStore = new FileBackedHubArtifactStore(durableStoreConfig);
 HubArtifactMetadata? restoredDurableArtifact = restartedDurableStore.GetArtifact(durableArtifact.Id);
 Assert(restoredDurableArtifact is not null, "File-backed registry artifact store should reload artifacts after restart.");
 Assert(string.Equals(restoredDurableArtifact!.RuntimeFingerprint, "sha256:durable-registry-fixture", StringComparison.Ordinal), "Reloaded registry artifact should retain runtime fingerprint.");
