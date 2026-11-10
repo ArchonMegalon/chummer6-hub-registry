@@ -11,10 +11,14 @@ public interface IHubArtifactStore
     HubArtifactMetadata? GetArtifact(string id);
     RuntimeBundleArtifactProjection? GetRuntimeBundleArtifact(string artifactId);
     IReadOnlyList<HubArtifactMetadata> Search(string? query, HubArtifactKind? kind, HubArtifactState? state, int page, int pageSize, string? shelfAudience = null);
+    IReadOnlyList<HubArtifactMetadata> Search(string? query, HubArtifactKind? kind, HubArtifactState? state, int page, int pageSize, string? shelfAudience, Func<HubArtifactMetadata, bool>? canRead);
     int SearchCount(string? query, HubArtifactKind? kind, HubArtifactState? state, string? shelfAudience = null);
+    int SearchCount(string? query, HubArtifactKind? kind, HubArtifactState? state, string? shelfAudience, Func<HubArtifactMetadata, bool>? canRead);
     RegistryProjectionResponse? GetProjection(string id);
     IReadOnlyList<RegistryProjectionResponse> SearchProjections(string? query, HubArtifactKind? kind, HubArtifactState? state, int page, int pageSize, string? shelfAudience = null);
+    IReadOnlyList<RegistryProjectionResponse> SearchProjections(string? query, HubArtifactKind? kind, HubArtifactState? state, int page, int pageSize, string? shelfAudience, Func<HubArtifactMetadata, bool>? canRead);
     int SearchProjectionCount(string? query, HubArtifactKind? kind, HubArtifactState? state, string? shelfAudience = null);
+    int SearchProjectionCount(string? query, HubArtifactKind? kind, HubArtifactState? state, string? shelfAudience, Func<HubArtifactMetadata, bool>? canRead);
     HubArtifactInstallProjection? GetInstallProjection(string id);
     RuntimeBundleHeadProjection? GetRuntimeBundleHead(string sessionId, string sceneId, RuntimeBundleHeadKind head);
     RuntimeBundleHeadListResponse GetRuntimeBundleHeads(string sessionId, string sceneId);
@@ -283,14 +287,20 @@ public sealed class HubArtifactStore : IHubArtifactStore
     }
 
     public IReadOnlyList<HubArtifactMetadata> Search(string? query, HubArtifactKind? kind, HubArtifactState? state, int page, int pageSize, string? shelfAudience = null) =>
-        FilterArtifacts(query, kind, state, shelfAudience)
+        Search(query, kind, state, page, pageSize, shelfAudience, null);
+
+    public IReadOnlyList<HubArtifactMetadata> Search(string? query, HubArtifactKind? kind, HubArtifactState? state, int page, int pageSize, string? shelfAudience, Func<HubArtifactMetadata, bool>? canRead) =>
+        FilterArtifacts(query, kind, state, shelfAudience, canRead)
             .Select(ToMetadata)
             .Skip(Math.Max(0, (page - 1) * pageSize))
             .Take(Math.Max(1, pageSize))
             .ToList();
 
     public int SearchCount(string? query, HubArtifactKind? kind, HubArtifactState? state, string? shelfAudience = null) =>
-        FilterArtifacts(query, kind, state, shelfAudience).Count();
+        SearchCount(query, kind, state, shelfAudience, null);
+
+    public int SearchCount(string? query, HubArtifactKind? kind, HubArtifactState? state, string? shelfAudience, Func<HubArtifactMetadata, bool>? canRead) =>
+        FilterArtifacts(query, kind, state, shelfAudience, canRead).Count();
 
     public RegistryProjectionResponse? GetProjection(string id)
     {
@@ -298,14 +308,20 @@ public sealed class HubArtifactStore : IHubArtifactStore
     }
 
     public IReadOnlyList<RegistryProjectionResponse> SearchProjections(string? query, HubArtifactKind? kind, HubArtifactState? state, int page, int pageSize, string? shelfAudience = null) =>
-        FilterArtifacts(query, kind, state, shelfAudience)
+        SearchProjections(query, kind, state, page, pageSize, shelfAudience, null);
+
+    public IReadOnlyList<RegistryProjectionResponse> SearchProjections(string? query, HubArtifactKind? kind, HubArtifactState? state, int page, int pageSize, string? shelfAudience, Func<HubArtifactMetadata, bool>? canRead) =>
+        FilterArtifacts(query, kind, state, shelfAudience, canRead)
             .Select(ToProjection)
             .Skip(Math.Max(0, (page - 1) * pageSize))
             .Take(Math.Max(1, pageSize))
             .ToList();
 
     public int SearchProjectionCount(string? query, HubArtifactKind? kind, HubArtifactState? state, string? shelfAudience = null) =>
-        SearchCount(query, kind, state, shelfAudience);
+        SearchProjectionCount(query, kind, state, shelfAudience, null);
+
+    public int SearchProjectionCount(string? query, HubArtifactKind? kind, HubArtifactState? state, string? shelfAudience, Func<HubArtifactMetadata, bool>? canRead) =>
+        SearchCount(query, kind, state, shelfAudience, canRead);
 
     public HubArtifactInstallProjection? GetInstallProjection(string id)
     {
@@ -610,11 +626,12 @@ public sealed class HubArtifactStore : IHubArtifactStore
         }
     }
 
-    private IEnumerable<HubArtifactInternal> FilterArtifacts(string? query, HubArtifactKind? kind, HubArtifactState? state, string? shelfAudience)
+    private IEnumerable<HubArtifactInternal> FilterArtifacts(string? query, HubArtifactKind? kind, HubArtifactState? state, string? shelfAudience, Func<HubArtifactMetadata, bool>? canRead)
     {
         var normalized = NormalizeQuery(query);
         var normalizedShelfAudience = NormalizeShelfAudience(shelfAudience);
         return _artifacts.Values
+            .Where(item => canRead is null || canRead(ToMetadata(item)))
             .Where(item =>
                 (string.IsNullOrWhiteSpace(normalized)
                  || item.Id.Contains(normalized, StringComparison.OrdinalIgnoreCase)

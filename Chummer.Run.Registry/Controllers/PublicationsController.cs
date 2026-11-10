@@ -12,10 +12,17 @@ namespace Chummer.Run.Registry.Controllers;
 public sealed class PublicationsController : ControllerBase
 {
     private readonly IPublicationWorkflowService _workflow;
+    private readonly IHubArtifactStore? _artifacts;
 
-    public PublicationsController(IPublicationWorkflowService workflow)
+    public PublicationsController(IPublicationWorkflowService workflow) : this(workflow, null)
+    {
+    }
+
+    [ActivatorUtilitiesConstructor]
+    public PublicationsController(IPublicationWorkflowService workflow, IHubArtifactStore? artifacts)
     {
         _workflow = workflow;
+        _artifacts = artifacts;
     }
 
     [HttpPost]
@@ -46,7 +53,7 @@ public sealed class PublicationsController : ControllerBase
                 statusCode: StatusCodes.Status400BadRequest);
         }
 
-        IEnumerable<PublicationRecordResponse> results = _workflow.List(parsedState);
+        IEnumerable<PublicationRecordResponse> results = _workflow.List(parsedState).Where(CanReadPublication);
 
         if (discoverable.HasValue)
         {
@@ -78,7 +85,7 @@ public sealed class PublicationsController : ControllerBase
         }
 
         var publication = _workflow.Get(publicationId);
-        if (publication is null)
+        if (publication is null || !CanReadPublication(publication))
         {
             return Problem(
                 detail: $"Publication '{publicationId}' was not found.",
@@ -90,6 +97,9 @@ public sealed class PublicationsController : ControllerBase
         SetConcurrencyHeaders(publication);
         return Ok(publication);
     }
+
+    private bool CanReadPublication(PublicationRecordResponse publication) =>
+        RegistryReadAccess.CanReadPublication(publication, _artifacts?.GetArtifact(publication.ArtifactId), HttpContext?.User);
 
     [HttpPost("{publicationId}/review")]
     [ProducesResponseType<PublicationRecordResponse>(StatusCodes.Status200OK)]

@@ -27,26 +27,26 @@ public enum PublicationEventType
 }
 
 public sealed record PublicationSubmissionRequest(
-    [property: Required(AllowEmptyStrings = false), StringLength(128)] string ArtifactId,
-    [property: Required(AllowEmptyStrings = false), StringLength(64)] string ArtifactKind,
-    [property: Required(AllowEmptyStrings = false), StringLength(200)] string Title,
-    [property: Required(AllowEmptyStrings = false), StringLength(128)] string SubmittedBy,
-    [property: StringLength(4000)] string? Notes = null);
+    [Required(AllowEmptyStrings = false), StringLength(128)] string ArtifactId,
+    [Required(AllowEmptyStrings = false), StringLength(64)] string ArtifactKind,
+    [Required(AllowEmptyStrings = false), StringLength(200)] string Title,
+    [Required(AllowEmptyStrings = false), StringLength(128)] string SubmittedBy,
+    [StringLength(4000)] string? Notes = null);
 
 public sealed record PublicationReviewRequest(
-    [property: Required(AllowEmptyStrings = false), StringLength(128)] string Reviewer,
+    [Required(AllowEmptyStrings = false), StringLength(128)] string Reviewer,
     bool Approved,
-    [property: StringLength(4000)] string? Notes = null);
+    [StringLength(4000)] string? Notes = null);
 
 public sealed record PublicationModerationRequest(
-    [property: Required(AllowEmptyStrings = false), StringLength(128)] string Moderator,
-    [property: Required(AllowEmptyStrings = false), StringLength(64), RegularExpression("(?i)^(annotate|delist|delisted|deprecate|deprecated|supersede|superseded)$")] string Action,
-    [property: StringLength(128)] string? SupersededByArtifactId = null,
-    [property: StringLength(4000)] string? Reason = null);
+    [Required(AllowEmptyStrings = false), StringLength(128)] string Moderator,
+    [Required(AllowEmptyStrings = false), StringLength(64), RegularExpression("(?i)^(annotate|delist|delisted|deprecate|deprecated|supersede|superseded)$")] string Action,
+    [StringLength(128)] string? SupersededByArtifactId = null,
+    [StringLength(4000)] string? Reason = null);
 
 public sealed record PublicationPublishRequest(
-    [property: Required(AllowEmptyStrings = false), StringLength(128)] string PublishedBy,
-    [property: StringLength(4000)] string? Notes = null);
+    [Required(AllowEmptyStrings = false), StringLength(128)] string PublishedBy,
+    [StringLength(4000)] string? Notes = null);
 
 public sealed record PublicationEvent(
     string EventId,
