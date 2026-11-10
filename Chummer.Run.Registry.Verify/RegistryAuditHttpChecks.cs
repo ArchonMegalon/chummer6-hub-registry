@@ -143,7 +143,7 @@ internal static class RegistryAuditHttpChecks
             using (var response = await control.GetAsync($"/api/v1/registry/runtime-bundles/heads/audit-session/audit-scene/{bundle.Head.Head}"))
                 await Status(response, HttpStatusCode.NotFound, "runtime head");
 
-            await VerifyPublicationBinding(control, anonymous, publicArtifacts[0], hidden[0], owned[0]);
+            await VerifyPublicationBinding(control, anonymous, publicArtifacts, hidden, owned);
             Console.WriteLine($"Registry focused HTTP checks passed: {_checks} assertions. Durability/restart/interrupted-write checks not executed.");
         }
         finally
@@ -163,7 +163,9 @@ internal static class RegistryAuditHttpChecks
         }
     }
 
-    private static async Task VerifyPublicationBinding(HttpClient control, HttpClient anonymous, HubArtifactMetadata publicArtifact, HubArtifactMetadata hidden, HubArtifactMetadata owned)
+    private static async Task VerifyPublicationBinding(HttpClient control, HttpClient anonymous,
+        IReadOnlyList<HubArtifactMetadata> publicArtifacts, IReadOnlyList<HubArtifactMetadata> hidden,
+        IReadOnlyList<HubArtifactMetadata> owned)
     {
         const string root = "/api/v1/publications";
         foreach (object invalid in new object[]
@@ -210,7 +212,7 @@ internal static class RegistryAuditHttpChecks
             await Status(invalidNotes, HttpStatusCode.BadRequest, $"invalid notes {action}");
         }
 
-        PublicationSnapshot publication = await Submit(control, publicArtifact.Id, "Public publication");
+        PublicationSnapshot publication = await Submit(control, publicArtifacts[0].Id, "Public publication");
         string path = $"{root}/{publication.PublicationId}";
         using (var response = await control.PostAsJsonAsync($"{path}/publish", new { publishedBy = "publisher" }))
             await Status(response, HttpStatusCode.PreconditionFailed, "missing If-Match");
@@ -234,16 +236,47 @@ internal static class RegistryAuditHttpChecks
         using (var response = await anonymous.GetAsync(path))
             await Status(response, HttpStatusCode.OK, "public publication read");
 
-        PublicationSnapshot secret = await Submit(control, hidden.Id, "HIDDEN-PUBLICATION");
-        secret = await Mutate(control, $"{root}/{secret.PublicationId}", "review", new { reviewer = "reviewer", approved = true }, secret);
-        secret = await Mutate(control, $"{root}/{secret.PublicationId}", "publish", new { publishedBy = "publisher" }, secret);
-        PublicationSnapshot owner = await Submit(control, owned.Id, "OWNER-PUBLICATION");
+        PublicationSnapshot creator = await Submit(control, publicArtifacts[1].Id, "Shared creator publication", "CampaignPacket");
+        creator = await Mutate(control, $"{root}/{creator.PublicationId}", "review", new { reviewer = "reviewer", approved = true }, creator);
+        creator = await Mutate(control, $"{root}/{creator.PublicationId}", "publish", new { publishedBy = "publisher" }, creator);
+
+        var restricted = new List<PublicationSnapshot>();
+        foreach (HubArtifactMetadata artifact in hidden)
+        {
+            PublicationSnapshot secret = await Submit(control, artifact.Id, $"HIDDEN-PUBLICATION-{artifact.Visibility}-{artifact.State}");
+            secret = await Mutate(control, $"{root}/{secret.PublicationId}", "review", new { reviewer = "reviewer", approved = true }, secret);
+            secret = await Mutate(control, $"{root}/{secret.PublicationId}", "publish", new { publishedBy = "publisher" }, secret);
+            restricted.Add(secret);
+        }
+        var ownerPublications = new List<PublicationSnapshot>();
+        foreach (HubArtifactMetadata artifact in owned)
+            ownerPublications.Add(await Submit(control, artifact.Id, $"OWNER-PUBLICATION-{artifact.Visibility}"));
+
+        // Submission accepts references before metadata exists. Even a published row with
+        // matching actor strings cannot establish read authority without stored metadata.
+        PublicationSnapshot orphan = await Submit(control, "missing-artifact", "HIDDEN-PUBLICATION-missing-artifact", "CampaignPacket");
+        orphan = await Mutate(control, $"{root}/{orphan.PublicationId}", "review", new { reviewer = "registry-control", approved = true }, orphan);
+        orphan = await Mutate(control, $"{root}/{orphan.PublicationId}", "publish", new { publishedBy = "registry-control" }, orphan);
+        restricted.Add(orphan);
+
         foreach (HttpClient reader in new[] { anonymous, control })
         {
-            using var denied = await reader.GetAsync($"{root}/{secret.PublicationId}");
-            await Status(denied, HttpStatusCode.NotFound, "restricted publication read");
-            using var ownerRead = await reader.GetAsync($"{root}/{owner.PublicationId}");
-            await Status(ownerRead, reader == control ? HttpStatusCode.OK : HttpStatusCode.NotFound, "owner publication read");
+            foreach (PublicationSnapshot secret in restricted)
+            {
+                using var denied = await reader.GetAsync($"{root}/{secret.PublicationId}");
+                await Status(denied, HttpStatusCode.NotFound, "restricted publication read");
+            }
+            foreach (PublicationSnapshot owner in ownerPublications)
+            {
+                using var ownerRead = await reader.GetAsync($"{root}/{owner.PublicationId}");
+                await Status(ownerRead, reader == control ? HttpStatusCode.OK : HttpStatusCode.NotFound, "owner publication read");
+            }
+            using (var creatorRead = await reader.GetAsync($"{root}/{creator.PublicationId}"))
+            {
+                await Status(creatorRead, HttpStatusCode.OK, "shared creator publication read");
+                using JsonDocument detail = JsonDocument.Parse(await creatorRead.Content.ReadAsStringAsync());
+                Check(detail.RootElement.GetProperty("artifactKind").GetString() == "CampaignPacket", "creator publication kind lost");
+            }
             foreach (string query in new[] { "", "?discoverable=true", "?discoverable=false", "?state=Published", "?rankingBand=restricted-live" })
             {
                 using var response = await reader.GetAsync(root + query);
@@ -251,17 +284,22 @@ internal static class RegistryAuditHttpChecks
                 string json = await response.Content.ReadAsStringAsync();
                 Check(!json.Contains("HIDDEN-PUBLICATION", StringComparison.Ordinal), "publication filter granted access");
                 if (reader == anonymous) Check(!json.Contains("OWNER-PUBLICATION", StringComparison.Ordinal), "publication list leaked owner draft");
+                using JsonDocument list = JsonDocument.Parse(json);
+                string[] ids = list.RootElement.EnumerateArray().Select(item => item.GetProperty("publicationId").GetString()!).ToArray();
+                Check(!restricted.Any(item => ids.Contains(item.PublicationId)), "publication list leaked a restricted id");
+                if (query is "" or "?discoverable=true" or "?state=Published")
+                    Check(ids.Contains(publication.PublicationId) && ids.Contains(creator.PublicationId), "publication list lost public or shared creator publication");
+                if (reader == control && (query is "" or "?discoverable=false"))
+                    Check(ownerPublications.All(item => ids.Contains(item.PublicationId)), "publication list lost owner's restricted draft");
             }
         }
         using (var missing = await anonymous.GetAsync($"{root}/missing"))
             await Status(missing, HttpStatusCode.NotFound, "unknown publication read");
-        // Submission currently accepts an artifact reference before it exists; preserve that contract.
-        await Submit(control, "missing-artifact", "Pending artifact reference");
     }
 
-    private static async Task<PublicationSnapshot> Submit(HttpClient client, string artifactId, string title)
+    private static async Task<PublicationSnapshot> Submit(HttpClient client, string artifactId, string title, string artifactKind = "RulePack")
     {
-        using var response = await client.PostAsJsonAsync("/api/v1/publications", new { artifactId, artifactKind = "RulePack", title, submittedBy = "registry-control" });
+        using var response = await client.PostAsJsonAsync("/api/v1/publications", new { artifactId, artifactKind, title, submittedBy = "registry-control" });
         await Status(response, HttpStatusCode.Created, "valid submit");
         Check(response.Headers.ETag is not null, "submission ETag absent");
         return (await response.Content.ReadFromJsonAsync<PublicationSnapshot>())!;

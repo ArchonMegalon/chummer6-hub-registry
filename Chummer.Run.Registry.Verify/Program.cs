@@ -857,7 +857,8 @@ Assert(string.Equals(published.TrustProjection?.RevocationState, "not_revoked", 
 Assert(published.TrustProjection?.RevocationSummary.Contains("No publication revocation marker", StringComparison.OrdinalIgnoreCase) == true, "Published shared publications should explain when no publication revocation marker is active.");
 
 PublicationRecordResponse creatorSubmitted = RequireCreated(publicationsController.Submit(new PublicationSubmissionRequest(
-    ArtifactId: "creator-packet-shadow-brief",
+    // Publication reads require stored ownership/visibility, including for creator packets.
+    ArtifactId: creatorShelfArtifact.Id,
     ArtifactKind: "CampaignPacket",
     Title: "Shadow brief creator packet",
     SubmittedBy: "ops.creator",
@@ -875,7 +876,7 @@ Assert(string.Equals(creatorPublished.ModerationTimeline.PendingDecision, "moder
 Assert(creatorPublished.ModerationTimeline.NextSafeActionSummary?.Contains("live published artifact", StringComparison.OrdinalIgnoreCase) == true, "Published creator packets should project the moderation-watch next safe action.");
 Assert(RequireOk(publicationsController.List(PublicationState.Published.ToString())).Count >= 2, "Publication list should retain creator publication rows beside install/update publications.");
 Assert(RequireOk(publicationsController.List(discoverable: true)).Count >= 2, "Publication list discoverable filter should retain creator publication rows beside install/update publications.");
-Assert(creatorPublished.TrustProjection?.Discoverable == true, "Published creator packets should be discoverable when no restrictive visibility is attached.");
+Assert(creatorPublished.TrustProjection?.Discoverable == true, "Published creator packets should be discoverable when their stored artifact has shared visibility.");
 Assert(string.Equals(creatorPublished.TrustProjection?.LineageAnchorArtifactId, creatorPublished.ArtifactId, StringComparison.Ordinal), "Published creator packets should anchor lineage on their artifact id until a successor is attached.");
 Assert(string.Equals(creatorPublished.TrustProjection?.CompatibilityState, "compatible", StringComparison.Ordinal), "Published creator packets should project compatible creator trust.");
 Assert(string.Equals(creatorPublished.TrustProjection?.RevocationState, "not_revoked", StringComparison.Ordinal), "Published creator packets should project non-revoked creator trust by default.");
@@ -1087,10 +1088,15 @@ RuntimeBundleIssueResponse AssertMetadataFieldShiftForcesNewIssue(string fieldLa
 RuntimeBundleArtifactProjection runtimeBundleArtifact = RequireOk(registryController.GetRuntimeBundleArtifact(firstIssue.Artifact.Id));
 Assert(string.Equals(runtimeBundleArtifact.ArtifactId, firstIssue.Artifact.Id, StringComparison.Ordinal), "Runtime bundle artifact lookup should return the issued artifact.");
 
-RuntimeBundleHeadProjection runtimeHead = RequireOk(registryController.GetRuntimeBundleHead("session-registry", "scene-redmond", RuntimeBundleHeadKind.Session));
+Assert(registryController.GetRuntimeBundleArtifact(latestMetadataShiftIssue.Artifact.Id).Result is NotFoundResult, "The previous owner should not read the campaign-shared runtime artifact after its owner changes.");
+Assert(registryController.GetRuntimeBundleHead("session-registry", "scene-redmond", RuntimeBundleHeadKind.Session).Result is NotFoundResult, "The previous owner should not read the campaign-shared runtime head after its owner changes.");
+Assert(RequireOk(registryController.GetRuntimeBundleHeads("session-registry", "scene-redmond")).Heads.Count == 0, "The previous owner's runtime head list should exclude the new owner's campaign-shared artifact.");
+
+HubRegistryController runtimeOwnerController = CreateController(new HubRegistryController(store, releaseChannelStore, workflow, config), ownerId: "ops.registry.alt");
+RuntimeBundleHeadProjection runtimeHead = RequireOk(runtimeOwnerController.GetRuntimeBundleHead("session-registry", "scene-redmond", RuntimeBundleHeadKind.Session));
 Assert(string.Equals(runtimeHead.CurrentArtifactId, latestMetadataShiftIssue.Artifact.Id, StringComparison.Ordinal), "Runtime bundle head lookup should point at the latest issued artifact.");
 
-RuntimeBundleHeadListResponse runtimeHeads = RequireOk(registryController.GetRuntimeBundleHeads("session-registry", "scene-redmond"));
+RuntimeBundleHeadListResponse runtimeHeads = RequireOk(runtimeOwnerController.GetRuntimeBundleHeads("session-registry", "scene-redmond"));
 Assert(runtimeHeads.Heads.Count == 1, "Runtime bundle head list should return the retained head projections.");
 
 PipelineProjectionEnvelope pipelineEnvelope = RequireOk(registryController.GetPipelineProjection());
@@ -1168,7 +1174,7 @@ static T RequireCreated<T>(ActionResult<T> actionResult)
     throw new InvalidOperationException($"Expected CreatedAtActionResult<{typeof(T).Name}>.");
 }
 
-static TController CreateController<TController>(TController controller)
+static TController CreateController<TController>(TController controller, string ownerId = "ops.registry")
     where TController : ControllerBase
 {
     controller.ControllerContext = new ControllerContext
@@ -1178,7 +1184,7 @@ static TController CreateController<TController>(TController controller)
             // These controller-level checks exercise the owner's shelf and workflow.
             // Anonymous and wrong-owner behavior is covered by --audit-registry over HTTP.
             User = new System.Security.Claims.ClaimsPrincipal(new System.Security.Claims.ClaimsIdentity(
-                new[] { new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, "ops.registry") },
+                new[] { new System.Security.Claims.Claim(System.Security.Claims.ClaimTypes.NameIdentifier, ownerId) },
                 "owner-fixture"))
         }
     };
