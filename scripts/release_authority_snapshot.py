@@ -1096,11 +1096,9 @@ def derive_manifest_projection(
         kind = _token(source.get("kind"), "%s kind" % artifact_id)
         if kind != "installer":
             raise AuthorityError("authority manifest artifact %s is not an installer" % artifact_id)
-        compatibility = _token(
-            source.get("compatibilityState"), "%s compatibilityState" % artifact_id
+        compatibility = _string(
+            source.get("compatibilityState"), "%s compatibilityState" % artifact_id, 128
         )
-        if compatibility != "compatible":
-            raise AuthorityError("authority manifest artifact %s is not compatible" % artifact_id)
         digest = _sha256(source.get("sha256"), "%s sha256" % artifact_id)
         size_bytes = _positive_int(source.get("sizeBytes"), "%s sizeBytes" % artifact_id)
         access_class = _token(
@@ -1198,6 +1196,12 @@ def derive_manifest_projection(
             and access_class == "open_public"
             and role == "primary"
         )
+        # Unknown remains unknown: it authorizes no readiness claim and is usable
+        # only through the exact scope-approved v2 review byte handoff below.
+        if compatibility != "compatible" and not (
+            compatibility == "unknown" and approved_review_handoff_artifact
+        ):
+            raise AuthorityError("authority manifest artifact %s is not compatible" % artifact_id)
         if publication_state != "published" and not approved_review_handoff_artifact:
             raise AuthorityError("artifact %s publication binding is not published" % artifact_id)
         _string(binding.get("publicShelfRef"), "%s publicShelfRef" % artifact_id, 512)
@@ -2043,7 +2047,11 @@ def _validate_convergence(
         raise AuthorityError("convergence top-level authority bindings contradict the candidate")
 
 
-def _verify_artifact(artifact: Any) -> dict[str, Any]:
+def _verify_artifact(
+    artifact: Any,
+    *,
+    approved_review_handoff: Optional[Mapping[str, Any]] = None,
+) -> dict[str, Any]:
     row = _exact_object(artifact, ARTIFACT_FIELDS, "snapshot artifact")
     for field in ("artifactId", "head", "platform", "rid", "arch"):
         _token(row[field], "snapshot artifact %s" % field)
@@ -2051,8 +2059,11 @@ def _verify_artifact(artifact: Any) -> dict[str, Any]:
         raise AuthorityError("snapshot artifact kind must be installer")
     _sha256(row["sha256"], "snapshot artifact sha256")
     _positive_int(row["sizeBytes"], "snapshot artifact sizeBytes")
+    if row["compatibilityState"] != "compatible" and not (
+        row["compatibilityState"] == "unknown" and row == approved_review_handoff
+    ):
+        raise AuthorityError("snapshot artifact compatibilityState must be compatible outside the approved review byte handoff")
     for field, expected in (
-        ("compatibilityState", "compatible"),
         ("promotionState", "promoted"),
         ("publicationScope", "signed-in-and-public"),
         ("revokeState", "not_revoked"),
@@ -2160,7 +2171,12 @@ def verify_envelope_bytes(
     for field in ("channel", "status", "rolloutState", "supportabilityState", "knownIssueSummary"):
         if snapshot_obj[field] != derived[field]:
             raise AuthorityError("SNAPSHOT %s contradicts the manifest" % field)
-    artifacts = [_verify_artifact(row) for row in snapshot_obj["artifacts"]]
+    artifacts = [
+        _verify_artifact(
+            row, approved_review_handoff=derived["scopeApprovedReviewByteHandoff"]
+        )
+        for row in snapshot_obj["artifacts"]
+    ]
     if [row["artifactId"] for row in artifacts] != sorted({row["artifactId"] for row in artifacts}):
         raise AuthorityError("SNAPSHOT artifacts must be unique and ordinally sorted")
     if artifacts != derived["artifacts"]:

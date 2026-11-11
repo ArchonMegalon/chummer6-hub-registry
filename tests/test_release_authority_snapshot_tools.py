@@ -345,11 +345,14 @@ def test_review_seed_materializes_exact_deterministic_envelope_and_verifies(
     assert json.loads(verified.stdout)["status"] == "review_required"
 
 
+@pytest.mark.parametrize("compatibility", ["compatible", "unknown"])
 def test_scope_approved_windows_unsigned_preview_materializes_explicit_v2_byte_handoff(
     tmp_path: Path,
+    compatibility: str,
 ) -> None:
     manifest_path = tmp_path / "RELEASE_CHANNEL.generated.json"
     payload = windows_review_byte_handoff_manifest()
+    payload["artifacts"][0]["compatibilityState"] = compatibility
     payload.pop("supportOwner")
     write_json(manifest_path, payload)
     scope = approved_scope_for_manifest(payload)
@@ -372,6 +375,8 @@ def test_scope_approved_windows_unsigned_preview_materializes_explicit_v2_byte_h
     scope_sha256 = digest(tmp_path / SCOPE_FILE_NAME)
     artifact = snapshot["artifacts"][0]
 
+    assert artifact["compatibilityState"] == compatibility
+    assert json.loads(manifest_path.read_bytes())["artifacts"][0]["compatibilityState"] == compatibility
     assert snapshot["releaseDecisionStatus"] == "review_required"
     assert snapshot["rolloutState"] == "public_release_review_required"
     assert snapshot["supportabilityState"] == "review_required"
@@ -405,6 +410,7 @@ def test_scope_approved_windows_unsigned_preview_materializes_explicit_v2_byte_h
         decision,
         json.loads(AUTHORITY_SCHEMA.read_text(encoding="utf-8")),
     )
+    jsonschema.validate(snapshot, json.loads(AUTHORITY_SCHEMA.read_text(encoding="utf-8")))
 
     verified = subprocess.run(
         verifier_command(manifest_path, envelope),
@@ -464,11 +470,14 @@ def test_release_authority_rejects_manifest_support_owner_scope_drift(
         "optimistic_posture",
     ],
 )
+@pytest.mark.parametrize("compatibility", ["compatible", "unknown"])
 def test_review_byte_handoff_rejects_any_nonexact_scope_or_release_posture(
     tmp_path: Path,
     case: str,
+    compatibility: str,
 ) -> None:
     payload = windows_review_byte_handoff_manifest()
+    payload["artifacts"][0]["compatibilityState"] = compatibility
     if case == "revoked":
         payload["desktopTupleCoverage"]["desktopRouteTruth"][0][
             "revokeState"
@@ -548,6 +557,148 @@ def test_review_byte_handoff_rejects_any_nonexact_scope_or_release_posture(
 
     assert completed.returncode == 1
     assert not (tmp_path / "rejected").exists()
+
+
+@pytest.mark.parametrize(
+    "case",
+    [
+        "incompatible", "missing_compatibility", "ordinary", "published_binding",
+        "wrong_platform", "wrong_head", "wrong_rid", "wrong_arch",
+        "wrong_artifact_id", "wrong_access", "wrong_kind", "wrong_route",
+        "invalid_scope", "wrong_scope_digest", "missing_scope", "wrong_profile",
+    ],
+)
+def test_unknown_review_handoff_rejects_missing_or_contradictory_bindings(
+    tmp_path: Path, case: str,
+) -> None:
+    payload = windows_review_byte_handoff_manifest()
+    payload["artifacts"][0]["compatibilityState"] = "unknown"
+    scope = approved_scope_for_manifest(payload)
+    artifact = payload["artifacts"][0]
+    if case == "incompatible":
+        artifact["compatibilityState"] = "incompatible"
+    elif case == "missing_compatibility":
+        artifact.pop("compatibilityState")
+    elif case == "ordinary":
+        payload["rolloutState"] = "review_required"
+    elif case == "published_binding":
+        payload["artifactPublicationBindings"][0]["publicationState"] = "published"
+    elif case.startswith("wrong_") and case not in {"wrong_scope_digest", "wrong_route", "wrong_profile"}:
+        field, value = {
+            "wrong_platform": ("platform", "linux"),
+            "wrong_head": ("head", "blazor-desktop"),
+            "wrong_rid": ("rid", "win-arm64"),
+            "wrong_arch": ("arch", "arm64"),
+            "wrong_artifact_id": ("artifactId", "other-installer"),
+            "wrong_access": ("installAccessClass", "account_required"),
+            "wrong_kind": ("kind", "archive"),
+        }[case]
+        artifact[field] = value
+        # Keep the publication and route tuple consistent so these cases test
+        # the narrow unknown gate, rather than an incidental tuple mismatch.
+        route = payload["desktopTupleCoverage"]["desktopRouteTruth"][0]
+        binding = payload["artifactPublicationBindings"][0]
+        if field in {"head", "platform", "rid", "arch", "artifactId", "kind"}:
+            binding[field] = value
+            if field != "kind":
+                route[field] = value
+        if field == "head":
+            scope["platforms"][0]["primaryHead"] = value
+        elif field == "rid":
+            scope["platforms"][0]["rid"] = value
+        elif field == "platform":
+            artifact["rid"] = route["rid"] = binding["rid"] = "linux-x64"
+            scope["platforms"][0].update(platform="linux", rid="linux-x64", signingRequirement="signed")
+        elif field == "artifactId":
+            artifact["id"] = value
+            route["publicInstallRoute"] = binding["publicInstallRoute"] = "/downloads/install/" + value
+        elif field == "installAccessClass":
+            scope["platforms"][0]["artifactAccessClass"] = value
+            artifact["downloadUrl"] = route["publicInstallRoute"] = binding["publicInstallRoute"] = (
+                "/downloads/g/run-20260720-220000/install/" + artifact["artifactId"]
+            )
+    elif case == "wrong_route":
+        payload["artifactPublicationBindings"][0]["publicInstallRoute"] = "/downloads/install/other-installer"
+    elif case == "invalid_scope":
+        scope["status"] = "review_required"
+    elif case == "wrong_profile":
+        scope["releaseTarget"] = "stable"
+    manifest_path = tmp_path / "RELEASE_CHANNEL.generated.json"
+    write_json(manifest_path, payload)
+    extra = ("--expected-release-scope-decision-sha256", "f" * 64) if case == "wrong_scope_digest" else ()
+    if case == "missing_scope":
+        extra = ("--release-scope-decision", str(tmp_path / "absent-scope.json"))
+    completed = run_materialize(tmp_path, manifest_path, "rejected", *extra, scope_payload=scope)
+    assert completed.returncode == 1
+    assert not (tmp_path / "rejected").exists()
+
+
+@pytest.mark.parametrize("decision_status", [None, "review_required", "preview_ready", "stable_ready"])
+@pytest.mark.parametrize("with_scope", [False, True])
+def test_unknown_compatibility_never_enters_ordinary_or_ready_projection(
+    tmp_path: Path, decision_status: str | None, with_scope: bool,
+) -> None:
+    payload = windows_review_byte_handoff_manifest()
+    payload["artifacts"][0]["compatibilityState"] = "unknown"
+    # Published bindings cannot use the exception even with otherwise exact scope.
+    payload["artifactPublicationBindings"][0]["publicationState"] = "published"
+    scope_path = tmp_path / SCOPE_FILE_NAME
+    scope = approved_scope_for_manifest(payload)
+    scope["platforms"][0]["signingRequirement"] = "preview_unsigned_allowed"
+    write_json(scope_path, scope)
+    approved = validate_approved_scope(scope_path.read_bytes(), scope, digest(scope_path))
+    with pytest.raises(AuthorityError, match="is not compatible"):
+        derive_manifest_projection(
+            payload, ARTIFACT_SHA,
+            approved_scope=approved if with_scope else None,
+            decision_status=decision_status,
+        )
+
+
+@pytest.mark.parametrize("case", [
+    "v1", "handoff_sha256", "handoff_route", "handoff_signing", "scope_digest",
+    "missing_handoff", "snapshot_compatible", "snapshot_incompatible",
+])
+def test_unknown_review_envelope_requires_exact_v2_handoff_after_digest_rebinding(
+    tmp_path: Path, case: str,
+) -> None:
+    payload = windows_review_byte_handoff_manifest()
+    payload["artifacts"][0]["compatibilityState"] = "unknown"
+    manifest_path = tmp_path / "RELEASE_CHANNEL.generated.json"
+    write_json(manifest_path, payload)
+    completed = run_materialize(tmp_path, manifest_path, "seed")
+    assert completed.returncode == 0, completed.stderr
+    seed = tmp_path / "seed"
+    decision_path = seed / "RELEASE_DECISION.json"
+    snapshot_path = seed / "SNAPSHOT.json"
+    current_path = seed / "CURRENT.json"
+    decision = json.loads(decision_path.read_bytes())
+    snapshot = json.loads(snapshot_path.read_bytes())
+    current = json.loads(current_path.read_bytes())
+    if case == "v1":
+        decision["contractName"] = "chummer.preview-release-decision/v1"
+        decision.pop("artifactHandoff")
+    elif case == "missing_handoff":
+        decision.pop("artifactHandoff")
+    elif case == "scope_digest":
+        decision["releaseScopeDecisionSha256"] = "f" * 64
+        decision["artifactHandoff"]["releaseScopeDecisionSha256"] = "f" * 64
+    elif case.startswith("snapshot_"):
+        snapshot["artifacts"][0]["compatibilityState"] = case.removeprefix("snapshot_")
+    else:
+        field, value = {
+            "handoff_sha256": ("sha256", "f" * 64),
+            "handoff_route": ("publicInstallRoute", "/downloads/install/other-installer"),
+            "handoff_signing": ("signingRequirement", "signed"),
+        }[case]
+        decision["artifactHandoff"][field] = value
+    write_json(decision_path, decision)
+    snapshot["releaseDecisionSha256"] = digest(decision_path)
+    write_json(snapshot_path, snapshot)
+    current.update(decisionSha256=digest(decision_path), snapshotSha256=digest(snapshot_path))
+    write_json(current_path, current)
+    verified = subprocess.run(verifier_command(manifest_path, seed), text=True, capture_output=True)
+    assert verified.returncode == 1
 
 
 def test_preview_ready_never_reinterprets_preview_publication_as_ready(

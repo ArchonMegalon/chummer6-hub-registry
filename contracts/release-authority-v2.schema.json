@@ -104,7 +104,7 @@
         },
         "sha256": { "$ref": "#/$defs/sha256" },
         "sizeBytes": { "type": "integer", "minimum": 1 },
-        "compatibilityState": { "const": "compatible" },
+        "compatibilityState": { "enum": ["compatible", "unknown"] },
         "promotionState": { "const": "promoted" },
         "publicationScope": { "const": "signed-in-and-public" },
         "revokeState": { "const": "not_revoked" },
@@ -265,11 +265,51 @@
               "primaryHeadByPlatform": { "minProperties": 1 }
             }
           }
+        },
+        {
+          "if": {
+            "properties": {
+              "artifacts": {
+                "contains": {
+                  "properties": { "compatibilityState": { "const": "unknown" } },
+                  "required": ["compatibilityState"]
+                }
+              }
+            }
+          },
+          "then": {
+            "properties": {
+              "channel": { "const": "preview" },
+              "status": { "const": "published" },
+              "rolloutState": { "const": "public_release_review_required" },
+              "supportabilityState": { "const": "review_required" },
+              "releaseDecisionStatus": { "const": "review_required" },
+              "artifactCount": { "const": 1 },
+              "availablePlatforms": { "const": ["windows"] },
+              "primaryHeadByPlatform": { "const": { "windows": "avalonia" } },
+              "downloadAccessPosture": { "const": "open_public" },
+              "artifacts": {
+                "minItems": 1,
+                "maxItems": 1,
+                "items": {
+                  "properties": {
+                    "artifactId": { "const": "avalonia-win-x64-installer" },
+                    "head": { "const": "avalonia" },
+                    "platform": { "const": "windows" },
+                    "rid": { "const": "win-x64" },
+                    "arch": { "const": "x64" },
+                    "installAccessClass": { "const": "open_public" }
+                  }
+                }
+              }
+            }
+          }
         }
       ],
       "x-chummer-derivation-invariants": {
         "artifactCount": "Must equal artifacts.length.",
-        "artifacts": "Must equal the ordinal artifactId-sorted canonical projection re-derived from the exact manifest bytes. Each source artifact has kind=installer and compatibilityState=compatible; exactly one matching desktopRouteTruth row has promotionState=promoted, routeRole primary or fallback, updateEligibility=eligible, installPosture=installer_first, revokeState=not_revoked, and a publicInstallRoute; exactly one matching artifactPublicationBindings row has publicationScope=signed-in-and-public, publicationState=published, a publicShelfRef, and the same tuple/route/channel/version. Channel and artifact active-revocation facts must be clear.",
+        "artifacts": "Must equal the ordinal artifactId-sorted canonical projection re-derived from the exact manifest bytes. Each source artifact has kind=installer and compatibilityState=compatible, except unchanged unknown under the exact scopeApprovedReviewByteHandoff context; incompatible always rejects. Exactly one matching desktopRouteTruth row has promotionState=promoted, routeRole primary or fallback, updateEligibility=eligible, installPosture=installer_first, revokeState=not_revoked, and a publicInstallRoute; exactly one matching artifactPublicationBindings row has publicationScope=signed-in-and-public, publicationState=published (or preview only for the approved review handoff), a publicShelfRef, and the same tuple/route/channel/version. Channel and artifact active-revocation facts must be clear.",
+        "unknownCompatibility": "The conditional snapshot shape is necessary but never sufficient authority. Mandatory cross-document validation must bind exact approved scope bytes and digest, preview_unsigned_allowed signing scope, one Windows/Avalonia/win-x64/open_public installer, manifest publicationState=preview, and chummer.preview-release-decision/v2 artifactHandoff to the same artifact identity, routes, hashes and size. Unknown stays unknown and permits review bytes only, never availability, preview_ready, stable_ready, signing or full release claims.",
         "availablePlatforms": "Must equal the sorted distinct platform values from eligible artifacts.",
         "primaryHeadByPlatform": "Must be derived only from eligible desktopRouteTruth rows with routeRole=primary, exactly one per eligible platform; never inferred from artifact presence or order.",
         "downloadAccessPosture": "Must be unavailable for an empty shelf, the single recognized installAccessClass when all eligible artifacts share one, or mixed when multiple recognized classes occur.",
