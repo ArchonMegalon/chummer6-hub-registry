@@ -4046,6 +4046,13 @@ def verify_startup_smoke_receipt_artifact_identity(
 ) -> None:
     receipt_artifact_id = normalized_receipt_artifact_id(receipt)
     receipt_file_name = normalized_receipt_artifact_file_name(receipt)
+    if any(key in receipt for key in ("artifactId", "artifact_id", "artifact")) and not receipt_artifact_id:
+        raise SystemExit(f"{source} startup-smoke receipt artifactId is invalid or conflicting")
+    if any(key in receipt for key in (
+        "artifactFileName", "artifact_file_name", "fileName", "file_name",
+        "artifactPath", "artifact_path", "artifactRelativePath", "artifact_relative_path",
+    )) and not receipt_file_name:
+        raise SystemExit(f"{source} startup-smoke receipt artifact file name is invalid or conflicting")
     if not receipt_artifact_id and not receipt_file_name:
         raise SystemExit(
             f"{source} startup-smoke receipt artifact identity is missing (artifactId/artifactPath)"
@@ -4085,6 +4092,56 @@ def normalized_receipt_host_class(receipt: dict[str, Any]) -> str:
         or receipt.get("host_class")
         or receipt.get("host")
     )
+
+
+def verify_startup_smoke_receipt_payload_metadata(
+    receipt: dict[str, Any], artifact: dict[str, Any], *, source: str,
+) -> None:
+    materializer = release_channel_materializer_module()
+    installer_aliases = materializer.STARTUP_SMOKE_INSTALLER_MODE_ALIASES
+    payload_aliases = materializer.BOOTSTRAP_PAYLOAD_FIELD_ALIASES
+    authority_fields = set(installer_aliases) | {
+        alias for aliases in payload_aliases.values() for alias in aliases
+    }
+
+    def resolve(data: dict, *, manifest: bool) -> tuple[str, dict]:
+        present = {key: data[key] for key in authority_fields if key in data}
+        # Compatibility manifests emit null placeholders when there is no packaging proof.
+        if not present or (manifest and all(value is None for value in present.values())):
+            return "", {}
+        mode = materializer.resolve_exact_receipt_alias(
+            data, installer_aliases,
+            lambda value: materializer.canonical_startup_smoke_installer_mode(value) is not None,
+        )
+        if mode is materializer.RECEIPT_ALIAS_INVALID or mode is materializer.RECEIPT_ALIAS_ABSENT:
+            raise SystemExit(f"{source} startup-smoke packaging installer mode is invalid or conflicting")
+        mode = materializer.canonical_startup_smoke_installer_mode(mode)
+        if mode == "bundled":
+            if any(key in data and data[key] is not None for aliases in payload_aliases.values() for key in aliases):
+                raise SystemExit(f"{source} bundled installer cannot claim bootstrap payload metadata")
+            return mode, {}
+        metadata = materializer.bootstrap_payload_metadata(data)
+        if metadata is None:
+            raise SystemExit(f"{source} startup-smoke bootstrap payload metadata is incomplete, invalid or conflicting")
+        metadata.setdefault("payloadAcquisitionMode", "download")
+        return mode, metadata
+
+    receipt_mode, receipt_metadata = resolve(receipt, manifest=False)
+    artifact_mode, artifact_metadata = resolve(artifact, manifest=True)
+    if receipt_mode != artifact_mode or any(
+        receipt_metadata.get(key) != artifact_metadata.get(key)
+        for key in payload_aliases if key != "payloadDownloadUrl"
+    ):
+        raise SystemExit(f"{source} startup-smoke payload metadata does not match release-channel artifact")
+    if artifact_mode == "bootstrap":
+        try:
+            expected_url = materializer.derive_public_payload_download_url(
+                artifact.get("downloadUrl") or artifact.get("url"), artifact_metadata["payloadFileName"],
+            )
+        except ValueError as exc:
+            raise SystemExit(f"{source} bootstrap payload delivery URL is invalid") from exc
+        if artifact_metadata.get("payloadDownloadUrl") != expected_url:
+            raise SystemExit(f"{source} bootstrap payload delivery URL does not match installer route")
 
 
 def verify_startup_smoke_receipt_host_class(
@@ -8906,6 +8963,13 @@ def verify_local_startup_smoke_receipts(
                 f"{source} startup-smoke receipt for promoted desktop installer tuple {head}:{platform}:{rid}"
             ),
         )
+        if platform == "windows":
+            for artifact in iter_manifest_download_entries(payload):
+                if not isinstance(artifact, dict):
+                    continue
+                artifact_head, artifact_platform, artifact_rid, kind = parse_manifest_tuple_fields(artifact)
+                if (artifact_head, artifact_platform, artifact_rid) == (head, platform, rid) and is_desktop_install_media(platform, kind):
+                    verify_startup_smoke_receipt_payload_metadata(receipt, artifact, source=source)
         if channel_id:
             receipt_channel_id = normalized_token(receipt.get("channelId"))
             receipt_channel_alias = normalized_token(receipt.get("channel"))

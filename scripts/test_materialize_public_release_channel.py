@@ -3354,7 +3354,9 @@ def test_load_startup_smoke_receipts_accepts_preview_channel_when_expected_chann
     ]
 
 
-def test_load_startup_smoke_receipts_preserves_windows_bootstrap_metadata() -> None:
+@pytest.mark.parametrize("mode", ["download", "embedded"])
+@pytest.mark.parametrize("alias_index", range(4))
+def test_load_startup_smoke_receipts_preserves_windows_bootstrap_metadata(mode: str, alias_index: int) -> None:
     now = MODULE.dt.datetime(2026, 7, 4, 18, 0, tzinfo=timezone.utc)
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
@@ -3376,7 +3378,7 @@ def test_load_startup_smoke_receipts_preserves_windows_bootstrap_metadata() -> N
                     "artifactId": "avalonia-win-x64-installer",
                     "artifactPath": "/tmp/chummer-avalonia-win-x64-installer.exe",
                     "artifactInstallMode": "nsis_bootstrap_installer",
-                    "bootstrapPayloadAcquisitionMode": "download",
+                    "bootstrapPayloadAcquisitionMode": mode,
                     "bootstrapPayloadFileName": "chummer-avalonia-win-x64-payload.zip",
                     "bootstrapPayloadSha256": "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2",
                     "bootstrapPayloadSizeBytes": 51124044,
@@ -3384,6 +3386,13 @@ def test_load_startup_smoke_receipts_preserves_windows_bootstrap_metadata() -> N
             ),
             encoding="utf-8",
         )
+        raw = json.loads(receipt_path.read_text())
+        for aliases in MODULE.BOOTSTRAP_PAYLOAD_FIELD_ALIASES.values():
+            if aliases[2] in raw:
+                value = raw.pop(aliases[2])
+                raw[aliases[alias_index]] = value
+        receipt_path.write_text(json.dumps(raw), encoding="utf-8")
+        original_bytes = receipt_path.read_bytes()
         receipts = MODULE.load_startup_smoke_receipts(
             root,
             max_age_seconds=86400,
@@ -3391,6 +3400,7 @@ def test_load_startup_smoke_receipts_preserves_windows_bootstrap_metadata() -> N
             expected_channel="preview",
             now=now,
         )
+        assert receipt_path.read_bytes() == original_bytes
     assert receipts == [
         {
             "head": "avalonia",
@@ -3401,7 +3411,7 @@ def test_load_startup_smoke_receipts_preserves_windows_bootstrap_metadata() -> N
             "artifactId": "avalonia-win-x64-installer",
             "artifactFileName": "chummer-avalonia-win-x64-installer.exe",
             "installerMode": "bootstrap",
-            "payloadAcquisitionMode": "download",
+            "payloadAcquisitionMode": mode,
             "payloadFileName": "chummer-avalonia-win-x64-payload.zip",
             "payloadSha256": "cb5110834703163e35f33902319029c65d575e98a1092c8d71e58ae1cd440bb2",
             "payloadSizeBytes": 51124044,
@@ -4536,6 +4546,42 @@ def test_enrich_artifact_from_startup_smoke_scrubs_stale_payload_authority() -> 
 
     assert MODULE.enrich_artifact_from_startup_smoke(artifact, []) == expected
     assert MODULE.enrich_artifact_from_startup_smoke(artifact, [malformed_receipt]) == expected
+
+
+@pytest.mark.parametrize("mode", ["download", "embedded"])
+def test_bootstrap_authority_is_rebuilt_only_from_matching_receipt(mode: str) -> None:
+    artifact = {
+        "artifactId": "avalonia-win-x64-installer", "head": "avalonia",
+        "platform": "windows", "arch": "x64", "kind": "installer",
+        "fileName": "chummer-avalonia-win-x64-installer.exe", "sha256": "a" * 64,
+        "downloadUrl": "/downloads/files/chummer-avalonia-win-x64-installer.exe",
+        "installAccessClass": "open_public",
+    }
+    polluted = {**artifact, **{field: "unproven" for field in MODULE.PROOF_DERIVED_PAYLOAD_AUTHORITY_FIELDS}}
+    receipt = {
+        "head": "avalonia", "platform": "windows", "arch": "x64",
+        "artifactId": artifact["artifactId"], "artifactFileName": artifact["fileName"],
+        "artifactDigest": "sha256:" + artifact["sha256"], "installerMode": "bootstrap",
+        "payloadAcquisitionMode": mode, "payloadFileName": "payload.zip",
+        "payloadSha256": "b" * 64, "payloadSizeBytes": 123,
+    }
+    expected = {
+        **artifact, "installerMode": "bootstrap", "payloadAcquisitionMode": mode,
+        "payloadFileName": "payload.zip", "payloadSha256": "b" * 64,
+        "payloadSizeBytes": 123, "payloadDownloadUrl": "/downloads/files/payload.zip",
+    }
+    assert MODULE.filter_unproven_installers([polluted], [receipt]) == [expected]
+    bare_receipt = {key: value for key, value in receipt.items() if key not in MODULE.PROOF_DERIVED_PAYLOAD_AUTHORITY_FIELDS}
+    assert MODULE.filter_unproven_installers([polluted], [bare_receipt]) == [artifact]
+    for overrides in (
+        {"artifactId": "other-installer"}, {"artifactFileName": "other.exe"},
+        {"artifactDigest": "sha256:" + "c" * 64}, {"platform": "linux"},
+        {"arch": "arm64"}, {"head": "other-head"},
+    ):
+        mismatched = {**receipt, **overrides}
+        assert MODULE.filter_unproven_installers([polluted], [mismatched]) == [], overrides
+        # A valid identity-only receipt must not lend its authority to a mismatched payload receipt.
+        assert MODULE.filter_unproven_installers([polluted], [mismatched, bare_receipt]) == [artifact], overrides
 
 
 def test_enrich_artifact_from_startup_smoke_preserves_matching_bundled_mode() -> None:
