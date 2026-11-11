@@ -2263,6 +2263,168 @@ def _write_windows_wine_compatibility_startup_smoke(
     return receipt_path
 
 
+def _write_bootstrap_contract_fixture(tmp_path: Path, mode: str = "embedded") -> tuple[dict, dict, Path, Path]:
+    payload, root, installer_name, installer_sha = _write_windows_release_fixture(tmp_path)
+    _configure_windows_only_preview_payload(payload)
+    payload["registry_commit"] = payload["registryCommit"] = "1" * 40
+    receipt_path = _write_windows_wine_compatibility_startup_smoke(
+        root, installer_name=installer_name, installer_sha=installer_sha,
+        executionEnvironment="native_windows", verificationScope="native_windows_startup",
+        nativeHostEvidence={
+            "contractName": "chummer6-ui.native_windows_host_evidence", "status": "verified",
+            "isNativeWindows": True, "hostPlatform": "windows", "hostKernel": "Windows_NT",
+            "runner": "native-test-fixture", "evidenceSource": "test-fixture",
+        },
+        artifactInstallMode="nsis_bootstrap_installer", bootstrapPayloadAcquisitionMode=mode,
+        bootstrapPayloadFileName="chummer-avalonia-win-x64-payload.zip",
+        bootstrapPayloadSha256="b" * 64, bootstrapPayloadSizeBytes=123,
+    )
+    artifact = payload["artifacts"][0]
+    artifact["downloadUrl"] = artifact["url"]
+    receipts = MATERIALIZER.load_startup_smoke_receipts(
+        root / "startup-smoke", expected_channel="preview", expected_platform_scope="windows_only",
+    )
+    payload["artifacts"] = MATERIALIZER.filter_unproven_installers([artifact], receipts)
+    payload.pop("downloads")
+    compatibility = MATERIALIZER.compatibility_payload(payload)
+    return payload, compatibility, root, receipt_path
+
+
+@pytest.mark.parametrize("mode", ["embedded", "download"])
+def test_bootstrap_contract_round_trip_preserves_receipt_authority(tmp_path: Path, mode: str) -> None:
+    canonical, compatibility, root, receipt_path = _write_bootstrap_contract_fixture(tmp_path, mode)
+    original_bytes = receipt_path.read_bytes()
+    receipt = json.loads(original_bytes)
+    MODULE.verify_windows_preview_public_receipt(receipt, "fixture")
+    for manifest, key in ((canonical, "artifacts"), (compatibility, "downloads")):
+        artifact = manifest[key][0]
+        assert artifact["payloadAcquisitionMode"] == mode
+        assert artifact["payloadSha256"] == receipt["bootstrapPayloadSha256"]
+        assert artifact["payloadSizeBytes"] == receipt["bootstrapPayloadSizeBytes"]
+        assert artifact["nativeHostEvidence"] == receipt["nativeHostEvidence"]
+        MODULE.verify_local_startup_smoke_receipts(manifest, root, "fixture")
+    assert receipt_path.read_bytes() == original_bytes
+
+
+@pytest.mark.parametrize("mode", ["embedded", "download"])
+@pytest.mark.parametrize("alias_index", range(4))
+def test_bootstrap_verifier_accepts_agreeing_supported_aliases(tmp_path: Path, mode: str, alias_index: int) -> None:
+    canonical, compatibility, root, receipt_path = _write_bootstrap_contract_fixture(tmp_path, mode)
+    receipt = json.loads(receipt_path.read_text())
+    receipt["installer_mode"] = receipt["artifactInstallMode"]
+    receipt["bootstrapPayloadDownloadUrl"] = canonical["artifacts"][0]["payloadDownloadUrl"]
+    for aliases in MATERIALIZER.BOOTSTRAP_PAYLOAD_FIELD_ALIASES.values():
+        if aliases[2] in receipt:
+            receipt[aliases[alias_index]] = receipt[aliases[2]]
+    receipt_path.write_text(json.dumps(receipt))
+    for manifest in (canonical, compatibility):
+        MODULE.verify_local_startup_smoke_receipts(manifest, root, "fixture")
+
+
+@pytest.mark.parametrize("target", ["receipt", "artifacts", "downloads"])
+@pytest.mark.parametrize("overrides", [
+    {"payloadAcquisitionMode": "unknown"}, {"payloadAcquisitionMode": None},
+    {"payloadAcquisitionMode": "download", "payload_acquisition_mode": "embedded"},
+    {"payloadFileName": "other.zip"}, {"payloadSha256": "c" * 64},
+    {"payloadSizeBytes": 124}, {"payloadSizeBytes": True},
+    {"payloadDownloadUrl": "https://evil.invalid/downloads/files/chummer-avalonia-win-x64-payload.zip"},
+    {"payloadDownloadUrl": "/downloads/files/other.zip"},
+    {"payloadDownloadUrl": "/downloads/files/chummer-avalonia-win-x64-payload.zip",
+     "bootstrap_payload_download_url": "/downloads/g/other/files/chummer-avalonia-win-x64-payload.zip"},
+    {"installer_mode": "unknown"}, {"installer_mode": "bundled"},
+])
+def test_bootstrap_verifier_rejects_unknown_conflicting_or_mismatched_metadata(
+    tmp_path: Path, target: str, overrides: dict,
+) -> None:
+    canonical, compatibility, root, receipt_path = _write_bootstrap_contract_fixture(tmp_path)
+    if target == "receipt":
+        receipt = json.loads(receipt_path.read_text())
+        receipt.update(overrides)
+        receipt_path.write_text(json.dumps(receipt))
+        manifests = (canonical, compatibility)
+    else:
+        manifest = canonical if target == "artifacts" else compatibility
+        manifest[target][0].update(overrides)
+        manifests = (manifest,)
+    for manifest in manifests:
+        with pytest.raises(SystemExit, match="payload|installer mode"):
+            MODULE.verify_local_startup_smoke_receipts(manifest, root, "fixture")
+
+
+@pytest.mark.parametrize("field,value", [
+    ("artifactDigest", "sha256:" + "c" * 64), ("artifactId", "other-installer"),
+    ("artifactFileName", "other.exe"), ("artifactRelativePath", "files/other.exe"),
+    ("platform", "linux"), ("rid", "win-arm64"),
+])
+def test_embedded_contract_rejects_receipt_identity_mismatches(tmp_path: Path, field: str, value: str) -> None:
+    canonical, compatibility, root, receipt_path = _write_bootstrap_contract_fixture(tmp_path)
+    receipt = json.loads(receipt_path.read_text())
+    receipt[field] = value
+    receipt_path.write_text(json.dumps(receipt))
+    for manifest in (canonical, compatibility):
+        with pytest.raises(SystemExit):
+            MODULE.verify_local_startup_smoke_receipts(manifest, root, "fixture")
+
+
+def test_bootstrap_contract_requires_receipt_metadata_and_preserves_public_allowlist(tmp_path: Path) -> None:
+    canonical, compatibility, root, receipt_path = _write_bootstrap_contract_fixture(tmp_path)
+    receipt = json.loads(receipt_path.read_text())
+    # The private controller join report is not a new public/native evidence field.
+    with pytest.raises(SystemExit, match="non-public field"):
+        MODULE.verify_windows_preview_public_receipt({**receipt, "controllerPackagingMetadata": {}}, "fixture")
+    for aliases in MATERIALIZER.BOOTSTRAP_PAYLOAD_FIELD_ALIASES.values():
+        for alias in aliases:
+            receipt.pop(alias, None)
+    receipt.pop("artifactInstallMode")
+    receipt_path.write_text(json.dumps(receipt))
+    for manifest in (canonical, compatibility):
+        with pytest.raises(SystemExit, match="does not match"):
+            MODULE.verify_local_startup_smoke_receipts(manifest, root, "fixture")
+
+
+@pytest.mark.parametrize("field,value", [
+    ("bootstrapPayloadAcquisitionMode", "download"), ("bootstrapPayloadFileName", "other.zip"),
+    ("bootstrapPayloadSha256", "c" * 64), ("bootstrapPayloadSizeBytes", 124),
+])
+def test_bootstrap_contract_binds_each_payload_field_to_receipt(tmp_path: Path, field: str, value) -> None:
+    canonical, compatibility, root, receipt_path = _write_bootstrap_contract_fixture(tmp_path)
+    receipt = json.loads(receipt_path.read_text())
+    receipt[field] = value
+    receipt_path.write_text(json.dumps(receipt))
+    for manifest in (canonical, compatibility):
+        with pytest.raises(SystemExit, match="does not match"):
+            MODULE.verify_local_startup_smoke_receipts(manifest, root, "fixture")
+
+
+@pytest.mark.parametrize("overrides", [
+    {"artifactFileName": "other.exe"}, {"artifact_file_name": "other.exe"},
+    {"artifact_id": "other-installer"}, {"artifactId": ""},
+])
+def test_bootstrap_loader_rejects_conflicting_receipt_identity(tmp_path: Path, overrides: dict) -> None:
+    canonical, _compatibility, root, receipt_path = _write_bootstrap_contract_fixture(tmp_path)
+    receipt = json.loads(receipt_path.read_text())
+    receipt.update(overrides)
+    receipt_path.write_text(json.dumps(receipt))
+    loaded = MATERIALIZER.load_startup_smoke_receipts(
+        root / "startup-smoke", expected_channel="preview", expected_platform_scope="windows_only",
+    )
+    assert loaded == []
+    assert MATERIALIZER.filter_unproven_installers(canonical["artifacts"], loaded) == []
+
+
+@pytest.mark.parametrize("mode", ["", None])
+def test_downloaded_bootstrap_contract_keeps_legacy_absent_or_empty_mode(tmp_path: Path, mode: str | None) -> None:
+    canonical, compatibility, root, receipt_path = _write_bootstrap_contract_fixture(tmp_path, "download")
+    receipt = json.loads(receipt_path.read_text())
+    if mode is None:
+        receipt.pop("bootstrapPayloadAcquisitionMode")
+    else:
+        receipt["bootstrapPayloadAcquisitionMode"] = mode
+    receipt_path.write_text(json.dumps(receipt))
+    for manifest in (canonical, compatibility):
+        MODULE.verify_local_startup_smoke_receipts(manifest, root, "fixture")
+
+
 def test_windows_only_preview_accepts_exact_wine_compatibility_startup_receipt(
     tmp_path: Path,
 ) -> None:

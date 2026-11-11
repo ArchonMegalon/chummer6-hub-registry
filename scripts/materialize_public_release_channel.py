@@ -974,10 +974,33 @@ def startup_smoke_receipt_artifact_file_name(loaded: dict[str, Any]) -> str:
     return explicit_file_name or path_file_name
 
 
+STARTUP_SMOKE_INSTALLER_MODE_ALIASES = (
+    "installerMode", "installer_mode", "artifactInstallMode", "artifact_install_mode",
+)
+BOOTSTRAP_PAYLOAD_FIELD_ALIASES = {
+    "payloadAcquisitionMode": (
+        "payloadAcquisitionMode", "payload_acquisition_mode",
+        "bootstrapPayloadAcquisitionMode", "bootstrap_payload_acquisition_mode",
+    ),
+    "payloadFileName": (
+        "payloadFileName", "payload_file_name", "bootstrapPayloadFileName", "bootstrap_payload_file_name",
+    ),
+    "payloadSha256": (
+        "payloadSha256", "payload_sha256", "bootstrapPayloadSha256", "bootstrap_payload_sha256",
+    ),
+    "payloadSizeBytes": (
+        "payloadSizeBytes", "payload_size_bytes", "bootstrapPayloadSizeBytes", "bootstrap_payload_size_bytes",
+    ),
+    "payloadDownloadUrl": (
+        "payloadDownloadUrl", "payload_download_url", "bootstrapPayloadDownloadUrl", "bootstrap_payload_download_url",
+    ),
+}
+
+
 def startup_smoke_manifest_installer_mode(loaded: dict[str, Any]) -> str:
     install_mode = resolve_exact_receipt_alias(
         loaded,
-        ("installerMode", "artifactInstallMode", "artifact_install_mode"),
+        STARTUP_SMOKE_INSTALLER_MODE_ALIASES,
         lambda value: canonical_startup_smoke_installer_mode(value) is not None,
     )
     if install_mode in {RECEIPT_ALIAS_ABSENT, RECEIPT_ALIAS_INVALID}:
@@ -1063,7 +1086,7 @@ def canonical_receipt_installer_mode(value: Any) -> str | None:
 def canonical_bootstrap_payload_acquisition_mode(value: Any) -> str | None:
     if value is RECEIPT_ALIAS_ABSENT:
         return ""
-    if type(value) is str and value in {"", "download"}:
+    if type(value) is str and value in {"", "download", "embedded"}:
         return value
     return None
 
@@ -1145,6 +1168,39 @@ def derive_public_payload_download_url(artifact_download_url: Any, payload_file_
     return f"{origin}{payload_path}" if origin else payload_path
 
 
+def bootstrap_payload_metadata(loaded: dict[str, Any]) -> dict[str, Any] | None:
+    """Resolve packaging metadata without treating inventory as proof authority."""
+    validators = {
+        "payloadAcquisitionMode": lambda value: canonical_bootstrap_payload_acquisition_mode(value) is not None,
+        "payloadFileName": lambda value: bool(canonical_bootstrap_payload_file_name(value)),
+        "payloadSha256": lambda value: bool(canonical_bootstrap_payload_sha256(value)),
+        "payloadSizeBytes": lambda value: positive_int_or_none(value) is not None,
+        "payloadDownloadUrl": lambda value: type(value) is str,
+    }
+    metadata = {}
+    for field, aliases in BOOTSTRAP_PAYLOAD_FIELD_ALIASES.items():
+        value = resolve_exact_receipt_alias(loaded, aliases, validators[field])
+        if value is RECEIPT_ALIAS_INVALID:
+            return None
+        if value is RECEIPT_ALIAS_ABSENT:
+            if field in {"payloadAcquisitionMode", "payloadDownloadUrl"}:
+                continue
+            return None
+        if field == "payloadAcquisitionMode" and not value:
+            continue
+        metadata[field] = value
+    if "payloadDownloadUrl" in metadata:
+        try:
+            _, path = parse_canonical_public_download_url(
+                metadata["payloadDownloadUrl"], field_name="payloadDownloadUrl",
+            )
+        except ValueError:
+            return None
+        if path.rsplit("/", 1)[-1] != metadata["payloadFileName"]:
+            return None
+    return metadata
+
+
 def enrich_artifact_from_startup_smoke(
     artifact: dict[str, Any],
     matching_receipts: list[dict[str, Any]],
@@ -1188,37 +1244,10 @@ def enrich_artifact_from_startup_smoke(
             enriched["installerMode"] = "bundled"
             break
 
-        payload_acquisition_mode = canonical_bootstrap_payload_acquisition_mode(
-            resolve_exact_receipt_alias(
-                matching_receipt,
-                ("payloadAcquisitionMode", "payload_acquisition_mode"),
-                lambda value: canonical_bootstrap_payload_acquisition_mode(value) is not None,
-            )
-        )
-        if payload_acquisition_mode is None:
+        metadata = bootstrap_payload_metadata(matching_receipt)
+        if metadata is None:
             continue
-
-        payload_file_name = canonical_bootstrap_payload_file_name(
-            resolve_exact_receipt_alias(
-                matching_receipt,
-                ("payloadFileName", "payload_file_name"),
-                lambda value: bool(canonical_bootstrap_payload_file_name(value)),
-            )
-        )
-        payload_sha256 = canonical_bootstrap_payload_sha256(
-            resolve_exact_receipt_alias(
-                matching_receipt,
-                ("payloadSha256", "payload_sha256"),
-                lambda value: bool(canonical_bootstrap_payload_sha256(value)),
-            )
-        )
-        payload_size_bytes = positive_int_or_none(
-            resolve_exact_receipt_alias(
-                matching_receipt,
-                ("payloadSizeBytes", "payload_size_bytes"),
-                lambda value: positive_int_or_none(value) is not None,
-            )
-        )
+        payload_file_name = metadata["payloadFileName"]
         payload_download_url = derive_public_payload_download_url(
             enriched.get("downloadUrl"),
             payload_file_name,
@@ -1230,20 +1259,13 @@ def enrich_artifact_from_startup_smoke(
             )
         except ValueError:
             continue
-        if (
-            not payload_file_name
-            or not payload_sha256
-            or payload_size_bytes is None
-            or payload_download_path.rsplit("/", 1)[-1] != payload_file_name
-        ):
+        if payload_download_path.rsplit("/", 1)[-1] != payload_file_name:
             continue
-
         enriched["installerMode"] = "bootstrap"
-        enriched["payloadAcquisitionMode"] = "download"
-        enriched["payloadFileName"] = payload_file_name
+        enriched.update(metadata)
+        enriched["payloadAcquisitionMode"] = metadata.get("payloadAcquisitionMode", "download")
+        # Delivery URLs come from the public installer route, never inventory or receipt overrides.
         enriched["payloadDownloadUrl"] = payload_download_url
-        enriched["payloadSha256"] = payload_sha256
-        enriched["payloadSizeBytes"] = payload_size_bytes
         break
     return enriched
 
@@ -4773,49 +4795,9 @@ def load_startup_smoke_receipts(
         installer_mode = startup_smoke_manifest_installer_mode(loaded)
         if installer_mode:
             receipt_entry["installerMode"] = installer_mode
-        payload_acquisition_mode = canonical_bootstrap_payload_acquisition_mode(
-            resolve_exact_receipt_alias(
-                loaded,
-                (
-                    "bootstrapPayloadAcquisitionMode",
-                    "bootstrap_payload_acquisition_mode",
-                ),
-                lambda value: canonical_bootstrap_payload_acquisition_mode(value) is not None,
-            )
-        )
-        payload_file_name = canonical_bootstrap_payload_file_name(
-            resolve_exact_receipt_alias(
-                loaded,
-                ("bootstrapPayloadFileName", "bootstrap_payload_file_name"),
-                lambda value: bool(canonical_bootstrap_payload_file_name(value)),
-            )
-        )
-        payload_sha256 = canonical_bootstrap_payload_sha256(
-            resolve_exact_receipt_alias(
-                loaded,
-                ("bootstrapPayloadSha256", "bootstrap_payload_sha256"),
-                lambda value: bool(canonical_bootstrap_payload_sha256(value)),
-            )
-        )
-        payload_size_bytes = positive_int_or_none(
-            resolve_exact_receipt_alias(
-                loaded,
-                ("bootstrapPayloadSizeBytes", "bootstrap_payload_size_bytes"),
-                lambda value: positive_int_or_none(value) is not None,
-            )
-        )
-        if (
-            installer_mode == "bootstrap"
-            and payload_acquisition_mode is not None
-            and payload_file_name
-            and payload_sha256
-            and payload_size_bytes is not None
-        ):
-            if payload_acquisition_mode:
-                receipt_entry["payloadAcquisitionMode"] = payload_acquisition_mode
-            receipt_entry["payloadFileName"] = payload_file_name
-            receipt_entry["payloadSha256"] = payload_sha256
-            receipt_entry["payloadSizeBytes"] = payload_size_bytes
+        metadata = bootstrap_payload_metadata(loaded)
+        if installer_mode == "bootstrap" and metadata is not None:
+            receipt_entry.update(metadata)
         return receipt_entry
 
     receipt_paths = sorted(
@@ -4917,6 +4899,13 @@ def load_startup_smoke_receipts(
                 else:
                     proof_freshness = "stale"
         receipt_entry = build_receipt_entry(loaded)
+        if any(key in loaded for key in ("artifactId", "artifact_id", "artifact")) and not receipt_entry["artifactId"]:
+            continue
+        if any(key in loaded for key in (
+            "artifactFileName", "artifact_file_name", "fileName", "file_name",
+            "artifactPath", "artifact_path", "artifactRelativePath", "artifact_relative_path",
+        )) and not receipt_entry["artifactFileName"]:
+            continue
         if not receipt_entry["head"] or not receipt_entry["platform"] or not receipt_entry["arch"]:
             continue
         if (
@@ -5027,6 +5016,12 @@ def filter_unproven_installers(
             receipt
             for receipt in startup_smoke_receipts
             if receipt["head"] == head and receipt["platform"] == platform and receipt["arch"] == arch
+            and (not expected_artifact_id or not receipt.get("artifactId")
+                 or receipt["artifactId"] == expected_artifact_id)
+            and (not expected_file_name or not receipt.get("artifactFileName")
+                 or receipt["artifactFileName"] == expected_file_name)
+            and (not expected_digest or not receipt.get("artifactDigest")
+                 or normalize_token(receipt["artifactDigest"]) in expected_digest_variants)
             and (
                 (expected_artifact_id and receipt.get("artifactId") == expected_artifact_id)
                 or (expected_file_name and receipt.get("artifactFileName") == expected_file_name)
