@@ -459,3 +459,69 @@ def test_release_decision_schema_pins_explicit_review_byte_handoff() -> None:
     unknown_handoff_field["artifactHandoff"]["availabilityReady"] = True
     with pytest.raises(jsonschema.ValidationError):
         jsonschema.validate(unknown_handoff_field, schema)
+
+
+def unknown_review_snapshot() -> dict[str, object]:
+    payload = snapshot()
+    payload.update({
+        "rolloutState": "public_release_review_required",
+        "availablePlatforms": ["windows"],
+        "primaryHeadByPlatform": {"windows": "avalonia"},
+    })
+    payload["artifacts"][0].update({
+        "artifactId": "avalonia-win-x64-installer",
+        "platform": "windows",
+        "rid": "win-x64",
+        "compatibilityState": "unknown",
+        "publicInstallRoute": "/downloads/install/avalonia-win-x64-installer",
+    })
+    return payload
+
+
+def test_unknown_compatibility_schema_requires_bounded_review_shape() -> None:
+    schema = load_schema()
+    jsonschema.validate(unknown_review_snapshot(), schema)
+    ordinary = snapshot()
+    ordinary["artifacts"][0]["compatibilityState"] = "unknown"
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(ordinary, schema)
+    # External scope approval, publication state and exact v2 decision are
+    # cross-document invariants, enforced by verify_envelope_bytes, not inferred
+    # from this snapshot's structurally valid shape.
+    assert "Mandatory cross-document validation" in schema["$defs"]["snapshot"]["x-chummer-derivation-invariants"]["unknownCompatibility"]
+
+
+@pytest.mark.parametrize("field,value", [
+    ("channel", "public_stable"), ("status", "revoked"),
+    ("rolloutState", "promoted_preview"), ("supportabilityState", "preview_supported"),
+    ("releaseDecisionStatus", "preview_ready"), ("releaseDecisionStatus", "stable_ready"),
+    ("artifactCount", 2), ("availablePlatforms", ["linux"]),
+    ("primaryHeadByPlatform", {"windows": "blazor-desktop"}),
+    ("downloadAccessPosture", "account_required"),
+])
+def test_unknown_compatibility_schema_rejects_other_release_contexts(field: str, value: object) -> None:
+    payload = unknown_review_snapshot()
+    payload[field] = value
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(payload, load_schema())
+
+
+@pytest.mark.parametrize("field,value", [
+    ("compatibilityState", "incompatible"), ("compatibilityState", "missing"),
+    ("artifactId", "other-installer"), ("head", "blazor-desktop"),
+    ("platform", "linux"), ("rid", "win-arm64"), ("arch", "arm64"),
+    ("kind", "archive"), ("installAccessClass", "account_required"),
+])
+def test_unknown_compatibility_schema_rejects_other_artifact_tuples(field: str, value: object) -> None:
+    payload = unknown_review_snapshot()
+    payload["artifacts"][0][field] = value
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(payload, load_schema())
+
+
+def test_unknown_compatibility_schema_rejects_multiple_artifacts() -> None:
+    payload = unknown_review_snapshot()
+    payload["artifacts"].append(copy.deepcopy(payload["artifacts"][0]))
+    payload["artifactCount"] = 2
+    with pytest.raises(jsonschema.ValidationError):
+        jsonschema.validate(payload, load_schema())
