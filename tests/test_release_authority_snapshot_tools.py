@@ -573,6 +573,98 @@ def test_preview_ready_never_reinterprets_preview_publication_as_ready(
         )
 
 
+def test_unsigned_preview_compatibility_preserves_absent_packaging_fields() -> None:
+    canonical = {
+        "registry_commit": COMMIT,
+        "publicationProfile": "windows_unsigned_preview_v1",
+        "artifacts": [{"artifactId": "windows-installer", "fileName": "setup.exe"}],
+    }
+
+    projected = release_channel.compatibility_payload(canonical)["downloads"][0]
+
+    for field in (
+        "installerMode",
+        "payloadAcquisitionMode",
+        "payloadFileName",
+        "payloadDownloadUrl",
+        "payloadSha256",
+        "payloadSizeBytes",
+    ):
+        assert field not in projected
+    assert projected["fileName"] == "setup.exe"
+    assert projected["sha256"] is None  # Unrelated null projection stays unchanged.
+
+
+@pytest.mark.parametrize(
+    "field",
+    (
+        "installerMode",
+        "payloadAcquisitionMode",
+        "payloadFileName",
+        "payloadDownloadUrl",
+        "payloadSha256",
+        "payloadSizeBytes",
+    ),
+)
+@pytest.mark.parametrize("value", (None, "", False, "partial"))
+def test_unsigned_preview_compatibility_preserves_explicit_packaging_claims(
+    field: str, value: object,
+) -> None:
+    canonical = {
+        "registry_commit": COMMIT,
+        "publicationProfile": "windows_unsigned_preview_v1",
+        "artifacts": [{"fileName": "setup.exe", field: value}],
+    }
+
+    projected = release_channel.compatibility_payload(canonical)["downloads"][0]
+
+    assert field in projected
+    assert projected[field] == value
+    assert type(projected[field]) is type(value)
+
+
+@pytest.mark.parametrize("profile", (None, "full_release", "windows_unsigned_preview_v1 "))
+def test_other_profiles_keep_compatibility_packaging_projection(profile: str | None) -> None:
+    canonical = {"registry_commit": COMMIT, "artifacts": [{"fileName": "setup.exe"}]}
+    if profile is not None:
+        canonical["publicationProfile"] = profile
+
+    projected = release_channel.compatibility_payload(canonical)["downloads"][0]
+
+    for field in (
+        "installerMode",
+        "payloadFileName",
+        "payloadDownloadUrl",
+        "payloadSha256",
+        "payloadSizeBytes",
+    ):
+        assert field in projected
+        assert projected[field] is None
+    assert "payloadAcquisitionMode" not in projected
+
+
+@pytest.mark.parametrize("profile", ("", "full_release", "windows_unsigned_preview_v1"))
+def test_compatibility_preserves_bootstrap_packaging(profile: str) -> None:
+    packaging = {
+        "installerMode": "bootstrap",
+        "payloadAcquisitionMode": "download",
+        "payloadFileName": "payload.zip",
+        "payloadDownloadUrl": "https://example.test/payload.zip",
+        "payloadSha256": ARTIFACT_SHA,
+        "payloadSizeBytes": 123,
+    }
+    canonical = {
+        "registry_commit": COMMIT,
+        "publicationProfile": profile,
+        "artifacts": [{"fileName": "setup.exe", **packaging}],
+    }
+
+    projected = release_channel.compatibility_payload(canonical)["downloads"][0]
+
+    assert {field: projected[field] for field in packaging} == packaging
+    assert [field for field in projected if field in packaging] == list(packaging)
+
+
 def test_long_flagship_readiness_summary_round_trips_through_release_authority(
     tmp_path: Path,
 ) -> None:

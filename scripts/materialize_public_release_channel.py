@@ -9097,6 +9097,7 @@ def compatibility_artifact_row(
     *,
     channel_id: str,
     canonical_version: Any = None,
+    publication_profile: str = "",
 ) -> dict[str, Any]:
     artifact_id = str(artifact.get("artifactId") or artifact.get("id") or "").strip()
     file_name = str(artifact.get("fileName") or "")
@@ -9140,16 +9141,24 @@ def compatibility_artifact_row(
             if "compatibilityReason" in artifact
             else {}
         ),
-        "installerMode": artifact.get("installerMode"),
-        **(
-            {"payloadAcquisitionMode": artifact["payloadAcquisitionMode"]}
-            if "payloadAcquisitionMode" in artifact
-            else {}
-        ),
-        "payloadFileName": artifact.get("payloadFileName"),
-        "payloadDownloadUrl": artifact.get("payloadDownloadUrl"),
-        "payloadSha256": artifact.get("payloadSha256"),
-        "payloadSizeBytes": artifact.get("payloadSizeBytes"),
+        **{
+            field_name: artifact.get(field_name)
+            for field_name in (
+                "installerMode",
+                "payloadAcquisitionMode",
+                "payloadFileName",
+                "payloadDownloadUrl",
+                "payloadSha256",
+                "payloadSizeBytes",
+            )
+            # An unsigned preview must not acquire packaging claims in projection.
+            # Explicit claims, including null/empty/false, remain for validation.
+            if field_name in artifact
+            or (
+                publication_profile != "windows_unsigned_preview_v1"
+                and field_name != "payloadAcquisitionMode"
+            )
+        },
         **{
             field_name: (
                 dict(artifact[field_name])
@@ -9205,6 +9214,7 @@ def compatibility_payload(canonical: dict[str, Any]) -> dict[str, Any]:
                 artifact,
                 channel_id=channel_id,
                 canonical_version=canonical.get("version"),
+                publication_profile=canonical.get("publicationProfile", ""),
             )
         )
     payload = {
