@@ -2113,7 +2113,8 @@ def test_registry_commit_requires_external_full_canonical_commit() -> None:
             MODULE.canonical_payload(argparse.Namespace(registry_commit=invalid))
 
 
-def test_registry_source_checkout_must_match_reviewed_commit_and_producer_bytes() -> None:
+@pytest.mark.parametrize("producer_path", MODULE.REGISTRY_PRODUCER_PATHS)
+def test_registry_source_checkout_must_match_reviewed_commit_and_producer_bytes(producer_path: str) -> None:
     with tempfile.TemporaryDirectory() as tmp:
         root = Path(tmp)
         for relative_path in MODULE.REGISTRY_PRODUCER_PATHS:
@@ -2176,7 +2177,7 @@ def test_registry_source_checkout_must_match_reviewed_commit_and_producer_bytes(
         with pytest.raises(ValueError, match="does not match checkout HEAD"):
             MODULE.validate_registry_source_checkout(reviewed_commit, repo_root=root)
 
-        materializer = root / MODULE.REGISTRY_PRODUCER_PATHS[0]
+        materializer = root / producer_path
         materializer.write_text(materializer.read_text(encoding="utf-8") + "\n# dirty producer\n", encoding="utf-8")
         with pytest.raises(ValueError, match="producer code differs"):
             MODULE.validate_registry_source_checkout(current_commit, repo_root=root)

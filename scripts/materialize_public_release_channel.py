@@ -43,6 +43,7 @@ UUID_PATTERN = re.compile(
 REGISTRY_PRODUCER_PATHS = (
     "scripts/materialize_public_release_channel.py",
     "scripts/verify_public_release_channel.py",
+    "scripts/preview_authority_contract.py",
     "scripts/release/refresh_public_desktop_truth.sh",
 )
 CODE_DEPLOY_CURRENT_SHELF_CONTRACT = "chummer.registry.code-deploy-current-shelf/v1"
