@@ -180,9 +180,107 @@ def verify_windows_preview_public_receipt(receipt: Any, source: str) -> None:
     verify_windows_preview_public_metadata(receipt, source)
 
 
+WINDOWS_PREVIEW_PRIVATE_AUTHORITY_FILES = frozenset({
+    "release-evidence/CURRENT.json",
+    "release-evidence/SNAPSHOT.json",
+    "release-evidence/RELEASE_DECISION.json",
+})
+
+
+def windows_preview_authority_module() -> Any:
+    # Byte-identical copy of Hub's bounded, side-effect-free intake contract.
+    path = Path(__file__).with_name("preview_authority_contract.py")
+    if path.is_symlink() or not path.is_file():
+        raise SystemExit("Windows preview authority contract is unavailable")
+    spec = importlib.util.spec_from_file_location("registry_preview_authority", path)
+    if spec is None or spec.loader is None:
+        raise SystemExit("Windows preview authority contract cannot be loaded")
+    module = importlib.util.module_from_spec(spec)
+    spec.loader.exec_module(module)
+    return module
+
+
+def verify_windows_preview_private_authority(root: Path, source: str) -> None:
+    """Check consistency, never grant approval or select these files for serving.
+
+    The release-shelf scope verification and runtime AuthorityBound remain
+    responsible for the approved scope preimage and public byte handoff.
+    """
+    contract = windows_preview_authority_module()
+    try:
+        evidence = {}
+        for name in sorted(WINDOWS_PREVIEW_PRIVATE_AUTHORITY_FILES):
+            path = root / name
+            limit = 64 * 1024 if name.endswith("/CURRENT.json") else 4 * 1024 * 1024
+            if not path.is_file() or path.is_symlink() or path.stat().st_size > limit:
+                raise ValueError("authority sibling missing or invalid")
+            evidence[name] = path.read_bytes()
+        canonical_raw = (root / "RELEASE_CHANNEL.generated.json").read_bytes()
+        canonical = contract._strict_json_object_bytes(canonical_raw, label="canonical manifest")
+        compatibility = contract._strict_json_object_bytes(
+            (root / "releases.json").read_bytes(), label="compatibility manifest"
+        )
+        for manifest in (canonical, compatibility):
+            if not verify_windows_preview_profile(manifest, source):
+                raise ValueError("authority requires the Windows preview profile")
+        artifacts = canonical.get("artifacts")
+        if not isinstance(artifacts, list) or len(artifacts) != 1 or not isinstance(artifacts[0], dict):
+            raise ValueError("authority requires one canonical artifact")
+        if not contract._is_startup_only_windows_preview(artifacts[0], WINDOWS_PREVIEW_PROFILE, True):
+            raise ValueError("optional authority siblings require startup-only Windows preview")
+        if any((root / name).exists() for name in (
+            "files/chummer-avalonia-win-x64-payload.zip",
+            "files/chummer-avalonia-win-x64-payload.zip.json",
+        )):
+            raise ValueError("startup-only authority cannot include unselected payload files")
+        decision = contract._strict_json_object_bytes(
+            evidence["release-evidence/RELEASE_DECISION.json"], label="preview decision"
+        )
+        snapshot = contract._strict_json_object_bytes(
+            evidence["release-evidence/SNAPSHOT.json"], label="preview snapshot"
+        )
+        scope_digest = decision.get("releaseScopeDecisionSha256")
+        if not isinstance(scope_digest, str) or re.fullmatch(r"[0-9a-f]{64}", scope_digest) is None:
+            raise ValueError("release-scope commitment must be a SHA-256")
+        registry_commit = resolve_alias_value(
+            canonical, primary_key="registry_commit", secondary_key="registryCommit",
+            field_path="registry_commit", source=source,
+        )
+        if snapshot.get("registryCommit") != registry_commit:
+            raise ValueError("authority Registry source differs from the immutable manifest")
+        generation_id = canonical.get("generationId")
+        if (not isinstance(generation_id, str)
+                or re.fullmatch(r"[A-Za-z0-9][A-Za-z0-9._-]{0,127}", generation_id) is None
+                or ".." in generation_id):
+            raise ValueError("authority generation identity is invalid")
+        version = canonical.get("releaseVersion") or canonical.get("version")
+        contract._validate_scope_bound_review_authority(
+            canonical_raw=canonical_raw, canonical=canonical, evidence_bytes=evidence,
+            generation_id=generation_id, release_scope_decision_sha256=scope_digest,
+            candidate_version=version,
+        )
+        smoke = root / contract.SCOPE_BOUND_STARTUP_SMOKE_PATH
+        if not smoke.is_file() or smoke.is_symlink() or smoke.stat().st_size > 4 * 1024 * 1024:
+            raise ValueError("startup receipt missing or invalid")
+        contract._validate_scope_bound_startup_smoke(
+            smoke.read_bytes(), artifact=artifacts[0], release_version=version,
+            publication_profile=WINDOWS_PREVIEW_PROFILE, has_authority_envelope=True,
+        )
+        # This also applies when the CLI target is a manifest file rather than
+        # a directory. The authority always binds the canonical sibling bytes.
+        verify_directory_projection_alignment(str(root))
+        verify_local_release_artifact_bytes(canonical, root / "files", source)
+    except (OSError, ValueError, KeyError, TypeError) as exc:
+        raise SystemExit(f"{source} Windows preview private authority is invalid: {exc}") from exc
+
+
 def verify_windows_preview_public_files(payload: dict, root: Path, source: str) -> None:
-    """Only the selected distributable and public-safe metadata enter this profile."""
+    """Selected public files plus an optional, validated private authority envelope."""
+    has_authority = any((root / name).exists() or (root / name).is_symlink()
+                        for name in WINDOWS_PREVIEW_PRIVATE_AUTHORITY_FILES)
     if publication_profile(payload, source) != WINDOWS_PREVIEW_PROFILE:
+        if has_authority:
+            raise SystemExit(f"{source} optional authority siblings require the Windows preview profile")
         return
     if root.is_symlink():
         raise SystemExit(f"{source} Windows preview public root must not be a symlink")
@@ -195,14 +293,21 @@ def verify_windows_preview_public_files(payload: dict, root: Path, source: str) 
     }
     # Generation control metadata is produced by the existing shelf helper.
     allowed.add("activation-candidate.json")
+    # Exact siblings are private metadata, not additional public distributables.
+    # Their complete contract is validated below; no directory-wide whitelist.
+    allowed.update(WINDOWS_PREVIEW_PRIVATE_AUTHORITY_FILES)
     for path in root.rglob("*"):
         if path.is_symlink():
             raise SystemExit(f"{source} Windows preview public files must not contain symlinks")
         if path.is_dir():
+            if path.relative_to(root).as_posix() not in {"files", "startup-smoke", "release-evidence"}:
+                raise SystemExit(f"{source} Windows preview contains an unselected directory")
             continue
         relative = path.relative_to(root).as_posix()
-        if relative not in allowed:
+        if not path.is_file() or relative not in allowed:
             raise SystemExit(f"{source} Windows preview contains an unselected public file: {relative}")
+        if relative in WINDOWS_PREVIEW_PRIVATE_AUTHORITY_FILES:
+            continue
         if path.suffix == ".json":
             metadata = strict_json_loads(path.read_bytes(), source=source)
             if relative.startswith("startup-smoke/"):
@@ -210,6 +315,8 @@ def verify_windows_preview_public_files(payload: dict, root: Path, source: str) 
             elif relative.endswith("-payload.zip.json"):
                 verify_windows_preview_metadata_fields(metadata, WINDOWS_PREVIEW_PUBLIC_SIDECAR_FIELDS, source)
             verify_windows_preview_public_metadata(metadata, source)
+    if has_authority or (root / "release-evidence").exists():
+        verify_windows_preview_private_authority(root, source)
 
 
 def windows_preview_private_field(key: str) -> bool:
