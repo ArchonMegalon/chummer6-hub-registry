@@ -21,6 +21,12 @@ using System.Text.Json.Nodes;
 using RegistryReleaseChannelHeadProjection = Chummer.Hub.Registry.Contracts.ReleaseChannelHeadProjection;
 using RegistryOwner = Chummer.Hub.Registry.Contracts;
 
+if (args.Contains("--draft-review-binding", StringComparer.Ordinal))
+{
+    await RegistryDraftReviewChecks.RunAsync();
+    return;
+}
+
 if (args.Contains("--audit-registry-durability", StringComparer.Ordinal))
 {
     await RegistryDurabilityChecks.RunAsync();
@@ -32,6 +38,8 @@ if (args.Contains("--audit-registry", StringComparer.Ordinal))
     await RegistryAuditHttpChecks.RunAsync();
     return;
 }
+
+await RegistryDraftReviewChecks.RunAsync();
 
 HubArtifactStore store = new();
 var releaseManifestRoot = Path.Combine(Path.GetTempPath(), "registry-release-channel", Guid.NewGuid().ToString("N"));

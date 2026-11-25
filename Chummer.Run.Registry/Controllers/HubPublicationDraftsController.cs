@@ -46,6 +46,10 @@ public sealed class HubPublicationDraftsController : ControllerBase
         {
             return Problem(statusCode: StatusCodes.Status400BadRequest, detail: ex.Message);
         }
+        catch (InvalidOperationException ex)
+        {
+            return Problem(statusCode: StatusCodes.Status409Conflict, detail: ex.Message);
+        }
     }
 
     [HttpGet("moderation")]
