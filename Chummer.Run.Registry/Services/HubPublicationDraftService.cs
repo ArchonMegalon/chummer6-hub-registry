@@ -1,5 +1,7 @@
 using Chummer.Hub.Registry.Contracts;
 using System.Collections.Concurrent;
+using System.Security.Cryptography;
+using System.Text.Json;
 using System.Text.Json.Serialization;
 
 namespace Chummer.Run.Registry.Services;
@@ -58,6 +60,8 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
 
     internal sealed class ModerationCaseStateRow
     {
+        // Missing on legacy cases: mutable draft state cannot supply old review evidence.
+        public string? ReviewedContentDigest { get; init; }
         public required string CaseId { get; init; }
         public required string DraftId { get; init; }
         public required string ProjectKind { get; init; }
@@ -266,23 +270,9 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
         lock (_sync)
         {
             DraftStateRow row = GetOwnedDraftLocked(draftId, ownerId);
-            if (string.Equals(row.State, HubPublicationStates.Archived, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException("Archived drafts must be restored through a new draft instead of direct updates.");
-            }
-
-            if (string.Equals(row.ReviewState, HubReviewStates.PendingReview, StringComparison.OrdinalIgnoreCase))
-            {
-                throw new InvalidOperationException("Drafts that are already under review cannot be edited until the review decision lands.");
-            }
-
-            row.Title = NormalizeRequired(request.Title, nameof(request.Title));
-            row.Summary = NormalizeOptional(request.Summary);
-            row.Description = NormalizeOptional(request.Description);
-            row.PublisherId = NormalizeOptional(request.PublisherId);
-            row.Visibility = ResolveVisibility(row.PublisherId);
-            row.UpdatedAtUtc = DateTimeOffset.UtcNow;
-            row.ReviewState = HubReviewStates.NotRequired;
+            SyncDraftLocked(row, new HubPublishDraftRequest(
+                row.ProjectKind, row.ProjectId, row.RulesetId,
+                request.Title, request.Summary, request.Description, request.PublisherId));
             return ToDraftReceipt(row);
         }
     }
@@ -327,8 +317,12 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
 
             ModerationCaseStateRow? pendingCase = ResolveLatestCaseLocked(row);
             if (pendingCase is not null
-                && string.Equals(pendingCase.State, HubModerationStates.PendingReview, StringComparison.OrdinalIgnoreCase))
+                && string.Equals(pendingCase.State, HubModerationStates.PendingReview, StringComparison.OrdinalIgnoreCase)
+                && MatchesReviewedContent(row, pendingCase))
             {
+                if (NormalizeOptional(request.PublisherId) is string publisherId
+                    && !string.Equals(publisherId, row.PublisherId, StringComparison.Ordinal))
+                    throw new InvalidOperationException("The pending review is for a different publisher.");
                 return ToSubmissionReceipt(row, pendingCase, pendingCase.Notes);
             }
 
@@ -342,6 +336,7 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
             row.State = HubPublicationStates.Submitted;
             row.ReviewState = HubReviewStates.PendingReview;
             row.SubmittedAtUtc = now;
+            row.PublishedAtUtc = null;
             row.UpdatedAtUtc = now;
             row.Visibility = ResolveVisibility(row.PublisherId);
             row.LatestModerationNotes = notes;
@@ -349,6 +344,7 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
 
             ModerationCaseStateRow createdCase = new()
             {
+                ReviewedContentDigest = ComputeContentDigest(row),
                 CaseId = $"case_{Guid.NewGuid():N}",
                 DraftId = row.DraftId,
                 ProjectKind = row.ProjectKind,
@@ -382,10 +378,19 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
                 throw new InvalidOperationException("Archived drafts cannot be published.");
             }
 
-            if (!string.Equals(row.ReviewState, HubReviewStates.Approved, StringComparison.OrdinalIgnoreCase))
+            ModerationCaseStateRow? approvedCase = ResolveLatestCaseLocked(row);
+            if (!string.Equals(row.ReviewState, HubReviewStates.Approved, StringComparison.OrdinalIgnoreCase)
+                || approvedCase is null
+                || !string.Equals(approvedCase.State, HubModerationStates.Approved, StringComparison.OrdinalIgnoreCase)
+                || !MatchesReviewedContent(row, approvedCase))
             {
-                throw new InvalidOperationException("Only approval-backed drafts can be published.");
+                throw new InvalidOperationException("Publication requires approval of the current draft content.");
             }
+
+            // Publisher and visibility are part of the reviewed content, including on retries.
+            if (NormalizeOptional(request.PublisherId) is string publisherId
+                && !string.Equals(publisherId, row.PublisherId, StringComparison.Ordinal))
+                throw new InvalidOperationException("The publisher must match the reviewed draft.");
 
             if (string.Equals(row.State, HubPublicationStates.Published, StringComparison.OrdinalIgnoreCase)
                 && row.PublishedAtUtc is not null)
@@ -394,8 +399,6 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
             }
 
             DateTimeOffset now = DateTimeOffset.UtcNow;
-            string? publisherId = NormalizeOptional(request.PublisherId) ?? row.PublisherId ?? actorId;
-            row.PublisherId = publisherId;
             row.State = HubPublicationStates.Published;
             row.PublishedAtUtc = now;
             row.UpdatedAtUtc = now;
@@ -458,9 +461,13 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
                 throw new KeyNotFoundException($"Draft '{moderationCase.DraftId}' was not found.");
             }
 
-            if (!string.Equals(moderationCase.State, HubModerationStates.PendingReview, StringComparison.OrdinalIgnoreCase))
+            if (!string.Equals(moderationCase.State, HubModerationStates.PendingReview, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(row.ReviewState, HubReviewStates.PendingReview, StringComparison.OrdinalIgnoreCase)
+                || !string.Equals(row.State, HubPublicationStates.Submitted, StringComparison.OrdinalIgnoreCase)
+                || !ReferenceEquals(ResolveLatestCaseLocked(row), moderationCase)
+                || !MatchesReviewedContent(row, moderationCase))
             {
-                throw new InvalidOperationException("Only pending moderation cases can be decided.");
+                throw new InvalidOperationException("Only the current content-bound pending review can be decided.");
             }
 
             DateTimeOffset now = DateTimeOffset.UtcNow;
@@ -471,7 +478,6 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
             moderationCase.State = approved ? HubModerationStates.Approved : HubModerationStates.Rejected;
             moderationCase.Notes = notes;
             moderationCase.UpdatedAtUtc = now;
-            moderationCase.PublisherId = row.PublisherId;
 
             row.ReviewState = approved ? HubReviewStates.Approved : HubReviewStates.Rejected;
             row.State = approved ? HubPublicationStates.Submitted : HubPublicationStates.Draft;
@@ -636,10 +642,11 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
 
     private DraftStateRow? FindExistingDraftLocked(string? preferredDraftId, string projectId, string ownerId)
     {
-        if (!string.IsNullOrWhiteSpace(preferredDraftId)
-            && _drafts.TryGetValue(preferredDraftId.Trim(), out var existingById))
+        if (!string.IsNullOrWhiteSpace(preferredDraftId))
         {
-            return existingById;
+            return _drafts.ContainsKey(preferredDraftId.Trim())
+                ? GetOwnedDraftLocked(preferredDraftId, ownerId)
+                : null;
         }
 
         return _drafts.Values.FirstOrDefault(row =>
@@ -649,29 +656,54 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
 
     private static void SyncDraftLocked(DraftStateRow row, HubPublishDraftRequest request)
     {
-        bool changed = false;
-        string projectKind = row.ProjectKind;
-        string projectId = row.ProjectId;
-        string rulesetId = row.RulesetId;
-        string title = row.Title;
-        string? summary = row.Summary;
-        string? description = row.Description;
-        string? publisherId = row.PublisherId;
-        changed |= SyncValue(projectKind, NormalizeRequired(request.ProjectKind, nameof(request.ProjectKind)), value => row.ProjectKind = value);
-        changed |= SyncValue(projectId, NormalizeRequired(request.ProjectId, nameof(request.ProjectId)), value => row.ProjectId = value);
-        changed |= SyncValue(rulesetId, NormalizeRequired(request.RulesetId, nameof(request.RulesetId)), value => row.RulesetId = value);
-        changed |= SyncValue(title, NormalizeRequired(request.Title, nameof(request.Title)), value => row.Title = value);
-        changed |= SyncValue(summary, NormalizeOptional(request.Summary), value => row.Summary = value);
-        changed |= SyncValue(description, NormalizeOptional(request.Description), value => row.Description = value);
-        changed |= SyncValue(publisherId, NormalizeOptional(request.PublisherId), value => row.PublisherId = value);
-        string visibility = ResolveVisibility(request.PublisherId);
-        string currentVisibility = row.Visibility;
-        changed |= SyncValue(currentVisibility, visibility, value => row.Visibility = value);
-        if (changed)
-        {
-            row.UpdatedAtUtc = DateTimeOffset.UtcNow;
-        }
+        // Draft and project identity are immutable. A different project needs a new draft ID.
+        if (!string.Equals(row.ProjectKind, NormalizeRequired(request.ProjectKind, nameof(request.ProjectKind)), StringComparison.Ordinal)
+            || !string.Equals(row.ProjectId, NormalizeRequired(request.ProjectId, nameof(request.ProjectId)), StringComparison.Ordinal)
+            || !string.Equals(row.RulesetId, NormalizeRequired(request.RulesetId, nameof(request.RulesetId)), StringComparison.Ordinal))
+            throw new InvalidOperationException("A different project identity requires a separate draft.");
+
+        string title = NormalizeRequired(request.Title, nameof(request.Title));
+        string? summary = NormalizeOptional(request.Summary);
+        string? description = NormalizeOptional(request.Description);
+        string? publisherId = NormalizeOptional(request.PublisherId);
+        if (row.Title == title && row.Summary == summary && row.Description == description && row.PublisherId == publisherId)
+            return; // Identical retries retain identity, approval and publication timestamps.
+
+        if (string.Equals(row.State, HubPublicationStates.Archived, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Archived drafts must be restored through a new draft instead of direct updates.");
+        if (string.Equals(row.ReviewState, HubReviewStates.PendingReview, StringComparison.OrdinalIgnoreCase))
+            throw new InvalidOperationException("Drafts already under review cannot be edited until the review decision lands.");
+
+        row.Title = title;
+        row.Summary = summary;
+        row.Description = description;
+        row.PublisherId = publisherId;
+        row.Visibility = ResolveVisibility(publisherId);
+        row.State = HubPublicationStates.Draft;
+        row.ReviewState = HubReviewStates.NotRequired;
+        row.SubmittedAtUtc = null;
+        row.PublishedAtUtc = null;
+        row.LatestModerationNotes = null;
+        row.LatestModerationUpdatedAtUtc = null;
+        row.UpdatedAtUtc = DateTimeOffset.UtcNow;
     }
+
+    private static string ComputeContentDigest(DraftStateRow row)
+        // Fixed, versioned field order and JSON framing distinguish nulls and field boundaries.
+        // Lifecycle timestamps/notes are deliberately excluded; they are not reviewed content.
+        => "sha256:v1:" + Convert.ToHexString(SHA256.HashData(JsonSerializer.SerializeToUtf8Bytes(new string?[]
+        {
+            "registry-draft-review-v1", row.DraftId, row.OwnerId, row.ProjectKind, row.ProjectId,
+            row.RulesetId, row.Title, row.Summary, row.Description, row.PublisherId, row.Visibility
+        })));
+
+    private static bool MatchesReviewedContent(DraftStateRow row, ModerationCaseStateRow review)
+        => string.Equals(review.DraftId, row.DraftId, StringComparison.Ordinal)
+            && string.Equals(review.OwnerId, row.OwnerId, StringComparison.Ordinal)
+            && string.Equals(review.ProjectKind, row.ProjectKind, StringComparison.Ordinal)
+            && string.Equals(review.ProjectId, row.ProjectId, StringComparison.Ordinal)
+            && string.Equals(review.RulesetId, row.RulesetId, StringComparison.Ordinal)
+            && string.Equals(review.ReviewedContentDigest, ComputeContentDigest(row), StringComparison.Ordinal);
 
     private ModerationCaseStateRow? ResolveLatestCaseLocked(DraftStateRow row)
         => row.ModerationCaseIds
@@ -680,15 +712,4 @@ public sealed class HubPublicationDraftService : IHubPublicationDraftService
             .Select(caseId => _cases.TryGetValue(caseId, out var moderationCase) ? moderationCase : null)
             .FirstOrDefault(static item => item is not null);
 
-    private static bool SyncValue<T>(T current, T next, Action<T> assign)
-        where T : class?
-    {
-        if (EqualityComparer<T>.Default.Equals(current, next))
-        {
-            return false;
-        }
-
-        assign(next);
-        return true;
-    }
 }
